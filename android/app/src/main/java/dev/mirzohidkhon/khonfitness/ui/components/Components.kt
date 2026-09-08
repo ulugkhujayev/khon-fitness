@@ -176,8 +176,13 @@ fun NumberField(
     focusRequester: FocusRequester? = null,
     onFocused: (() -> Unit)? = null,
 ) {
-    var text by remember(value) { mutableStateOf(TextFieldValue(fmt(value, decimals))) }
+    var text by remember { mutableStateOf(TextFieldValue(fmt(value, decimals))) }
     var hasFocus by remember { mutableStateOf(false) }
+    // Sync from outside (steppers, prefill) only when the typed text does not already mean this value. Keeps the cursor where the user left it.
+    LaunchedEffect(value) {
+        val typed = text.text.trimEnd('.').toDoubleOrNull()
+        if (typed != value) { val t = fmt(value, decimals); text = TextFieldValue(t, TextRange(t.length)) }
+    }
     fun commit(v: Double?) { onValueChange(v?.let { Math.max(0.0, it) }) }
     Row(
         modifier.height(height.dp).clip(RoundedCornerShape(10.dp)).background(K.Surface2),

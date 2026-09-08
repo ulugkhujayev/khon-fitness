@@ -1,6 +1,8 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -163,6 +165,11 @@ private fun Settings(vm: AppViewModel) {
     var confirmReset by remember { mutableStateOf(false) }
     var update by remember { mutableStateOf<Updater.Result?>(null) }
     var progress by remember { mutableStateOf<Float?>(null) }
+    var pendingFile by remember { mutableStateOf<java.io.File?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        val f = pendingFile
+        if (f != null && context.packageManager.canRequestPackageInstalls()) { pendingFile = null; Updater.install(context, f) }
+    }
     val updateHint = when (val u = update) { is Updater.Result.Available -> " → " + u.release.tag_name; else -> "" }
     fun checkUpdate() { toast = "Checking…"; vm.run { update = Updater.check(BuildConfig.VERSION_NAME); toast = when (val u = update) { is Updater.Result.UpToDate -> "v${u.current} is the latest"; is Updater.Result.Available -> "Update ${u.release.tag_name} available"; is Updater.Result.Failed -> u.message; null -> null } } }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -191,14 +198,22 @@ private fun Settings(vm: AppViewModel) {
         u.release.body?.takeIf { it.isNotBlank() }?.let { Text(it, color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp)) }
         Spacer(Modifier.height(12.dp))
         val p = progress
-        if (p == null) PrimaryButton("Download and install ${u.release.tag_name}") {
-            progress = 0f
-            vm.run {
-                runCatching { Updater.download(context, u.apk) { progress = it } }
-                    .onSuccess { file -> progress = null; Updater.install(context, file) }
-                    .onFailure { progress = null; toast = "Download failed: ${it.message}" }
+        when {
+            p != null -> Text("Downloading… ${(p * 100).toInt()}%", color = K.Muted, modifier = Modifier.padding(top = 4.dp))
+            pendingFile != null -> {
+                Text("Android needs a one-time permission so this app can install its own updates. Allow it, then come back.", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(12.dp))
+                PrimaryButton("Allow and install") { permissionLauncher.launch(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.packageName))) }
             }
-        } else Text("Downloading… ${(p * 100).toInt()}%", color = K.Muted, modifier = Modifier.padding(top = 4.dp))
+            else -> PrimaryButton("Update to ${u.release.tag_name}") {
+                progress = 0f
+                vm.run {
+                    runCatching { Updater.download(context, u.apk) { progress = it } }
+                        .onSuccess { file -> progress = null; if (context.packageManager.canRequestPackageInstalls()) Updater.install(context, file) else pendingFile = file }
+                        .onFailure { progress = null; toast = "Download failed: ${it.message}" }
+                }
+            }
+        }
     }
     if (confirmReset) Sheet("Reset all data?", { confirmReset = false }) {
         Text("Every session, program, and setting goes back to the seed.", color = K.Muted, style = MaterialTheme.typography.bodyMedium)

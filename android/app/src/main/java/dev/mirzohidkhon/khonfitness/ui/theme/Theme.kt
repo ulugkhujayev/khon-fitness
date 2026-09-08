@@ -8,7 +8,9 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import dev.mirzohidkhon.khonfitness.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
@@ -44,20 +46,32 @@ private val scheme: ColorScheme = darkColorScheme(
     error = K.Red,
 )
 
+/** Bundled Roboto, so a phone-wide custom font (Samsung lets you pick one) does not change the app. */
+val Roboto = FontFamily(
+    Font(R.font.roboto_regular, FontWeight.Normal),
+    Font(R.font.roboto_medium, FontWeight.Medium),
+    Font(R.font.roboto_bold, FontWeight.Bold),
+)
+
+private fun t(size: Int, weight: FontWeight, line: Int, spacing: Float = 0f) =
+    TextStyle(fontFamily = Roboto, fontSize = size.sp, fontWeight = weight, lineHeight = line.sp, letterSpacing = spacing.sp)
+
 val KhonTypography = Typography(
-    headlineLarge = TextStyle(fontSize = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, lineHeight = 36.sp),
-    headlineMedium = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp, lineHeight = 30.sp),
-    titleLarge = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, lineHeight = 24.sp),
-    titleMedium = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold, lineHeight = 22.sp),
-    bodyLarge = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Normal, lineHeight = 22.sp),
-    bodyMedium = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Normal, lineHeight = 20.sp),
-    bodySmall = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Normal, lineHeight = 16.sp),
-    labelLarge = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold, lineHeight = 22.sp),
-    labelMedium = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, lineHeight = 14.sp),
-    labelSmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, lineHeight = 14.sp),
+    headlineLarge = t(32, FontWeight.Bold, 36, -0.5f),
+    headlineMedium = t(26, FontWeight.Bold, 30, -0.3f),
+    titleLarge = t(20, FontWeight.Bold, 24),
+    titleMedium = t(17, FontWeight.Medium, 22),
+    bodyLarge = t(17, FontWeight.Normal, 22),
+    bodyMedium = t(15, FontWeight.Normal, 20),
+    bodySmall = t(13, FontWeight.Normal, 16),
+    labelLarge = t(17, FontWeight.Medium, 22),
+    labelMedium = t(12, FontWeight.Medium, 14),
+    labelSmall = t(11, FontWeight.Medium, 14),
 )
 
 @Composable
 fun KhonTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = scheme, typography = KhonTypography, content = content)
+    MaterialTheme(colorScheme = scheme, typography = KhonTypography) {
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides KhonTypography.bodyLarge, content = content)
+    }
 }

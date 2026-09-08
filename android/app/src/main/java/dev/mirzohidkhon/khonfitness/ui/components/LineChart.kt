@@ -19,6 +19,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mirzohidkhon.khonfitness.ui.theme.K
+import dev.mirzohidkhon.khonfitness.ui.theme.Roboto
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.ceil
@@ -39,9 +40,9 @@ private val dateFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d")
 @Composable
 fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modifier, height: Int = 180, decimals: Int = 1) {
     val measurer = rememberTextMeasurer()
-    val tick = TextStyle(color = K.Dim, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-    val valueStyle = TextStyle(color = K.Muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-    val lastStyle = TextStyle(color = K.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    val tick = TextStyle(fontFamily = Roboto, color = K.Dim, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    val valueStyle = TextStyle(fontFamily = Roboto, color = K.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    val lastStyle = TextStyle(fontFamily = Roboto, color = K.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     Canvas(modifier.fillMaxWidth().height(height.dp)) {
         val padL = 40.dp.toPx(); val padR = 14.dp.toPx(); val padT = 22.dp.toPx(); val padB = 24.dp.toPx()
         val plotW = size.width - padL - padR; val plotH = size.height - padT - padB

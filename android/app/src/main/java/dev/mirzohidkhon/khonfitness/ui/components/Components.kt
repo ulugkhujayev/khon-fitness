@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,7 +19,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -164,6 +170,7 @@ fun InlineTextField(value: String, onValueChange: (String) -> Unit, placeholder:
 }
 
 /** Hybrid number widget: minus, typed value with unit, plus. Selects all text on focus. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NumberField(
     value: Double?,
@@ -178,6 +185,8 @@ fun NumberField(
 ) {
     var text by remember { mutableStateOf(TextFieldValue(fmt(value, decimals))) }
     var hasFocus by remember { mutableStateOf(false) }
+    val bringIntoView = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
     // Sync from outside (steppers, prefill) only when the typed text does not already mean this value. Keeps the cursor where the user left it.
     LaunchedEffect(value) {
         val typed = text.text.trimEnd('.').toDoubleOrNull()
@@ -185,7 +194,7 @@ fun NumberField(
     }
     fun commit(v: Double?) { onValueChange(v?.let { Math.max(0.0, it) }) }
     Row(
-        modifier.height(height.dp).clip(RoundedCornerShape(10.dp)).background(K.Surface2),
+        modifier.height(height.dp).bringIntoViewRequester(bringIntoView).clip(RoundedCornerShape(10.dp)).background(K.Surface2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StepButton("−") { commit(((value ?: 0.0) - step).coerceAtLeast(0.0)) }
@@ -204,7 +213,11 @@ fun NumberField(
             modifier = Modifier.weight(1f).padding(start = 8.dp)
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
                 .onFocusChanged { st ->
-                    if (st.isFocused && !hasFocus) { text = text.copy(selection = TextRange(0, text.text.length)); onFocused?.invoke() }
+                    if (st.isFocused && !hasFocus) {
+                        text = text.copy(selection = TextRange(0, text.text.length)); onFocused?.invoke()
+                        // The keyboard is still rising when focus lands. Scroll again once it has settled.
+                        scope.launch { delay(120); bringIntoView.bringIntoView(); delay(300); bringIntoView.bringIntoView() }
+                    }
                     hasFocus = st.isFocused
                 },
         )

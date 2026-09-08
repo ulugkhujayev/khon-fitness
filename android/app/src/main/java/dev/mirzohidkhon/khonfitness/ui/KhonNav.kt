@@ -47,6 +47,7 @@ object Routes {
     fun exercise(id: String) = "exercise/$id"
     fun modality(id: String) = "modality/$id"
     fun cardio(sessionId: String) = "cardio/$sessionId"
+    const val LIBRARY = "library"; const val MODALITIES = "modalities"; const val WEEK_PLAN = "weekplan"; const val SETTINGS = "settings"
 }
 
 @Composable
@@ -55,7 +56,7 @@ fun KhonNav() {
     val vm: AppViewModel = viewModel()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: Routes.TODAY
-    val tab = when { route.startsWith(Routes.HISTORY) -> 1; route.startsWith(Routes.PROGRAMS) || route.startsWith("program") || route.startsWith("block") || route.startsWith("exercise") || route.startsWith("modality") -> 2; else -> 0 }
+    val tab = when { route.startsWith(Routes.HISTORY) -> 1; route.startsWith(Routes.PROGRAMS) || route.startsWith("program") || route.startsWith("block") || route.startsWith("exercise") || route.startsWith("modality") || route == Routes.LIBRARY || route == Routes.MODALITIES || route == Routes.WEEK_PLAN -> 2; else -> 0 }
     val showBar = route == Routes.TODAY || route == Routes.HISTORY || route == Routes.PROGRAMS
     Scaffold(containerColor = K.Bg, bottomBar = { if (showBar) BottomBar(tab) { i -> nav.navigate(listOf(Routes.TODAY, Routes.HISTORY, Routes.PROGRAMS)[i]) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true; restoreState = true } } }) { pad ->
         Box(Modifier.fillMaxSize().padding(pad).consumeWindowInsets(pad).imePadding()) {
@@ -69,6 +70,10 @@ fun KhonNav() {
                 composable("block/{programId}/{blockId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", e.arguments?.getString("blockId") ?: "") }
                 composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
                 composable("modality/{id}") { e -> ModalityEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
+                composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }
+                composable(Routes.MODALITIES) { ModalitiesScreen(vm, nav) }
+                composable(Routes.WEEK_PLAN) { WeekPlanScreen(vm, nav) }
+                composable(Routes.SETTINGS) { SettingsScreen(vm, nav) }
             }
         }
     }

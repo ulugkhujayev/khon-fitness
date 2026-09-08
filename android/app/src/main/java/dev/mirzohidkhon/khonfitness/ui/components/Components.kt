@@ -182,6 +182,7 @@ fun NumberField(
     height: Int = 44,
     focusRequester: FocusRequester? = null,
     onFocused: (() -> Unit)? = null,
+    placeholder: String? = null,
 ) {
     var text by remember { mutableStateOf(TextFieldValue(fmt(value, decimals))) }
     var hasFocus by remember { mutableStateOf(false) }
@@ -210,6 +211,10 @@ fun NumberField(
             keyboardOptions = KeyboardOptions(keyboardType = if (decimals > 0) KeyboardType.Decimal else KeyboardType.Number),
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = K.Text, fontSize = 19.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End),
             cursorBrush = SolidColor(K.Accent),
+            decorationBox = { inner -> Box(contentAlignment = Alignment.CenterEnd) {
+                if (text.text.isEmpty() && placeholder != null) Text(placeholder, color = K.Dim, fontSize = 19.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+                inner()
+            } },
             modifier = Modifier.weight(1f).padding(start = 8.dp)
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
                 .onFocusChanged { st ->
@@ -229,7 +234,7 @@ fun NumberField(
 
 @Composable
 private fun RowScope.StepButton(glyph: String, onClick: () -> Unit) {
-    Box(Modifier.width(40.dp).fillMaxHeight().clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.width(44.dp).fillMaxHeight().clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Text(glyph, fontSize = 22.sp, fontWeight = FontWeight.Medium, color = K.Text)
     }
 }

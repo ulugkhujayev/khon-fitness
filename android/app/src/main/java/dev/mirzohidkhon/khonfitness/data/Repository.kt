@@ -128,7 +128,7 @@ class KhonRepository(private val dao: KhonDao) {
         }
         // prefill from last time
         val previous = previousLogsByKey(programId, session.id)
-        val filled = logs.map { l -> previous[l.key()]?.let { p -> l.copy(weightKg = p.weightKg, reps = p.reps) } ?: l }
+        val filled = logs.map { l -> previous[l.key()]?.let { p -> l.copy(weightKg = p.weightKg, reps = p.reps) } ?: l.copy(reps = l.minReps) }
         dao.upsert(session); dao.upsertSetLogs(filled)
         return session
     }

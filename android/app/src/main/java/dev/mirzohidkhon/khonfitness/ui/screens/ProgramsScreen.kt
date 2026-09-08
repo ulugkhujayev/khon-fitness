@@ -29,6 +29,7 @@ import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
+import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import dev.mirzohidkhon.khonfitness.BuildConfig
@@ -37,30 +38,26 @@ import java.time.DayOfWeek
 import java.time.format.TextStyle
 import java.util.Locale
 
-private val SEGMENTS = listOf("Programs", "Library", "Modalities", "Week plan", "Settings")
-
 @Composable
 fun ProgramsScreen(vm: AppViewModel, nav: NavHostController) {
-    var segment by rememberSaveable { mutableIntStateOf(0) }
+    val programs by vm.programs.collectAsStateWithLifecycle()
+    val blocks by vm.blocks.collectAsStateWithLifecycle()
+    val exercises by vm.exercises.collectAsStateWithLifecycle()
+    val modalities by vm.modalities.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 24.dp)) {
-        ScreenTitle(SEGMENTS[segment])
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-            SEGMENTS.forEachIndexed { i, name ->
-                val active = i == segment
-                Column(Modifier.clickable { segment = i }) {
-                    Text(name, color = if (active) K.Text else K.Muted, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(vertical = 10.dp))
-                    Box(Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(3.dp)).background(if (active) K.Accent else androidx.compose.ui.graphics.Color.Transparent))
-                }
+        ScreenTitle("Programs") { TextButton("+") { val id = newId(); vm.run { vm.repo.saveProgram(Program(id, "New program", active = programs.isEmpty(), sortOrder = programs.size)) }; nav.navigate(Routes.program(id)) } }
+        GroupedList {
+            programs.forEachIndexed { i, p ->
+                ListRow(p.name, secondary = "${blocks.count { it.programId == p.id }} blocks", dotColor = K.Accent, dotFilled = p.active, divider = i > 0) { nav.navigate(Routes.program(p.id)) }
             }
+            if (programs.isEmpty()) ListRow("No programs yet", chevron = false, divider = false, titleColor = K.Muted)
         }
-        HorizontalDivider(color = K.Divider)
-        Spacer(Modifier.height(18.dp))
-        when (segment) {
-            0 -> ProgramList(vm, nav)
-            1 -> Library(vm, nav)
-            2 -> ModalityList(vm, nav)
-            3 -> WeekPlanList(vm)
-            4 -> Settings(vm)
+        Spacer(Modifier.height(24.dp))
+        GroupedList {
+            ListRow("Exercises", secondary = "${exercises.count { !it.archived }}", divider = false) { nav.navigate(Routes.LIBRARY) }
+            ListRow("Modalities", secondary = "${modalities.count { !it.archived }}") { nav.navigate(Routes.MODALITIES) }
+            ListRow("Week plan") { nav.navigate(Routes.WEEK_PLAN) }
+            ListRow("Settings") { nav.navigate(Routes.SETTINGS) }
         }
     }
 }
@@ -79,37 +76,64 @@ private fun ProgramList(vm: AppViewModel, nav: NavHostController) {
 }
 
 @Composable
-private fun Library(vm: AppViewModel, nav: NavHostController) {
+fun LibraryScreen(vm: AppViewModel, nav: NavHostController) {
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
+    var query by rememberSaveable { mutableStateOf("") }
     var kind by rememberSaveable { mutableStateOf("") }
     var muscle by rememberSaveable { mutableStateOf("") }
     var showArchived by rememberSaveable { mutableStateOf(false) }
-    var sheet by remember { mutableStateOf<String?>(null) }
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Chip(if (kind.isEmpty()) "Kind: Any" else "Kind: ${kind.replaceFirstChar { it.uppercase() }}", kind.isNotEmpty()) { sheet = "kind" }
-        Chip(if (muscle.isEmpty()) "Muscle: Any" else "Muscle: ${muscle.replaceFirstChar { it.uppercase() }}", muscle.isNotEmpty()) { sheet = "muscle" }
-        Chip(if (showArchived) "Archived shown" else "Archived hidden", showArchived) { showArchived = !showArchived }
-    }
-    SectionTitle("Exercises") { TextButton("+") { nav.navigate(Routes.exercise("new")) } }
-    val list = exercises.filter { (showArchived || !it.archived) && (kind.isEmpty() || it.kind == kind) && (muscle.isEmpty() || it.primaryMuscle == muscle || muscle in it.secondaryList) }
-    GroupedList {
-        list.forEachIndexed { i, e ->
-            val secondary = if (e.kind == Kind.STRENGTH) e.primaryMuscle?.replaceFirstChar { it.uppercase() } else modalities.find { it.id == e.modalityId }?.name
-            ListRow(e.name, secondary = secondary, dotColor = exerciseColor(e, modalities), dotFilled = e.kind == Kind.STRENGTH || e.intensity == Intensity.HIGH, divider = i > 0, titleColor = if (e.archived) K.Dim else K.Text) { nav.navigate(Routes.exercise(e.id)) }
+    var muscleSheet by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize()) {
+        EditorTopBar("Programs", "Exercises", onBack = { nav.popBackStack() }, done = "+") { nav.navigate(Routes.exercise("new")) }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+            SearchField(query, { query = it })
+            Spacer(Modifier.height(12.dp))
+            Segmented(listOf("All", "Strength", "Cardio"), when (kind) { Kind.STRENGTH -> 1; Kind.CARDIO -> 2; else -> 0 }) { kind = when (it) { 1 -> Kind.STRENGTH; 2 -> Kind.CARDIO; else -> "" } }
+            if (kind != Kind.CARDIO) {
+                Spacer(Modifier.height(12.dp))
+                GroupedList { FieldRow("Muscle", divider = false, onClick = { muscleSheet = true }) { Text(if (muscle.isEmpty()) "Any" else muscle.replaceFirstChar { it.uppercase() }, fontWeight = FontWeight.SemiBold); Chevron() } }
+            }
+            Spacer(Modifier.height(16.dp))
+            val list = exercises.filter { (showArchived || !it.archived) && (kind.isEmpty() || it.kind == kind) && (muscle.isEmpty() || it.primaryMuscle == muscle || muscle in it.secondaryList) && (query.isBlank() || it.name.contains(query.trim(), true)) }
+            GroupedList {
+                list.forEachIndexed { i, e ->
+                    val secondary = if (e.kind == Kind.STRENGTH) e.primaryMuscle?.replaceFirstChar { it.uppercase() } else modalities.find { it.id == e.modalityId }?.name
+                    ListRow(e.name, secondary = secondary, dotColor = exerciseColor(e, modalities), dotFilled = e.kind == Kind.STRENGTH || e.intensity == Intensity.HIGH, divider = i > 0, titleColor = if (e.archived) K.Dim else K.Text) { nav.navigate(Routes.exercise(e.id)) }
+                }
+                if (list.isEmpty()) ListRow("Nothing matches", chevron = false, divider = false, titleColor = K.Muted)
+            }
+            Spacer(Modifier.height(16.dp))
+            GroupedList { FieldRow("Show archived", divider = false) { androidx.compose.material3.Switch(showArchived, { showArchived = it }, colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = androidx.compose.ui.graphics.Color.White)) } }
         }
-        if (list.isEmpty()) ListRow("Nothing here", chevron = false, divider = false, titleColor = K.Muted)
     }
-    when (sheet) {
-        "kind" -> Sheet("Kind", { sheet = null }) { ChoiceList {
-            ChoiceRow("Any", kind.isEmpty(), divider = false) { kind = ""; sheet = null }
-            ChoiceRow("Strength", kind == Kind.STRENGTH) { kind = Kind.STRENGTH; sheet = null }
-            ChoiceRow("Cardio", kind == Kind.CARDIO) { kind = Kind.CARDIO; sheet = null }
-        } }
-        "muscle" -> Sheet("Muscle", { sheet = null }) { ChoiceList {
-            ChoiceRow("Any", muscle.isEmpty(), divider = false) { muscle = ""; sheet = null }
-            MUSCLE_GROUPS.forEach { m -> ChoiceRow(m.replaceFirstChar { it.uppercase() }, muscle == m) { muscle = m; sheet = null } }
-        } }
+    if (muscleSheet) Sheet("Muscle", { muscleSheet = false }) { ChoiceList {
+        ChoiceRow("Any", muscle.isEmpty(), divider = false) { muscle = ""; muscleSheet = false }
+        MUSCLE_GROUPS.forEach { m -> ChoiceRow(m.replaceFirstChar { it.uppercase() }, muscle == m) { muscle = m; muscleSheet = false } }
+    } }
+}
+
+@Composable
+fun SearchField(value: String, onChange: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(10.dp)).background(K.Surface).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Icon(Icons.Search, contentDescription = null, tint = K.Dim, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        androidx.compose.foundation.text.BasicTextField(value, onChange, singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = K.Text), cursorBrush = androidx.compose.ui.graphics.SolidColor(K.Accent), modifier = Modifier.weight(1f),
+            decorationBox = { inner -> Box { if (value.isEmpty()) Text("Search", color = K.Dim, style = MaterialTheme.typography.bodyLarge); inner() } })
+        if (value.isNotEmpty()) Text("×", color = K.Muted, fontSize = 20.sp, modifier = Modifier.clickable { onChange("") }.padding(4.dp))
+    }
+}
+
+/** Fixed-width segmented control: every option gets an equal share, nothing scrolls. */
+@Composable
+fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth().height(36.dp).clip(RoundedCornerShape(10.dp)).background(K.Surface).padding(3.dp)) {
+        options.forEachIndexed { i, label ->
+            val active = i == selected
+            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(if (active) K.Surface3 else androidx.compose.ui.graphics.Color.Transparent).clickable { onSelect(i) }, contentAlignment = Alignment.Center) {
+                Text(label, color = if (active) K.Text else K.Muted, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            }
+        }
     }
 }
 
@@ -121,17 +145,24 @@ fun Chip(text: String, active: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ModalityList(vm: AppViewModel, nav: NavHostController) {
+fun ModalitiesScreen(vm: AppViewModel, nav: NavHostController) {
     val modalities by vm.modalities.collectAsStateWithLifecycle()
-    SectionTitle("Modalities") { TextButton("+") { nav.navigate(Routes.modality("new")) } }
-    GroupedList { modalities.filter { !it.archived }.forEachIndexed { i, m -> ListRow(m.name, dotColor = androidx.compose.ui.graphics.Color(m.color), divider = i > 0) { nav.navigate(Routes.modality(m.id)) } } }
+    Column(Modifier.fillMaxSize()) {
+        EditorTopBar("Programs", "Modalities", onBack = { nav.popBackStack() }, done = "+") { nav.navigate(Routes.modality("new")) }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+            GroupedList { modalities.filter { !it.archived }.forEachIndexed { i, m -> ListRow(m.name, dotColor = androidx.compose.ui.graphics.Color(m.color), divider = i > 0) { nav.navigate(Routes.modality(m.id)) } } }
+        }
+    }
 }
 
 @Composable
-private fun WeekPlanList(vm: AppViewModel) {
+fun WeekPlanScreen(vm: AppViewModel, nav: NavHostController) {
     val plan by vm.planData.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<Int?>(null) }
+    Column(Modifier.fillMaxSize()) {
+    EditorTopBar("Programs", "Week plan", onBack = { nav.popBackStack() })
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
     GroupedList {
         for (wd in 1..7) {
             val w = plan.plan.find { it.weekday == wd }
@@ -144,6 +175,7 @@ private fun WeekPlanList(vm: AppViewModel) {
             ListRow(DayOfWeek.of(wd).getDisplayName(TextStyle.FULL, Locale.ENGLISH), secondary = item.name, dotColor = c?.first ?: K.Dim, dotFilled = c?.second ?: false, divider = wd > 1) { editing = wd }
         }
     }
+    } }
     editing?.let { wd ->
         val current = plan.plan.find { it.weekday == wd }
         fun pick(type: String, id: String?) { vm.run { vm.repo.saveWeekPlan(wd, type, id) }; editing = null }
@@ -155,6 +187,14 @@ private fun WeekPlanList(vm: AppViewModel) {
             SheetGroupTitle("Rest")
             ChoiceList { ChoiceRow("Rest", current == null || current.itemType == ItemType.REST, K.Dim, divider = false) { pick(ItemType.REST, null) } }
         }
+    }
+}
+
+@Composable
+fun SettingsScreen(vm: AppViewModel, nav: NavHostController) {
+    Column(Modifier.fillMaxSize()) {
+        EditorTopBar("Today", "Settings", onBack = { nav.popBackStack() })
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) { Settings(vm) }
     }
 }
 

@@ -21,6 +21,7 @@ import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
+import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.time.DayOfWeek
@@ -40,7 +41,11 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     var bwDraft by remember { mutableStateOf<Double?>(null) }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 24.dp)) {
-        ScreenTitle("Today")
+        ScreenTitle("Today") {
+            Box(Modifier.size(44.dp).clip(CircleShape).clickable { nav.navigate(Routes.SETTINGS) }, contentAlignment = Alignment.Center) {
+                androidx.compose.material3.Icon(Icons.Gear, contentDescription = "Settings", tint = K.Muted, modifier = Modifier.size(24.dp))
+            }
+        }
         WeekStrip(today, plan, modalities) { planDate = it }
         Spacer(Modifier.height(24.dp))
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(K.Surface).padding(20.dp, 20.dp, 20.dp, 16.dp)) {
@@ -64,9 +69,10 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
             Text(if (latest == null) "—" else "${fmt(latest.kg)} kg", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
         val start = today.minusDays(29)
-        LineChart(bodyweights.filter { it.date.toDate() >= start }.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp), height = 130)
+        val recent = bodyweights.filter { it.date.toDate() >= start }
+        if (recent.isNotEmpty()) LineChart(recent.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp), height = 130)
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            NumberField(bwDraft, { bwDraft = it }, step = 0.1, unit = "kg", modifier = Modifier.weight(1f))
+            NumberField(bwDraft, { bwDraft = it }, step = 0.1, unit = "kg", modifier = Modifier.weight(1f), placeholder = latest?.let { fmt(it.kg) } ?: "0.0")
             Spacer(Modifier.width(12.dp))
             TextButton("Add", enabled = bwDraft != null && bwDraft!! > 0) { vm.run { vm.repo.saveBodyweight(today.iso(), bwDraft!!) }; bwDraft = null }
         }

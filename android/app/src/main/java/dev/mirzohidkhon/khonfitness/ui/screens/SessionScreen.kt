@@ -67,11 +67,14 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                 Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     TextButton("‹ Today") { nav.popBackStack() }
                     Spacer(Modifier.weight(1f))
+                    TextButton("Finish") { summary = summarize(logs, vm.allSetLogs.value, s.id) }
                 }
-                ScreenTitle(s.programName ?: "Session")
-                Text(s.date.toDate().format(longDate), color = K.Muted, style = MaterialTheme.typography.bodyMedium)
-                LinearProgressIndicator(progress = { if (logs.isEmpty()) 0f else done / logs.size.toFloat() }, modifier = Modifier.fillMaxWidth().padding(top = 14.dp).height(5.dp).clip(CircleShape), color = K.Green, trackColor = K.Surface2)
-                Text("$done / ${logs.size} sets", color = K.Muted, fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                Text(s.programName ?: "Session", style = MaterialTheme.typography.headlineMedium)
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(s.date.toDate().format(shortDate), color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Text("$done / ${logs.size} sets", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
+                }
+                LinearProgressIndicator(progress = { if (logs.isEmpty()) 0f else done / logs.size.toFloat() }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp).height(5.dp).clip(CircleShape), color = K.Green, trackColor = K.Surface2)
             }
             itemsIndexed(blocks, key = { i, _ -> i }) { bi, blockLogs ->
                 val isOpen = expanded == bi
@@ -143,26 +146,33 @@ private fun SetRow(log: SetLog, prev: SetLog?, live: Boolean, requester: FocusRe
     val tag = ('A' + log.slot).toString() + (log.setIndex + 1)
     val isDone = log.status == SetStatus.DONE
     val decimals = if (log.stepKg % 1.0 != 0.0) 1 else 0
-    Column(Modifier.fillMaxWidth().background(if (isDone) K.Green.copy(alpha = 0.05f) else androidx.compose.ui.graphics.Color.Transparent).padding(horizontal = 16.dp, vertical = 12.dp)) {
+    Column(Modifier.fillMaxWidth().background(if (isDone) K.Green.copy(alpha = 0.05f) else androidx.compose.ui.graphics.Color.Transparent).padding(start = 10.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(30.dp).clip(CircleShape).then(if (isDone) Modifier.background(K.Green) else Modifier.border(2.dp, K.Surface3, CircleShape)).then(if (live) Modifier.clickable(onClick = onToggle) else Modifier),
+                Modifier.size(44.dp).clip(CircleShape).then(if (live) Modifier.clickable(onClick = onToggle) else Modifier),
                 contentAlignment = Alignment.Center,
-            ) { if (isDone) Icon(Icons.Check, contentDescription = "Done", tint = K.GreenInk, modifier = Modifier.size(18.dp)) }
-            Spacer(Modifier.width(12.dp))
+            ) {
+                Box(Modifier.size(34.dp).clip(CircleShape).then(if (isDone) Modifier.background(K.Green) else Modifier.border(2.dp, K.Surface3, CircleShape)), contentAlignment = Alignment.Center) {
+                    if (isDone) Icon(Icons.Check, contentDescription = "Done", tint = K.GreenInk, modifier = Modifier.size(20.dp))
+                }
+            }
+            Spacer(Modifier.width(8.dp))
             Text(tag, color = K.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(8.dp))
-            Text(log.exerciseName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f).then(if (live) Modifier.clickable(onClick = onSwap) else Modifier))
+            Column(Modifier.weight(1f).then(if (live) Modifier.clickable(onClick = onSwap) else Modifier)) {
+                Text(log.exerciseName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Text("${log.minReps}–${log.maxReps} reps", color = K.Dim, fontSize = 12.sp)
+            }
             if (prev != null) Text("${fmt(prev.weightKg, decimals)} × ${prev.reps ?: 0}", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
         }
         if (live) {
             Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f)) {
-                    NumberField(log.weightKg, onWeight, step = log.stepKg.takeIf { it > 0 } ?: 1.0, unit = "kg", decimals = decimals, height = 42, focusRequester = requester)
+                    NumberField(log.weightKg, onWeight, step = log.stepKg.takeIf { it > 0 } ?: 1.0, unit = "kg", decimals = decimals, height = 44, focusRequester = requester, placeholder = prev?.let { fmt(it.weightKg, decimals) })
                     Delta(prev?.weightKg, log.weightKg, decimals)
                 }
                 Column(Modifier.weight(1f)) {
-                    NumberField(log.reps?.toDouble(), { onReps(it) }, step = 1.0, unit = "reps", decimals = 0, height = 42)
+                    NumberField(log.reps?.toDouble(), { onReps(it) }, step = 1.0, unit = "reps", decimals = 0, height = 44, placeholder = (prev?.reps ?: log.minReps).toString())
                     Delta(prev?.reps?.toDouble(), log.reps?.toDouble(), 0, suffix = " rep")
                 }
             }

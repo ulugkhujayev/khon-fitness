@@ -70,14 +70,14 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
                     val color: Pair<Color, Boolean>? = if (done != null) sessionColor(done.first(), exercises, modalities) else itemColor(item, modalities)
                     val planned = done == null
                     Column(
-                        Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(10.dp)).background(if (date == selected) K.Surface2 else Color.Transparent).clickable { selected = date }.padding(top = 6.dp),
+                        Modifier.weight(1f).height(46.dp).clip(RoundedCornerShape(10.dp)).background(if (date == selected) K.Surface2 else Color.Transparent).clickable { selected = date }.padding(top = 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Box(Modifier.size(26.dp).clip(CircleShape).background(if (date == today) K.Accent else Color.Transparent), contentAlignment = Alignment.Center) {
                             Text(date.dayOfMonth.toString(), fontSize = 15.sp, fontWeight = if (date == today) FontWeight.Bold else FontWeight.Normal, color = if (date == today) K.AccentInk else if (inMonth) K.Text else K.Dim)
                         }
                         Box(Modifier.padding(top = 4.dp).height(8.dp), contentAlignment = Alignment.Center) {
-                            if (color != null) Box(Modifier.alpha(if (planned) 0.5f else 1f)) { Dot(color.first, color.second, size = 7) }
+                            if (color != null) Box(Modifier.alpha(if (planned) 0.4f else 1f)) { Dot(color.first, color.second, size = if (planned) 5 else 7) }
                         }
                     }
                     d = d.plusDays(1)
@@ -110,12 +110,14 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
             Text("Bodyweight", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.weight(1f))
             bodyweights.lastOrNull()?.let { Text("${fmt(it.kg)} kg", fontSize = 22.sp, fontWeight = FontWeight.Bold) }
         }
-        LineChart(bodyweights.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp), height = 170)
+        if (bodyweights.isEmpty()) Text("No entries yet. Add one on Today.", color = K.Dim, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
+        else LineChart(bodyweights.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp), height = 170)
         Spacer(Modifier.height(24.dp))
         GroupedList { FieldRow("Exercise", divider = false, onClick = { pickExercise = true }) { Text(strength.find { it.id == chosenId }?.name ?: "Choose", fontWeight = FontWeight.SemiBold); Chevron() } }
         val progress = remember(allLogs, sessions, chosenId) { progressFor(chosenId, allLogs, sessions) }
         Text("Estimated 1RM", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
-        LineChart(progress.map { ChartPoint(it.date, it.e1rm) }, "kg", height = 190)
+        if (progress.isEmpty()) Text("No finished sets for this exercise yet.", color = K.Dim, style = MaterialTheme.typography.bodyMedium)
+        else LineChart(progress.map { ChartPoint(it.date, it.e1rm) }, "kg", height = 190)
         if (progress.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
             GroupedList { progress.asReversed().forEachIndexed { i, p -> ListRow(p.date.format(shortDate), secondary = "${fmt(p.topW, 1)} kg × ${p.topR} reps", chevron = false, divider = i > 0, titleColor = K.Muted) } }

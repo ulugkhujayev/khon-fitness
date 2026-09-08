@@ -1,5 +1,7 @@
 package dev.mirzohidkhon.khonfitness.ui
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,7 +57,7 @@ fun KhonNav() {
     val showBar = route == Routes.TODAY || route == Routes.HISTORY || route == Routes.PROGRAMS
     Scaffold(containerColor = K.Bg, bottomBar = { if (showBar) BottomBar(tab) { i -> nav.navigate(listOf(Routes.TODAY, Routes.HISTORY, Routes.PROGRAMS)[i]) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true; restoreState = true } } }) { pad ->
         Box(Modifier.fillMaxSize().padding(pad)) {
-            NavHost(nav, startDestination = Routes.TODAY) {
+            NavHost(nav, startDestination = Routes.TODAY, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
                 composable(Routes.TODAY) { TodayScreen(vm, nav) }
                 composable(Routes.HISTORY) { HistoryScreen(vm, nav) }
                 composable(Routes.PROGRAMS) { ProgramsScreen(vm, nav) }

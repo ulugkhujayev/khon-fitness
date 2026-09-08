@@ -1,0 +1,13 @@
+<!doctype html><html><body style="margin:0;background:#000"><iframe id="f" src="index.html" style="width:390px;height:844px;border:0"></iframe>
+<script>
+const p=new URLSearchParams(location.search); const steps=(p.get('do')||'').split(',').filter(Boolean);
+document.getElementById('f').addEventListener('load',()=>{const d=document.getElementById('f').contentDocument;
+ let i=0; const run=()=>{ if(i>=steps.length) return; const s=steps[i++]; const [kind,arg]=s.split(':');
+  if(kind==='nav'){[...d.querySelectorAll('nav button')].find(b=>b.innerText.includes(arg))?.click();}
+  else if(kind==='btn'){[...d.querySelectorAll('button')].find(b=>(b.innerText.trim()===arg)||(b.getAttribute('aria-label')||'')===arg)?.click();}
+  else if(kind==='action'){d.querySelector('[data-action="'+arg+'"]')?.click();}
+  else if(kind==='label'){[...d.querySelectorAll('button')].find(b=>(b.getAttribute('aria-label')||'').startsWith(arg))?.click();}
+  else if(kind==='scroll'){const sc=d.querySelector('.screen'); if(sc) sc.scrollTop=Number(arg);}
+  else if(kind==='rowstart'){[...d.querySelectorAll('button')].find(b=>b.innerText.trim().startsWith(arg))?.click();}
+  setTimeout(run,150);}; setTimeout(run,300);});
+</script></body></html>

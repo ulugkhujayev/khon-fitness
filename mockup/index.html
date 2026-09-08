@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0e0e10">
+    <title>Khon Fitness</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <div class="stage">
+      <main class="phone-frame" id="app" aria-label="Khon Fitness app mockup">
+        <div class="app-shell">
+          <section id="screen" class="screen" aria-live="polite"></section>
+          <nav id="bottom-nav" class="bottom-nav" aria-label="Primary navigation">
+            <button class="nav-item is-active" data-action="navigate" data-tab="today" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15.5" r="1.6" fill="currentColor" stroke="none"/></svg><span>Today</span>
+            </button>
+            <button class="nav-item" data-action="navigate" data-tab="history" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-8M22 19H2"/></svg><span>History</span>
+            </button>
+            <button class="nav-item" data-action="navigate" data-tab="programs" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg><span>Programs</span>
+            </button>
+          </nav>
+        </div>
+        <div id="modal-root"></div>
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+        <input id="import-file" type="file" accept="application/json,.json" hidden>
+      </main>
+    </div>
+    <noscript>Khon Fitness needs JavaScript enabled to run this mockup.</noscript>
+    <script src="app.js" defer></script>
+  </body>
+</html>

@@ -18,6 +18,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -98,4 +100,36 @@ fun ChoiceList(content: @Composable () -> Unit) {
 fun ChoiceRow(title: String, selected: Boolean, dotColor: Color? = null, dotFilled: Boolean = true, divider: Boolean = true, onClick: () -> Unit) {
     ListRow(title, secondary = null, dotColor = dotColor, dotFilled = dotFilled, chevron = false, divider = divider,
         trailing = { if (selected) Text("✓", color = K.Accent, fontWeight = FontWeight.Bold, fontSize = 18.sp) }, onClick = onClick)
+}
+
+
+/** Editor row that shows a date and opens the Material date picker on tap. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateRow(date: java.time.LocalDate, divider: Boolean = true, onChange: (java.time.LocalDate) -> Unit) {
+    var open by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    FieldRow("Date", divider = divider, onClick = { open = true }) { Text(date.format(shortDate), fontWeight = FontWeight.SemiBold); Chevron() }
+    if (open) {
+        val state = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli())
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { open = false },
+            confirmButton = { TextButton("Done") { state.selectedDateMillis?.let { onChange(java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneOffset.UTC).toLocalDate()) }; open = false } },
+            dismissButton = { TextButton("Cancel", color = K.Muted) { open = false } },
+            colors = androidx.compose.material3.DatePickerDefaults.colors(containerColor = K.Surface),
+        ) { androidx.compose.material3.DatePicker(state = state, colors = androidx.compose.material3.DatePickerDefaults.colors(containerColor = K.Surface, selectedDayContainerColor = K.Accent, selectedDayContentColor = K.AccentInk, todayDateBorderColor = K.Accent, todayContentColor = K.Accent)) }
+    }
+}
+
+/** Two-button confirm sheet for destructive actions. */
+@Composable
+fun ConfirmSheet(title: String, body: String, action: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    Sheet(title, onDismiss) {
+        Text(body, color = K.Muted, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(54.dp).clip(GroupShape).background(K.Red).clickable(onClick = onConfirm), contentAlignment = Alignment.Center) {
+            Text(action, color = androidx.compose.ui.graphics.Color(0xFF2A0B0B), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(8.dp))
+        TextButton("Cancel", color = K.Muted) { onDismiss() }
+    }
 }

@@ -44,6 +44,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     var focusId by remember { mutableStateOf<String?>(null) }
     var swapLog by remember { mutableStateOf<SetLog?>(null) }
     var summary by remember { mutableStateOf<Summary?>(null) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val requesters = remember { mutableMapOf<String, FocusRequester>() }
     val listState = rememberLazyListState()
     val s = session ?: return
@@ -111,15 +112,36 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                     }
                 }
             }
-            if (!s.finished) item {
+            item {
                 Spacer(Modifier.height(20.dp))
-                PrimaryButton("Finish workout") { summary = summarize(logs, vm.allSetLogs.value, s.id) }
+                if (live) {
+                    GroupedList {
+                        DateRow(s.date.toDate(), divider = false) { d -> vm.run { vm.repo.updateSession(s.copy(date = d.iso())) } }
+                        FieldRow("Effort") { NumberField(s.effort?.toDouble(), { v -> vm.run { vm.repo.updateSession(s.copy(effort = v?.toInt()?.coerceIn(1, 10))) } }, 1.0, "/10", Modifier.width(176.dp), 0, 38, placeholder = "1–10") }
+                        FieldRow("Note") { InlineTextField(s.note, { vm.run { vm.repo.updateSession(s.copy(note = it)) } }, placeholder = "Optional") }
+                    }
+                } else if (s.note.isNotBlank() || s.effort != null) {
+                    GroupedList {
+                        if (s.effort != null) FieldRow("Effort", divider = false) { Text("${s.effort} / 10") }
+                        if (s.note.isNotBlank()) FieldRow("Note", divider = s.effort != null) { Text(s.note, textAlign = androidx.compose.ui.text.style.TextAlign.End) }
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
+                if (!s.finished) PrimaryButton("Finish workout") { summary = summarize(logs, vm.allSetLogs.value, s.id) }
+                Spacer(Modifier.height(20.dp))
+                TextButton(if (s.finished) "Delete session" else "Discard workout", K.Red) { confirmDelete = true }
             }
         }
     }
     swapLog?.let { log -> SwapSheet(exercises.filter { it.kind == Kind.STRENGTH && !it.archived }, log, onDismiss = { swapLog = null }) { ex, updateProgram ->
         vm.run { vm.repo.swapExerciseInSession(s.id, log.exerciseId, ex, updateProgram, s.programId) }; swapLog = null
     } }
+    if (confirmDelete) ConfirmSheet(
+        if (s.finished) "Delete this session?" else "Discard this workout?",
+        if (s.finished) "The sets and the session go away. Charts recompute." else "Nothing from today is kept.",
+        if (s.finished) "Delete" else "Discard",
+        onDismiss = { confirmDelete = false },
+    ) { confirmDelete = false; vm.run { vm.repo.deleteSession(s.id) }; nav.popBackStack() }
     summary?.let { sum -> Sheet("Workout done", onDismiss = { summary = null }) {
         GroupedList {
             ListRow("Sets done", secondary = "${sum.done} of ${sum.total}", chevron = false, divider = false)

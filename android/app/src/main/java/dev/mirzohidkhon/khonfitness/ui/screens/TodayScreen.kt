@@ -22,6 +22,7 @@ import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.Icons
+import dev.mirzohidkhon.khonfitness.timer.TimerService
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.time.DayOfWeek
@@ -53,12 +54,15 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
             if (active != null) {
                 Text(active.programName ?: active.exerciseName ?: "Session", style = MaterialTheme.typography.headlineMedium)
                 Text("In progress", color = K.Green, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
-                PrimaryButton("Resume") { nav.navigate(if (active.itemType == ItemType.PROGRAM) Routes.session(active.id) else Routes.cardio(active.id)) }
+                PrimaryButton("Resume") {
+                    val running = TimerService.state.value?.sessionId == active.id
+                    nav.navigate(if (active.itemType == ItemType.PROGRAM) Routes.session(active.id) else if (running) Routes.timer(active.id) else Routes.cardio(active.id))
+                }
             } else {
                 Text(item.name, style = MaterialTheme.typography.headlineMedium)
                 Text(preview(item, blocks, blockExercises, modalities), color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
                 if (!item.isRest) PrimaryButton("Start") {
-                    vm.startItem(item) { s -> nav.navigate(if (s.itemType == ItemType.PROGRAM) Routes.session(s.id) else Routes.cardio(s.id)) }
+                    vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
                 }
             }
         }

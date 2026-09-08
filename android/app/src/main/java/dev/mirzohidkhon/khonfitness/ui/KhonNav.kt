@@ -47,6 +47,7 @@ object Routes {
     fun exercise(id: String) = "exercise/$id"
     fun modality(id: String) = "modality/$id"
     fun cardio(sessionId: String) = "cardio/$sessionId"
+    fun timer(sessionId: String) = "timer/$sessionId"
     const val LIBRARY = "library"; const val MODALITIES = "modalities"; const val WEEK_PLAN = "weekplan"; const val SETTINGS = "settings"
 }
 
@@ -70,6 +71,7 @@ fun KhonNav() {
                 composable("block/{programId}/{blockId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", e.arguments?.getString("blockId") ?: "") }
                 composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
                 composable("modality/{id}") { e -> ModalityEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
+                composable("timer/{id}") { e -> TimerScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }
                 composable(Routes.MODALITIES) { ModalitiesScreen(vm, nav) }
                 composable(Routes.WEEK_PLAN) { WeekPlanScreen(vm, nav) }

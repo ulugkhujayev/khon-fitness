@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
+import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 
@@ -28,7 +29,7 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     var ivs by remember(intervals.size) { mutableStateOf(intervals) }
 
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar(if (s.finished) "History" else "Today", s.exerciseName ?: "Cardio", onBack = { nav.popBackStack() }, done = "Save") {
+        EditorTopBar(if (s.finished) "History" else "Today", s.exerciseName ?: "Cardio", onBack = { if (!nav.popBackStack()) nav.navigate(Routes.TODAY) }, done = "Save") {
             vm.run { vm.repo.updateSession(draft.copy(finishedAt = draft.finishedAt ?: System.currentTimeMillis())); vm.repo.saveIntervals(ivs) }
             nav.popBackStack()
         }

@@ -173,16 +173,18 @@ class KhonRepository(private val dao: KhonDao) {
         }
     }
 
-    suspend fun importedSourceIds(): List<String> = dao.importedSourceIds()
+    suspend fun importedSourceIds(): List<String> = dao.importedSourceIds().flatMap { it.split(",") }
 
     /** Creates a finished cardio session from a Health Connect draft, with per-interval heart rate when the exercise has intervals. */
     suspend fun importDraft(d: dev.mirzohidkhon.khonfitness.health.ImportDraft, ex: Exercise) {
         val fields = ex.fieldList
-        val laps = if ("laps" in fields && d.distanceM != null) d.distanceM / 25 else null
+        val pool = d.poolLength ?: 25
+        val laps = when { "laps" !in fields -> null; d.laps != null -> d.laps; d.distanceM != null -> d.distanceM / pool; else -> null }
         val session = Session(
             id = newId(), date = d.date.iso(), startedAt = d.start.toEpochMilli(), finishedAt = d.end.toEpochMilli(), itemType = ItemType.CARDIO,
             exerciseId = ex.id, exerciseName = ex.name, timeSec = d.seconds, distanceM = d.distanceM, avgHr = d.avgHr,
-            laps = laps, poolLength = if (laps != null) 25 else null, sourceId = d.sourceId,
+            laps = laps, poolLength = if (laps != null) pool else null, sourceId = d.mergedIds.joinToString(","),
+            note = if (d.origins.size > 1) "From " + d.originLabel else "",
         )
         dao.upsert(session)
         val hrs = dev.mirzohidkhon.khonfitness.health.HealthImport.intervalHeartRates(d, ex)

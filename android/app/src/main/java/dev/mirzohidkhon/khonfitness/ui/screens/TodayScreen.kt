@@ -40,6 +40,9 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     val item = plan.itemFor(today)
     var planDate by remember { mutableStateOf<LocalDate?>(null) }
     var bwDraft by remember { mutableStateOf<Double?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var pendingBand by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) { pendingBand = runCatching { dev.mirzohidkhon.khonfitness.health.HealthImport.pendingCount(context, vm.repo.importedSourceIds().toSet()) }.getOrDefault(0) }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 24.dp)) {
         ScreenTitle("Today") {
@@ -65,6 +68,10 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
                     vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
                 }
             }
+        }
+        if (pendingBand > 0) {
+            Spacer(Modifier.height(16.dp))
+            GroupedList { ListRow(if (pendingBand == 1) "1 new session from the band" else "$pendingBand new sessions from the band", dotColor = K.Green, divider = false) { nav.navigate(Routes.IMPORT) } }
         }
         Spacer(Modifier.height(28.dp))
         val latest = bodyweights.lastOrNull()

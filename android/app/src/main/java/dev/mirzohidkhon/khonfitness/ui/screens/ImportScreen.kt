@@ -92,7 +92,7 @@ fun ImportScreen(vm: AppViewModel, nav: NavHostController) {
                                 list.forEachIndexed { i, d ->
                                     val ex = defaultExercise(d)
                                     val parts = listOfNotNull("${d.seconds / 60} min", d.distanceM?.let { "${fmt(it / 1000.0)} km" }, d.avgHr?.let { "$it bpm" })
-                                    ListRow("${d.date.format(shortDate)} · ${d.typeName}", secondary = parts.joinToString(" · "), dotColor = ex?.let { exerciseColor(it, modalities) } ?: K.Dim, dotFilled = ex?.intensity == Intensity.HIGH, divider = i > 0) { picking = d }
+                                    ListRow("${d.date.format(shortDate)} · ${d.typeName} · ${d.originLabel}", secondary = parts.joinToString(" · "), dotColor = ex?.let { exerciseColor(it, modalities) } ?: K.Dim, dotFilled = ex?.intensity == Intensity.HIGH, divider = i > 0) { picking = d }
                                 }
                             }
                             Spacer(Modifier.height(16.dp))
@@ -112,7 +112,7 @@ fun ImportScreen(vm: AppViewModel, nav: NavHostController) {
     picking?.let { d ->
         val current = defaultExercise(d)
         Sheet("${d.date.format(shortDate)} · ${d.typeName}", { picking = null }) {
-            Text(listOfNotNull("${d.seconds / 60} min", d.distanceM?.let { "${fmt(it / 1000.0)} km" }, d.avgHr?.let { "avg $it bpm" }, "from ${d.origin.substringAfterLast('.')}").joinToString(" · "), color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 12.dp))
+            Text(listOfNotNull("${d.seconds / 60} min", d.distanceM?.let { "${fmt(it / 1000.0)} km" }, d.avgHr?.let { "avg $it bpm" }, d.laps?.let { "$it laps" }, "from " + d.originLabel).joinToString(" · "), color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 12.dp))
             SheetGroupTitle("Import as")
             ChoiceList { cardio.forEachIndexed { i, e -> ChoiceRow(e.name, e.id == current?.id, exerciseColor(e, modalities), e.intensity == Intensity.HIGH, divider = i > 0) { import(d, e); picking = null } } }
         }

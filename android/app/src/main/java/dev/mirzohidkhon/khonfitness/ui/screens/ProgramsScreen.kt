@@ -210,11 +210,21 @@ private fun Settings(vm: AppViewModel) {
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { vm.installPending(context) }
     val updateHint = when (val u = update) { is Updater.Result.Available -> " → " + u.release.tag_name; is Updater.Result.UpToDate -> " · latest"; else -> "" }
     fun checkUpdate() { toast = "Checking…"; vm.checkUpdate(force = true) }
+    // Import asks Merge or Replace and writes a safety copy of the current data first.
+    var pendingImport by remember { mutableStateOf<Pair<String, String>?>(null) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.run {
             val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: return@run
-            runCatching { vm.repo.importJson(text, replace = true) }.onSuccess { toast = "Imported" }.onFailure { toast = "Import failed: ${it.message}" }
+            runCatching { vm.repo.describeBackup(text) }.onSuccess { pendingImport = text to it }.onFailure { toast = "Not a Khon backup: ${it.message}" }
         }
+    }
+    fun applyImport(text: String, replace: Boolean) = vm.run {
+        runCatching {
+            val dir = java.io.File(context.getExternalFilesDir(null), "backups").apply { mkdirs() }
+            java.io.File(dir, "before-import-${java.time.LocalDateTime.now().withNano(0).toString().replace(':', '-')}.json").writeText(vm.repo.exportJson())
+            vm.repo.importJson(text, replace)
+        }.onSuccess { toast = if (replace) "Replaced" else "Merged" }.onFailure { toast = "Import failed: ${it.message}" }
+        pendingImport = null
     }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) vm.run {
@@ -249,6 +259,19 @@ private fun Settings(vm: AppViewModel) {
             PrimaryButton("Allow and install") { permissionLauncher.launch(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.packageName))) }
         }
     }
+    pendingImport?.let { (text, summary) -> Sheet("Import backup?", { pendingImport = null }) {
+        Text(summary, style = MaterialTheme.typography.bodyLarge)
+        Spacer(Modifier.height(8.dp))
+        Text("Merge keeps what is on the phone and adds or updates what the file has. Replace deletes everything on the phone first. Either way a copy of the current data goes to Android/data/${context.packageName}/files/backups.", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
+        PrimaryButton("Merge") { applyImport(text, replace = false) }
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(54.dp).clip(GroupShape).background(K.Red).clickable { applyImport(text, replace = true) }, contentAlignment = Alignment.Center) {
+            Text("Replace", color = androidx.compose.ui.graphics.Color(0xFF2A0B0B), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(8.dp))
+        TextButton("Cancel", color = K.Muted) { pendingImport = null }
+    } }
     if (confirmReset) Sheet("Reset all data?", { confirmReset = false }) {
         Text("Every session, program, and setting goes back to the seed.", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(16.dp))

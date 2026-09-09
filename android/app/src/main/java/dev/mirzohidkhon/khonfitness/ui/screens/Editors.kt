@@ -95,8 +95,8 @@ fun BlockEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Strin
             GroupedList {
                 FieldRow("Exercise", divider = false, onClick = { picking = be.slot }) { Text(ex?.name ?: "Choose", fontWeight = FontWeight.SemiBold); Chevron() }
                 NumberRow("Sets", be.sets.toDouble(), "", 1.0, 0, true) { v -> vm.run { vm.repo.saveBlockExercise(be.copy(sets = (v ?: 1.0).toInt().coerceIn(1, 10))) } }
-                NumberRow("Min reps", be.minReps.toDouble(), "", 1.0, 0, true) { v -> vm.run { vm.repo.saveBlockExercise(be.copy(minReps = (v ?: 1.0).toInt().coerceIn(1, 50))) } }
-                NumberRow("Max reps", be.maxReps.toDouble(), "", 1.0, 0, true) { v -> vm.run { vm.repo.saveBlockExercise(be.copy(maxReps = (v ?: 1.0).toInt().coerceIn(1, 50))) } }
+                NumberRow("Min reps", be.minReps.toDouble(), "", 1.0, 0, true) { v -> vm.run { vm.repo.saveBlockExercise(run { val m = (v ?: 1.0).toInt().coerceIn(1, 50); be.copy(minReps = m, maxReps = maxOf(be.maxReps, m)) }) } }
+                NumberRow("Max reps", be.maxReps.toDouble(), "", 1.0, 0, true) { v -> vm.run { vm.repo.saveBlockExercise(run { val m = (v ?: 1.0).toInt().coerceIn(1, 50); be.copy(maxReps = m, minReps = minOf(be.minReps, m)) }) } }
             }
         }
         if (mine.size < 2) Row(Modifier.padding(top = 16.dp)) { TextButton(if (mine.isEmpty()) "Add exercise" else "Add second exercise") { picking = mine.size } }

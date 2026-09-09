@@ -105,7 +105,7 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
             } else daySessions.forEachIndexed { i, s ->
                 val c = sessionColor(s, exercises, modalities)
                 val logs = allLogs.filter { it.sessionId == s.id && it.status == SetStatus.DONE }
-                val secondary = if (s.itemType == ItemType.PROGRAM) "${logs.size} sets · ${fmt(logs.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }, 0)} kg" else listOfNotNull(s.timeSec?.let { "${it / 60} min" }, s.distanceM?.let { "${fmt(it / 1000.0)} km" }).joinToString(" · ")
+                val secondary = if (s.itemType == ItemType.PROGRAM) "${logs.size} sets · ${fmt(logs.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }, 0)} kg" else listOfNotNull(s.timeSec?.let { if (it % 60 == 0) "${it / 60} min" else "${fmt(it / 60.0, 1)} min" }, s.distanceM?.let { "${fmt(it / 1000.0)} km" }).joinToString(" · ")
                 ListRow(s.programName ?: s.exerciseName ?: "Session", secondary = if (s.finished) secondary else "in progress", dotColor = c.first, dotFilled = c.second, divider = i > 0) {
                     nav.navigate(if (s.itemType == ItemType.PROGRAM) Routes.session(s.id) else Routes.cardio(s.id))
                 }

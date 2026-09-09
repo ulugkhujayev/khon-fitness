@@ -201,6 +201,13 @@ class KhonRepository(private val dao: KhonDao) {
         return Json { prettyPrint = true }.encodeToString(backup)
     }
 
+    /** Parses a backup and describes what it holds. Throws when the file is not a Khon backup. */
+    fun describeBackup(text: String): String {
+        val b = Json { ignoreUnknownKeys = true }.decodeFromString<Backup>(text)
+        fun n(c: Int, one: String, many: String) = "$c " + if (c == 1) one else many
+        return listOf(n(b.sessions.size, "session", "sessions"), n(b.bodyweights.size, "bodyweight entry", "bodyweight entries"), n(b.programs.size, "program", "programs"), n(b.exercises.size, "exercise", "exercises")).joinToString(" · ")
+    }
+
     suspend fun importJson(text: String, replace: Boolean) {
         val b = Json { ignoreUnknownKeys = true }.decodeFromString<Backup>(text)
         if (replace) dao.clearAll()

@@ -194,11 +194,15 @@ fun NumberField(
         if (typed != value) { val t = fmt(value, decimals); text = TextFieldValue(t, TextRange(t.length)) }
     }
     fun commit(v: Double?) { onValueChange(v?.let { Math.max(0.0, it) }) }
+    // Narrow slots (two fields per row on a 360 dp phone) drop the unit and slim the steppers so the whole value stays visible.
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
+    val compact = maxWidth < 176.dp
+    val stepWidth = if (compact) 36 else 44
     Row(
-        modifier.height(height.dp).bringIntoViewRequester(bringIntoView).clip(RoundedCornerShape(10.dp)).background(K.Surface2),
+        Modifier.fillMaxWidth().height(height.dp).bringIntoViewRequester(bringIntoView).clip(RoundedCornerShape(10.dp)).background(K.Surface2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StepButton("−") { commit(((value ?: 0.0) - step).coerceAtLeast(0.0)) }
+        StepButton("−", stepWidth) { commit(((value ?: 0.0) - step).coerceAtLeast(0.0)) }
         Box(Modifier.width(1.dp).fillMaxHeight().background(K.Divider))
         BasicTextField(
             value = text,
@@ -226,15 +230,17 @@ fun NumberField(
                     hasFocus = st.isFocused
                 },
         )
-        Text(unit, color = K.Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp, end = 8.dp))
+        if (compact) Spacer(Modifier.width(8.dp))
+        else Text(unit, color = K.Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp, end = 8.dp))
         Box(Modifier.width(1.dp).fillMaxHeight().background(K.Divider))
-        StepButton("+") { commit((value ?: 0.0) + step) }
+        StepButton("+", stepWidth) { commit((value ?: 0.0) + step) }
+    }
     }
 }
 
 @Composable
-private fun RowScope.StepButton(glyph: String, onClick: () -> Unit) {
-    Box(Modifier.width(44.dp).fillMaxHeight().clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+private fun RowScope.StepButton(glyph: String, width: Int = 44, onClick: () -> Unit) {
+    Box(Modifier.width(width.dp).fillMaxHeight().clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Text(glyph, fontSize = 22.sp, fontWeight = FontWeight.Medium, color = K.Text)
     }
 }

@@ -203,15 +203,13 @@ private fun Settings(vm: AppViewModel) {
     val context = LocalContext.current
     var toast by remember { mutableStateOf<String?>(null) }
     var confirmReset by remember { mutableStateOf(false) }
-    var update by remember { mutableStateOf<Updater.Result?>(null) }
-    var progress by remember { mutableStateOf<Float?>(null) }
-    var pendingFile by remember { mutableStateOf<java.io.File?>(null) }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        val f = pendingFile
-        if (f != null && context.packageManager.canRequestPackageInstalls()) { pendingFile = null; Updater.install(context, f) }
-    }
-    val updateHint = when (val u = update) { is Updater.Result.Available -> " → " + u.release.tag_name; else -> "" }
-    fun checkUpdate() { toast = "Checking…"; vm.run { update = Updater.check(BuildConfig.VERSION_NAME); toast = when (val u = update) { is Updater.Result.UpToDate -> "v${u.current} is the latest"; is Updater.Result.Available -> "Update ${u.release.tag_name} available"; is Updater.Result.Failed -> u.message; null -> null } } }
+    val update by vm.update.collectAsStateWithLifecycle()
+    val progress by vm.updateProgress.collectAsStateWithLifecycle()
+    val pendingFile by vm.pendingInstall.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.checkUpdate() }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { vm.installPending(context) }
+    val updateHint = when (val u = update) { is Updater.Result.Available -> " → " + u.release.tag_name; is Updater.Result.UpToDate -> " · latest"; else -> "" }
+    fun checkUpdate() { toast = "Checking…"; vm.checkUpdate(force = true) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.run {
             val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: return@run
@@ -225,10 +223,18 @@ private fun Settings(vm: AppViewModel) {
             toast = "Exported"
         }
     }
+    LaunchedEffect(update) { toast = when (val u = update) { is Updater.Result.UpToDate -> "v${u.current} is the latest"; is Updater.Result.Available -> null; is Updater.Result.Failed -> u.message; null -> null } }
     GroupedList {
         ListRow("Export backup", divider = false) { exportLauncher.launch("khon-fitness-${java.time.LocalDate.now()}.json") }
         ListRow("Import backup") { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }
-        ListRow("Check for update", secondary = "v" + BuildConfig.VERSION_NAME + updateHint) { checkUpdate() }
+        (update as? Updater.Result.Available)?.let { u ->
+            ListRow("Update to ${u.release.tag_name}", secondary = if (progress != null) "${((progress ?: 0f) * 100).toInt()}%" else "v" + BuildConfig.VERSION_NAME + updateHint, titleColor = K.Accent) {
+                if (progress == null) vm.runUpdate(context, onNeedPermission = { }, onError = { toast = it })
+            }
+        } ?: ListRow("Check for update", secondary = "v" + BuildConfig.VERSION_NAME + updateHint) { checkUpdate() }
+        if (android.os.Build.VERSION.SDK_INT >= 29 && !Settings.canDrawOverlays(context)) ListRow("Reopen after updates", secondary = "allow once") {
+            context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.packageName)))
+        }
         ListRow("Reset to seed data", titleColor = K.Red, chevron = false) { confirmReset = true }
     }
     toast?.let { Text(it, color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp)) }
@@ -236,23 +242,11 @@ private fun Settings(vm: AppViewModel) {
         Spacer(Modifier.height(16.dp))
         Text(u.release.name ?: u.release.tag_name, style = MaterialTheme.typography.titleMedium)
         u.release.body?.takeIf { it.isNotBlank() }?.let { Text(it, color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp)) }
-        Spacer(Modifier.height(12.dp))
-        val p = progress
-        when {
-            p != null -> Text("Downloading… ${(p * 100).toInt()}%", color = K.Muted, modifier = Modifier.padding(top = 4.dp))
-            pendingFile != null -> {
-                Text("Android needs a one-time permission so this app can install its own updates. Allow it, then come back.", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(12.dp))
-                PrimaryButton("Allow and install") { permissionLauncher.launch(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.packageName))) }
-            }
-            else -> PrimaryButton("Update to ${u.release.tag_name}") {
-                progress = 0f
-                vm.run {
-                    runCatching { Updater.download(context, u.apk) { progress = it } }
-                        .onSuccess { file -> progress = null; if (context.packageManager.canRequestPackageInstalls()) Updater.install(context, file) else pendingFile = file }
-                        .onFailure { progress = null; toast = "Download failed: ${it.message}" }
-                }
-            }
+        if (pendingFile != null) {
+            Spacer(Modifier.height(12.dp))
+            Text("Android needs a one-time permission so this app can install its own updates.", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(12.dp))
+            PrimaryButton("Allow and install") { permissionLauncher.launch(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.packageName))) }
         }
     }
     if (confirmReset) Sheet("Reset all data?", { confirmReset = false }) {

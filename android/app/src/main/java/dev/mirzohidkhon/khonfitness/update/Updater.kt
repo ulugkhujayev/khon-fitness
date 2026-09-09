@@ -1,7 +1,10 @@
 package dev.mirzohidkhon.khonfitness.update
 
 import android.content.Context
+import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageInstaller
+import android.os.Build
 import androidx.core.content.FileProvider
 import java.io.File
 import java.net.HttpURLConnection
@@ -14,6 +17,8 @@ import kotlinx.serialization.json.Json
 /** Reads the latest GitHub release and installs its APK over the current build. Same signing key every release. */
 object Updater {
     const val REPO = "ulugkhujayev/khon-fitness"
+    /** Debug builds read a local feed so the install path can be tested on an emulator. */
+    private val latestUrl: String get() = if (dev.mirzohidkhon.khonfitness.BuildConfig.DEBUG) "http://10.0.2.2:8766/latest.json" else "https://api.github.com/repos/$REPO/releases/latest"
 
     @Serializable data class Asset(val name: String, val browser_download_url: String, val size: Long = 0)
     @Serializable data class Release(val tag_name: String, val name: String? = null, val body: String? = null, val assets: List<Asset> = emptyList())
@@ -28,7 +33,7 @@ object Updater {
 
     suspend fun check(currentVersion: String): Result = withContext(Dispatchers.IO) {
         try {
-            val conn = URL("https://api.github.com/repos/$REPO/releases/latest").openConnection() as HttpURLConnection
+            val conn = URL(latestUrl).openConnection() as HttpURLConnection
             conn.setRequestProperty("Accept", "application/vnd.github+json")
             conn.connectTimeout = 10000; conn.readTimeout = 15000
             if (conn.responseCode == 404) return@withContext Result.Failed("No release published yet")
@@ -58,13 +63,34 @@ object Updater {
         file
     }
 
+    /** Installs through a package installer session. The system relaunches the app via [UpdateActivity] when done. */
     fun install(context: Context, file: File) {
-        val uri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching {
+            val installer = context.packageManager.packageInstaller
+            val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+                setAppPackageName(context.packageName)
+                if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+                if (Build.VERSION.SDK_INT >= 34) setRequestUpdateOwnership(true)
+            }
+            val id = installer.createSession(params)
+            installer.openSession(id).use { session ->
+                session.openWrite("update.apk", 0, file.length()).use { out -> file.inputStream().use { it.copyTo(out) }; session.fsync(out) }
+                val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
+                val target = Intent(context, UpdateActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                val opts = if (Build.VERSION.SDK_INT >= 34) android.app.ActivityOptions.makeBasic().setPendingIntentCreatorBackgroundActivityStartMode(android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED).toBundle() else null
+                val pi = PendingIntent.getActivity(context, 7, target, flags, opts)
+                session.commit(pi.intentSender)
+                android.util.Log.i("KhonUpdate", "session $id committed")
+            }
+        }.onFailure {
+            android.util.Log.w("KhonUpdate", "session install failed", it)
+            // Fallback: hand the APK to the system installer the old way.
+            val uri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+            context.startActivity(Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
         }
-        context.startActivity(intent)
     }
 
     private fun compare(a: String, b: String): Int {

@@ -52,6 +52,9 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
         else if (!item.isRest) vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
     }
     LaunchedEffect(item.name, unfinished?.id) { dev.mirzohidkhon.khonfitness.widget.TodayWidget.refresh(context) }
+    val update by vm.update.collectAsStateWithLifecycle()
+    val updateProgress by vm.updateProgress.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.checkUpdate() }
     val notifLauncher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
     LaunchedEffect(Unit) {
         if (android.os.Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -82,6 +85,12 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
                     vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
                 }
             }
+        }
+        (update as? dev.mirzohidkhon.khonfitness.update.Updater.Result.Available)?.let { u ->
+            Spacer(Modifier.height(16.dp))
+            GroupedList { ListRow("Update to ${u.release.tag_name}", secondary = updateProgress?.let { "${(it * 100).toInt()}%" }, dotColor = K.Accent, divider = false) {
+                if (updateProgress == null) vm.runUpdate(context, onNeedPermission = { nav.navigate(Routes.SETTINGS) }, onError = { })
+            } }
         }
         if (pendingBand > 0) {
             Spacer(Modifier.height(16.dp))

@@ -12,6 +12,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         if (intent?.action == dev.mirzohidkhon.khonfitness.widget.TodayWidget.ACTION_START_TODAY) startRequested.value = true
+        (getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(dev.mirzohidkhon.khonfitness.update.UpdatedReceiver.NOTIFICATION_ID)
         setContent { KhonTheme { KhonNav() } }
     }
 

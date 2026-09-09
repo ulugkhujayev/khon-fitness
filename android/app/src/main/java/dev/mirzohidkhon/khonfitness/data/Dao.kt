@@ -80,6 +80,7 @@ interface KhonDao {
 
     @Query("SELECT * FROM interval_logs WHERE sessionId = :sessionId ORDER BY `index`") fun intervalLogs(sessionId: String): Flow<List<IntervalLog>>
     @Query("SELECT * FROM interval_logs") suspend fun intervalLogsOnce(): List<IntervalLog>
+    @Query("SELECT * FROM interval_logs") fun allIntervalLogs(): Flow<List<IntervalLog>>
     @Upsert suspend fun upsertIntervalLogs(list: List<IntervalLog>)
     @Query("DELETE FROM interval_logs WHERE sessionId = :sessionId") suspend fun deleteIntervalLogsFor(sessionId: String)
 

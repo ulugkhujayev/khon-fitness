@@ -38,10 +38,20 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     val unfinished by vm.unfinished.collectAsStateWithLifecycle()
     val today = LocalDate.now()
     val item = plan.itemFor(today)
+    val loaded = plan.plan.isNotEmpty() || plan.programs.isNotEmpty() || plan.exercises.isNotEmpty()
     var planDate by remember { mutableStateOf<LocalDate?>(null) }
     var bwDraft by remember { mutableStateOf<Double?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     var pendingBand by remember { mutableIntStateOf(0) }
+    val startRequested by dev.mirzohidkhon.khonfitness.MainActivity.startRequested.collectAsStateWithLifecycle()
+    LaunchedEffect(startRequested, unfinished, item.name, loaded) {
+        if (!startRequested || !loaded) return@LaunchedEffect
+        dev.mirzohidkhon.khonfitness.MainActivity.startRequested.value = false
+        val active = unfinished
+        if (active != null) nav.navigate(if (active.itemType == ItemType.PROGRAM) Routes.session(active.id) else if (TimerService.state.value?.sessionId == active.id) Routes.timer(active.id) else Routes.cardio(active.id))
+        else if (!item.isRest) vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
+    }
+    LaunchedEffect(item.name, unfinished?.id) { dev.mirzohidkhon.khonfitness.widget.TodayWidget.refresh(context) }
     val notifLauncher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
     LaunchedEffect(Unit) {
         if (android.os.Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -56,7 +66,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
         }
         WeekStrip(today, plan, modalities) { planDate = it }
         Spacer(Modifier.height(24.dp))
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(K.Surface).padding(20.dp, 20.dp, 20.dp, 16.dp)) {
+        if (loaded) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(K.Surface).padding(20.dp, 20.dp, 20.dp, 16.dp)) {
             val active = unfinished
             if (active != null) {
                 Text(active.programName ?: active.exerciseName ?: "Session", style = MaterialTheme.typography.headlineMedium)

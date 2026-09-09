@@ -39,7 +39,13 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
     val bodyweights by vm.bodyweights.collectAsStateWithLifecycle()
     val allLogs by vm.allSetLogs.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
+    val intervalLogs by vm.allIntervalLogs.collectAsStateWithLifecycle()
     val today = LocalDate.now()
+    var cardioId by remember { mutableStateOf<String?>(null) }
+    var pickCardio by remember { mutableStateOf(false) }
+    val cardioEx = exercises.filter { it.kind == Kind.CARDIO }
+    val cardioSessions = sessions.filter { it.itemType == ItemType.CARDIO && it.finished }
+    val chosenCardio = cardioId ?: cardioSessions.firstOrNull()?.exerciseId ?: cardioEx.firstOrNull()?.id
     var month by remember { mutableStateOf(YearMonth.from(today)) }
     var selected by remember { mutableStateOf(today) }
     var planDate by remember { mutableStateOf<LocalDate?>(null) }
@@ -122,6 +128,68 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
             Spacer(Modifier.height(12.dp))
             GroupedList { progress.asReversed().forEachIndexed { i, p -> ListRow(p.date.format(shortDate), secondary = "${fmt(p.topW, 1)} kg × ${p.topR} reps", chevron = false, divider = i > 0, titleColor = K.Muted) } }
         }
+
+        // ---- Sets per muscle, this week against last week
+        Spacer(Modifier.height(28.dp))
+        Text("Sets per muscle", style = MaterialTheme.typography.titleMedium, color = K.Muted)
+        Text("This week, with last week in grey. Secondary muscles count half.", color = K.Dim, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
+        val volume = remember(allLogs, sessions, exercises, today) { muscleVolume(allLogs, sessions, exercises, today) }
+        if (volume.isEmpty()) Text("No finished sets this week or last.", color = K.Dim, style = MaterialTheme.typography.bodyMedium)
+        else GroupedList {
+            val max = volume.maxOf { maxOf(it.thisWeek, it.lastWeek) }.coerceAtLeast(1.0)
+            volume.forEachIndexed { i, m ->
+                Column(Modifier.fillMaxWidth()) {
+                    if (i > 0) androidx.compose.material3.HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider)
+                    Row(Modifier.fillMaxWidth().padding(16.dp, 10.dp, 16.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(m.muscle.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        Text(fmt(m.thisWeek, 1), fontWeight = FontWeight.Bold)
+                        Text("  ${fmt(m.lastWeek, 1)}", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp)) {
+                        Box(Modifier.fillMaxWidth(fraction = (m.thisWeek / max).toFloat().coerceIn(0.02f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(K.Accent))
+                        Box(Modifier.padding(top = 3.dp).fillMaxWidth(fraction = (m.lastWeek / max).toFloat().coerceIn(0.02f, 1f)).height(4.dp).clip(RoundedCornerShape(2.dp)).background(K.Surface3))
+                    }
+                }
+            }
+        }
+
+        // ---- Cardio trends
+        Spacer(Modifier.height(28.dp))
+        GroupedList { FieldRow("Cardio", divider = false, onClick = { pickCardio = true }) { Text(cardioEx.find { it.id == chosenCardio }?.name ?: "Choose", fontWeight = FontWeight.SemiBold); Chevron() } }
+        val cs = cardioSessions.filter { it.exerciseId == chosenCardio }.sortedBy { it.date }
+        val cex = cardioEx.find { it.id == chosenCardio }
+        if (cs.isEmpty()) Text("No finished sessions for this exercise yet.", color = K.Dim, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
+        else {
+            val paceUnit = if (cex?.modalityId == "swim") "/100 m" else "/km"
+            val pace = cs.mapNotNull { s ->
+                val dist = s.distanceM ?: (s.laps?.let { it * (s.poolLength ?: 25) }); val t = s.timeSec
+                if (dist == null || dist <= 0 || t == null || t <= 0) null else ChartPoint(s.date.toDate(), if (cex?.modalityId == "swim") t / (dist / 100.0) / 60.0 else t / (dist / 1000.0) / 60.0)
+            }
+            if (pace.isNotEmpty()) {
+                Text("Pace $paceUnit", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
+                LineChart(pace, "", height = 170, format = { m -> val sec = Math.round(m * 60); "%d:%02d".format(sec / 60, sec % 60) })
+            }
+            val hr = cs.mapNotNull { s -> s.avgHr?.let { ChartPoint(s.date.toDate(), it.toDouble()) } }
+            if (hr.isNotEmpty()) {
+                Text("Average heart rate", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
+                LineChart(hr, "bpm", height = 170, decimals = 0)
+            }
+            if (cex?.intervals == true) {
+                val work = cs.mapNotNull { s -> intervalLogs.filter { it.sessionId == s.id && it.avgHr != null }.map { it.avgHr!! }.takeIf { it.isNotEmpty() }?.let { ChartPoint(s.date.toDate(), it.average()) } }
+                if (work.isNotEmpty()) {
+                    Text("Heart rate in work intervals", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
+                    LineChart(work, "bpm", height = 170, decimals = 0)
+                }
+            }
+            val time = cs.mapNotNull { s -> s.timeSec?.let { ChartPoint(s.date.toDate(), it / 60.0) } }
+            if (pace.isEmpty() && hr.isEmpty() && time.isNotEmpty()) {
+                Text("Time, min", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
+                LineChart(time, "min", height = 170, decimals = 0)
+            }
+        }
+    }
+    if (pickCardio) Sheet("Cardio exercise", { pickCardio = false }) {
+        ChoiceList { cardioEx.forEachIndexed { i, e -> ChoiceRow(e.name, e.id == chosenCardio, exerciseColor(e, modalities), e.intensity == Intensity.HIGH, divider = i > 0) { cardioId = e.id; pickCardio = false } } }
     }
     planDate?.let { PlanSheet(vm, it, plan, modalities) { planDate = null } }
     if (pickExercise) Sheet("Exercise", { pickExercise = false }) {
@@ -132,6 +200,25 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
 fun sessionColor(s: Session, exercises: List<Exercise>, modalities: List<Modality>): Pair<Color, Boolean> =
     if (s.itemType == ItemType.PROGRAM) K.Accent to true
     else exercises.find { it.id == s.exerciseId }?.let { ex -> exerciseColor(ex, modalities) to (ex.intensity == Intensity.HIGH) } ?: (K.Muted to true)
+
+data class MuscleVolume(val muscle: String, val thisWeek: Double, val lastWeek: Double)
+
+/** Sets per muscle group for the current week and the one before. Primary muscle counts 1, each secondary 0.5. */
+fun muscleVolume(logs: List<SetLog>, sessions: List<Session>, exercises: List<Exercise>, today: LocalDate): List<MuscleVolume> {
+    val monday = today.with(DayOfWeek.MONDAY); val lastMonday = monday.minusWeeks(1)
+    val dates = sessions.filter { it.finished }.associate { it.id to it.date.toDate() }
+    val exById = exercises.associateBy { it.id }
+    val acc = HashMap<String, DoubleArray>()
+    for (l in logs) {
+        if (l.status != SetStatus.DONE) continue
+        val d = dates[l.sessionId] ?: continue
+        val idx = when { d >= monday -> 0; d >= lastMonday -> 1; else -> continue }
+        val ex = exById[l.exerciseId] ?: continue
+        ex.primaryMuscle?.let { acc.getOrPut(it) { DoubleArray(2) }[idx] += 1.0 }
+        ex.secondaryList.forEach { acc.getOrPut(it) { DoubleArray(2) }[idx] += 0.5 }
+    }
+    return acc.map { (m, v) -> MuscleVolume(m, v[0], v[1]) }.sortedByDescending { maxOf(it.thisWeek, it.lastWeek) }
+}
 
 data class ProgressPoint(val date: LocalDate, val e1rm: Double, val topW: Double, val topR: Int)
 

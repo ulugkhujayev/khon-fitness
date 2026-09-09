@@ -46,6 +46,7 @@ class KhonRepository(private val dao: KhonDao) {
     val allSetLogs: Flow<List<SetLog>> = dao.allSetLogs()
     val blocks: Flow<List<Block>> = dao.blocks()
     val blockExercises: Flow<List<BlockExercise>> = dao.blockExercises()
+    val allIntervalLogs: Flow<List<IntervalLog>> = dao.allIntervalLogs()
 
     fun setLogs(sessionId: String): Flow<List<SetLog>> = dao.setLogs(sessionId)
     fun session(sessionId: String): Flow<Session?> = dao.sessionFlow(sessionId)

@@ -11,6 +11,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        if (intent?.action == dev.mirzohidkhon.khonfitness.widget.TodayWidget.ACTION_START_TODAY) startRequested.value = true
         setContent { KhonTheme { KhonNav() } }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        if (intent.action == dev.mirzohidkhon.khonfitness.widget.TodayWidget.ACTION_START_TODAY) startRequested.value = true
+    }
+
+    companion object {
+        /** Set by the widget's Start button; Today consumes it and starts the planned item. */
+        val startRequested = kotlinx.coroutines.flow.MutableStateFlow(false)
     }
 }

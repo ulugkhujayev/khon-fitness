@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Khon Fitness</string>
+    <string name="widget_description">Workout of the day with a Start button</string>
 </resources>

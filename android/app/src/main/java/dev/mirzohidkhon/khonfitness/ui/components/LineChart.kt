@@ -38,7 +38,7 @@ private val dateFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d")
 
 /** Line chart: dashed grid at round values, marker on every point, value labels, dates along the bottom. */
 @Composable
-fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modifier, height: Int = 180, decimals: Int = 1) {
+fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modifier, height: Int = 180, decimals: Int = 1, format: ((Double) -> String)? = null) {
     val measurer = rememberTextMeasurer()
     val tick = TextStyle(fontFamily = Roboto, color = K.Dim, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     val valueStyle = TextStyle(fontFamily = Roboto, color = K.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
@@ -62,7 +62,7 @@ fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modif
         while (v <= yMax + step / 1000) {
             val y = yFor(v)
             drawLine(K.Divider, Offset(padL, y), Offset(size.width - padR, y), strokeWidth = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)))
-            val t = measurer.measure(fmt(v, if (step < 1) 1 else 0), tick)
+            val t = measurer.measure(format?.invoke(v) ?: fmt(v, if (step < 1) 1 else 0), tick)
             drawText(t, topLeft = Offset(padL - 8.dp.toPx() - t.size.width, y - t.size.height / 2))
             v += step
         }
@@ -79,7 +79,7 @@ fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modif
             drawCircle(K.Bg, r, Offset(xs[i], ys[i]))
             drawCircle(K.Accent, r, Offset(xs[i], ys[i]), style = if (last) androidx.compose.ui.graphics.drawscope.Fill else Stroke(2.dp.toPx()))
             if (labelAll || last || i == maxIdx) {
-                val label = fmt(points[i].value, decimals) + if (last && unit.isNotEmpty()) " $unit" else ""
+                val label = (format?.invoke(points[i].value) ?: fmt(points[i].value, decimals)) + if (last && unit.isNotEmpty()) " $unit" else ""
                 val t = measurer.measure(label, if (last) lastStyle else valueStyle)
                 val x = when { i == 0 && n > 1 -> xs[i]; last && n > 1 -> xs[i] - t.size.width; else -> xs[i] - t.size.width / 2 }
                 drawText(t, topLeft = Offset(x.coerceIn(0f, size.width - t.size.width), ys[i] - r - t.size.height - 2.dp.toPx()))

@@ -16,8 +16,8 @@ android {
         applicationId = "dev.mirzohidkhon.khonfitness"
         minSdk = 28
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.2.2"
+        versionCode = 11
+        versionName = "0.3.0"
     }
 
     signingConfigs {
@@ -77,5 +77,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.profileinstaller)
     implementation(libs.androidx.health.connect)
+    implementation(libs.androidx.glance.appwidget)
     testImplementation(libs.junit)
 }

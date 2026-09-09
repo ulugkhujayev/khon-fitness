@@ -24,6 +24,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val allSetLogs = stream(repo.allSetLogs, emptyList())
     val blocks = stream(repo.blocks, emptyList())
     val blockExercises = stream(repo.blockExercises, emptyList())
+    val allIntervalLogs = stream(repo.allIntervalLogs, emptyList())
     val planData = stream(repo.planData, KhonRepository.PlanData(emptyList(), emptyList(), emptyList(), emptyList()))
 
     fun run(block: suspend () -> Unit) { viewModelScope.launch { block() } }

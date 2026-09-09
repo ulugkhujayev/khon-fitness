@@ -42,6 +42,10 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     var bwDraft by remember { mutableStateOf<Double?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     var pendingBand by remember { mutableIntStateOf(0) }
+    val notifLauncher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(Unit) {
+        if (android.os.Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+    }
     LaunchedEffect(Unit) { pendingBand = runCatching { dev.mirzohidkhon.khonfitness.health.HealthImport.pendingCount(context, vm.repo.importedSourceIds().toSet()) }.getOrDefault(0) }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 24.dp)) {

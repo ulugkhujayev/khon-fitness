@@ -42,7 +42,7 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                     val divider = true
                     when (f) {
                         "time" -> NumberRow("Time", draft.timeSec?.let { it / 60.0 }, "min", 1.0, 1, divider) { draft = draft.copy(timeSec = it?.times(60)?.toInt()) }
-                        "distance" -> NumberRow("Distance", (draft.distanceM ?: 0) / 1000.0, "km", 0.1, 1, divider) { draft = draft.copy(distanceM = it?.times(1000)?.toInt()) }
+                        "distance" -> NumberRow("Distance", draft.distanceM?.let { it / 1000.0 }, "km", 0.1, 1, divider) { draft = draft.copy(distanceM = it?.times(1000)?.toInt()) }
                         "avgHr" -> NumberRow("Avg heart rate", draft.avgHr?.toDouble(), "bpm", 1.0, 0, divider) { draft = draft.copy(avgHr = it?.toInt()) }
                         "watts" -> NumberRow("Avg watts", draft.watts?.toDouble(), "W", 5.0, 0, divider) { draft = draft.copy(watts = it?.toInt()) }
                         "laps" -> NumberRow("Laps", draft.laps?.toDouble(), "", 1.0, 0, divider) { draft = draft.copy(laps = it?.toInt()) }

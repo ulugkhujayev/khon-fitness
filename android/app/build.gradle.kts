@@ -16,8 +16,8 @@ android {
         applicationId = "dev.mirzohidkhon.khonfitness"
         minSdk = 28
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.2.1"
+        versionCode = 10
+        versionName = "0.2.2"
     }
 
     signingConfigs {

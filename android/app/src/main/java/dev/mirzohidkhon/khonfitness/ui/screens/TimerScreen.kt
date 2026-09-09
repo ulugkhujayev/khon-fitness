@@ -1,7 +1,5 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
-import android.Manifest
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
@@ -43,14 +41,13 @@ fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
 
     val s = session
     val ex = exercises.find { it.id == s?.exerciseId }
-    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     // Start the service once for this session if it is not running.
     LaunchedEffect(s?.id, ex?.id) {
-        if (s != null && ex != null && state?.sessionId != s.id) {
-            if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            TimerService.start(context, s.id, ex.name, ex.warmupSec, ex.workSec, ex.restSec, ex.rounds)
-        }
+        if (s != null && ex != null && state?.sessionId != s.id) TimerService.start(context, s.id, ex.name, ex.warmupSec, ex.workSec, ex.restSec, ex.rounds)
     }
+    val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+    var batteryOk by remember { mutableStateOf(pm.isIgnoringBatteryOptimizations(context.packageName)) }
+    val batteryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { batteryOk = pm.isIgnoringBatteryOptimizations(context.packageName) }
     // When the service reports the end, store elapsed time and open the session form.
     LaunchedEffect(finished) {
         val f = finished ?: return@LaunchedEffect
@@ -74,10 +71,19 @@ fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         Spacer(Modifier.weight(1f))
         val label = when { st == null -> "Starting"; st.done -> "Done"; kind == PhaseKind.WARMUP -> "Warm-up"; kind == PhaseKind.WORK -> "Work"; else -> "Rest" }
         Text(label.uppercase(), color = Color.White.copy(alpha = .75f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 4.sp)
-        Text(mmss(st?.remaining ?: 0.0), color = Color.White, fontSize = 120.sp, fontWeight = FontWeight.Bold, letterSpacing = (-4).sp, lineHeight = 120.sp, modifier = Modifier.padding(vertical = 8.dp))
-        if (st != null && !st.done && kind != PhaseKind.WARMUP) Text("Round ${st.phase.round} of ${st.rounds}", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Medium)
-        if (st != null) Text("Elapsed ${mmss(st.elapsed)} of ${mmss(st.total.toDouble())}", color = Color.White.copy(alpha = .7f), fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp))
+        Text(mmss(st?.remaining ?: 0.0), color = Color.White, fontSize = 136.sp, fontWeight = FontWeight.Bold, letterSpacing = (-5).sp, lineHeight = 136.sp, modifier = Modifier.padding(vertical = 8.dp))
+        if (st != null && !st.done && kind != PhaseKind.WARMUP) Text("Round ${st.phase.round} of ${st.rounds}", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+        if (st != null && !st.done) {
+            val next = st.phases.getOrNull(st.index + 1)
+            Text(if (next == null) "Last one" else "Next: " + (when (next.kind) { PhaseKind.WORK -> "work"; PhaseKind.REST -> "rest"; else -> "warm-up" }) + " " + mmss(next.seconds.toDouble()), color = Color.White.copy(alpha = .75f), fontSize = 17.sp, modifier = Modifier.padding(top = 10.dp))
+            Text("Elapsed ${mmss(st.elapsed)} of ${mmss(st.total.toDouble())}", color = Color.White.copy(alpha = .6f), fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
+        }
         Spacer(Modifier.weight(1f))
+        if (!batteryOk) {
+            Text("Samsung may pause the timer when the screen is off. Allow it to run in the background once.", color = Color.White.copy(alpha = .8f), fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(bottom = 10.dp))
+            TextButton("Allow background", color = Color.White) { batteryLauncher.launch(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:" + context.packageName))) }
+            Spacer(Modifier.height(12.dp))
+        }
         if (st?.paused == true) Text("Paused", color = Color.White, fontSize = 17.sp, modifier = Modifier.padding(bottom = 24.dp))
         if (BuildConfig.DEBUG && st != null) TextButton(if (st.speed > 1) "×60 on" else "×60", color = Color.White) { TimerService.state.value = st.copy(speed = if (st.speed > 1) 1.0 else 60.0) }
         Spacer(Modifier.height(32.dp))

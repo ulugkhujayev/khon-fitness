@@ -12,6 +12,10 @@ import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
+import android.media.AudioAttributes
+import android.speech.tts.TextToSpeech
+import java.util.Locale
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -62,6 +66,9 @@ class TimerService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var loop: Job? = null
     private var tone: ToneGenerator? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -74,8 +81,8 @@ class TimerService : Service() {
                 startInForeground(s)
                 runLoop()
             }
-            ACTION_PAUSE -> state.value = state.value?.copy(paused = true)
-            ACTION_RESUME -> state.value = state.value?.copy(paused = false)
+            ACTION_PAUSE -> { state.value = state.value?.copy(paused = true); state.value?.let { updateNotification(it) } }
+            ACTION_RESUME -> { state.value = state.value?.copy(paused = false); state.value?.let { updateNotification(it) } }
             ACTION_STOP -> finish(early = true)
         }
         return START_NOT_STICKY
@@ -83,7 +90,11 @@ class TimerService : Service() {
 
     private fun runLoop() {
         loop?.cancel()
-        tone = runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 100) }.getOrNull()
+        tone = runCatching { ToneGenerator(AudioManager.STREAM_ALARM, 100) }.getOrNull()
+        if (wakeLock == null) wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "khon:timer").apply { setReferenceCounted(false) }
+        wakeLock?.acquire(3 * 60 * 60 * 1000L)
+        if (tts == null) tts = TextToSpeech(this) { st -> ttsReady = st == TextToSpeech.SUCCESS; if (ttsReady) { tts?.language = Locale.US; tts?.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()) } }
+        state.value?.let { say(phaseSpeech(it)) }
         loop = scope.launch {
             var last = System.nanoTime()
             var lastWhole = -1
@@ -99,19 +110,30 @@ class TimerService : Service() {
                 val elapsed = s.elapsed + dt * s.speed
                 val whole = kotlin.math.ceil(remaining).toInt()
                 if (whole in 1..3 && whole != lastWhole) beep(short = true)
+                if (whole == 10 && whole != lastWhole && s.phase.seconds > 20) say("ten seconds")
                 lastWhole = whole
                 if (remaining <= 0) {
                     index += 1
                     if (index >= s.phases.size) { state.value = s.copy(index = index, remaining = 0.0, elapsed = elapsed); beep(short = false); finish(early = false); break }
                     remaining += s.phases[index].seconds
-                    vibrate(400)
+                    vibrate(700)
+                    val next = s.copy(index = index, remaining = remaining, elapsed = elapsed)
+                    state.value = next
+                    say(phaseSpeech(next)); updateNotification(next)
+                    continue
                 }
                 state.value = s.copy(index = index, remaining = remaining, elapsed = elapsed)
-                if (whole != lastNotified) { lastNotified = whole; updateNotification(state.value!!) }
             }
         }
     }
-    private var lastNotified = -2
+    private fun phaseSpeech(s: TimerState): String = when (s.phase.kind) {
+        PhaseKind.WARMUP -> "Warm up, ${minutesWords(s.phase.seconds)}"
+        PhaseKind.WORK -> "Round ${s.phase.round} of ${s.rounds}. Go"
+        PhaseKind.REST -> "Rest, ${minutesWords(s.phase.seconds)}"
+        PhaseKind.DONE -> "Done"
+    }
+    private fun minutesWords(sec: Int): String = if (sec % 60 == 0) "${sec / 60} minute" + (if (sec / 60 == 1) "" else "s") else "$sec seconds"
+    private fun say(text: String) { if (ttsReady) runCatching { tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "khon") } }
 
     private fun finish(early: Boolean) {
         loop?.cancel()
@@ -119,8 +141,10 @@ class TimerService : Service() {
         if (s != null) {
             finished.value = FinishedTimer(s.sessionId, s.elapsed.toInt(), early)
             state.value = if (early) null else s.copy(index = s.phases.size)
+            if (!early) say("All rounds done")
         }
         tone?.release(); tone = null
+        wakeLock?.let { if (it.isHeld) it.release() }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
         if (!early) state.value = null
@@ -138,7 +162,7 @@ class TimerService : Service() {
 
     private fun startInForeground(s: TimerState) {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Interval timer", NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) })
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Interval timer", NotificationManager.IMPORTANCE_HIGH).apply { setSound(null, null); enableVibration(false); lockscreenVisibility = Notification.VISIBILITY_PUBLIC })
         val n = notification(s)
         if (Build.VERSION.SDK_INT >= 34) startForeground(NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(NOTIFICATION_ID, n)
     }
@@ -151,18 +175,22 @@ class TimerService : Service() {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP }, PendingIntent.FLAG_IMMUTABLE)
         fun action(a: String) = PendingIntent.getService(this, a.hashCode(), Intent(this, TimerService::class.java).setAction(a), PendingIntent.FLAG_IMMUTABLE)
         val phase = if (s.done) "Done" else when (s.phase.kind) { PhaseKind.WARMUP -> "Warm-up"; PhaseKind.WORK -> "Work ${s.phase.round}/${s.rounds}"; PhaseKind.REST -> "Rest ${s.phase.round}/${s.rounds}"; PhaseKind.DONE -> "Done" }
-        return NotificationCompat.Builder(this, CHANNEL)
+        val b = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_timer)
-            .setContentTitle(s.title)
-            .setContentText("$phase · ${mmss(s.remaining)}")
+            .setContentTitle(if (s.done) s.title else "$phase · ${s.title}")
             .setOngoing(true).setOnlyAlertOnce(true).setSilent(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(open)
+        if (s.paused || s.done) b.setContentText(if (s.done) "Done" else "Paused · ${mmss(s.remaining)}")
+        else b.setUsesChronometer(true).setChronometerCountDown(true).setWhen(System.currentTimeMillis() + (s.remaining * 1000 / s.speed).toLong()).setShowWhen(true)
+        return b
             .addAction(0, if (s.paused) "Resume" else "Pause", action(if (s.paused) ACTION_RESUME else ACTION_PAUSE))
             .addAction(0, "Stop", action(ACTION_STOP))
             .build()
     }
 
-    override fun onDestroy() { loop?.cancel(); tone?.release(); super.onDestroy() }
+    override fun onDestroy() { loop?.cancel(); tone?.release(); wakeLock?.let { if (it.isHeld) it.release() }; tts?.shutdown(); super.onDestroy() }
 
     companion object {
         const val CHANNEL = "timer"; const val NOTIFICATION_ID = 41

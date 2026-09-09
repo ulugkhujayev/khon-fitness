@@ -50,7 +50,7 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
     val chosenId = exerciseId ?: strength.firstOrNull { it.id in loggedIds }?.id ?: strength.firstOrNull()?.id
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 24.dp)) {
-        ScreenTitle("History")
+        ScreenTitle("History") { TextButton("Import") { nav.navigate(Routes.IMPORT) } }
         Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton("‹") { month = month.minusMonths(1) }
             Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy")), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))

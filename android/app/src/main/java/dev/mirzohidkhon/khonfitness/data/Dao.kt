@@ -65,6 +65,7 @@ interface KhonDao {
     @Query("SELECT * FROM sessions WHERE id = :id") fun sessionFlow(id: String): Flow<Session?>
     @Query("SELECT * FROM sessions WHERE finishedAt IS NULL ORDER BY startedAt DESC LIMIT 1") fun unfinishedSession(): Flow<Session?>
     @Query("SELECT * FROM sessions WHERE finishedAt IS NULL ORDER BY startedAt DESC LIMIT 1") suspend fun unfinishedSessionOnce(): Session?
+    @Query("SELECT sourceId FROM sessions WHERE sourceId IS NOT NULL") suspend fun importedSourceIds(): List<String>
     @Upsert suspend fun upsert(session: Session)
     @Upsert suspend fun upsertSessions(list: List<Session>)
     @Query("DELETE FROM sessions WHERE id = :id") suspend fun deleteSession(id: String)

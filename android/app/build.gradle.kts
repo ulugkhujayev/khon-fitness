@@ -10,14 +10,14 @@ plugins {
 
 android {
     namespace = "dev.mirzohidkhon.khonfitness"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "dev.mirzohidkhon.khonfitness"
         minSdk = 28
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.1.6"
+        versionCode = 8
+        versionName = "0.2.0"
     }
 
     signingConfigs {
@@ -76,5 +76,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.profileinstaller)
+    implementation(libs.androidx.health.connect)
     testImplementation(libs.junit)
 }

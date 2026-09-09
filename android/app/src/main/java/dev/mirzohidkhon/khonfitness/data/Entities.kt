@@ -93,6 +93,7 @@ data class Session(
     val laps: Int? = null,
     val poolLength: Int? = null,
     val stroke: String? = null,
+    val sourceId: String? = null, // Health Connect record id when imported
 ) { val finished: Boolean get() = finishedAt != null }
 
 /** One set inside a program session. Carries a snapshot of names so history never changes. */

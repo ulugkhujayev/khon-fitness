@@ -65,9 +65,11 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                 GroupedList {
                     ivs.forEachIndexed { i, iv ->
                         FieldRow("Round ${i + 1}", divider = i > 0) {
-                            NumberField(iv.avgHr?.toDouble(), { v -> ivs = ivs.map { if (it.id == iv.id) it.copy(avgHr = v?.toInt()) else it } }, 1.0, "bpm", Modifier.weight(1f), 0, 38)
-                            Spacer(Modifier.width(8.dp))
-                            NumberField(iv.watts?.toDouble(), { v -> ivs = ivs.map { if (it.id == iv.id) it.copy(watts = v?.toInt()) else it } }, 5.0, "W", Modifier.weight(1f), 0, 38)
+                            Column(Modifier.padding(vertical = 8.dp), horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                                NumberField(iv.avgHr?.toDouble(), { v -> ivs = ivs.map { if (it.id == iv.id) it.copy(avgHr = v?.toInt()) else it } }, 1.0, "bpm", Modifier.width(176.dp), 0, 38)
+                                Spacer(Modifier.height(6.dp))
+                                NumberField(iv.watts?.toDouble(), { v -> ivs = ivs.map { if (it.id == iv.id) it.copy(watts = v?.toInt()) else it } }, 5.0, "W", Modifier.width(176.dp), 0, 38)
+                            }
                         }
                     }
                 }

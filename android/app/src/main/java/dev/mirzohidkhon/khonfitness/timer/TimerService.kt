@@ -20,6 +20,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
+import dev.mirzohidkhon.khonfitness.KhonApp
 import dev.mirzohidkhon.khonfitness.MainActivity
 import dev.mirzohidkhon.khonfitness.R
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +30,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 enum class PhaseKind { WARMUP, WORK, REST, DONE }
@@ -139,15 +141,21 @@ class TimerService : Service() {
         loop?.cancel()
         val s = state.value
         if (s != null) {
-            finished.value = FinishedTimer(s.sessionId, s.elapsed.toInt(), early)
-            state.value = if (early) null else s.copy(index = s.phases.size)
+            val elapsed = s.elapsed.toInt()
+            state.value = s.copy(index = s.phases.size, remaining = 0.0)
             if (!early) say("All rounds done")
+            // The service writes the duration itself, so it survives even when no screen is watching.
+            val app = applicationContext as KhonApp
+            app.scope.launch {
+                runCatching { app.repo.session(s.sessionId).first()?.let { app.repo.updateSession(it.copy(timeSec = elapsed)) } }
+                finished.value = FinishedTimer(s.sessionId, elapsed, early)
+                state.value = null
+            }
         }
         tone?.release(); tone = null
         wakeLock?.let { if (it.isHeld) it.release() }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
-        if (!early) state.value = null
     }
 
     private fun beep(short: Boolean) {

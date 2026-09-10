@@ -191,11 +191,11 @@ private fun SetRow(log: SetLog, prev: SetLog?, live: Boolean, requester: FocusRe
             Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f)) {
                     NumberField(log.weightKg, onWeight, step = log.stepKg.takeIf { it > 0 } ?: 1.0, unit = "kg", decimals = decimals, height = 44, focusRequester = requester, placeholder = prev?.let { fmt(it.weightKg, decimals) })
-                    Delta(prev?.weightKg, log.weightKg, decimals)
+                    Delta(prev?.weightKg, log.weightKg, decimals, suffix = " kg")
                 }
                 Column(Modifier.weight(1f)) {
                     NumberField(log.reps?.toDouble(), { onReps(it) }, step = 1.0, unit = "reps", decimals = 0, height = 44, placeholder = (prev?.reps ?: log.minReps).toString())
-                    Delta(prev?.reps?.toDouble(), log.reps?.toDouble(), 0, suffix = " rep")
+                    Delta(prev?.reps?.toDouble(), log.reps?.toDouble(), 0, suffix = " reps")
                 }
             }
         } else {
@@ -206,7 +206,10 @@ private fun SetRow(log: SetLog, prev: SetLog?, live: Boolean, requester: FocusRe
 
 @Composable
 private fun Delta(prev: Double?, now: Double?, decimals: Int, suffix: String = "") {
+    // Under the widget: the gain since last time, or just the unit on narrow phones where the field hides it.
+    val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 400
     if (prev != null && now != null && now > prev) Text("+${fmt(now - prev, decimals)}$suffix", color = K.Green, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 40.dp, top = 3.dp))
+    else if (narrow) Text(suffix.trim(), color = K.Dim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 40.dp, top = 3.dp))
     else Spacer(Modifier.height(0.dp))
 }
 

@@ -47,6 +47,9 @@ fun itemColor(item: PlanItem, modalities: List<Modality>): Pair<Color, Boolean>?
 fun exerciseColor(ex: Exercise, modalities: List<Modality>): Color =
     if (ex.kind == Kind.STRENGTH) K.Accent else Color(modalities.find { it.id == ex.modalityId }?.color ?: 0xFF9B9BA3)
 
+/** 240 -> "4 min", 20 -> "20 s", 90 -> "1:30". */
+fun dur(sec: Int): String = when { sec >= 60 && sec % 60 == 0 -> "${sec / 60} min"; sec < 60 -> "$sec s"; else -> "${sec / 60}:${"%02d".format(sec % 60)}" }
+
 fun preview(item: PlanItem, blocks: List<Block>, blockExercises: List<BlockExercise>, modalities: List<Modality>): String = when (item.itemType) {
     ItemType.PROGRAM -> {
         val bs = blocks.filter { it.programId == item.program?.id }
@@ -55,7 +58,7 @@ fun preview(item: PlanItem, blocks: List<Block>, blockExercises: List<BlockExerc
     }
     ItemType.CARDIO -> item.cardio?.let { ex ->
         val mod = modalities.find { it.id == ex.modalityId }?.name?.lowercase() ?: ""
-        if (ex.intervals) "${ex.rounds} × ${ex.workSec / 60} min on $mod, ${ex.restSec / 60} min rest" else "Steady on $mod"
+        if (ex.intervals) "${ex.rounds} × ${dur(ex.workSec)} on $mod, " + (if (ex.restSec > 0) "${dur(ex.restSec)} rest" else "no rest") else "Steady on $mod"
     } ?: ""
     else -> "Rest day"
 }

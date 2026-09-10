@@ -146,7 +146,8 @@ fun FieldRow(label: String, divider: Boolean = true, onClick: (() -> Unit)? = nu
             Modifier.fillMaxWidth().heightIn(min = 54.dp).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(label, color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(120.dp))
+            val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 400
+            Text(label, color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(if (narrow) 96.dp else 120.dp))
             Spacer(Modifier.width(12.dp))
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) { value() }
         }
@@ -189,9 +190,10 @@ fun NumberField(
     val bringIntoView = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
     // Sync from outside (steppers, prefill) only when the typed text does not already mean this value. Keeps the cursor where the user left it.
+    // While the user has cleared the field, leave it empty: the owner may push a minimum back that would prefix the next digit.
     LaunchedEffect(value) {
         val typed = text.text.trimEnd('.').toDoubleOrNull()
-        if (typed != value) { val t = fmt(value, decimals); text = TextFieldValue(t, TextRange(t.length)) }
+        if (typed != value && !(hasFocus && text.text.isEmpty())) { val t = fmt(value, decimals); text = TextFieldValue(t, TextRange(t.length)) }
     }
     fun commit(v: Double?) { onValueChange(v?.let { Math.max(0.0, it) }) }
     // Narrow slots (two fields per row on a 360 dp phone) drop the unit and slim the steppers so the whole value stays visible.
@@ -227,6 +229,7 @@ fun NumberField(
                         // The keyboard is still rising when focus lands. Scroll again once it has settled.
                         scope.launch { delay(120); bringIntoView.bringIntoView(); delay(300); bringIntoView.bringIntoView() }
                     }
+                    if (!st.isFocused && hasFocus && text.text.trimEnd('.').toDoubleOrNull() != value) text = TextFieldValue(fmt(value, decimals))
                     hasFocus = st.isFocused
                 },
         )

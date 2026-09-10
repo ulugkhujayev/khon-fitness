@@ -26,7 +26,7 @@ import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.delay
 
 /** Full-screen interval countdown. The service owns the clock; this screen only shows it. */
 @Composable
@@ -48,15 +48,20 @@ fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
     var batteryOk by remember { mutableStateOf(pm.isIgnoringBatteryOptimizations(context.packageName)) }
     val batteryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { batteryOk = pm.isIgnoringBatteryOptimizations(context.packageName) }
-    // When the service reports the end, store elapsed time and open the session form.
+    // The service stores the duration and then posts [finished]; this screen only leaves.
+    // Clear the flag after navigating: clearing first changes this effect's key and cancels it mid-way.
     LaunchedEffect(finished) {
         val f = finished ?: return@LaunchedEffect
         if (f.sessionId == sessionId) {
-            TimerService.finished.value = null
-            val current = vm.repo.session(sessionId).first()
-            if (current != null) vm.repo.updateSession(current.copy(timeSec = f.elapsedSec))
             nav.navigate(Routes.cardio(sessionId)) { popUpTo(Routes.TODAY) }
+            TimerService.finished.value = null
         }
+    }
+    // Safety net: the timer ran here and the service is gone without a report (process death, missed flow). Leave anyway.
+    var sawRunning by remember { mutableStateOf(false) }
+    LaunchedEffect(state?.sessionId) { if (state?.sessionId == sessionId) sawRunning = true }
+    LaunchedEffect(sawRunning, state == null) {
+        if (sawRunning && state == null) { delay(1500); if (TimerService.state.value == null) nav.navigate(Routes.cardio(sessionId)) { popUpTo(Routes.TODAY) } }
     }
 
     val st = state

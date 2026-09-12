@@ -6,9 +6,9 @@ Order of work: spec, data, screens, animations, icon, polish, release. Each grou
 
 ## 0. Spec and design
 
-- [ ] SPEC.md: add phase 3 with the two features, the data model below, and the Today layout change.
-- [ ] DESIGN.md: rules for the stretch player (full screen, phase color like the timer, figure centered, name and countdown, next stretch line) and for the window row on Today.
-- [ ] HTML mockup of three screens only: Today with the two new rows, the stretch player, the window editor. Headless captures at 390 and 360 wide for a look before Kotlin.
+- [x] SPEC.md: add phase 3 with the two features, the data model below, and the Today layout change.
+- [x] DESIGN.md: rules for the stretch player (full screen, phase color like the timer, figure centered, name and countdown, next stretch line) and for the window row on Today.
+- [x] HTML mockup (mockup/v04.html, captures in docs/shots/) of three screens: Today with the two new rows, the stretch player, the window editor. Headless captures at 390 and 360 wide for a look before Kotlin.
 
 ## 1. Data
 

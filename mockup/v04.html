@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Khon Fitness 0.4 mockup</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { margin: 0; background: #000; display: flex; justify-content: flex-start; align-items: flex-start; }
+  .group { border-radius: 14px; background: #1a1a1d; overflow: hidden; margin-top: 16px; }
+  .group .list-row { width: 100%; }
+  .player { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding: 8px 24px 32px; background: #14532d; color: #fff; }
+  .player-top { display: flex; align-items: center; width: 100%; }
+  .player-top .text-button { color: #fff; }
+  .player-top .title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; }
+  .figure { width: 240px; height: 240px; margin-top: 24px; }
+  .st-name { font-size: 22px; font-weight: 600; margin-top: 8px; }
+  .st-side { font-size: 17px; color: rgba(255,255,255,.75); margin-top: 2px; }
+  .st-count { font-size: 96px; font-weight: 700; line-height: 1; letter-spacing: -3px; font-variant-numeric: tabular-nums; margin-top: 12px; }
+  .st-next { font-size: 15px; color: rgba(255,255,255,.75); margin-top: 14px; }
+  .st-pos { font-size: 15px; color: rgba(255,255,255,.6); margin-top: 4px; }
+  .player .spacer { flex: 1; }
+  .player .pause { color: #fff; font-size: 17px; }
+  .sheet-demo { position: absolute; left: 0; right: 0; bottom: 0; background: #1c1c1e; border-radius: 20px 20px 0 0; padding: 8px 16px 24px; }
+  .sheet-demo .handle { width: 36px; height: 4px; background: #333; border-radius: 2px; margin: 0 auto 12px; }
+  .sheet-demo h2 { font-size: 22px; font-weight: 700; margin: 4px 0 12px; }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+  .accent { color: #f0a35a; }
+  .widget { position: absolute; left: 16px; top: 120px; width: 180px; height: 72px; border-radius: 14px; background: #1c1c1e; display: flex; align-items: center; padding: 0 14px; gap: 12px; box-sizing: border-box; }
+  .widget .w1 { font-size: 17px; font-weight: 600; }
+  .widget .w2 { font-size: 13px; color: #9a9a9a; }
+  .home { position: absolute; inset: 0; background: #0b0b0d; }
+  .strip { display: flex; gap: 4px; margin-top: 8px; }
+  .strip i { width: 8px; height: 8px; border-radius: 50%; display: block; }
+</style>
+</head>
+<body>
+<main class="phone-frame" id="app">
+  <div class="app-shell">
+    <section id="screen" class="screen"></section>
+    <nav id="bottom-nav" class="bottom-nav"></nav>
+  </div>
+</main>
+<script>
+const q = new URLSearchParams(location.search).get('s') || 'today';
+const dot = (c, ring) => '<span style="width:12px;height:12px;border-radius:50%;display:inline-block;' + (ring ? 'border:2px solid ' + c + ';box-sizing:border-box' : 'background:' + c) + '"></span>';
+const row = (d, name, sec, chev, cls) => '<button class="list-row ' + (cls||'') + '" type="button"><span class="dot-column">' + (d||'') + '</span><span class="row-primary"><span class="row-name">' + name + '</span></span>' + (sec ? '<span class="row-secondary">' + sec + '</span>' : '') + (chev ? '<span class="row-chevron">›</span>' : '') + '</button>';
+const nav = '<button class="nav-item" style="color:#f0a35a">Today</button><button class="nav-item">History</button><button class="nav-item">Programs</button>';
+const week = (() => { const L = ['M','T','W','T','F','S','S'], N = [7,8,9,10,11,12,13], C = ['#71B7FF','#f0a35a','#7CE0A8','#B39DFF','#71B7FF','#f0a35a',null], F=[0,1,0,1,0,1,0];
+  return '<div class="week-strip">' + L.map((l,i) => '<div class="week-cell ' + (i===3?'is-today':'') + '"><span class="week-label">' + l + '</span><span class="week-number">' + N[i] + '</span><span class="week-dot-wrap">' + (C[i] ? dot(C[i], !F[i]) : '') + '</span></div>').join('') + '</div>'; })();
+
+const screens = {
+  today: () => `
+    <div class="screen-inner today-screen"><header class="screen-header"><h1>Today</h1></header>${week}
+    <section class="today-item"><h2>Norwegian 4x4</h2><p class="today-preview">4 × 4 min on bike, 3 min rest</p><button class="primary-button" type="button">Start</button></section>
+    <div class="group">${row(dot('#4cd28a', true), 'Daily mobility', '9 min · 9 stretches', true)}</div>
+    <div class="group">${row(dot('#4cd28a'), 'Eating window', 'closes in 2 h 10 m', true)}</div>
+    <section class="bodyweight-section"><div class="section-title bodyweight-heading"><h2>Bodyweight</h2><span class="latest-value">79.7 kg</span></div>
+    <div class="bodyweight-entry"><div style="display:flex;align-items:center;height:44px;border-radius:10px;background:#1c1c1e;flex:1;overflow:hidden"><span style="width:44px;text-align:center;font-size:22px">−</span><span style="flex:1;text-align:right;font-size:18px;font-weight:600;padding-right:8px">79.7 <span style="font-size:13px;color:#9a9a9a">kg</span></span><span style="width:44px;text-align:center;font-size:22px">+</span></div><button class="text-button" type="button">Add</button></div></section></div>`,
+  player: () => `
+    <div class="player"><div class="player-top"><button class="text-button" type="button">Stop</button><span class="title">Daily mobility</span><button class="text-button" type="button">Skip</button></div>
+    <canvas class="figure" id="fig" width="480" height="480"></canvas>
+    <div class="st-name">Hip flexor stretch</div><div class="st-side">Left</div><div class="st-count">0:32</div>
+    <div class="st-next">Next: Hip flexor stretch, right</div><div class="st-pos">5 of 9 · 4:50 left</div>
+    <div class="spacer"></div><button class="text-button pause" type="button">Pause</button></div>`,
+  window: () => screens.today() + `<div class="scrim"></div><div class="sheet-demo"><div class="handle"></div><h2>Eating window</h2>
+    <div class="group" style="margin-top:0">${row('', '<span class="accent">Close now</span>', '', false)}${row('', 'Hours', '12:00–20:00', true)}${row('', 'History', '', true)}</div>
+    <div class="strip">${[1,1,0,1,1,1,2,1,1,0,1,1,1,1].map(v => '<i style="' + (v===1 ? 'background:#4cd28a' : v===0 ? 'border:2px solid #4cd28a;box-sizing:border-box' : 'border:2px solid #2a2a2c;box-sizing:border-box') + '"></i>').join('')}</div></div>`,
+  widget: () => `<div class="home"><div class="widget">${dot('#4cd28a')}<div><div class="w1">Open</div><div class="w2">2 h 10 m left</div></div></div>
+    <div class="widget" style="top:208px">${dot('#9a9a9a', true)}<div><div class="w1">Closed</div><div class="w2">opens 12:00</div></div></div></div>`,
+};
+document.getElementById('screen').innerHTML = screens[q]();
+document.getElementById('bottom-nav').innerHTML = q === 'player' || q === 'widget' ? '' : nav;
+if (q === 'player' || q === 'widget') document.getElementById('bottom-nav').style.display = 'none';
+
+// Line figure: joints as [x, y] in a 100-unit box; two poses of a kneeling hip flexor stretch; eased loop.
+const A = { head:[52,18], neck:[52,26], hip:[50,56], kneeF:[70,60], footF:[72,84], kneeB:[36,84], footB:[16,86], handF:[74,50], handB:[30,50] };
+const B = { head:[50,14], neck:[50,22], hip:[46,54], kneeF:[70,58], footF:[74,84], kneeB:[30,84], footB:[10,86], handF:[76,44], handB:[24,46] };
+const cv = document.getElementById('fig');
+if (cv) {
+  const g = cv.getContext('2d'); const S = 4.8;
+  const ease = t => t < .5 ? 2*t*t : -1 + (4 - 2*t)*t;
+  const mix = (t) => { const o = {}; for (const k in A) o[k] = [A[k][0] + (B[k][0]-A[k][0])*t, A[k][1] + (B[k][1]-A[k][1])*t]; return o; };
+  const seg = (p, a, b) => { g.moveTo(p[a][0]*S, p[a][1]*S); g.lineTo(p[b][0]*S, p[b][1]*S); };
+  const draw = (ts) => { const t = ease((Math.sin(ts/1000*Math.PI/1) + 1) / 2); const p = mix(t);
+    g.clearRect(0,0,480,480); g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 12; g.lineCap = 'round'; g.lineJoin = 'round';
+    g.beginPath(); seg(p,'neck','hip'); seg(p,'hip','kneeF'); seg(p,'kneeF','footF'); seg(p,'hip','kneeB'); seg(p,'kneeB','footB'); seg(p,'neck','handF'); seg(p,'neck','handB'); g.stroke();
+    g.beginPath(); g.arc(p.head[0]*S, p.head[1]*S, 9*S/2, 0, Math.PI*2); g.stroke();
+    g.beginPath(); g.moveTo(8*S, 86*S); g.lineTo(92*S, 86*S); g.lineWidth = 4; g.strokeStyle = 'rgba(255,255,255,.35)'; g.stroke();
+    requestAnimationFrame(draw); };
+  requestAnimationFrame(draw);
+}
+</script>
+</body>
+</html>

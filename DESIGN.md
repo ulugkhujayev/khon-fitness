@@ -91,6 +91,38 @@ Two lines, 88 px total, hairline between rows.
   a 72 px sparkline with a soft area fill (accent at 20 percent), and
   one row: number widget + "Add" text button, all centered on one line.
 
+## Stretch player
+
+- Full screen, no nav. Background is the phase color like the timer:
+  hold green, side change gray, rest blue.
+- Top row: Stop at left as a text button, routine name centered, Skip at
+  right. Nothing else in the top row.
+- Figure: a line figure, one stroke, white at 90 percent, drawn on a
+  240 px square centered on the screen. It moves between two poses in a
+  2 s ease and loops. No photo, no illustration style, no shading.
+- Under the figure: stretch name 22/600, side "Left" or "Right" 17
+  muted, the countdown 96/700 tabular, then "Next: Thread the needle"
+  15 at 75 percent, and "4 of 9 · 6:20 left" 15 at 60 percent.
+- Pause is a text button at the bottom. A paused player shows "Paused"
+  above it. No progress bar, no ring.
+- A reps stretch shows "10 reps" in place of the countdown and a small
+  rep counter that ticks with the cue.
+
+## Eating window
+
+- Today row, in the grouped list under the workout: dot (green open,
+  muted ring closed), "Eating window", secondary "closes in 2 h 10 m" or
+  "opens 12:00", chevron. Tap opens a bottom sheet.
+- Sheet: title "Eating window", then a grouped list: "Open now" or
+  "Close now" as the first row (accent text), "Hours 12:00–20:00" with a
+  chevron to the editor, "History". No buttons in the sheet except the
+  rows.
+- Widget: 2x1, surface #1c1c1e, radius 14. Left: 12 px dot. Then "Open"
+  or "Closed" 17/600 and "2 h 10 m left" 13 muted on one line under it.
+  Tap opens the app on Today with the sheet open.
+- History: a strip of 8 px cells, one per day, 4 px apart, filled green
+  when the window was kept, ring when not, empty when the feature was off.
+
 ## Frame
 
 - The bottom nav is pinned to the bottom of the frame at all times. The

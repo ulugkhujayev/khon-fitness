@@ -204,6 +204,7 @@ private fun Settings(vm: AppViewModel) {
     val context = LocalContext.current
     var toast by remember { mutableStateOf<String?>(null) }
     var confirmReset by remember { mutableStateOf(false) }
+    var restoreSheet by remember { mutableStateOf(false) }
     val update by vm.update.collectAsStateWithLifecycle()
     val progress by vm.updateProgress.collectAsStateWithLifecycle()
     val pendingFile by vm.pendingInstall.collectAsStateWithLifecycle()
@@ -246,6 +247,8 @@ private fun Settings(vm: AppViewModel) {
         if (android.os.Build.VERSION.SDK_INT >= 29 && !Settings.canDrawOverlays(context)) ListRow("Reopen after updates", secondary = "allow once") {
             context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.packageName)))
         }
+        val backups = remember { java.io.File(context.getExternalFilesDir(null), "backups").listFiles()?.filter { it.name.endsWith(".json") }?.sortedByDescending { it.name } ?: emptyList() }
+        if (backups.isNotEmpty()) ListRow("Restore a saved copy", secondary = "${backups.size}") { restoreSheet = true }
         ListRow("Reset to seed data", titleColor = K.Red, chevron = false) { confirmReset = true }
     }
     toast?.let { Text(it, color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp)) }
@@ -273,6 +276,12 @@ private fun Settings(vm: AppViewModel) {
         Spacer(Modifier.height(8.dp))
         TextButton("Cancel", color = K.Muted) { pendingImport = null }
     } }
+    if (restoreSheet) Sheet("Restore a saved copy", { restoreSheet = false }) {
+        Text("Copies the app wrote before an import. Restoring replaces everything with that copy; a new copy of the current data is written first.", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(12.dp))
+        val files = java.io.File(context.getExternalFilesDir(null), "backups").listFiles()?.filter { it.name.endsWith(".json") }?.sortedByDescending { it.name } ?: emptyList()
+        ChoiceList { files.forEachIndexed { i, f -> ChoiceRow(f.name.removePrefix("before-import-").removeSuffix(".json").replace('T', ' '), false, divider = i > 0) { restoreSheet = false; applyImport(f.readText(), replace = true) } } }
+    }
     if (confirmReset) Sheet("Reset all data?", { confirmReset = false }) {
         Text("Every session, program, and setting goes back to the seed.", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(16.dp))

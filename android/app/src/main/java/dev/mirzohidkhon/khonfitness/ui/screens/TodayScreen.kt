@@ -87,10 +87,21 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
                     nav.navigate(if (active.itemType == ItemType.PROGRAM) Routes.session(active.id) else if (running) Routes.timer(active.id) else Routes.cardio(active.id))
                 }
             } else {
+                val sessions by vm.sessions.collectAsStateWithLifecycle()
+                val logs by vm.allSetLogs.collectAsStateWithLifecycle()
+                val doneToday = sessions.filter { it.date == today.iso() && it.finished && ((item.program != null && it.programId == item.program.id) || (item.cardio != null && it.exerciseId == item.cardio.id)) }
                 Text(item.name, style = MaterialTheme.typography.titleLarge)
+                if (doneToday.isNotEmpty()) {
+                    val s = doneToday.first()
+                    val done = logs.filter { it.sessionId == s.id && it.status == SetStatus.DONE }
+                    val line = if (s.itemType == ItemType.PROGRAM) "Done · ${done.size} sets · ${fmt(done.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) } / 1000.0, 1)} t" else "Done · " + listOfNotNull(s.timeSec?.let { "${it / 60} min" }, s.distanceM?.let { "${fmt(it / 1000.0)} km" }).joinToString(" · ")
+                    Text(line, color = K.Green, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
+                    Row { TextButton("Start again") { vm.startItem(item) { s2 -> nav.navigate(when { s2.itemType == ItemType.PROGRAM -> Routes.session(s2.id); item.cardio?.intervals == true -> Routes.timer(s2.id); else -> Routes.cardio(s2.id) }) } } }
+                } else {
                 Text(preview(item, blocks, blockExercises, modalities), color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
                 if (!item.isRest) PrimaryButton("Start") {
                     vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
+                }
                 }
             }
         }

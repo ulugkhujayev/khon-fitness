@@ -40,6 +40,7 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
     val allLogs by vm.allSetLogs.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val intervalLogs by vm.allIntervalLogs.collectAsStateWithLifecycle()
+    val stretchSessions by vm.stretchSessions.collectAsStateWithLifecycle()
     val today = LocalDate.now()
     var cardioId by remember { mutableStateOf<String?>(null) }
     var pickCardio by remember { mutableStateOf(false) }
@@ -84,6 +85,7 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
                         }
                         Box(Modifier.padding(top = 4.dp).height(8.dp), contentAlignment = Alignment.Center) {
                             if (color != null) Box(Modifier.alpha(if (planned) 0.4f else 1f)) { Dot(color.first, color.second, size = if (planned) 5 else 7) }
+                            else if (stretchSessions.any { it.date == date.iso() }) Dot(K.Green, false, size = 5)
                         }
                     }
                     d = d.plusDays(1)
@@ -102,7 +104,11 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
                 val item = plan.itemFor(selected)
                 val c = itemColor(item, modalities)
                 ListRow(item.name, secondary = if (item.isRest) null else "planned", dotColor = c?.first ?: K.Dim, dotFilled = c?.second ?: false, chevron = false, divider = false)
-            } else daySessions.forEachIndexed { i, s ->
+            }
+            stretchSessions.filter { it.date == selected.iso() }.forEach { ss ->
+                ListRow(ss.routineName, secondary = "${(ss.totalSec + 30) / 60} min · ${ss.completed} done" + (if (ss.skipped > 0) " · ${ss.skipped} skipped" else ""), dotColor = K.Green, chevron = false, divider = true)
+            }
+            if (daySessions.isNotEmpty()) daySessions.forEachIndexed { i, s ->
                 val c = sessionColor(s, exercises, modalities)
                 val logs = allLogs.filter { it.sessionId == s.id && it.status == SetStatus.DONE }
                 val secondary = if (s.itemType == ItemType.PROGRAM) "${logs.size} sets · ${fmt(logs.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }, 0)} kg" else listOfNotNull(s.timeSec?.let { if (it % 60 == 0) "${it / 60} min" else "${fmt(it / 60.0, 1)} min" }, s.distanceM?.let { "${fmt(it / 1000.0)} km" }).joinToString(" · ")
@@ -111,9 +117,19 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
                 }
             }
         }
+        run {
+            val inMonth = stretchSessions.filter { YearMonth.from(it.date.toDate()) == month }
+            if (inMonth.isNotEmpty()) {
+                Spacer(Modifier.height(28.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Stretching", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text((inMonth.map { it.date }.distinct().size.let { if (it == 1) "1 day" else "$it days" }) + " · avg ${(inMonth.map { it.totalSec }.average() / 60).toInt()} min", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
         Spacer(Modifier.height(28.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Bodyweight", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.weight(1f))
+            Text("Bodyweight", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             bodyweights.lastOrNull()?.let { Text("${fmt(it.kg)} kg", fontSize = 22.sp, fontWeight = FontWeight.Bold) }
         }
         if (bodyweights.isEmpty()) Text("No entries yet. Add one on Today.", color = K.Dim, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))

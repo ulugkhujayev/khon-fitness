@@ -76,7 +76,7 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
                     FieldRow(name, divider = i > 0) {
                         Text(if (st?.sided == true) "per side" else "", color = K.Muted, style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.width(8.dp))
-                        NumberField(sec.toDouble(), { v -> vm.run { vm.repo.saveRoutineStretch(rs.copy(seconds = (v ?: 45.0).toInt().coerceIn(5, 600))) } }, 5.0, "s", Modifier.width(150.dp), 0, 38)
+                        NumberField(sec.toDouble(), { v -> vm.run { vm.repo.saveRoutineStretch(rs.copy(seconds = (v ?: 45.0).toInt().coerceIn(5, 600))) } }, 5.0, "s", Modifier.width(176.dp), 0, 38)
                     }
                 }
                 if (mine.isEmpty()) ListRow("No stretches yet", chevron = false, divider = false, titleColor = K.Muted)
@@ -154,7 +154,7 @@ fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
                 FieldRow("Per side") { Switch(draft.sided, { draft = draft.copy(sided = it) }, colors = switchColors) }
                 FieldRow("Reps") { Switch(draft.mode == StretchMode.REPS, { draft = draft.copy(mode = if (it) StretchMode.REPS else StretchMode.HOLD, reps = if (it && draft.reps == 0) 10 else draft.reps) }, colors = switchColors) }
                 if (draft.mode == StretchMode.REPS) FieldRow("Rep count") { NumberField(draft.reps.toDouble(), { draft = draft.copy(reps = (it ?: 1.0).toInt().coerceIn(1, 50)) }, 1.0, "", Modifier.width(150.dp), 0, 38) }
-                FieldRow(if (draft.mode == StretchMode.REPS) "Time" else "Hold") { NumberField(draft.seconds.toDouble(), { draft = draft.copy(seconds = (it ?: 45.0).toInt().coerceIn(5, 600)) }, 5.0, "s", Modifier.width(150.dp), 0, 38) }
+                FieldRow(if (draft.mode == StretchMode.REPS) "Time" else "Hold") { NumberField(draft.seconds.toDouble(), { draft = draft.copy(seconds = (it ?: 45.0).toInt().coerceIn(5, 600)) }, 5.0, "s", Modifier.width(176.dp), 0, 38) }
                 FieldRow("Muscles") { InlineTextField(draft.muscles, { draft = draft.copy(muscles = it) }, placeholder = "hamstrings, glutes") }
                 FieldRow("Cue") { InlineTextField(draft.cue, { draft = draft.copy(cue = it) }, placeholder = "How to do it") }
                 FieldRow("Link") { InlineTextField(draft.link, { draft = draft.copy(link = it) }, placeholder = "YouTube URL") }

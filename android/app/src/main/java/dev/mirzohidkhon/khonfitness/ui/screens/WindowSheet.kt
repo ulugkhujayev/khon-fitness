@@ -48,7 +48,7 @@ fun WindowSheet(vm: AppViewModel, onDismiss: () -> Unit) {
             }
             FieldRow("Opens", divider = w.enabled) { TimeStepper(w.startMinute) { m -> save(w.copy(startMinute = m.coerceIn(0, w.endMinute - 60))) } }
             FieldRow("Closes") { TimeStepper(w.endMinute) { m -> save(w.copy(endMinute = m.coerceIn(w.startMinute + 60, 24 * 60 - 1))) } }
-            FieldRow("Remind before", divider = true) { NumberField(w.remindBeforeMin.toDouble(), { v -> save(w.copy(remindBeforeMin = (v ?: 0.0).toInt().coerceIn(0, 120))) }, 5.0, "min", Modifier.width(150.dp), 0, 38) }
+            FieldRow("Remind before", divider = true) { NumberField(w.remindBeforeMin.toDouble(), { v -> save(w.copy(remindBeforeMin = (v ?: 0.0).toInt().coerceIn(0, 120))) }, 5.0, "min", Modifier.width(176.dp), 0, 38) }
             FieldRow("On") { Switch(w.enabled, { save(w.copy(enabled = it)) }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
         }
         if (w.enabled) {

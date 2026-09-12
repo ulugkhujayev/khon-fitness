@@ -45,14 +45,17 @@ class TodayWidget : GlanceAppWidget() {
         val title = unfinished?.programName ?: unfinished?.exerciseName ?: item.name
         val sub = when { unfinished != null -> "In progress"; item.isRest -> "Rest day"; item.itemType == ItemType.PROGRAM -> "Gym"; else -> "Cardio" }
         val label = when { unfinished != null -> "Resume"; item.isRest -> "Open"; else -> "Start" }
+        val stretchedToday = repo.stretchSessions.first().any { it.date == LocalDate.now().format(dev.mirzohidkhon.khonfitness.data.ISO) }
+        val routine = repo.stretchRoutines.first().firstOrNull { it.active }
         provideContent {
             val open = actionStartActivity(Intent(context, MainActivity::class.java).apply { action = if (item.isRest && unfinished == null) Intent.ACTION_MAIN else ACTION_START_TODAY; addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP) })
-            Column(GlanceModifier.fillMaxSize().background(Color(0xFF1A1A1D)).cornerRadius(18.dp).padding(14.dp).clickable(open), verticalAlignment = Alignment.CenterVertically) {
+            Column(GlanceModifier.fillMaxSize().background(Color(0xFF1C1C1E)).cornerRadius(20.dp).padding(14.dp).clickable(open), verticalAlignment = Alignment.CenterVertically) {
                 Text(sub, style = TextStyle(color = ColorProvider(Color(0xFF9B9BA3)), fontSize = 12.sp))
                 Text(title, style = TextStyle(color = ColorProvider(Color(0xFFF4F4F5)), fontSize = 20.sp, fontWeight = FontWeight.Bold), maxLines = 2)
+                if (routine != null) Text(if (stretchedToday) "Stretched today" else routine.name + " not yet", style = TextStyle(color = ColorProvider(if (stretchedToday) Color(0xFF30D158) else Color(0xFF8E8E93)), fontSize = 12.sp))
                 Spacer(GlanceModifier.height(10.dp))
-                Box(GlanceModifier.fillMaxWidth().height(40.dp).background(Color(0xFFF0A35A)).cornerRadius(12.dp).clickable(open), contentAlignment = Alignment.Center) {
-                    Text(label, style = TextStyle(color = ColorProvider(Color(0xFF2A1708)), fontSize = 16.sp, fontWeight = FontWeight.Bold))
+                Box(GlanceModifier.fillMaxWidth().height(40.dp).background(Color(0xFFFF9F0A)).cornerRadius(20.dp).clickable(open), contentAlignment = Alignment.Center) {
+                    Text(label, style = TextStyle(color = ColorProvider(Color.White), fontSize = 16.sp, fontWeight = FontWeight.Bold))
                 }
             }
         }

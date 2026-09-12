@@ -12,12 +12,12 @@ Order of work: spec, data, screens, animations, icon, polish, release. Each grou
 
 ## 1. Data
 
-- [ ] Room v3 with AutoMigration 2 to 3.
-- [ ] `Stretch`: id, name, side (none, left/right), mode (hold or reps), holdSec or reps default, figure key, muscles, cue text, link (reference video URL), builtin.
-- [ ] `StretchRoutine`: id, name, active flag, order. `RoutineStretch`: routineId, stretchId, order, holdSec override.
-- [ ] `StretchSession`: id, routineId snapshot name, date, startedAt, totalSec, completed count, skipped count.
-- [ ] `EatingWindow` settings: startMinute, endMinute, enabled, remindBeforeMin. `WindowDay`: date, openedAt, closedAt, note. One row per day, written when the day's state changes.
-- [ ] Seed the owner's routine "Daily mobility" (2026-09-12 list) with these defaults, all editable:
+- [x] Room v3 with AutoMigration 2 to 3.
+- [x] `Stretch`: id, name, side (none, left/right), mode (hold or reps), holdSec or reps default, figure key, muscles, cue text, link (reference video URL), builtin.
+- [x] `StretchRoutine`: id, name, active flag, order. `RoutineStretch`: routineId, stretchId, order, holdSec override.
+- [x] `StretchSession`: id, routineId snapshot name, date, startedAt, totalSec, completed count, skipped count.
+- [x] `EatingWindow` settings: startMinute, endMinute, enabled, remindBeforeMin. `WindowDay`: date, openedAt, closedAt, note. One row per day, written when the day's state changes.
+- [x] Seed the owner's routine "Daily mobility" (2026-09-12 list) with these defaults, all editable:
 
   | # | Stretch | Sides | Default | Reference |
   |---|---|---|---|---|
@@ -33,7 +33,7 @@ Order of work: spec, data, screens, animations, icon, polish, release. Each grou
 
   About 9 minutes total. Reps-mode stretches run as a timer of the given length with a rep cue every few seconds.
 - [ ] Stretch library rows show a small play icon when a link exists; tap opens YouTube. The player itself stays offline and drawn.
-- [ ] Backup: add the four tables to export, import, describeBackup, merge, replace.
+- [x] Backup: add the four tables to export, import, describeBackup, merge, replace.
 - [ ] Widget: show the stretch state (done today or not) under the workout line.
 
 ## 2. Today screen
@@ -83,7 +83,7 @@ Order of work: spec, data, screens, animations, icon, polish, release. Each grou
 
 ## 8. Release
 
-- [ ] Version 0.4.0, versionCode 16.
+- [ ] Version 0.4.0, versionCode 17.
 - [ ] Emulator pass: 411 dp and 360 dp, font scale 1.3 on the two new screens.
 - [ ] Android 9 image: player with screen off, window widget at a boundary, alarms after a reboot.
 - [ ] Release build, commit, tag, PUSH, gh release with notes.

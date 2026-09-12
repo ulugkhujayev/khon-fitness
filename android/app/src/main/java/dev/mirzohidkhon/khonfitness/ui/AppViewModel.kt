@@ -25,6 +25,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val blocks = stream(repo.blocks, emptyList())
     val blockExercises = stream(repo.blockExercises, emptyList())
     val allIntervalLogs = stream(repo.allIntervalLogs, emptyList())
+    val stretches = stream(repo.stretches, emptyList())
+    val stretchRoutines = stream(repo.stretchRoutines, emptyList())
+    val routineStretches = stream(repo.routineStretches, emptyList())
+    val stretchSessions = stream(repo.stretchSessions, emptyList())
+    val eatingWindow = stream(repo.eatingWindow, null)
+    val windowDays = stream(repo.windowDays, emptyList())
     val planData = stream(repo.planData, KhonRepository.PlanData(emptyList(), emptyList(), emptyList(), emptyList()))
 
     fun run(block: suspend () -> Unit) { viewModelScope.launch { block() } }

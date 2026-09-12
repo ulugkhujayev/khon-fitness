@@ -32,6 +32,9 @@ data class Backup(
     val blocks: List<Block>, val blockExercises: List<BlockExercise>, val sessions: List<Session>,
     val setLogs: List<SetLog>, val intervalLogs: List<IntervalLog>, val bodyweights: List<Bodyweight>,
     val weekPlan: List<WeekPlan>, val overrides: List<DayOverride>,
+    val stretches: List<Stretch> = emptyList(), val stretchRoutines: List<StretchRoutine> = emptyList(),
+    val routineStretches: List<RoutineStretch> = emptyList(), val stretchSessions: List<StretchSession> = emptyList(),
+    val eatingWindow: EatingWindow? = null, val windowDays: List<WindowDay> = emptyList(),
 )
 
 class KhonRepository(private val dao: KhonDao) {
@@ -47,6 +50,31 @@ class KhonRepository(private val dao: KhonDao) {
     val blocks: Flow<List<Block>> = dao.blocks()
     val blockExercises: Flow<List<BlockExercise>> = dao.blockExercises()
     val allIntervalLogs: Flow<List<IntervalLog>> = dao.allIntervalLogs()
+    val stretches: Flow<List<Stretch>> = dao.stretches()
+    val stretchRoutines: Flow<List<StretchRoutine>> = dao.stretchRoutines()
+    val routineStretches: Flow<List<RoutineStretch>> = dao.routineStretches()
+    val stretchSessions: Flow<List<StretchSession>> = dao.stretchSessions()
+    val eatingWindow: Flow<EatingWindow?> = dao.eatingWindow()
+    val windowDays: Flow<List<WindowDay>> = dao.windowDays()
+
+    // stretching
+    suspend fun saveStretch(s: Stretch) = dao.upsert(s)
+    suspend fun deleteStretch(id: String) = dao.deleteStretch(id)
+    suspend fun stretchUseCount(id: String) = dao.routineUseCount(id)
+    suspend fun saveRoutine(r: StretchRoutine) { dao.upsert(r); if (r.active) dao.setActiveRoutine(r.id) }
+    suspend fun deleteRoutine(id: String) { dao.deleteRoutineStretchesFor(id); dao.deleteStretchRoutine(id) }
+    suspend fun saveRoutineStretch(rs: RoutineStretch) = dao.upsert(rs)
+    suspend fun saveRoutineStretches(list: List<RoutineStretch>) = dao.upsertRoutineStretches(list)
+    suspend fun deleteRoutineStretch(id: String) = dao.deleteRoutineStretch(id)
+    suspend fun saveStretchSession(s: StretchSession) = dao.upsert(s)
+    suspend fun deleteStretchSession(id: String) = dao.deleteStretchSession(id)
+
+    // eating window
+    suspend fun saveEatingWindow(w: EatingWindow) = dao.upsert(w.copy(id = 1))
+    suspend fun eatingWindowOnce(): EatingWindow = dao.eatingWindowOnce() ?: EatingWindow()
+    suspend fun windowDay(date: String): WindowDay? = dao.windowDay(date)
+    suspend fun openWindowNow(date: String, now: Long) { dao.upsert((dao.windowDay(date) ?: WindowDay(date)).copy(openedAt = now, closedAt = null)) }
+    suspend fun closeWindowNow(date: String, now: Long) { dao.upsert((dao.windowDay(date) ?: WindowDay(date)).copy(closedAt = now)) }
 
     fun setLogs(sessionId: String): Flow<List<SetLog>> = dao.setLogs(sessionId)
     fun session(sessionId: String): Flow<Session?> = dao.sessionFlow(sessionId)
@@ -197,6 +225,8 @@ class KhonRepository(private val dao: KhonDao) {
             exercises = dao.exercisesOnce(), modalities = dao.modalitiesOnce(), programs = dao.programsOnce(), blocks = dao.blocksOnce(),
             blockExercises = dao.blockExercisesOnce(), sessions = dao.sessionsOnce(), setLogs = dao.allSetLogsOnce(), intervalLogs = dao.intervalLogsOnce(),
             bodyweights = dao.bodyweightsOnce(), weekPlan = dao.weekPlanOnce(), overrides = dao.overridesOnce(),
+            stretches = dao.stretchesOnce(), stretchRoutines = dao.stretchRoutinesOnce(), routineStretches = dao.routineStretchesOnce(),
+            stretchSessions = dao.stretchSessionsOnce(), eatingWindow = dao.eatingWindowOnce(), windowDays = dao.windowDaysOnce(),
         )
         return Json { prettyPrint = true }.encodeToString(backup)
     }
@@ -205,7 +235,7 @@ class KhonRepository(private val dao: KhonDao) {
     fun describeBackup(text: String): String {
         val b = Json { ignoreUnknownKeys = true }.decodeFromString<Backup>(text)
         fun n(c: Int, one: String, many: String) = "$c " + if (c == 1) one else many
-        return listOf(n(b.sessions.size, "session", "sessions"), n(b.bodyweights.size, "bodyweight entry", "bodyweight entries"), n(b.programs.size, "program", "programs"), n(b.exercises.size, "exercise", "exercises")).joinToString(" · ")
+        return listOf(n(b.sessions.size, "session", "sessions"), n(b.stretchSessions.size, "stretch session", "stretch sessions"), n(b.bodyweights.size, "bodyweight entry", "bodyweight entries"), n(b.programs.size, "program", "programs"), n(b.exercises.size, "exercise", "exercises")).joinToString(" · ")
     }
 
     suspend fun importJson(text: String, replace: Boolean) {
@@ -214,16 +244,44 @@ class KhonRepository(private val dao: KhonDao) {
         dao.upsertModalities(b.modalities); dao.upsertExercises(b.exercises); dao.upsertPrograms(b.programs); dao.upsertBlocks(b.blocks)
         dao.upsertBlockExercises(b.blockExercises); dao.upsertSessions(b.sessions); dao.upsertSetLogs(b.setLogs); dao.upsertIntervalLogs(b.intervalLogs)
         dao.upsertBodyweights(b.bodyweights); dao.upsertWeekPlan(b.weekPlan); dao.upsertOverrides(b.overrides)
+        dao.upsertStretches(b.stretches); dao.upsertStretchRoutines(b.stretchRoutines); dao.upsertRoutineStretches(b.routineStretches)
+        dao.upsertStretchSessions(b.stretchSessions); b.eatingWindow?.let { dao.upsert(it) }; dao.upsertWindowDays(b.windowDays)
+        if (replace) seedStretchesIfEmpty()
     }
 
-    suspend fun seedIfEmpty() { if (dao.programsOnce().isEmpty() && dao.exercisesOnce().isEmpty()) Seed.apply(dao) }
-    suspend fun resetToSeed() { dao.clearAll(); Seed.apply(dao) }
+    suspend fun seedIfEmpty() { if (dao.programsOnce().isEmpty() && dao.exercisesOnce().isEmpty()) Seed.apply(dao); seedStretchesIfEmpty() }
+    /** Older installs have no stretches yet; the routine arrives on first start after the update. */
+    suspend fun seedStretchesIfEmpty() { if (dao.stretchesOnce().isEmpty()) Seed.applyStretches(dao) }
+    suspend fun resetToSeed() { dao.clearAll(); Seed.apply(dao); Seed.applyStretches(dao) }
 }
 
 fun SetLog.key(): String = "$exerciseId:$setIndex"
 fun epley(weight: Double, reps: Int): Double = weight * (1 + reps / 30.0)
 
 object Seed {
+    /** The owner's daily mobility routine (2026-09-12) with reference clips. Seconds are per side for sided stretches. */
+    suspend fun applyStretches(dao: KhonDao) {
+        fun st(id: String, name: String, sided: Boolean, mode: String, seconds: Int, reps: Int, figure: String, muscles: String, cue: String, link: String) =
+            Stretch(id, name, sided, mode, seconds, reps, figure, muscles, cue, "https://www.youtube.com/watch?v=" + link, builtin = true)
+        val list = listOf(
+            st("elephant", "Elephant walks", false, StretchMode.REPS, 60, 10, "elephant", "hamstrings", "Hands on the floor, pedal the heels down one at a time", "bIS8e2ZI-u0"),
+            st("palmsfloor", "Hamstring stretch, palms on ground", false, StretchMode.HOLD, 45, 0, "fold", "hamstrings,lower back", "Fold from the hips, reach the palms to the floor", "2nfsR9PC7hQ"),
+            st("wgs", "World's greatest stretch", true, StretchMode.REPS, 40, 5, "wgs", "glutes,quads,upper back", "Lunge, elbow to instep, rotate and reach up", "7XheaZERvBQ"),
+            st("needle", "Thread the needle", true, StretchMode.HOLD, 30, 0, "needle", "upper back,shoulders", "On all fours, slide one arm under and rest the shoulder down", "gyew25Vaqj8"),
+            st("hipflexor", "Hip flexor stretch", true, StretchMode.HOLD, 45, 0, "hipflexor", "quads,glutes", "Half kneel, tuck the pelvis, squeeze the back glute", "ktgtEWGhFd8"),
+            st("ninety", "90/90 stretch", true, StretchMode.HOLD, 45, 0, "ninety", "glutes", "Both knees at 90, sit tall, lean over the front shin", "FM7-7-a0FLg"),
+            st("shoulderir", "Shoulder internal rotation", true, StretchMode.HOLD, 30, 0, "shoulderir", "shoulders", "Hand behind the back, walk it up the spine", "3Av8-RLNvDk"),
+            st("catcow", "Cat cow", false, StretchMode.REPS, 40, 10, "catcow", "lower back,core", "Round the spine on the exhale, arch on the inhale", "2of247Kt0tU"),
+            st("plow", "Plow pose", false, StretchMode.HOLD, 45, 0, "plow", "lower back,hamstrings", "Legs over the head, toes toward the floor, breathe", "IoURFlXOuqg"),
+        )
+        dao.upsertStretches(list)
+        if (dao.stretchRoutinesOnce().isEmpty()) {
+            dao.upsert(StretchRoutine("daily", "Daily mobility", active = true, sortOrder = 0))
+            dao.upsertRoutineStretches(list.mapIndexed { i, s -> RoutineStretch("daily-" + s.id, "daily", s.id, i) })
+        }
+        if (dao.eatingWindowOnce() == null) dao.upsert(EatingWindow())
+    }
+
     private fun strength(id: String, name: String, primary: String, secondary: String = "", step: Double = 2.5) =
         Exercise(id = id, name = name, kind = Kind.STRENGTH, primaryMuscle = primary, secondaryMuscles = secondary, stepKg = step, builtin = true)
 

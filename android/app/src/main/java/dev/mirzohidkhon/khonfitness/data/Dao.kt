@@ -101,7 +101,48 @@ interface KhonDao {
     @Upsert suspend fun upsertOverrides(list: List<DayOverride>)
     @Query("DELETE FROM day_overrides WHERE date = :date") suspend fun deleteOverride(date: String)
 
+    // stretching
+    @Query("SELECT * FROM stretches ORDER BY name") fun stretches(): Flow<List<Stretch>>
+    @Query("SELECT * FROM stretches") suspend fun stretchesOnce(): List<Stretch>
+    @Upsert suspend fun upsert(s: Stretch)
+    @Upsert suspend fun upsertStretches(list: List<Stretch>)
+    @Query("DELETE FROM stretches WHERE id = :id") suspend fun deleteStretch(id: String)
+    @Query("SELECT COUNT(*) FROM routine_stretches WHERE stretchId = :id") suspend fun routineUseCount(id: String): Int
+    @Query("SELECT * FROM stretch_routines ORDER BY sortOrder, name") fun stretchRoutines(): Flow<List<StretchRoutine>>
+    @Query("SELECT * FROM stretch_routines") suspend fun stretchRoutinesOnce(): List<StretchRoutine>
+    @Upsert suspend fun upsert(r: StretchRoutine)
+    @Upsert suspend fun upsertStretchRoutines(list: List<StretchRoutine>)
+    @Query("UPDATE stretch_routines SET active = (id = :id)") suspend fun setActiveRoutine(id: String)
+    @Query("DELETE FROM stretch_routines WHERE id = :id") suspend fun deleteStretchRoutine(id: String)
+    @Query("SELECT * FROM routine_stretches ORDER BY sortOrder") fun routineStretches(): Flow<List<RoutineStretch>>
+    @Query("SELECT * FROM routine_stretches") suspend fun routineStretchesOnce(): List<RoutineStretch>
+    @Upsert suspend fun upsert(rs: RoutineStretch)
+    @Upsert suspend fun upsertRoutineStretches(list: List<RoutineStretch>)
+    @Query("DELETE FROM routine_stretches WHERE id = :id") suspend fun deleteRoutineStretch(id: String)
+    @Query("DELETE FROM routine_stretches WHERE routineId = :routineId") suspend fun deleteRoutineStretchesFor(routineId: String)
+    @Query("SELECT * FROM stretch_sessions ORDER BY date DESC, startedAt DESC") fun stretchSessions(): Flow<List<StretchSession>>
+    @Query("SELECT * FROM stretch_sessions") suspend fun stretchSessionsOnce(): List<StretchSession>
+    @Upsert suspend fun upsert(s: StretchSession)
+    @Upsert suspend fun upsertStretchSessions(list: List<StretchSession>)
+    @Query("DELETE FROM stretch_sessions WHERE id = :id") suspend fun deleteStretchSession(id: String)
+
+    // eating window
+    @Query("SELECT * FROM eating_window WHERE id = 1") fun eatingWindow(): Flow<EatingWindow?>
+    @Query("SELECT * FROM eating_window WHERE id = 1") suspend fun eatingWindowOnce(): EatingWindow?
+    @Upsert suspend fun upsert(w: EatingWindow)
+    @Query("SELECT * FROM window_days ORDER BY date") fun windowDays(): Flow<List<WindowDay>>
+    @Query("SELECT * FROM window_days") suspend fun windowDaysOnce(): List<WindowDay>
+    @Query("SELECT * FROM window_days WHERE date = :date") suspend fun windowDay(date: String): WindowDay?
+    @Upsert suspend fun upsert(d: WindowDay)
+    @Upsert suspend fun upsertWindowDays(list: List<WindowDay>)
+
     // wipe
+    @Query("DELETE FROM stretches") suspend fun clearStretches()
+    @Query("DELETE FROM stretch_routines") suspend fun clearStretchRoutines()
+    @Query("DELETE FROM routine_stretches") suspend fun clearRoutineStretches()
+    @Query("DELETE FROM stretch_sessions") suspend fun clearStretchSessions()
+    @Query("DELETE FROM eating_window") suspend fun clearEatingWindow()
+    @Query("DELETE FROM window_days") suspend fun clearWindowDays()
     @Query("DELETE FROM exercises") suspend fun clearExercises()
     @Query("DELETE FROM modalities") suspend fun clearModalities()
     @Query("DELETE FROM programs") suspend fun clearPrograms()
@@ -118,5 +159,6 @@ interface KhonDao {
     suspend fun clearAll() {
         clearSetLogs(); clearIntervalLogs(); clearSessions(); clearBlockExercises(); clearBlocks(); clearPrograms()
         clearExercises(); clearModalities(); clearBodyweights(); clearWeekPlan(); clearOverrides()
+        clearRoutineStretches(); clearStretchSessions(); clearStretchRoutines(); clearStretches(); clearEatingWindow(); clearWindowDays()
     }
 }

@@ -57,9 +57,9 @@ fun ProgramEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Str
     EditorScaffold("Programs", program.name, onBack = { nav.popBackStack() }, onDone = { vm.run { vm.repo.saveProgram(program.copy(name = name.ifBlank { program.name })) }; nav.popBackStack() }) {
         GroupedList {
             FieldRow("Name", divider = false) { InlineTextField(name, { name = it }, placeholder = "Program name") }
-            FieldRow("Active") { Switch(program.active, { on -> if (on) vm.run { vm.repo.setActiveProgram(program.id) } }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White)) }
+            FieldRow("Active") { Switch(program.active, { on -> if (on) vm.run { vm.repo.setActiveProgram(program.id) } }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
         }
-        SectionTitle("Blocks", Modifier.padding(top = 24.dp)) { TextButton("+") {
+        SectionTitle("Blocks", Modifier.padding(top = 24.dp)) { PlusButton() {
             val id = newId(); vm.run { vm.repo.saveBlock(Block(id, programId, myBlocks.size, true)) }; nav.navigate(Routes.block(programId, id))
         } }
         GroupedList {
@@ -87,7 +87,7 @@ fun BlockEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Strin
     val index = siblings.indexOfFirst { it.id == blockId }
     EditorScaffold("Program", "Block ${index + 1}", onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) {
         GroupedList {
-            FieldRow("Superset", divider = false) { Switch(block.superset, { on -> vm.run { vm.repo.saveBlock(block.copy(superset = on)) } }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White)) }
+            FieldRow("Superset", divider = false) { Switch(block.superset, { on -> vm.run { vm.repo.saveBlock(block.copy(superset = on)) } }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
         }
         mine.forEachIndexed { i, be ->
             val ex = exercises.find { it.id == be.exerciseId }
@@ -148,7 +148,7 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
             } else {
                 FieldRow("Modality", onClick = { sheet = "modality" }) { Text(modalities.find { it.id == draft.modalityId }?.name ?: "Choose", fontWeight = FontWeight.SemiBold); Chevron() }
                 FieldRow("Intensity", onClick = { sheet = "intensity" }) { Text(cap(draft.intensity ?: "low"), fontWeight = FontWeight.SemiBold); Chevron() }
-                FieldRow("Intervals") { Switch(draft.intervals, { draft = draft.copy(intervals = it, rounds = if (it && draft.rounds == 0) 4 else draft.rounds, workSec = if (it && draft.workSec == 0) 240 else draft.workSec, restSec = if (it && draft.restSec == 0) 180 else draft.restSec) }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White)) }
+                FieldRow("Intervals") { Switch(draft.intervals, { draft = draft.copy(intervals = it, rounds = if (it && draft.rounds == 0) 4 else draft.rounds, workSec = if (it && draft.workSec == 0) 240 else draft.workSec, restSec = if (it && draft.restSec == 0) 180 else draft.restSec) }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
                 if (draft.intervals) {
                     NumberRow("Warm-up", draft.warmupSec / 60.0, "min", 1.0, 0, true) { draft = draft.copy(warmupSec = ((it ?: 0.0) * 60).toInt()) }
                     NumberRow("Work", draft.workSec.toDouble(), "s", 10.0, 0, true) { draft = draft.copy(workSec = (it ?: 0.0).toInt()) }

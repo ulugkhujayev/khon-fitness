@@ -54,7 +54,10 @@ import androidx.compose.ui.unit.sp
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.util.Locale
 
-val GroupShape = RoundedCornerShape(14.dp)
+/** Inset grouped list radius. iOS 26 groups use a large concentric radius. */
+val GroupShape = RoundedCornerShape(20.dp)
+/** Capsule for full-width prominent buttons. */
+val CapsuleShape = RoundedCornerShape(25.dp)
 
 fun fmt(value: Double?, decimals: Int = 1): String {
     if (value == null) return ""
@@ -63,9 +66,10 @@ fun fmt(value: Double?, decimals: Int = 1): String {
     return if (decimals > 0 && s.endsWith(".0")) s.dropLast(2) else s
 }
 
+/** Large title, as in a navigation bar at the top of a scroll view: 34 bold on the leading edge, bar items trailing. */
 @Composable
 fun ScreenTitle(text: String, trailing: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp), verticalAlignment = Alignment.Bottom) {
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(text, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
         trailing?.invoke()
     }
@@ -73,8 +77,9 @@ fun ScreenTitle(text: String, trailing: (@Composable () -> Unit)? = null) {
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
-    Row(modifier.fillMaxWidth().heightIn(min = 32.dp).padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.weight(1f))
+    // Grouped section header: Footnote in secondary label color, inset to the row text. Sentence case by owner rule.
+    Row(modifier.fillMaxWidth().heightIn(min = 32.dp).padding(start = 16.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(text, style = MaterialTheme.typography.bodySmall, color = K.Muted, modifier = Modifier.weight(1f))
         trailing?.invoke()
     }
 }
@@ -82,16 +87,24 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier, trailing: (@Compos
 @Composable
 fun TextButton(text: String, color: Color = K.Accent, enabled: Boolean = true, onClick: () -> Unit) {
     Box(Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(8.dp)).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = if (enabled) color else K.Dim, style = MaterialTheme.typography.labelLarge)
+        Text(text, color = if (enabled) color else K.Dim, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** Plus symbol as a bar or section action, 44 dp target. */
+@Composable
+fun PlusButton(label: String = "Add", onClick: () -> Unit) {
+    Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        androidx.compose.material3.Icon(dev.mirzohidkhon.khonfitness.ui.Icons.Plus, contentDescription = label, tint = K.Accent, modifier = Modifier.size(22.dp))
     }
 }
 
 @Composable
 fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
     Box(
-        modifier.fillMaxWidth().height(54.dp).clip(GroupShape).background(if (enabled) K.Accent else K.Surface3).clickable(enabled = enabled, onClick = onClick),
+        modifier.fillMaxWidth().height(50.dp).clip(CapsuleShape).background(if (enabled) K.Accent else K.Surface2).clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Text(text, color = if (enabled) K.AccentInk else K.Muted, fontSize = 17.sp, fontWeight = FontWeight.Bold) }
+    ) { Text(text, color = if (enabled) K.AccentInk else K.Muted, fontSize = 17.sp, fontWeight = FontWeight.SemiBold) }
 }
 
 /** iOS-style grouped inset list. Rows draw their own inset dividers. */
@@ -120,13 +133,13 @@ fun ListRow(
     onClick: (() -> Unit)? = null,
 ) {
     Column(modifier.fillMaxWidth()) {
-        if (divider) HorizontalDivider(Modifier.padding(start = if (dotColor != null) 42.dp else 16.dp), color = K.Divider, thickness = 1.dp)
+        if (divider) HorizontalDivider(Modifier.padding(start = if (dotColor != null) 42.dp else 16.dp), color = K.Divider, thickness = 0.7.dp)
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 54.dp).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(start = 16.dp, end = 12.dp),
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(start = 16.dp, end = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (dotColor != null) { Box(Modifier.width(26.dp), contentAlignment = Alignment.CenterStart) { Dot(dotColor, dotFilled) } }
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = titleColor, modifier = Modifier.weight(1f).padding(vertical = 14.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = titleColor, modifier = Modifier.weight(1f).padding(vertical = 12.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (secondary != null) Text(secondary, style = MaterialTheme.typography.bodyMedium, color = K.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp))
             trailing?.invoke(this)
             if (chevron) Chevron()
@@ -135,19 +148,19 @@ fun ListRow(
 }
 
 @Composable
-fun Chevron() { Text("›", color = K.Dim, fontSize = 24.sp, fontWeight = FontWeight.Light, modifier = Modifier.padding(start = 6.dp)) }
+fun Chevron() { androidx.compose.material3.Icon(dev.mirzohidkhon.khonfitness.ui.Icons.ChevronRight, contentDescription = null, tint = K.Dim, modifier = Modifier.padding(start = 6.dp).size(14.dp)) }
 
 /** Editor field row: label on the left, value or control on the right. */
 @Composable
 fun FieldRow(label: String, divider: Boolean = true, onClick: (() -> Unit)? = null, value: @Composable RowScope.() -> Unit) {
     Column(Modifier.fillMaxWidth()) {
-        if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 1.dp)
+        if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 54.dp).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 16.dp),
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 400
-            Text(label, color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(if (narrow) 96.dp else 120.dp))
+            Text(label, color = K.Text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(if (narrow) 104.dp else 128.dp))
             Spacer(Modifier.width(12.dp))
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) { value() }
         }

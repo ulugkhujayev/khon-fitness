@@ -63,14 +63,16 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
 
     Column(Modifier.fillMaxSize()) {
         if (s.finished) EditorTopBar("History", s.programName ?: "Session", onBack = { nav.popBackStack() }, done = if (editing) "Done" else "Edit") { editing = !editing }
-        LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = if (s.finished) 4.dp else 12.dp, bottom = 24.dp)) {
+        LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = if (s.finished) 4.dp else 6.dp, bottom = 24.dp)) {
             if (!s.finished) item {
                 Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton("‹ Today") { nav.popBackStack() }
+                    BarCircleButton(Icons.ChevronLeft, "Today") { nav.popBackStack() }
                     Spacer(Modifier.weight(1f))
-                    TextButton("Finish") { summary = summarize(logs, vm.allSetLogs.value, s.id) }
+                    Box(Modifier.height(34.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(17.dp)).background(K.Accent).clickable { summary = summarize(logs, vm.allSetLogs.value, s.id) }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                        Text("Finish", color = K.AccentInk, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    }
                 }
-                Text(s.programName ?: "Session", style = MaterialTheme.typography.headlineMedium)
+                Text(s.programName ?: "Session", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 4.dp))
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(s.date.toDate().format(shortDate), color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     Text("$done / ${logs.size} sets", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
@@ -207,7 +209,8 @@ private fun SetRow(log: SetLog, prev: SetLog?, live: Boolean, requester: FocusRe
 @Composable
 private fun Delta(prev: Double?, now: Double?, decimals: Int, suffix: String = "") {
     // Under the widget: the gain since last time, or just the unit on narrow phones where the field hides it.
-    val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 400
+    // Two fields share a row on every phone width, so the field itself is compact and the unit lives here.
+    val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 480
     if (prev != null && now != null && now > prev) Text("+${fmt(now - prev, decimals)}$suffix", color = K.Green, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 40.dp, top = 3.dp))
     else if (narrow) Text(suffix.trim(), color = K.Dim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 40.dp, top = 3.dp))
     else Spacer(Modifier.height(0.dp))

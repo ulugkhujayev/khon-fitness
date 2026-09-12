@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,14 +64,32 @@ fun preview(item: PlanItem, blocks: List<Block>, blockExercises: List<BlockExerc
     else -> "Rest day"
 }
 
+/**
+ * Navigation bar in the HIG style: a round Back button with a chevron only (no "Back" text), the title centered
+ * in Headline, and the primary action on the trailing edge as a small prominent capsule.
+ */
 @Composable
 fun EditorTopBar(back: String, title: String, onBack: () -> Unit, done: String = "Done", onDone: (() -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        TextButton("‹ $back", onClick = onBack)
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        BarCircleButton(dev.mirzohidkhon.khonfitness.ui.Icons.ChevronLeft, back, onBack)
         Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
-        if (onDone != null) Box(Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onDone).padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
-            Text(done, color = K.Accent, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-        } else Spacer(Modifier.width(60.dp))
+        when {
+            onDone == null -> Spacer(Modifier.width(36.dp))
+            done == "+" -> BarCircleButton(dev.mirzohidkhon.khonfitness.ui.Icons.Plus, "Add", onDone)
+            else -> Box(Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(K.Accent).clickable(onClick = onDone).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                Text(done, color = K.AccentInk, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            }
+        }
+    }
+}
+
+/** 36 dp round bar button on the group surface, like a Liquid Glass toolbar item without the blur. */
+@Composable
+fun BarCircleButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).background(K.Surface), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(icon, contentDescription = label, tint = K.Accent, modifier = Modifier.size(18.dp))
+        }
     }
 }
 
@@ -80,7 +99,8 @@ fun Sheet(title: String?, onDismiss: () -> Unit, content: @Composable () -> Unit
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss, sheetState = state, containerColor = K.Surface,
-        dragHandle = { Box(Modifier.padding(top = 8.dp, bottom = 4.dp).width(36.dp).height(4.dp).background(K.Surface3, RoundedCornerShape(2.dp))) },
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = { Box(Modifier.padding(top = 6.dp, bottom = 2.dp).width(36.dp).height(5.dp).background(K.Dim, RoundedCornerShape(3.dp))) },
     ) {
         Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
             if (title != null) Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 12.dp, top = 4.dp))
@@ -91,7 +111,7 @@ fun Sheet(title: String?, onDismiss: () -> Unit, content: @Composable () -> Unit
 }
 
 @Composable
-fun SheetGroupTitle(text: String) { Text(text, color = K.Dim, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp)) }
+fun SheetGroupTitle(text: String) { Text(text, color = K.Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 6.dp)) }
 
 /** Choice list inside a sheet: rows on a slightly lighter surface. */
 @Composable
@@ -129,8 +149,8 @@ fun ConfirmSheet(title: String, body: String, action: String, onDismiss: () -> U
     Sheet(title, onDismiss) {
         Text(body, color = K.Muted, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(16.dp))
-        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(54.dp).clip(GroupShape).background(K.Red).clickable(onClick = onConfirm), contentAlignment = Alignment.Center) {
-            Text(action, color = androidx.compose.ui.graphics.Color(0xFF2A0B0B), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(25.dp)).background(K.Red).clickable(onClick = onConfirm), contentAlignment = Alignment.Center) {
+            Text(action, color = K.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         }
         Spacer(Modifier.height(8.dp))
         TextButton("Cancel", color = K.Muted) { onDismiss() }

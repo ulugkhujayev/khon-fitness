@@ -1,9 +1,48 @@
 # Khon Fitness design rules
 
 These rules bind the mockup and the Kotlin app. A screen that breaks one
-of them is a defect. Owner feedback that produced them, 2026-09-08:
+of them is a defect. Since 2026-09-12 the rules follow Apple's Human
+Interface Guidelines (Typography, Color, Dark Mode, Layout, Lists,
+Toolbars, Tab bars, Buttons, Sheets, Materials) as closely as Android 9
+allows. Owner feedback that produced the earlier rules, 2026-09-08:
 floating x icons, misaligned name fields, captions on every field, huge
 padded cards, per-item buttons, "Updated" lines.
+
+## HIG mapping
+
+- Typeface: Inter, bundled, as the stand-in for SF Pro. Weights Regular,
+  Medium, Semibold, Bold only; no Light.
+- Text styles at the default size: Large Title 34/41 bold, Title 1 28/34
+  bold, Title 2 22/28 bold, Headline 17/22 semibold, Body 17/22, Subheadline
+  15/20, Footnote 13/18, Caption 1 12/16, Caption 2 11/13. Tabular figures
+  for numbers.
+- Dark appearance semantic colors: background #000000, group surface
+  #1C1C1E, fill inside a group #2C2C2E, separator #38383A, label white,
+  secondary label #8E8E93, tertiary #636366. Accent systemOrange #FF9F0A,
+  green #30D158, blue #0A84FF, red #FF453A. Label on an accent fill is white.
+- Navigation bar: 56 pt, a round 36 pt Back button with a chevron and no
+  text, the title centered in Headline, the primary action trailing as a
+  34 pt accent capsule ("Done") or a round symbol button ("+").
+- Large title: 34 bold on the leading edge at the top of a scrolling tab
+  screen; bar items trailing as round symbol buttons.
+- Tab bar: a floating capsule 60 pt tall, 24 pt from the sides, 10 pt above
+  the bottom edge, group surface with a 1 pt hairline and a soft shadow;
+  three items with filled symbols and 11 pt labels; the selected item sits
+  on a #2C2C2E capsule tinted accent.
+- Inset grouped lists: radius 20 pt, rows 48 pt minimum with 17 pt Body,
+  hairline separators inset to the text, values in secondary label on the
+  right, a small chevron symbol in tertiary label. Section headers are
+  Footnote in secondary label, sentence case, inset 16 pt. Field labels in
+  editors are Body in label color, values on the right.
+- Buttons: one prominent button per screen, a 50 pt full-width capsule in
+  accent with white 17 semibold text. Other actions are plain accent text.
+  Destructive is red. Nothing else has a fill.
+- Sheets: top radius 24, a 36x5 grabber in tertiary label, the sheet on
+  #1C1C1E, groups inside on the elevated #2C2C2E. Swipe to dismiss.
+- Toggles: 51x31 with systemGreen on, #3A3A3C off, white thumb.
+- Materials: Android 9 has no live blur, so bars are opaque group surface
+  instead of Liquid Glass. Content does not scroll under them.
+- Minimum tap target 44x44. Screen margin 16. Rhythm 8.
 
 ## Grid
 
@@ -16,16 +55,13 @@ padded cards, per-item buttons, "Updated" lines.
 
 - One family: system sans (Roboto on Android, -apple-system in the
   mockup). Numbers use tabular figures (font-variant-numeric: tabular-nums).
-- Sizes: title 30/700, section 18/600, row 17/400, secondary 15/400 in
-  muted color, numeric input 18/600, big number 22/600. Nothing else.
+- Sizes come from the HIG mapping above. Nothing else.
 - No uppercase tracking labels. No captions above inputs.
 
 ## Color
 
-- Background #121212. Surface rows #1c1c1e only where a row needs to be
-  set apart (inputs, pressed state). Divider #2a2a2c, 1 px.
-- Text #f2f2f2, muted #9a9a9a, accent #f0a35a (strength), delta green
-  #4cd28a. Modality colors come from the modality list.
+- Values come from the HIG mapping above. Modality colors come from the
+  modality list.
 - A color is shown as a 12 px filled circle. A color is edited on a
   full-screen editor with a row of 12 preset circles; tap one. No
   native color input.

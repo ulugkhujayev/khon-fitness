@@ -17,6 +17,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -83,19 +89,27 @@ fun KhonNav() {
     }
 }
 
+/** Floating tab bar in the iOS 26 shape: a capsule that sits above the bottom edge, filled symbols, the selected item tinted. */
 @Composable
 private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
-    Column(Modifier.fillMaxWidth().background(K.Bg)) {
-        HorizontalDivider(color = K.Divider)
-        Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).height(64.dp)) {
+    Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(start = 24.dp, end = 24.dp, bottom = 10.dp, top = 6.dp)) {
+        Row(
+            Modifier.fillMaxWidth().height(60.dp)
+                .shadow(elevation = 12.dp, shape = RoundedCornerShape(30.dp), ambientColor = Color.Black, spotColor = Color.Black)
+                .clip(RoundedCornerShape(30.dp)).background(K.Surface)
+                .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(30.dp))
+                .padding(4.dp),
+        ) {
             listOf("Today" to Icons.Today, "History" to Icons.History, "Programs" to Icons.Programs).forEachIndexed { i, (label, icon) ->
                 val active = i == selected
                 Column(
-                    Modifier.weight(1f).fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(i) },
+                    Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(26.dp))
+                        .background(if (active) K.Surface2 else Color.Transparent)
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(i) },
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
                 ) {
-                    Icon(icon, contentDescription = label, tint = if (active) K.Accent else K.Dim, modifier = Modifier.size(26.dp))
-                    Text(label, fontSize = 12.sp, color = if (active) K.Accent else K.Dim, modifier = Modifier.padding(top = 3.dp))
+                    Icon(icon, contentDescription = label, tint = if (active) K.Accent else K.Muted, modifier = Modifier.size(24.dp))
+                    Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = if (active) K.Accent else K.Muted, modifier = Modifier.padding(top = 2.dp))
                 }
             }
         }

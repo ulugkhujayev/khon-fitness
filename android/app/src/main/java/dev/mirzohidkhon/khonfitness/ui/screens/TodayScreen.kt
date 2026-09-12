@@ -62,24 +62,20 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     LaunchedEffect(Unit) { pendingBand = runCatching { dev.mirzohidkhon.khonfitness.health.HealthImport.pendingCount(context, vm.repo.importedSourceIds().toSet()) }.getOrDefault(0) }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 24.dp)) {
-        ScreenTitle("Today") {
-            Box(Modifier.size(44.dp).clip(CircleShape).clickable { nav.navigate(Routes.SETTINGS) }, contentAlignment = Alignment.Center) {
-                androidx.compose.material3.Icon(Icons.Gear, contentDescription = "Settings", tint = K.Muted, modifier = Modifier.size(24.dp))
-            }
-        }
+        ScreenTitle("Today") { BarCircleButton(Icons.Gear, "Settings") { nav.navigate(Routes.SETTINGS) } }
         WeekStrip(today, plan, modalities) { planDate = it }
         Spacer(Modifier.height(24.dp))
-        if (loaded) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(K.Surface).padding(20.dp, 20.dp, 20.dp, 16.dp)) {
+        if (loaded) Column(Modifier.fillMaxWidth().clip(GroupShape).background(K.Surface).padding(20.dp, 18.dp, 20.dp, 18.dp)) {
             val active = unfinished
             if (active != null) {
-                Text(active.programName ?: active.exerciseName ?: "Session", style = MaterialTheme.typography.headlineMedium)
+                Text(active.programName ?: active.exerciseName ?: "Session", style = MaterialTheme.typography.titleLarge)
                 Text("In progress", color = K.Green, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
                 PrimaryButton("Resume") {
                     val running = TimerService.state.value?.sessionId == active.id
                     nav.navigate(if (active.itemType == ItemType.PROGRAM) Routes.session(active.id) else if (running) Routes.timer(active.id) else Routes.cardio(active.id))
                 }
             } else {
-                Text(item.name, style = MaterialTheme.typography.headlineMedium)
+                Text(item.name, style = MaterialTheme.typography.titleLarge)
                 Text(preview(item, blocks, blockExercises, modalities), color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
                 if (!item.isRest) PrimaryButton("Start") {
                     vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
@@ -99,7 +95,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
         Spacer(Modifier.height(28.dp))
         val latest = bodyweights.lastOrNull()
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Bodyweight", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.weight(1f))
+            Text("Bodyweight", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             Text(if (latest == null) "—" else "${fmt(latest.kg)} kg", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
         val start = today.minusDays(29)

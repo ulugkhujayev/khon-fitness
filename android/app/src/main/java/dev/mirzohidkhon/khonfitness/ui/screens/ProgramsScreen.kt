@@ -45,7 +45,7 @@ fun ProgramsScreen(vm: AppViewModel, nav: NavHostController) {
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 24.dp)) {
-        ScreenTitle("Programs") { TextButton("+") { val id = newId(); vm.run { vm.repo.saveProgram(Program(id, "New program", active = programs.isEmpty(), sortOrder = programs.size)) }; nav.navigate(Routes.program(id)) } }
+        ScreenTitle("Programs") { BarCircleButton(Icons.Plus, "New program") { val id = newId(); vm.run { vm.repo.saveProgram(Program(id, "New program", active = programs.isEmpty(), sortOrder = programs.size)) }; nav.navigate(Routes.program(id)) } }
         GroupedList {
             programs.forEachIndexed { i, p ->
                 ListRow(p.name, secondary = "${blocks.count { it.programId == p.id }} blocks", dotColor = K.Accent, dotFilled = p.active, divider = i > 0) { nav.navigate(Routes.program(p.id)) }
@@ -66,7 +66,7 @@ fun ProgramsScreen(vm: AppViewModel, nav: NavHostController) {
 private fun ProgramList(vm: AppViewModel, nav: NavHostController) {
     val programs by vm.programs.collectAsStateWithLifecycle()
     val blocks by vm.blocks.collectAsStateWithLifecycle()
-    SectionTitle("Programs") { TextButton("+") { val id = newId(); vm.run { vm.repo.saveProgram(Program(id, "New program", active = programs.isEmpty(), sortOrder = programs.size)) }; nav.navigate(Routes.program(id)) } }
+    SectionTitle("Programs") { PlusButton() { val id = newId(); vm.run { vm.repo.saveProgram(Program(id, "New program", active = programs.isEmpty(), sortOrder = programs.size)) }; nav.navigate(Routes.program(id)) } }
     GroupedList {
         programs.forEachIndexed { i, p ->
             ListRow(p.name, secondary = "${blocks.count { it.programId == p.id }} blocks", dotColor = K.Accent, dotFilled = p.active, divider = i > 0) { nav.navigate(Routes.program(p.id)) }
@@ -104,7 +104,7 @@ fun LibraryScreen(vm: AppViewModel, nav: NavHostController) {
                 if (list.isEmpty()) ListRow("Nothing matches", chevron = false, divider = false, titleColor = K.Muted)
             }
             Spacer(Modifier.height(16.dp))
-            GroupedList { FieldRow("Show archived", divider = false) { androidx.compose.material3.Switch(showArchived, { showArchived = it }, colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = androidx.compose.ui.graphics.Color.White)) } }
+            GroupedList { FieldRow("Show archived", divider = false) { androidx.compose.material3.Switch(showArchived, { showArchived = it }, colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = androidx.compose.ui.graphics.Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = androidx.compose.ui.graphics.Color.White, uncheckedBorderColor = androidx.compose.ui.graphics.Color.Transparent)) } }
         }
     }
     if (muscleSheet) Sheet("Muscle", { muscleSheet = false }) { ChoiceList {

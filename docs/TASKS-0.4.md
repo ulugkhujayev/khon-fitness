@@ -13,11 +13,26 @@ Order of work: spec, data, screens, animations, icon, polish, release. Each grou
 ## 1. Data
 
 - [ ] Room v3 with AutoMigration 2 to 3.
-- [ ] `Stretch`: id, name, side (none, left/right), holdSec default, figure key, muscles, cue text, builtin.
+- [ ] `Stretch`: id, name, side (none, left/right), mode (hold or reps), holdSec or reps default, figure key, muscles, cue text, link (reference video URL), builtin.
 - [ ] `StretchRoutine`: id, name, active flag, order. `RoutineStretch`: routineId, stretchId, order, holdSec override.
 - [ ] `StretchSession`: id, routineId snapshot name, date, startedAt, totalSec, completed count, skipped count.
 - [ ] `EatingWindow` settings: startMinute, endMinute, enabled, remindBeforeMin. `WindowDay`: date, openedAt, closedAt, note. One row per day, written when the day's state changes.
-- [ ] Seed one routine "Daily 8" (hip flexor, hamstring, calf, pigeon, chest doorway, thoracic rotation, child pose, neck) with hold 40 s, sides where needed.
+- [ ] Seed the owner's routine "Daily mobility" (2026-09-12 list) with these defaults, all editable:
+
+  | # | Stretch | Sides | Default | Reference |
+  |---|---|---|---|---|
+  | 1 | Elephant walks | no | 10 reps each leg, about 60 s | youtube.com/watch?v=bIS8e2ZI-u0 |
+  | 2 | Hamstring stretch, palms on ground | no | 45 s hold | youtube.com/watch?v=2nfsR9PC7hQ |
+  | 3 | World's greatest stretch | left, right | 5 reps per side | youtube.com/watch?v=7XheaZERvBQ |
+  | 4 | Thread the needle | left, right | 30 s per side | youtube.com/watch?v=gyew25Vaqj8 |
+  | 5 | Hip flexor stretch | left, right | 45 s per side | youtube.com/watch?v=ktgtEWGhFd8 |
+  | 6 | 90/90 stretch | left, right | 45 s per side | youtube.com/watch?v=FM7-7-a0FLg |
+  | 7 | Shoulder internal rotation, no aid | left, right | 30 s per side | youtube.com/watch?v=3Av8-RLNvDk |
+  | 8 | Cat cow | no | 10 reps, about 40 s | youtube.com/watch?v=2of247Kt0tU |
+  | 9 | Plow pose | no | 45 s hold | youtube.com/watch?v=IoURFlXOuqg |
+
+  About 9 minutes total. Reps-mode stretches run as a timer of the given length with a rep cue every few seconds.
+- [ ] Stretch library rows show a small play icon when a link exists; tap opens YouTube. The player itself stays offline and drawn.
 - [ ] Backup: add the four tables to export, import, describeBackup, merge, replace.
 - [ ] Widget: show the stretch state (done today or not) under the workout line.
 
@@ -47,7 +62,7 @@ Order of work: spec, data, screens, animations, icon, polish, release. Each grou
 ## 5. Drawn figures
 
 - [ ] A `Figure` composable: a line figure drawn on Canvas from a pose (joint angles), animated between pose A and pose B with a 2 s ease, looping. One stroke width, one color, phase-colored background.
-- [ ] Poses for the first 30 stretches: hip flexor lunge, hamstring standing, hamstring seated, calf wall, quad standing, pigeon, figure four, butterfly, glute bridge hold, child pose, cat cow, thoracic rotation, cobra, downward dog, chest doorway, cross-body shoulder, triceps overhead, lat side reach, neck side, neck forward, wrist flexor, wrist extensor, ankle circles, deep squat hold, 90/90 hips, couch stretch, side lunge, seated forward fold, spinal twist seated, shin stretch.
+- [ ] Poses for the nine seed stretches first (elephant walk, palms-to-floor fold, world's greatest stretch in its three parts, thread the needle, hip flexor lunge, 90/90, shoulder internal rotation, cat cow, plow), then the rest of the 30:  hamstring standing, hamstring seated, calf wall, quad standing, pigeon, figure four, butterfly, glute bridge hold, child pose, cat cow, thoracic rotation, cobra, downward dog, chest doorway, cross-body shoulder, triceps overhead, lat side reach, neck side, neck forward, wrist flexor, wrist extensor, ankle circles, deep squat hold, 90/90 hips, couch stretch, side lunge, seated forward fold, spinal twist seated, shin stretch.
 - [ ] Mirror the figure for the right side.
 - [ ] A debug screen that lists every figure so poses can be checked quickly on the emulator.
 

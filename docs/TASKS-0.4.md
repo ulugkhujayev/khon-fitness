@@ -1,6 +1,6 @@
 # Khon Fitness 0.4: stretching and eating window
 
-Decisions (2026-09-12): stretching is a daily routine on Today, not a plan item. Animations are drawn in the app with Compose. The eating window has fixed daily hours plus a tap to open early or close late for today. One release with both.
+Decisions (2026-09-12): stretching is a daily routine on Today, not a plan item. Animations are drawn in the app with Compose. The eating window has fixed daily hours plus a tap to open early or close late for today. No app icon change: a small home-screen widget shows the state instead. One release with both.
 
 Order of work: spec, data, screens, animations, icon, polish, release. Each group ends with a check on the emulator at 411 dp and 360 dp, and the Android 9 image for anything that touches the launcher or notifications.
 
@@ -55,9 +55,9 @@ Order of work: spec, data, screens, animations, icon, polish, release. Each grou
 
 - [ ] Settings: hours editor (two time pickers), reminder minutes before close and before open, enable switch.
 - [ ] State engine: open when now is inside the hours, or opened early today, and not closed early today. Closed otherwise. State changes at boundaries and on manual taps.
-- [ ] Icon: two activity-aliases, `.Main` and `.MainClosed`, same MainActivity, two icons (the dumbbell, and the dumbbell with a bar across). Switch with setComponentEnabledSetting at boundaries and taps. Widgets and shortcuts must keep working after the switch.
-- [ ] Scheduling: AlarmManager exact alarms at open and close times (setExactAndAllowWhileIdle), re-armed at boot and after each change. Reminders as notifications on a low channel.
-- [ ] Test on the Android 9 image: the icon change, the alarm at a boundary, and the Samsung launcher behaviour note in the docs.
+- [ ] Widget: a small 1x1 or 2x1 Glance widget that shows the state and the time left ("Open · 2 h 10 m", "Closed · opens 12:00"). Tap opens the window sheet. Refreshed at the boundaries and after each tap. The existing Today widget gets the same line under the workout.
+- [ ] Scheduling: AlarmManager exact alarms at open and close times (setExactAndAllowWhileIdle), re-armed at boot and after each change. They refresh the widgets and post the reminders on a low channel.
+- [ ] Test on the Android 9 image: widget refresh at a boundary, alarm after a reboot.
 - [ ] History: a strip on History, one cell per day, filled when the window was kept (no early open, no late close), outline when not.
 
 ## 7. Leftovers from the audits
@@ -70,7 +70,7 @@ Order of work: spec, data, screens, animations, icon, polish, release. Each grou
 
 - [ ] Version 0.4.0, versionCode 16.
 - [ ] Emulator pass: 411 dp and 360 dp, font scale 1.3 on the two new screens.
-- [ ] Android 9 image: player with screen off, icon switch, alarms after a reboot.
+- [ ] Android 9 image: player with screen off, window widget at a boundary, alarms after a reboot.
 - [ ] Release build, commit, tag, PUSH, gh release with notes.
 
 ## Not in 0.4

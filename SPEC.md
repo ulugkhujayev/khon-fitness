@@ -24,8 +24,8 @@ there is no progress to look at.
    Health Connect import.
 3. Stretching and eating window (0.4): a daily stretch routine on Today
    with a full-screen player and figures drawn in the app; an eating window
-   with fixed daily hours, open-early and close-late taps, reminders, and an
-   app icon that shows open or closed. Task list: docs/TASKS-0.4.md.
+   with fixed daily hours, open-early and close-late taps, reminders, and a
+   small widget that shows open or closed. Task list: docs/TASKS-0.4.md.
 
 Each phase ships as an installable APK.
 
@@ -196,9 +196,9 @@ library with figure thumbnails, custom stretches pick a figure from the set.
 
 Fixed daily hours, for example 12:00 to 20:00. The state is open inside the
 hours, or after an open-early tap, and closed after a close-late tap. Today
-shows the state and the time left. Exact alarms at the boundaries switch the
-launcher icon between two activity aliases, open and closed, and post the
-reminders. History shows one cell per day, filled when the window was kept.
+shows the state and the time left. A small home-screen widget shows the same.
+Exact alarms at the boundaries refresh the widget and post the reminders.
+History shows one cell per day, filled when the window was kept.
 
 ## Out of scope
 

@@ -22,6 +22,10 @@ there is no progress to look at.
    backup, update check.
 2. Cardio: cardio exercises, modalities, interval timer, manual entry,
    Health Connect import.
+3. Stretching and eating window (0.4): a daily stretch routine on Today
+   with a full-screen player and figures drawn in the app; an eating window
+   with fixed daily hours, open-early and close-late taps, reminders, and an
+   app icon that shows open or closed. Task list: docs/TASKS-0.4.md.
 
 Each phase ships as an installable APK.
 
@@ -176,6 +180,25 @@ sheet. Import offers replace or merge.
 Settings has Check for update. It reads the latest GitHub release, compares the
 version, downloads the APK, and hands it to the package installer. Install over
 the old build with no uninstall. Needs REQUEST_INSTALL_PACKAGES.
+
+## Stretching (phase 3)
+
+Stretching is a daily routine, not a plan item. Today shows one row: the
+active routine, its length, a dot that is green when done today. Tap starts a
+full-screen player: a drawn line figure that moves between two poses, the
+stretch name, side, a big countdown, the next stretch. Sided stretches run
+left then right with a change cue. Same audio engine and lock-screen
+notification as the interval timer. The end writes a session and returns to
+Today. Programs has a Stretching row: routines (one active), a stretch
+library with figure thumbnails, custom stretches pick a figure from the set.
+
+## Eating window (phase 3)
+
+Fixed daily hours, for example 12:00 to 20:00. The state is open inside the
+hours, or after an open-early tap, and closed after a close-late tap. Today
+shows the state and the time left. Exact alarms at the boundaries switch the
+launcher icon between two activity aliases, open and closed, and post the
+reminders. History shows one cell per day, filled when the window was kept.
 
 ## Out of scope
 

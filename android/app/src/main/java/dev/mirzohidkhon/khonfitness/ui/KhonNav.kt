@@ -54,6 +54,10 @@ object Routes {
     fun modality(id: String) = "modality/$id"
     fun cardio(sessionId: String) = "cardio/$sessionId"
     fun timer(sessionId: String) = "timer/$sessionId"
+    fun stretch(routineId: String) = "stretch/$routineId"
+    fun routine(id: String) = "routine/$id"
+    fun stretchEditor(id: String) = "stretcheditor/$id"
+    const val ROUTINES = "routines"; const val STRETCHES = "stretches"
     const val IMPORT = "import"
     const val LIBRARY = "library"; const val MODALITIES = "modalities"; const val WEEK_PLAN = "weekplan"; const val SETTINGS = "settings"
 }
@@ -64,7 +68,7 @@ fun KhonNav() {
     val vm: AppViewModel = viewModel()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: Routes.TODAY
-    val tab = when { route.startsWith(Routes.HISTORY) -> 1; route.startsWith(Routes.PROGRAMS) || route.startsWith("program") || route.startsWith("block") || route.startsWith("exercise") || route.startsWith("modality") || route == Routes.LIBRARY || route == Routes.MODALITIES || route == Routes.WEEK_PLAN -> 2; route == Routes.IMPORT -> 1; else -> 0 }
+    val tab = when { route.startsWith(Routes.HISTORY) -> 1; route.startsWith(Routes.PROGRAMS) || route.startsWith("program") || route.startsWith("block") || route.startsWith("exercise") || route.startsWith("modality") || route == Routes.LIBRARY || route == Routes.MODALITIES || route == Routes.WEEK_PLAN || route == Routes.ROUTINES || route == Routes.STRETCHES || route.startsWith("routine") || route.startsWith("stretcheditor") -> 2; route == Routes.IMPORT -> 1; else -> 0 }
     val showBar = route == Routes.TODAY || route == Routes.HISTORY || route == Routes.PROGRAMS
     Scaffold(containerColor = K.Bg, bottomBar = { if (showBar) BottomBar(tab) { i -> nav.navigate(listOf(Routes.TODAY, Routes.HISTORY, Routes.PROGRAMS)[i]) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true; restoreState = true } } }) { pad ->
         Box(Modifier.fillMaxSize().padding(pad).consumeWindowInsets(pad).imePadding()) {
@@ -79,6 +83,11 @@ fun KhonNav() {
                 composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
                 composable("modality/{id}") { e -> ModalityEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
                 composable("timer/{id}") { e -> TimerScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                composable("stretch/{id}") { e -> StretchScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                composable("routine/{id}") { e -> RoutineEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
+                composable(Routes.ROUTINES) { RoutinesScreen(vm, nav) }
+                composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
                 composable(Routes.IMPORT) { ImportScreen(vm, nav) }
                 composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }
                 composable(Routes.MODALITIES) { ModalitiesScreen(vm, nav) }

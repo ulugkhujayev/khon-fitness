@@ -52,6 +52,18 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
         else if (!item.isRest) vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
     }
     LaunchedEffect(item.name, unfinished?.id) { dev.mirzohidkhon.khonfitness.widget.TodayWidget.refresh(context) }
+    val stretchRoutines by vm.stretchRoutines.collectAsStateWithLifecycle()
+    val routineStretches by vm.routineStretches.collectAsStateWithLifecycle()
+    val stretches by vm.stretches.collectAsStateWithLifecycle()
+    val stretchSessions by vm.stretchSessions.collectAsStateWithLifecycle()
+    val eatingWindow by vm.eatingWindow.collectAsStateWithLifecycle()
+    val windowDays by vm.windowDays.collectAsStateWithLifecycle()
+    var windowSheet by remember { mutableStateOf(false) }
+    val windowRequested by dev.mirzohidkhon.khonfitness.MainActivity.windowRequested.collectAsStateWithLifecycle()
+    LaunchedEffect(windowRequested) { if (windowRequested) { dev.mirzohidkhon.khonfitness.MainActivity.windowRequested.value = false; windowSheet = true } }
+    // Tick once a minute so "closes in" stays right while the screen is open.
+    var minuteTick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(60_000); minuteTick++ } }
     val update by vm.update.collectAsStateWithLifecycle()
     val updateProgress by vm.updateProgress.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.checkUpdate() }
@@ -88,6 +100,20 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
                 if (updateProgress == null) vm.runUpdate(context, onNeedPermission = { nav.navigate(Routes.SETTINGS) }, onError = { })
             } }
         }
+        val activeRoutine = stretchRoutines.find { it.active } ?: stretchRoutines.firstOrNull()
+        if (activeRoutine != null) {
+            val doneToday = stretchSessions.any { it.date == today.iso() }
+            val secs = routineSeconds(activeRoutine.id, routineStretches, stretches)
+            val count = routineStretches.count { it.routineId == activeRoutine.id }
+            Spacer(Modifier.height(16.dp))
+            GroupedList { ListRow(activeRoutine.name, secondary = "${(secs + 30) / 60} min · $count stretches", dotColor = K.Green, dotFilled = doneToday, divider = false) { nav.navigate(Routes.stretch(activeRoutine.id)) } }
+        }
+        run {
+            @Suppress("UNUSED_VARIABLE") val tick = minuteTick
+            val (open, text) = windowSummary(eatingWindow, windowDays.find { it.date == today.iso() })
+            Spacer(Modifier.height(16.dp))
+            GroupedList { ListRow("Eating window", secondary = text, dotColor = if (open) K.Green else K.Muted, dotFilled = open, divider = false) { windowSheet = true } }
+        }
         if (pendingBand > 0) {
             Spacer(Modifier.height(16.dp))
             GroupedList { ListRow(if (pendingBand == 1) "1 new session from the band" else "$pendingBand new sessions from the band", dotColor = K.Green, divider = false) { nav.navigate(Routes.IMPORT) } }
@@ -108,6 +134,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
         }
     }
     planDate?.let { date -> PlanSheet(vm, date, plan, modalities) { planDate = null } }
+    if (windowSheet) WindowSheet(vm) { windowSheet = false }
 }
 
 @Composable

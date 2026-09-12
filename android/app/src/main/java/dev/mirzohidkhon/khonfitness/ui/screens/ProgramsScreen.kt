@@ -55,6 +55,7 @@ fun ProgramsScreen(vm: AppViewModel, nav: NavHostController) {
         Spacer(Modifier.height(24.dp))
         GroupedList {
             ListRow("Exercises", secondary = "${exercises.count { !it.archived }}", divider = false) { nav.navigate(Routes.LIBRARY) }
+            ListRow("Stretching") { nav.navigate(Routes.ROUTINES) }
             ListRow("Modalities", secondary = "${modalities.count { !it.archived }}") { nav.navigate(Routes.MODALITIES) }
             ListRow("Week plan") { nav.navigate(Routes.WEEK_PLAN) }
             ListRow("Settings") { nav.navigate(Routes.SETTINGS) }

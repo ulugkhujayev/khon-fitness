@@ -13,6 +13,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge(androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         super.onCreate(savedInstanceState)
         if (intent?.action == dev.mirzohidkhon.khonfitness.widget.TodayWidget.ACTION_START_TODAY) startRequested.value = true
+        if (intent?.action == ACTION_OPEN_WINDOW) windowRequested.value = true
+        dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(this)
         (getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(dev.mirzohidkhon.khonfitness.update.UpdatedReceiver.NOTIFICATION_ID)
         setContent { KhonTheme { KhonNav() } }
     }
@@ -20,10 +22,14 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         if (intent.action == dev.mirzohidkhon.khonfitness.widget.TodayWidget.ACTION_START_TODAY) startRequested.value = true
+        if (intent.action == ACTION_OPEN_WINDOW) windowRequested.value = true
     }
 
     companion object {
         /** Set by the widget's Start button; Today consumes it and starts the planned item. */
         val startRequested = kotlinx.coroutines.flow.MutableStateFlow(false)
+        /** Set by the window widget or a reminder; Today opens the window sheet. */
+        val windowRequested = kotlinx.coroutines.flow.MutableStateFlow(false)
+        const val ACTION_OPEN_WINDOW = "dev.mirzohidkhon.khonfitness.OPEN_WINDOW"
     }
 }

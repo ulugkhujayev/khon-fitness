@@ -34,7 +34,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 enum class PhaseKind { WARMUP, WORK, REST, DONE }
-data class Phase(val kind: PhaseKind, val seconds: Int, val round: Int)
+data class Phase(
+    val kind: PhaseKind, val seconds: Int, val round: Int,
+    /** Stretch fields: the stretch name, side ("" / "Left" / "Right"), figure key, rep count for a reps stretch. */
+    val label: String = "", val side: String = "", val figure: String = "", val reps: Int = 0, val stretchId: String = "",
+)
 
 data class TimerState(
     val sessionId: String,
@@ -45,6 +49,9 @@ data class TimerState(
     val elapsed: Double = 0.0,
     val paused: Boolean = false,
     val speed: Double = 1.0,
+    /** True for a stretch routine: the phases carry names and figures, the end writes a StretchSession. */
+    val stretch: Boolean = false,
+    val skipped: Int = 0,
 ) {
     val phase: Phase get() = phases[index.coerceIn(0, phases.size - 1)]
     val done: Boolean get() = index >= phases.size
@@ -83,6 +90,21 @@ class TimerService : Service() {
                 startInForeground(s)
                 runLoop()
             }
+            ACTION_START_STRETCH -> {
+                val steps = intent.getStringArrayExtra("steps") ?: emptyArray()
+                val phases = steps.map { line -> val f = line.split("|"); Phase(PhaseKind.WORK, f[2].toInt(), 0, label = f[0], side = f[1], figure = f[3], reps = f[4].toInt(), stretchId = f[5]) }
+                val s = TimerState(intent.getStringExtra("sessionId") ?: "", intent.getStringExtra("title") ?: "Stretching", phases, remaining = phases.firstOrNull()?.seconds?.toDouble() ?: 0.0, speed = intent.getDoubleExtra("speed", 1.0), stretch = true)
+                state.value = s
+                startInForeground(s)
+                runLoop()
+            }
+            ACTION_SKIP -> {
+                val s = state.value ?: return START_NOT_STICKY
+                if (s.done) return START_NOT_STICKY
+                val index = s.index + 1
+                if (index >= s.phases.size) { state.value = s.copy(index = index, remaining = 0.0, skipped = s.skipped + 1); finish(early = false) }
+                else { val next = s.copy(index = index, remaining = s.phases[index].seconds.toDouble(), skipped = s.skipped + 1); state.value = next; say(phaseSpeech(next)); updateNotification(next) }
+            }
             ACTION_PAUSE -> { state.value = state.value?.copy(paused = true); state.value?.let { updateNotification(it) } }
             ACTION_RESUME -> { state.value = state.value?.copy(paused = false); state.value?.let { updateNotification(it) } }
             ACTION_STOP -> finish(early = true)
@@ -112,7 +134,8 @@ class TimerService : Service() {
                 val elapsed = s.elapsed + dt * s.speed
                 val whole = kotlin.math.ceil(remaining).toInt()
                 if (whole in 1..3 && whole != lastWhole) beep(short = true)
-                if (whole == 10 && whole != lastWhole && s.phase.seconds > 20) say("ten seconds")
+                if (whole == 10 && whole != lastWhole && s.phase.seconds > 20 && s.phase.reps == 0) say("ten seconds")
+                if (s.phase.reps > 0 && whole != lastWhole) { val per = s.phase.seconds.toDouble() / s.phase.reps; val rep = ((s.phase.seconds - whole) / per).toInt(); val prevRep = ((s.phase.seconds - lastWhole) / per).toInt(); if (rep in 1..s.phase.reps && rep != prevRep) say(rep.toString()) }
                 lastWhole = whole
                 if (remaining <= 0) {
                     index += 1
@@ -128,7 +151,7 @@ class TimerService : Service() {
             }
         }
     }
-    private fun phaseSpeech(s: TimerState): String = when (s.phase.kind) {
+    private fun phaseSpeech(s: TimerState): String = if (s.stretch) s.phase.label + (if (s.phase.side.isNotEmpty()) ", " + s.phase.side.lowercase() else "") + (if (s.phase.reps > 0) ", ${s.phase.reps} reps" else "") else when (s.phase.kind) {
         PhaseKind.WARMUP -> "Warm up, ${minutesWords(s.phase.seconds)}"
         PhaseKind.WORK -> "Round ${s.phase.round} of ${s.rounds}. Go"
         PhaseKind.REST -> "Rest, ${minutesWords(s.phase.seconds)}"
@@ -143,11 +166,16 @@ class TimerService : Service() {
         if (s != null) {
             val elapsed = s.elapsed.toInt()
             state.value = s.copy(index = s.phases.size, remaining = 0.0)
-            if (!early) say("All rounds done")
+            if (!early) say(if (s.stretch) "Routine done" else "All rounds done")
             // The service writes the duration itself, so it survives even when no screen is watching.
             val app = applicationContext as KhonApp
             app.scope.launch {
-                runCatching { app.repo.session(s.sessionId).first()?.let { app.repo.updateSession(it.copy(timeSec = elapsed)) } }
+                runCatching {
+                    if (s.stretch) app.repo.saveStretchSession(dev.mirzohidkhon.khonfitness.data.StretchSession(
+                        id = s.sessionId, routineId = s.sessionId.substringBefore(":"), routineName = s.title, date = java.time.LocalDate.now().format(dev.mirzohidkhon.khonfitness.data.ISO),
+                        startedAt = System.currentTimeMillis() - elapsed * 1000L, totalSec = elapsed, completed = (s.phases.size - s.skipped).coerceAtLeast(0), skipped = s.skipped))
+                    else app.repo.session(s.sessionId).first()?.let { app.repo.updateSession(it.copy(timeSec = elapsed)) }
+                }
                 finished.value = FinishedTimer(s.sessionId, elapsed, early)
                 state.value = null
             }
@@ -182,7 +210,7 @@ class TimerService : Service() {
     private fun notification(s: TimerState): Notification {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP }, PendingIntent.FLAG_IMMUTABLE)
         fun action(a: String) = PendingIntent.getService(this, a.hashCode(), Intent(this, TimerService::class.java).setAction(a), PendingIntent.FLAG_IMMUTABLE)
-        val phase = if (s.done) "Done" else when (s.phase.kind) { PhaseKind.WARMUP -> "Warm-up"; PhaseKind.WORK -> "Work ${s.phase.round}/${s.rounds}"; PhaseKind.REST -> "Rest ${s.phase.round}/${s.rounds}"; PhaseKind.DONE -> "Done" }
+        val phase = if (s.done) "Done" else if (s.stretch) s.phase.label + (if (s.phase.side.isNotEmpty()) " · " + s.phase.side else "") else when (s.phase.kind) { PhaseKind.WARMUP -> "Warm-up"; PhaseKind.WORK -> "Work ${s.phase.round}/${s.rounds}"; PhaseKind.REST -> "Rest ${s.phase.round}/${s.rounds}"; PhaseKind.DONE -> "Done" }
         val b = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_timer)
             .setContentTitle(if (s.done) s.title else "$phase · ${s.title}")
@@ -194,7 +222,7 @@ class TimerService : Service() {
         else b.setUsesChronometer(true).setChronometerCountDown(true).setWhen(System.currentTimeMillis() + (s.remaining * 1000 / s.speed).toLong()).setShowWhen(true)
         return b
             .addAction(0, if (s.paused) "Resume" else "Pause", action(if (s.paused) ACTION_RESUME else ACTION_PAUSE))
-            .addAction(0, "Stop", action(ACTION_STOP))
+            .addAction(0, if (s.stretch) "Skip" else "Stop", action(if (s.stretch) ACTION_SKIP else ACTION_STOP))
             .build()
     }
 
@@ -203,12 +231,19 @@ class TimerService : Service() {
     companion object {
         const val CHANNEL = "timer"; const val NOTIFICATION_ID = 41
         const val ACTION_START = "start"; const val ACTION_PAUSE = "pause"; const val ACTION_RESUME = "resume"; const val ACTION_STOP = "stop"
+        const val ACTION_START_STRETCH = "start_stretch"; const val ACTION_SKIP = "skip"
         val state = MutableStateFlow<TimerState?>(null)
         val finished = MutableStateFlow<FinishedTimer?>(null)
 
         fun start(context: Context, sessionId: String, title: String, warmup: Int, work: Int, rest: Int, rounds: Int, speed: Double = 1.0) {
             val i = Intent(context, TimerService::class.java).setAction(ACTION_START)
                 .putExtra("sessionId", sessionId).putExtra("title", title).putExtra("warmup", warmup).putExtra("work", work).putExtra("rest", rest).putExtra("rounds", rounds).putExtra("speed", speed)
+            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(i) else context.startService(i)
+        }
+        /** Steps: one line per phase, "label|side|seconds|figure|reps|stretchId". sessionId is "routineId:sessionId". */
+        fun startStretch(context: Context, sessionId: String, title: String, steps: List<String>, speed: Double = 1.0) {
+            val i = Intent(context, TimerService::class.java).setAction(ACTION_START_STRETCH)
+                .putExtra("sessionId", sessionId).putExtra("title", title).putExtra("steps", steps.toTypedArray()).putExtra("speed", speed)
             if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(i) else context.startService(i)
         }
         fun send(context: Context, action: String) { context.startService(Intent(context, TimerService::class.java).setAction(action)) }

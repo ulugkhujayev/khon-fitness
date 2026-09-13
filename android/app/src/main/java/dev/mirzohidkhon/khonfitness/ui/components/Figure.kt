@@ -12,62 +12,65 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.Path
+import kotlin.math.hypot
 
 /**
- * A line figure: nine joints in a 100-unit box. A stretch has two poses; the figure eases between them and back.
- * Joints: head (circle center), neck, hip, kneeF, footF, kneeB, footB, handF, handB. "F" is the leg or arm nearer the viewer.
- * The floor is the line y = 86. Right-side stretches mirror the figure.
+ * A line figure seen from the side: twelve joints in a 100-unit box, floor at y = 86.
+ * The spine is a curve through the chest so it can round and arch. "F" limbs are nearer the viewer.
+ * Poses live in mockup/figures.json; mockup/figures.html previews them; this file is generated from the JSON.
  */
 data class Pose(
-    val head: Offset, val neck: Offset, val hip: Offset,
+    val head: Offset, val shoulder: Offset, val chest: Offset, val hip: Offset,
     val kneeF: Offset, val footF: Offset, val kneeB: Offset, val footB: Offset,
-    val handF: Offset, val handB: Offset,
+    val elbowF: Offset, val handF: Offset, val elbowB: Offset, val handB: Offset,
 ) {
     fun mix(b: Pose, t: Float) = Pose(
-        head.lerp(b.head, t), neck.lerp(b.neck, t), hip.lerp(b.hip, t),
+        head.lerp(b.head, t), shoulder.lerp(b.shoulder, t), chest.lerp(b.chest, t), hip.lerp(b.hip, t),
         kneeF.lerp(b.kneeF, t), footF.lerp(b.footF, t), kneeB.lerp(b.kneeB, t), footB.lerp(b.footB, t),
-        handF.lerp(b.handF, t), handB.lerp(b.handB, t),
+        elbowF.lerp(b.elbowF, t), handF.lerp(b.handF, t), elbowB.lerp(b.elbowB, t), handB.lerp(b.handB, t),
     )
     private fun Offset.lerp(o: Offset, t: Float) = Offset(x + (o.x - x) * t, y + (o.y - y) * t)
 }
 
-private fun p(hx: Float, hy: Float, nx: Float, ny: Float, px: Float, py: Float, kfx: Float, kfy: Float, ffx: Float, ffy: Float, kbx: Float, kby: Float, fbx: Float, fby: Float, afx: Float, afy: Float, abx: Float, aby: Float) =
-    Pose(Offset(hx, hy), Offset(nx, ny), Offset(px, py), Offset(kfx, kfy), Offset(ffx, ffy), Offset(kbx, kby), Offset(fbx, fby), Offset(afx, afy), Offset(abx, aby))
+private fun p(vararg v: Float) = Pose(
+    Offset(v[0], v[1]), Offset(v[2], v[3]), Offset(v[4], v[5]), Offset(v[6], v[7]), Offset(v[8], v[9]), Offset(v[10], v[11]),
+    Offset(v[12], v[13]), Offset(v[14], v[15]), Offset(v[16], v[17]), Offset(v[18], v[19]), Offset(v[20], v[21]), Offset(v[22], v[23]),
+)
 
-/** Pose pairs by figure key. The pair is the start and the end of one breath of the stretch. */
+/** Pose pairs by figure key: the start and the end of one breath of the stretch. */
 object Figures {
     val poses: Map<String, Pair<Pose, Pose>> = mapOf(
-        // Half-kneeling lunge; the pelvis tucks forward over the breath.
-        "hipflexor" to (p(52f, 18f, 52f, 26f, 50f, 56f, 70f, 60f, 72f, 84f, 36f, 84f, 16f, 86f, 74f, 50f, 30f, 50f)
-            to p(50f, 14f, 50f, 22f, 46f, 54f, 70f, 58f, 74f, 84f, 30f, 84f, 10f, 86f, 76f, 44f, 24f, 46f)),
-        // Standing fold, palms toward the floor; the hands sink lower.
-        "fold" to (p(44f, 60f, 48f, 52f, 60f, 30f, 60f, 58f, 60f, 86f, 62f, 58f, 62f, 86f, 40f, 72f, 44f, 74f)
-            to p(42f, 66f, 46f, 56f, 60f, 30f, 60f, 58f, 60f, 86f, 62f, 58f, 62f, 86f, 40f, 84f, 44f, 85f)),
-        // Elephant walk: fold with one heel pressing down, then the other.
-        "elephant" to (p(44f, 58f, 48f, 50f, 60f, 30f, 62f, 56f, 64f, 86f, 58f, 52f, 56f, 78f, 40f, 82f, 44f, 83f)
-            to p(44f, 58f, 48f, 50f, 60f, 30f, 62f, 52f, 62f, 78f, 58f, 56f, 58f, 86f, 40f, 82f, 44f, 83f)),
-        // World's greatest stretch: low lunge, one hand down, the other arm opens up to the ceiling.
-        "wgs" to (p(58f, 30f, 56f, 38f, 44f, 60f, 70f, 62f, 74f, 86f, 26f, 76f, 8f, 86f, 66f, 86f, 46f, 86f)
-            to p(60f, 24f, 58f, 34f, 44f, 60f, 70f, 62f, 74f, 86f, 26f, 76f, 8f, 86f, 60f, 6f, 46f, 86f)),
-        // Thread the needle on all fours; the shoulder sinks to the floor.
-        "needle" to (p(34f, 56f, 40f, 54f, 66f, 54f, 68f, 76f, 74f, 86f, 70f, 76f, 78f, 86f, 22f, 60f, 36f, 84f)
-            to p(30f, 66f, 38f, 60f, 66f, 54f, 68f, 76f, 74f, 86f, 70f, 76f, 78f, 86f, 12f, 70f, 36f, 84f)),
-        // 90/90 seated; the torso leans over the front shin.
-        "ninety" to (p(48f, 22f, 48f, 32f, 46f, 62f, 70f, 66f, 78f, 84f, 30f, 72f, 22f, 86f, 66f, 66f, 30f, 62f)
-            to p(58f, 30f, 56f, 38f, 46f, 62f, 70f, 66f, 78f, 84f, 30f, 72f, 22f, 86f, 78f, 74f, 40f, 68f)),
-        // Standing, one hand behind the back walks up the spine.
-        "shoulderir" to (p(50f, 12f, 50f, 22f, 50f, 54f, 46f, 70f, 45f, 86f, 54f, 70f, 55f, 86f, 40f, 44f, 58f, 50f)
-            to p(50f, 12f, 50f, 22f, 50f, 54f, 46f, 70f, 45f, 86f, 54f, 70f, 55f, 86f, 40f, 44f, 56f, 38f)),
-        // Cat cow on all fours: the spine rounds, then arches.
-        "catcow" to (p(22f, 52f, 32f, 44f, 64f, 42f, 68f, 66f, 70f, 86f, 72f, 66f, 76f, 86f, 26f, 86f, 34f, 86f)
-            to p(20f, 42f, 30f, 52f, 64f, 56f, 68f, 70f, 70f, 86f, 72f, 70f, 76f, 86f, 26f, 86f, 34f, 86f)),
-        // Plow: on the back, legs over the head; the toes reach toward the floor.
-        "plow" to (p(78f, 80f, 68f, 72f, 50f, 40f, 32f, 50f, 22f, 70f, 34f, 50f, 24f, 72f, 60f, 86f, 66f, 86f)
-            to p(78f, 80f, 68f, 72f, 50f, 40f, 30f, 56f, 20f, 80f, 32f, 56f, 22f, 82f, 60f, 86f, 66f, 86f)),
+        // Standing fold, palms flat on the floor. One knee bends while the other leg straightens, then they swap.
+        "elephant" to (p(30f, 62f, 36f, 54f, 46f, 42f, 58f, 32f, 60f, 58f, 60f, 86f, 54f, 62f, 56f, 86f, 30f, 70f, 38f, 86f, 34f, 70f, 44f, 86f)
+            to p(30f, 62f, 36f, 54f, 46f, 42f, 58f, 32f, 52f, 62f, 60f, 86f, 58f, 58f, 56f, 86f, 30f, 70f, 38f, 86f, 34f, 70f, 44f, 86f)),
+        // Standing hamstring fold with straight legs. The palms reach the floor and the chest sinks toward the shins.
+        "fold" to (p(30f, 58f, 38f, 50f, 48f, 40f, 58f, 32f, 59f, 59f, 60f, 86f, 61f, 59f, 62f, 86f, 32f, 68f, 40f, 86f, 36f, 68f, 46f, 86f)
+            to p(34f, 66f, 42f, 56f, 52f, 42f, 58f, 32f, 59f, 59f, 60f, 86f, 61f, 59f, 62f, 86f, 38f, 74f, 44f, 86f, 42f, 74f, 50f, 86f)),
+        // Low lunge, back leg straight, torso folded forward. The near hand is on the floor inside the front foot; the other arm opens from the floor up to the ceiling.
+        "wgs" to (p(52f, 42f, 47f, 50f, 42f, 56f, 36f, 62f, 60f, 64f, 66f, 86f, 22f, 76f, 6f, 86f, 55f, 66f, 58f, 86f, 47f, 68f, 48f, 86f)
+            to p(54f, 34f, 49f, 44f, 43f, 54f, 36f, 62f, 60f, 64f, 66f, 86f, 22f, 76f, 6f, 86f, 58f, 28f, 62f, 12f, 47f, 68f, 48f, 86f)),
+        // On all fours. One arm threads under the chest and the shoulder and ear rest on the floor.
+        "needle" to (p(26f, 60f, 34f, 56f, 50f, 52f, 66f, 50f, 68f, 74f, 80f, 86f, 72f, 74f, 84f, 86f, 22f, 72f, 16f, 86f, 42f, 70f, 54f, 86f)
+            to p(24f, 74f, 36f, 66f, 50f, 56f, 66f, 50f, 68f, 74f, 80f, 86f, 72f, 74f, 84f, 86f, 46f, 80f, 62f, 86f, 38f, 70f, 44f, 86f)),
+        // Half kneel, back knee on the floor, torso tall. The pelvis tucks and glides forward over the front foot.
+        "hipflexor" to (p(46f, 16f, 46f, 26f, 46f, 40f, 46f, 54f, 68f, 58f, 70f, 86f, 36f, 84f, 14f, 86f, 52f, 44f, 62f, 54f, 40f, 44f, 36f, 56f)
+            to p(50f, 14f, 50f, 24f, 50f, 38f, 52f, 52f, 70f, 58f, 70f, 86f, 36f, 84f, 14f, 86f, 56f, 42f, 66f, 52f, 44f, 42f, 40f, 54f)),
+        // Seated with the front shin across in front and the back shin folded behind. The torso hinges forward over the front shin.
+        "ninety" to (p(44f, 26f, 44f, 36f, 44f, 50f, 44f, 66f, 70f, 70f, 84f, 86f, 22f, 72f, 8f, 86f, 52f, 54f, 58f, 70f, 36f, 54f, 32f, 70f)
+            to p(62f, 44f, 58f, 50f, 50f, 58f, 44f, 66f, 70f, 70f, 84f, 86f, 22f, 72f, 8f, 86f, 68f, 64f, 82f, 76f, 54f, 66f, 62f, 80f)),
+        // Standing. One hand goes behind the back and walks up the spine; the other arm hangs.
+        "shoulderir" to (p(50f, 12f, 50f, 22f, 50f, 38f, 50f, 54f, 50f, 70f, 50f, 86f, 52f, 70f, 52f, 86f, 54f, 40f, 56f, 56f, 40f, 36f, 46f, 48f)
+            to p(50f, 12f, 50f, 22f, 50f, 38f, 50f, 54f, 50f, 70f, 50f, 86f, 52f, 70f, 52f, 86f, 54f, 40f, 56f, 56f, 38f, 32f, 46f, 36f)),
+        // On all fours. The spine rounds up to the ceiling with the head tucked, then sags with the head up.
+        "catcow" to (p(20f, 62f, 32f, 50f, 52f, 36f, 70f, 50f, 72f, 72f, 86f, 86f, 74f, 72f, 88f, 86f, 30f, 68f, 28f, 86f, 34f, 68f, 32f, 86f)
+            to p(18f, 40f, 32f, 48f, 52f, 60f, 70f, 52f, 72f, 72f, 86f, 86f, 74f, 72f, 88f, 86f, 30f, 68f, 28f, 86f, 34f, 68f, 32f, 86f)),
+        // Lying on the back, hips lifted, both legs over the head with the toes reaching for the floor behind.
+        "plow" to (p(80f, 80f, 70f, 80f, 62f, 62f, 56f, 44f, 40f, 52f, 24f, 68f, 42f, 52f, 26f, 70f, 54f, 84f, 38f, 86f, 56f, 84f, 40f, 86f)
+            to p(80f, 80f, 70f, 80f, 62f, 62f, 56f, 44f, 36f, 58f, 20f, 82f, 38f, 58f, 22f, 84f, 54f, 84f, 38f, 86f, 56f, 84f, 40f, 86f)),
     )
     val keys: List<String> get() = poses.keys.toList()
     fun of(key: String): Pair<Pose, Pose> = poses[key] ?: poses.getValue("hipflexor")
@@ -80,19 +83,26 @@ fun Figure(figure: String, modifier: Modifier = Modifier, mirror: Boolean = fals
     val transition = rememberInfiniteTransition(label = "figure")
     val t by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(periodMs, easing = LinearEasing), RepeatMode.Reverse), label = "t")
     val phase = if (animate) t else 0f
-    // Ease in and out so the figure rests at each pose.
     val eased = if (phase < 0.5f) 2 * phase * phase else -1 + (4 - 2 * phase) * phase
     val pose = a.mix(b, eased)
     Canvas(modifier) {
         val s = size.minDimension / 100f
         fun pt(o: Offset) = Offset(if (mirror) (100f - o.x) * s else o.x * s, o.y * s)
         val stroke = Stroke(width = 2.6f * s, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        val path = Path().apply {
+        val far = Path().apply {
+            moveTo(pt(pose.shoulder).x, pt(pose.shoulder).y); quadraticTo(pt(pose.chest).x, pt(pose.chest).y, pt(pose.hip).x, pt(pose.hip).y)
             fun seg(x: Offset, y: Offset) { moveTo(pt(x).x, pt(x).y); lineTo(pt(y).x, pt(y).y) }
-            seg(pose.neck, pose.hip); seg(pose.hip, pose.kneeF); seg(pose.kneeF, pose.footF); seg(pose.hip, pose.kneeB); seg(pose.kneeB, pose.footB)
-            seg(pose.neck, pose.handF); seg(pose.neck, pose.handB)
+            seg(pose.hip, pose.kneeB); seg(pose.kneeB, pose.footB); seg(pose.shoulder, pose.elbowB); seg(pose.elbowB, pose.handB)
+            // neck: shoulder to the edge of the head, computed in pose space so the mirror applies once
+            val dx = pose.head.x - pose.shoulder.x; val dy = pose.head.y - pose.shoulder.y; val d = hypot(dx, dy).takeIf { it > 0f } ?: 1f
+            seg(pose.shoulder, Offset(pose.head.x - dx / d * 4.5f, pose.head.y - dy / d * 4.5f))
         }
-        drawPath(path, color, style = stroke)
+        val near = Path().apply {
+            fun seg(x: Offset, y: Offset) { moveTo(pt(x).x, pt(x).y); lineTo(pt(y).x, pt(y).y) }
+            seg(pose.hip, pose.kneeF); seg(pose.kneeF, pose.footF); seg(pose.shoulder, pose.elbowF); seg(pose.elbowF, pose.handF)
+        }
+        drawPath(far, color, style = stroke)
+        drawPath(near, color.copy(alpha = 1f), style = stroke)
         drawCircle(color, radius = 4.5f * s, center = pt(pose.head), style = Stroke(width = 2.6f * s))
         drawLine(color.copy(alpha = 0.35f), Offset(6f * s, 86f * s), Offset(94f * s, 86f * s), strokeWidth = 1f * s, cap = StrokeCap.Round)
     }

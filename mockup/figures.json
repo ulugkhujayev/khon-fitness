@@ -1,0 +1,930 @@
+{
+ "_doc": "Side view, 100-unit box, floor at y=86, x grows to the right. Joints: head (circle centre), shoulder, chest (spine midpoint), hip, kneeF, footF, kneeB, footB, elbowF, handF, elbowB, handB. F = limb nearer the viewer. Each figure has pose a and pose b; the player eases a->b->a.",
+ "elephant": {
+  "cue": "Standing fold, palms flat on the floor. One knee bends while the other leg straightens, then they swap.",
+  "a": {
+   "head": [
+    30,
+    62
+   ],
+   "shoulder": [
+    36,
+    54
+   ],
+   "chest": [
+    46,
+    42
+   ],
+   "hip": [
+    58,
+    32
+   ],
+   "kneeF": [
+    60,
+    58
+   ],
+   "footF": [
+    60,
+    86
+   ],
+   "kneeB": [
+    54,
+    62
+   ],
+   "footB": [
+    56,
+    86
+   ],
+   "elbowF": [
+    30,
+    70
+   ],
+   "handF": [
+    38,
+    86
+   ],
+   "elbowB": [
+    34,
+    70
+   ],
+   "handB": [
+    44,
+    86
+   ]
+  },
+  "b": {
+   "head": [
+    30,
+    62
+   ],
+   "shoulder": [
+    36,
+    54
+   ],
+   "chest": [
+    46,
+    42
+   ],
+   "hip": [
+    58,
+    32
+   ],
+   "kneeF": [
+    52,
+    62
+   ],
+   "footF": [
+    60,
+    86
+   ],
+   "kneeB": [
+    58,
+    58
+   ],
+   "footB": [
+    56,
+    86
+   ],
+   "elbowF": [
+    30,
+    70
+   ],
+   "handF": [
+    38,
+    86
+   ],
+   "elbowB": [
+    34,
+    70
+   ],
+   "handB": [
+    44,
+    86
+   ]
+  }
+ },
+ "fold": {
+  "cue": "Standing hamstring fold with straight legs. The palms reach the floor and the chest sinks toward the shins.",
+  "a": {
+   "head": [
+    30,
+    58
+   ],
+   "shoulder": [
+    38,
+    50
+   ],
+   "chest": [
+    48,
+    40
+   ],
+   "hip": [
+    58,
+    32
+   ],
+   "kneeF": [
+    59,
+    59
+   ],
+   "footF": [
+    60,
+    86
+   ],
+   "kneeB": [
+    61,
+    59
+   ],
+   "footB": [
+    62,
+    86
+   ],
+   "elbowF": [
+    32,
+    68
+   ],
+   "handF": [
+    40,
+    86
+   ],
+   "elbowB": [
+    36,
+    68
+   ],
+   "handB": [
+    46,
+    86
+   ]
+  },
+  "b": {
+   "head": [
+    34,
+    66
+   ],
+   "shoulder": [
+    42,
+    56
+   ],
+   "chest": [
+    52,
+    42
+   ],
+   "hip": [
+    58,
+    32
+   ],
+   "kneeF": [
+    59,
+    59
+   ],
+   "footF": [
+    60,
+    86
+   ],
+   "kneeB": [
+    61,
+    59
+   ],
+   "footB": [
+    62,
+    86
+   ],
+   "elbowF": [
+    38,
+    74
+   ],
+   "handF": [
+    44,
+    86
+   ],
+   "elbowB": [
+    42,
+    74
+   ],
+   "handB": [
+    50,
+    86
+   ]
+  }
+ },
+ "wgs": {
+  "cue": "Low lunge, back leg straight, torso folded forward. The near hand is on the floor inside the front foot; the other arm opens from the floor up to the ceiling.",
+  "a": {
+   "head": [
+    52,
+    42
+   ],
+   "shoulder": [
+    47,
+    50
+   ],
+   "chest": [
+    42,
+    56
+   ],
+   "hip": [
+    36,
+    62
+   ],
+   "kneeF": [
+    60,
+    64
+   ],
+   "footF": [
+    66,
+    86
+   ],
+   "kneeB": [
+    22,
+    76
+   ],
+   "footB": [
+    6,
+    86
+   ],
+   "elbowF": [
+    55,
+    66
+   ],
+   "handF": [
+    58,
+    86
+   ],
+   "elbowB": [
+    47,
+    68
+   ],
+   "handB": [
+    48,
+    86
+   ]
+  },
+  "b": {
+   "head": [
+    54,
+    34
+   ],
+   "shoulder": [
+    49,
+    44
+   ],
+   "chest": [
+    43,
+    54
+   ],
+   "hip": [
+    36,
+    62
+   ],
+   "kneeF": [
+    60,
+    64
+   ],
+   "footF": [
+    66,
+    86
+   ],
+   "kneeB": [
+    22,
+    76
+   ],
+   "footB": [
+    6,
+    86
+   ],
+   "elbowF": [
+    58,
+    28
+   ],
+   "handF": [
+    62,
+    12
+   ],
+   "elbowB": [
+    47,
+    68
+   ],
+   "handB": [
+    48,
+    86
+   ]
+  }
+ },
+ "needle": {
+  "cue": "On all fours. One arm threads under the chest and the shoulder and ear rest on the floor.",
+  "a": {
+   "head": [
+    26,
+    60
+   ],
+   "shoulder": [
+    34,
+    56
+   ],
+   "chest": [
+    50,
+    52
+   ],
+   "hip": [
+    66,
+    50
+   ],
+   "kneeF": [
+    68,
+    74
+   ],
+   "footF": [
+    80,
+    86
+   ],
+   "kneeB": [
+    72,
+    74
+   ],
+   "footB": [
+    84,
+    86
+   ],
+   "elbowF": [
+    22,
+    72
+   ],
+   "handF": [
+    16,
+    86
+   ],
+   "elbowB": [
+    42,
+    70
+   ],
+   "handB": [
+    54,
+    86
+   ]
+  },
+  "b": {
+   "head": [
+    24,
+    74
+   ],
+   "shoulder": [
+    36,
+    66
+   ],
+   "chest": [
+    50,
+    56
+   ],
+   "hip": [
+    66,
+    50
+   ],
+   "kneeF": [
+    68,
+    74
+   ],
+   "footF": [
+    80,
+    86
+   ],
+   "kneeB": [
+    72,
+    74
+   ],
+   "footB": [
+    84,
+    86
+   ],
+   "elbowF": [
+    46,
+    80
+   ],
+   "handF": [
+    62,
+    86
+   ],
+   "elbowB": [
+    38,
+    70
+   ],
+   "handB": [
+    44,
+    86
+   ]
+  }
+ },
+ "hipflexor": {
+  "cue": "Half kneel, back knee on the floor, torso tall. The pelvis tucks and glides forward over the front foot.",
+  "a": {
+   "head": [
+    46,
+    16
+   ],
+   "shoulder": [
+    46,
+    26
+   ],
+   "chest": [
+    46,
+    40
+   ],
+   "hip": [
+    46,
+    54
+   ],
+   "kneeF": [
+    68,
+    58
+   ],
+   "footF": [
+    70,
+    86
+   ],
+   "kneeB": [
+    36,
+    84
+   ],
+   "footB": [
+    14,
+    86
+   ],
+   "elbowF": [
+    52,
+    44
+   ],
+   "handF": [
+    62,
+    54
+   ],
+   "elbowB": [
+    40,
+    44
+   ],
+   "handB": [
+    36,
+    56
+   ]
+  },
+  "b": {
+   "head": [
+    50,
+    14
+   ],
+   "shoulder": [
+    50,
+    24
+   ],
+   "chest": [
+    50,
+    38
+   ],
+   "hip": [
+    52,
+    52
+   ],
+   "kneeF": [
+    70,
+    58
+   ],
+   "footF": [
+    70,
+    86
+   ],
+   "kneeB": [
+    36,
+    84
+   ],
+   "footB": [
+    14,
+    86
+   ],
+   "elbowF": [
+    56,
+    42
+   ],
+   "handF": [
+    66,
+    52
+   ],
+   "elbowB": [
+    44,
+    42
+   ],
+   "handB": [
+    40,
+    54
+   ]
+  }
+ },
+ "ninety": {
+  "cue": "Seated with the front shin across in front and the back shin folded behind. The torso hinges forward over the front shin.",
+  "a": {
+   "head": [
+    44,
+    26
+   ],
+   "shoulder": [
+    44,
+    36
+   ],
+   "chest": [
+    44,
+    50
+   ],
+   "hip": [
+    44,
+    66
+   ],
+   "kneeF": [
+    70,
+    70
+   ],
+   "footF": [
+    84,
+    86
+   ],
+   "kneeB": [
+    22,
+    72
+   ],
+   "footB": [
+    8,
+    86
+   ],
+   "elbowF": [
+    52,
+    54
+   ],
+   "handF": [
+    58,
+    70
+   ],
+   "elbowB": [
+    36,
+    54
+   ],
+   "handB": [
+    32,
+    70
+   ]
+  },
+  "b": {
+   "head": [
+    62,
+    44
+   ],
+   "shoulder": [
+    58,
+    50
+   ],
+   "chest": [
+    50,
+    58
+   ],
+   "hip": [
+    44,
+    66
+   ],
+   "kneeF": [
+    70,
+    70
+   ],
+   "footF": [
+    84,
+    86
+   ],
+   "kneeB": [
+    22,
+    72
+   ],
+   "footB": [
+    8,
+    86
+   ],
+   "elbowF": [
+    68,
+    64
+   ],
+   "handF": [
+    82,
+    76
+   ],
+   "elbowB": [
+    54,
+    66
+   ],
+   "handB": [
+    62,
+    80
+   ]
+  }
+ },
+ "shoulderir": {
+  "cue": "Standing. One hand goes behind the back and walks up the spine; the other arm hangs.",
+  "a": {
+   "head": [
+    50,
+    12
+   ],
+   "shoulder": [
+    50,
+    22
+   ],
+   "chest": [
+    50,
+    38
+   ],
+   "hip": [
+    50,
+    54
+   ],
+   "kneeF": [
+    50,
+    70
+   ],
+   "footF": [
+    50,
+    86
+   ],
+   "kneeB": [
+    52,
+    70
+   ],
+   "footB": [
+    52,
+    86
+   ],
+   "elbowF": [
+    54,
+    40
+   ],
+   "handF": [
+    56,
+    56
+   ],
+   "elbowB": [
+    40,
+    36
+   ],
+   "handB": [
+    46,
+    48
+   ]
+  },
+  "b": {
+   "head": [
+    50,
+    12
+   ],
+   "shoulder": [
+    50,
+    22
+   ],
+   "chest": [
+    50,
+    38
+   ],
+   "hip": [
+    50,
+    54
+   ],
+   "kneeF": [
+    50,
+    70
+   ],
+   "footF": [
+    50,
+    86
+   ],
+   "kneeB": [
+    52,
+    70
+   ],
+   "footB": [
+    52,
+    86
+   ],
+   "elbowF": [
+    54,
+    40
+   ],
+   "handF": [
+    56,
+    56
+   ],
+   "elbowB": [
+    38,
+    32
+   ],
+   "handB": [
+    46,
+    36
+   ]
+  }
+ },
+ "catcow": {
+  "cue": "On all fours. The spine rounds up to the ceiling with the head tucked, then sags with the head up.",
+  "a": {
+   "head": [
+    20,
+    62
+   ],
+   "shoulder": [
+    32,
+    50
+   ],
+   "chest": [
+    52,
+    36
+   ],
+   "hip": [
+    70,
+    50
+   ],
+   "kneeF": [
+    72,
+    72
+   ],
+   "footF": [
+    86,
+    86
+   ],
+   "kneeB": [
+    74,
+    72
+   ],
+   "footB": [
+    88,
+    86
+   ],
+   "elbowF": [
+    30,
+    68
+   ],
+   "handF": [
+    28,
+    86
+   ],
+   "elbowB": [
+    34,
+    68
+   ],
+   "handB": [
+    32,
+    86
+   ]
+  },
+  "b": {
+   "head": [
+    18,
+    40
+   ],
+   "shoulder": [
+    32,
+    48
+   ],
+   "chest": [
+    52,
+    60
+   ],
+   "hip": [
+    70,
+    52
+   ],
+   "kneeF": [
+    72,
+    72
+   ],
+   "footF": [
+    86,
+    86
+   ],
+   "kneeB": [
+    74,
+    72
+   ],
+   "footB": [
+    88,
+    86
+   ],
+   "elbowF": [
+    30,
+    68
+   ],
+   "handF": [
+    28,
+    86
+   ],
+   "elbowB": [
+    34,
+    68
+   ],
+   "handB": [
+    32,
+    86
+   ]
+  }
+ },
+ "plow": {
+  "cue": "Lying on the back, hips lifted, both legs over the head with the toes reaching for the floor behind.",
+  "a": {
+   "head": [
+    80,
+    80
+   ],
+   "shoulder": [
+    70,
+    80
+   ],
+   "chest": [
+    62,
+    62
+   ],
+   "hip": [
+    56,
+    44
+   ],
+   "kneeF": [
+    40,
+    52
+   ],
+   "footF": [
+    24,
+    68
+   ],
+   "kneeB": [
+    42,
+    52
+   ],
+   "footB": [
+    26,
+    70
+   ],
+   "elbowF": [
+    54,
+    84
+   ],
+   "handF": [
+    38,
+    86
+   ],
+   "elbowB": [
+    56,
+    84
+   ],
+   "handB": [
+    40,
+    86
+   ]
+  },
+  "b": {
+   "head": [
+    80,
+    80
+   ],
+   "shoulder": [
+    70,
+    80
+   ],
+   "chest": [
+    62,
+    62
+   ],
+   "hip": [
+    56,
+    44
+   ],
+   "kneeF": [
+    36,
+    58
+   ],
+   "footF": [
+    20,
+    82
+   ],
+   "kneeB": [
+    38,
+    58
+   ],
+   "footB": [
+    22,
+    84
+   ],
+   "elbowF": [
+    54,
+    84
+   ],
+   "handF": [
+    38,
+    86
+   ],
+   "elbowB": [
+    56,
+    84
+   ],
+   "handB": [
+    40,
+    86
+   ]
+  }
+ }
+}

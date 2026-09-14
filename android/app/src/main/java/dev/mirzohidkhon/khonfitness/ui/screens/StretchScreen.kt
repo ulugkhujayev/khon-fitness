@@ -2,6 +2,8 @@ package dev.mirzohidkhon.khonfitness.ui.screens
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -12,6 +14,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,40 +66,98 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
         val r = routine ?: return@LaunchedEffect
         if (stretches.isEmpty()) return@LaunchedEffect
         val running = TimerService.state.value
-        if (running == null || !running.stretch || !running.sessionId.startsWith("$routineId:")) TimerService.startStretch(context, sessionId, r.name, routineSteps(r.id, routineStretches, stretches))
+        val steps = routineSteps(r.id, routineStretches, stretches)
+        if (running == null && steps.isNotEmpty()) TimerService.startStretch(context, sessionId, r.name, steps)
+    }
+    var observedSessionId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(state?.sessionId) {
+        state?.takeIf { it.stretch && it.sessionId.startsWith("$routineId:") }?.let { observedSessionId = it.sessionId }
     }
     LaunchedEffect(finished) {
         val f = finished ?: return@LaunchedEffect
-        if (f.sessionId.startsWith("$routineId:")) { nav.popBackStack(); TimerService.finished.value = null }
+        if (f.sessionId == sessionId || f.sessionId == observedSessionId) { nav.popBackStack(); TimerService.finished.value = null }
     }
     var sawRunning by remember { mutableStateOf(false) }
     LaunchedEffect(state?.sessionId) { if (state?.sessionId?.startsWith("$routineId:") == true) sawRunning = true }
     LaunchedEffect(sawRunning, state == null) { if (sawRunning && state == null) { delay(1500); if (TimerService.state.value == null) nav.popBackStack() } }
 
-    val st = state?.takeIf { it.stretch }
-    val phase = st?.phase
-    val bg by animateColorAsState(if (st == null || st.done) K.Bg else if (st.paused) Color(0xFF3A3A40) else Color(0xFF14532D), label = "bg")
-    Column(Modifier.fillMaxSize().background(bg).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton("Stop", color = Color.White) { TimerService.send(context, TimerService.ACTION_STOP) }
-            Text(st?.title ?: routine?.name ?: "", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-            TextButton("Skip", color = Color.White) { TimerService.send(context, TimerService.ACTION_SKIP) }
+    val st = state?.takeIf { it.stretch && it.sessionId.startsWith("$routineId:") }
+    val phase = st?.takeUnless { it.done }?.phase
+    val bg by animateColorAsState(if (st?.active == true) Color(0xFF14532D) else K.Bg, label = "bg")
+    BoxWithConstraints(Modifier.fillMaxSize().background(bg)) {
+        val compact = maxHeight < 680.dp
+        Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+                PlayerTextButton("Stop", Modifier.width(64.dp)) {
+                    if (st != null) TimerService.send(context, TimerService.ACTION_STOP) else nav.popBackStack()
+                }
+                Text(st?.title ?: routine?.name ?: "Stretching", color = Color.White,
+                    style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                PlayerTextButton("Skip", Modifier.width(64.dp), enabled = phase != null) { TimerService.send(context, TimerService.ACTION_SKIP) }
+            }
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                if (phase != null) {
+                    Text(phase.label, color = Color.White, style = MaterialTheme.typography.titleLarge,
+                        textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                    Text(listOfNotNull(phase.side.takeIf { it.isNotEmpty() },
+                        if (phase.reps > 0) "${phase.reps} reps" else "Hold").joinToString(" · "),
+                        color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(top = 8.dp))
+                    val motion = if (phase.reps > 0) {
+                        val cycle = ((phase.seconds - st.remaining) / (phase.seconds.toDouble() / phase.reps)) % 1.0
+                        (if (cycle < .5) cycle * 2 else (1 - cycle) * 2).toFloat()
+                    } else 1f
+                    Figure(phase.figure, Modifier.size(if (compact) 144.dp else 224.dp).padding(vertical = 8.dp),
+                        mirror = phase.side == "Right", animate = false, progress = motion)
+                    val cue = Figures.cue(phase.figure)
+                    if (cue.isNotEmpty()) Text(cue, color = Color.White.copy(alpha = .8f),
+                        style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = if (compact) 8.dp else 16.dp))
+                    Text(when { st.paused -> "Paused"; st.awaitingStart -> if (st.index == 0) "Ready" else "Next stretch";
+                        st.preparing -> "Get ready"; else -> if (phase.reps > 0) "Move" else "Hold" },
+                        color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                    Text(if (st.preparing) kotlin.math.ceil(st.preparation).toInt().toString() else mmss(st.remaining),
+                        color = Color.White, style = TextStyle(fontFamily = MaterialTheme.typography.headlineLarge.fontFamily,
+                            fontSize = if (compact) 72.sp else 88.sp, fontWeight = FontWeight.Bold,
+                            fontFeatureSettings = "tnum", textAlign = TextAlign.Center),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                    Text("${st.index + 1} of ${st.phases.size} · ${mmss(st.workRemaining)} remaining",
+                        color = Color.White.copy(alpha = .65f), style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                } else {
+                    Text(if (routine == null) "Loading routine" else "No stretches to play", color = Color.White)
+                }
+            }
+            if (st != null && phase != null) {
+                val action = when { st.awaitingStart -> TimerService.ACTION_BEGIN; st.paused -> TimerService.ACTION_RESUME; else -> TimerService.ACTION_PAUSE }
+                val label = when {
+                    st.awaitingStart && phase.side.isNotEmpty() -> "Start ${phase.side.lowercase()} side"
+                    st.awaitingStart -> if (st.index == 0) "Start stretch" else "Start next stretch"
+                    st.paused -> "Resume"
+                    else -> "Pause"
+                }
+                Button(onClick = { TimerService.send(context, action) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)) {
+                    Text(label, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+                }
+                if (BuildConfig.DEBUG) PlayerTextButton(if (st.speed > 1) "×20 on" else "×20", Modifier.fillMaxWidth()) {
+                    TimerService.state.value = TimerService.state.value?.let { it.copy(speed = if (it.speed > 1) 1.0 else 20.0) }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
         }
-        Spacer(Modifier.weight(1f))
-        Figure(phase?.figure ?: "hipflexor", Modifier.size(240.dp), mirror = phase?.side == "Right", animate = st?.paused != true)
-        Text(phase?.label ?: "Starting", color = Color.White, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
-        Text(when { phase == null -> ""; phase.reps > 0 -> "${phase.reps} reps" + (if (phase.side.isNotEmpty()) " · " + phase.side else ""); phase.side.isNotEmpty() -> phase.side; else -> "Hold" },
-            color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 2.dp))
-        Text(mmss(st?.remaining ?: 0.0), color = Color.White, fontSize = 96.sp, fontWeight = FontWeight.Bold, letterSpacing = (-3).sp, lineHeight = 96.sp, modifier = Modifier.padding(top = 6.dp))
-        if (st != null && !st.done) {
-            val next = st.phases.getOrNull(st.index + 1)
-            Text(if (next == null) "Last one" else "Next: " + next.label + (if (next.side.isNotEmpty()) ", " + next.side.lowercase() else ""), color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp))
-            Text("${st.index + 1} of ${st.phases.size} · ${mmss(st.total - st.elapsed)} left", color = Color.White.copy(alpha = .6f), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
-        }
-        Spacer(Modifier.weight(1f))
-        if (st?.paused == true) Text("Paused", color = Color.White, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(bottom = 12.dp))
-        TextButton(if (st?.paused == true) "Resume" else "Pause", color = Color.White) { TimerService.send(context, if (st?.paused == true) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE) }
-        if (BuildConfig.DEBUG && st != null) TextButton(if (st.speed > 1) "×20 on" else "×20", color = Color.White) { TimerService.state.value = st.copy(speed = if (st.speed > 1) 1.0 else 20.0) }
-        Spacer(Modifier.height(32.dp))
+    }
+}
+
+@Composable
+private fun PlayerTextButton(text: String, modifier: Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    androidx.compose.material3.TextButton(onClick = onClick, enabled = enabled,
+        modifier = modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(0.dp),
+        colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
+        Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }

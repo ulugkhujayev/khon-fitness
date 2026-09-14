@@ -129,20 +129,24 @@ Two lines, 88 px total, hairline between rows.
 
 ## Stretch player
 
-- Full screen, no nav. Background is the phase color like the timer:
-  hold green, side change gray, rest blue.
-- Top row: Stop at left as a text button, routine name centered, Skip at
-  right. Nothing else in the top row.
-- Figure: a line figure, one stroke, white at 90 percent, drawn on a
-  240 px square centered on the screen. It moves between two poses in a
-  2 s ease and loops. No photo, no illustration style, no shading.
-- Under the figure: stretch name 22/600, side "Left" or "Right" 17
-  muted, the countdown 96/700 tabular, then "Next: Thread the needle"
-  15 at 75 percent, and "4 of 9 · 6:20 left" 15 at 60 percent.
-- Pause is a text button at the bottom. A paused player shows "Paused"
-  above it. No progress bar, no ring.
-- A reps stretch shows "10 reps" in place of the countdown and a small
-  rep counter that ticks with the cue.
+- Opening a routine shows a ready screen. A 56 dp full-width Start button
+  begins a visible 3, 2, 1 preparation countdown. Exercise time starts after 1.
+- Each stretch and side change waits for another tap. Skip also opens the
+  next ready screen. Cardio work/rest intervals still advance automatically.
+- Background is black while ready, preparing, or paused, and green while
+  stretching. State is also shown in text.
+- Screen margins are 16 dp. Top Stop and Skip controls have equal 64 dp
+  widths and at least 48 dp tap targets. The routine title is centered.
+- One primary action stays at the bottom: Start, Pause, or Resume. Content
+  scrolls above it on short screens or with large text. Controls never overlap.
+- The stretch name and side appear above the figure. One concise movement
+  cue sits beneath it, then the timer and routine progress.
+- Held stretches show the held position. Repeated movements follow the
+  exercise clock and freeze when paused. No bouncing through a held pose.
+- Figures use a side or oblique view suited to the movement. Far limbs are
+  dimmer. Plow places feet beyond the head; 90/90 shows both knee bends.
+- Beeps and speech use Android media audio and its selected output. The
+  notification is silent. Disconnecting headphones pauses active playback.
 
 ## Eating window
 

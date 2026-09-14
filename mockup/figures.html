@@ -23,16 +23,33 @@ fetch('figures.json?' + Date.now()).then(r => r.json()).then(data => {
     // pose a, mid, pose b, and the right-side mirror of pose a
     [[f.a, 0], [f.a, 0.5], [f.b, 0], [f.a, 0, true]].forEach(([p, t, mirror]) => {
       const c = document.createElement('canvas'); c.width = 480; c.height = 480; row.appendChild(c);
-      draw(c.getContext('2d'), t ? mix(f.a, f.b, t) : p, !!mirror);
+      draw(c.getContext('2d'), t ? mix(f.a, f.b, t, key) : p, !!mirror, key);
     });
     grid.appendChild(card);
   }
 });
-function mix(a, b, t) { const o = {}; for (const k in a) o[k] = [a[k][0] + (b[k][0] - a[k][0]) * t, a[k][1] + (b[k][1] - a[k][1]) * t]; return o; }
-function draw(g, p, mirror) {
+function mix(a, b, t, key) {
+  const o = {}; for (const k in a) o[k] = [a[k][0] + (b[k][0] - a[k][0]) * t, a[k][1] + (b[k][1] - a[k][1]) * t];
+  if (key === 'wgs') {
+    const segment = (root, joint) => {
+      const va = a[joint].map((v,i) => v - a[root][i]), vb = b[joint].map((v,i) => v - b[root][i]);
+      const start = Math.atan2(va[1], va[0]); let turn = Math.atan2(vb[1], vb[0]) - start;
+      while (turn > Math.PI) turn -= 2*Math.PI; while (turn < -Math.PI) turn += 2*Math.PI;
+      const angle = start + turn*t, len = Math.hypot(...va)*(1-t) + Math.hypot(...vb)*t;
+      o[joint] = [o[root][0] + Math.cos(angle)*len, o[root][1] + Math.sin(angle)*len];
+    };
+    segment('shoulder', 'elbowF'); segment('elbowF', 'handF');
+  }
+  return o;
+}
+function draw(g, p, mirror, key) {
   const S = 4.8; const X = v => (mirror ? 100 - v[0] : v[0]) * S, Y = v => v[1] * S;
   g.clearRect(0, 0, 480, 480);
-  g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 12; g.lineCap = 'round'; g.lineJoin = 'round';
+  if (key === 'ninety') {
+    g.beginPath(); [[4,88],[50,99],[98,45],[52,33]].forEach((p,i) => i ? g.lineTo(X(p),Y(p)) : g.moveTo(X(p),Y(p)));
+    g.closePath(); g.fillStyle='rgba(255,255,255,.06)'; g.fill(); g.strokeStyle='rgba(255,255,255,.22)'; g.lineWidth=3; g.stroke();
+  }
+  g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 12; g.lineCap = 'round'; g.lineJoin = 'round';
   g.beginPath();
   // spine as a curve through the chest
   g.moveTo(X(p.shoulder), Y(p.shoulder)); g.quadraticCurveTo(X(p.chest), Y(p.chest), X(p.hip), Y(p.hip));
@@ -44,8 +61,9 @@ function draw(g, p, mirror) {
   seg('hip', 'kneeF'); seg('kneeF', 'footF'); seg('shoulder', 'elbowF'); seg('elbowF', 'handF');
   g.stroke();
   // neck: from the shoulder to the edge of the head circle
-  { const dx = X(p.head) - X(p.shoulder), dy = Y(p.head) - Y(p.shoulder), d = Math.hypot(dx, dy) || 1; g.beginPath(); g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 12; g.moveTo(X(p.shoulder), Y(p.shoulder)); g.lineTo(X(p.head) - dx / d * 4.5 * S, Y(p.head) - dy / d * 4.5 * S); g.stroke(); }
+  { const dx = X(p.head) - X(p.shoulder), dy = Y(p.head) - Y(p.shoulder), d = Math.hypot(dx, dy) || 1; g.beginPath(); g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 12; g.moveTo(X(p.shoulder), Y(p.shoulder)); g.lineTo(X(p.head) - dx / d * 4.5 * S, Y(p.head) - dy / d * 4.5 * S); g.stroke(); }
   g.beginPath(); g.lineWidth = 12; g.arc(X(p.head), Y(p.head), 4.5 * S, 0, Math.PI * 2); g.stroke();
+  if (key === 'ninety') return;
   g.beginPath(); g.lineWidth = 4; g.strokeStyle = 'rgba(255,255,255,.35)'; g.moveTo(6 * S, 86 * S); g.lineTo(94 * S, 86 * S); g.stroke();
 }
 </script></body></html>

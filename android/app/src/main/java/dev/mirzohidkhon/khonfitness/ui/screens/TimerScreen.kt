@@ -66,17 +66,17 @@ fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
 
     val st = state
     val kind = st?.phase?.kind ?: PhaseKind.WARMUP
-    val bg by animateColorAsState(when { st == null || st.done -> K.Bg; kind == PhaseKind.WORK -> Color(0xFF14532D); kind == PhaseKind.REST -> Color(0xFF1E3A5F); else -> Color(0xFF3A3A40) }, label = "phase")
-    Column(Modifier.fillMaxSize().background(bg).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    val bg by animateColorAsState(when { st == null || st.done || st.awaitingStart || st.preparing || st.paused -> K.Bg; kind == PhaseKind.WORK -> Color(0xFF14532D); kind == PhaseKind.REST -> Color(0xFF1E3A5F); else -> Color(0xFF3A3A40) }, label = "phase")
+    Column(Modifier.fillMaxSize().background(bg).padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton("Stop", color = Color.White) { TimerService.send(context, TimerService.ACTION_STOP) }
             Text(st?.title ?: ex?.name ?: "", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            TextButton(if (st?.paused == true) "Resume" else "Pause", color = Color.White) { TimerService.send(context, if (st?.paused == true) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE) }
+            Spacer(Modifier.width(48.dp))
         }
         Spacer(Modifier.weight(1f))
-        val label = when { st == null -> "Starting"; st.done -> "Done"; kind == PhaseKind.WARMUP -> "Warm-up"; kind == PhaseKind.WORK -> "Work"; else -> "Rest" }
-        Text(label.uppercase(), color = Color.White.copy(alpha = .75f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 4.sp)
-        Text(mmss(st?.remaining ?: 0.0), color = Color.White, fontSize = 136.sp, fontWeight = FontWeight.Bold, letterSpacing = (-5).sp, lineHeight = 136.sp, modifier = Modifier.padding(vertical = 8.dp))
+        val label = when { st == null -> "Starting"; st.done -> "Done"; st.awaitingStart -> "Ready"; st.preparing -> "Get ready"; st.paused -> "Paused"; kind == PhaseKind.WARMUP -> "Warm-up"; kind == PhaseKind.WORK -> "Work"; else -> "Rest" }
+        Text(label, color = Color.White.copy(alpha = .75f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Text(if (st?.preparing == true) kotlin.math.ceil(st.preparation).toInt().toString() else mmss(st?.remaining ?: 0.0), color = Color.White, fontSize = 96.sp, fontWeight = FontWeight.Bold, letterSpacing = (-5).sp, lineHeight = 112.sp, modifier = Modifier.padding(vertical = 8.dp))
         if (st != null && !st.done && kind != PhaseKind.WARMUP) Text("Round ${st.phase.round} of ${st.rounds}", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
         if (st != null && !st.done) {
             val next = st.phases.getOrNull(st.index + 1)
@@ -89,7 +89,9 @@ fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
             TextButton("Allow background", color = Color.White) { batteryLauncher.launch(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:" + context.packageName))) }
             Spacer(Modifier.height(12.dp))
         }
-        if (st?.paused == true) Text("Paused", color = Color.White, fontSize = 17.sp, modifier = Modifier.padding(bottom = 24.dp))
+        if (st != null && !st.done) PrimaryButton(when { st.awaitingStart -> "Start timer"; st.paused -> "Resume"; else -> "Pause" }) {
+            TimerService.send(context, when { st.awaitingStart -> TimerService.ACTION_BEGIN; st.paused -> TimerService.ACTION_RESUME; else -> TimerService.ACTION_PAUSE })
+        }
         if (BuildConfig.DEBUG && st != null) TextButton(if (st.speed > 1) "×60 on" else "×60", color = Color.White) { TimerService.state.value = st.copy(speed = if (st.speed > 1) 1.0 else 60.0) }
         Spacer(Modifier.height(32.dp))
     }

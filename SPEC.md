@@ -149,7 +149,9 @@ show one row per work interval for manual entry.
 
 ## Interval timer
 
-- Start from Today when the item is an interval cardio exercise.
+- Open from Today when the item is an interval cardio exercise. Tap Start
+  timer for a three-second preparation countdown. Work/rest phases then
+  advance automatically.
 - Full-screen countdown. Phase color: warmup gray, work green, rest blue.
   Big remaining seconds, round counter, total elapsed.
 - Three short beeps before each phase switch, one long beep at the end.
@@ -184,10 +186,10 @@ the old build with no uninstall. Needs REQUEST_INSTALL_PACKAGES.
 ## Stretching (phase 3)
 
 Stretching is a daily routine, not a plan item. Today shows one row: the
-active routine, its length, a dot that is green when done today. Tap starts a
-full-screen player: a drawn line figure that moves between two poses, the
-stretch name, side, a big countdown, the next stretch. Sided stretches run
-left then right with a change cue. Same audio engine and lock-screen
+active routine, its length, a dot that is green when done today. Tap opens a ready screen with a drawn figure, stretch name, side, and
+Start button. Start gives a three-second preparation countdown before work.
+Each stretch and side change waits for the user to start the next one.
+Held poses stay still; repeated movements follow the timer and freeze on pause. Same audio engine and lock-screen
 notification as the interval timer. The end writes a session and returns to
 Today. Programs has a Stretching row: routines (one active), a stretch
 library with figure thumbnails, custom stretches pick a figure from the set.

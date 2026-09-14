@@ -12,6 +12,7 @@ class MainActivity : ComponentActivity() {
         // Dark-only app: keep status and nav bar icons light whatever the system theme is.
         enableEdgeToEdge(androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         super.onCreate(savedInstanceState)
+        volumeControlStream = android.media.AudioManager.STREAM_MUSIC
         if (intent?.action == dev.mirzohidkhon.khonfitness.widget.TodayWidget.ACTION_START_TODAY) startRequested.value = true
         if (intent?.action == ACTION_OPEN_WINDOW) windowRequested.value = true
         dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(this)

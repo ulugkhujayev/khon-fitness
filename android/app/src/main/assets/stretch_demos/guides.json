@@ -3,8 +3,8 @@
     "name": "World's greatest stretch",
     "frameCount": 64,
     "columns": 8,
-    "frameWidth": 384,
-    "frameHeight": 304,
+    "frameWidth": 512,
+    "frameHeight": 400,
     "steps": [
       {
         "title": "Set up",
@@ -29,8 +29,8 @@
     "name": "Thread the needle",
     "frameCount": 64,
     "columns": 8,
-    "frameWidth": 384,
-    "frameHeight": 304,
+    "frameWidth": 512,
+    "frameHeight": 400,
     "steps": [
       {
         "title": "Set up",
@@ -55,8 +55,8 @@
     "name": "90/90 stretch",
     "frameCount": 64,
     "columns": 8,
-    "frameWidth": 384,
-    "frameHeight": 304,
+    "frameWidth": 512,
+    "frameHeight": 400,
     "steps": [
       {
         "title": "Set up",
@@ -86,8 +86,8 @@
     "name": "Plow pose",
     "frameCount": 64,
     "columns": 8,
-    "frameWidth": 384,
-    "frameHeight": 304,
+    "frameWidth": 512,
+    "frameHeight": 400,
     "steps": [
       {
         "title": "Set up",
@@ -117,8 +117,8 @@
     "name": "Hip flexor stretch",
     "frameCount": 64,
     "columns": 8,
-    "frameWidth": 384,
-    "frameHeight": 304,
+    "frameWidth": 512,
+    "frameHeight": 400,
     "steps": [
       {
         "title": "Set up",
@@ -143,8 +143,8 @@
     "name": "Hamstring stretch",
     "frameCount": 64,
     "columns": 8,
-    "frameWidth": 384,
-    "frameHeight": 304,
+    "frameWidth": 512,
+    "frameHeight": 400,
     "steps": [
       {
         "title": "Stand",
@@ -169,8 +169,8 @@
     "name": "Elephant walks",
     "frameCount": 64,
     "columns": 8,
-    "frameWidth": 384,
-    "frameHeight": 304,
+    "frameWidth": 512,
+    "frameHeight": 400,
     "steps": [
       {
         "title": "Set up",
@@ -195,8 +195,8 @@
     "name": "Cat cow",
     "frameCount": 64,
     "columns": 8,
-    "frameWidth": 384,
-    "frameHeight": 304,
+    "frameWidth": 512,
+    "frameHeight": 400,
     "steps": [
       {
         "title": "Set up",
@@ -221,8 +221,8 @@
     "name": "Shoulder internal rotation",
     "frameCount": 64,
     "columns": 8,
-    "frameWidth": 384,
-    "frameHeight": 304,
+    "frameWidth": 512,
+    "frameHeight": 400,
     "steps": [
       {
         "title": "Stand",

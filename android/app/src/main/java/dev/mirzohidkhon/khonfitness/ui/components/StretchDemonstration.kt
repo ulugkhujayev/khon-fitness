@@ -52,7 +52,7 @@ private object DemoCatalog {
 
 private data class DemoBitmap(val path: String, val image: ImageBitmap)
 
-/** Decode one sheet at a time on an IO thread. RGB565 limits a full sheet to about 15 MB. */
+/** Decode the current view on an IO thread. Full color avoids banding in the studio background. */
 @Composable
 private fun DemoFrame(figure: String, guide: StretchDemo, view: Int, frame: Int, mirror: Boolean,
     modifier: Modifier, poster: Boolean = false, description: String = guide.name) {
@@ -62,7 +62,7 @@ private fun DemoFrame(figure: String, guide: StretchDemo, view: Int, frame: Int,
         value = withContext(Dispatchers.IO) {
             val bitmap = context.assets.open(path).use { stream ->
                 BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply {
-                    inPreferredConfig = Bitmap.Config.RGB_565
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
                     if (poster) inSampleSize = 2
                 })
             }

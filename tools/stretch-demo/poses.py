@@ -43,13 +43,13 @@ def fold(bend=False,swap=False):
     return p
 
 def lunge(opened=False,lower=False):
-    p=body([-.17,.59,0],[.29,.63,0] if not lower else [.22,.43,0],
+    p=body([-.04,.56,0],[.44,.62,0] if not lower else [.34,.42,0],
            twist=85 if opened else 0,
-           head=[.46,.77,0] if opened else ([.40,.39,0] if lower else [.49,.64,0]),
+           head=[.60,.74,0] if opened else ([.53,.38,0] if lower else [.64,.63,0]),
            face=[-.1,.96,-.2] if opened else [.55,-.84,0])
     leg(p,'L',[.44,.49,-.17],[.46,.075,-.17],[.63,.035,-.17])
-    leg(p,'R',[-.55,.34,.14],[-.86,.10,.14],[-.99,.025,.14])
-    arm(p,'R',[.37,.32,.20],[.42,.065,.24],[.51,.025,.24])
+    leg(p,'R',[-.51,.32,.14],[-.98,.13,.14],[-.88,.025,.14])
+    arm(p,'R',[.47,.31,.20],[.50,.055,.24],[.59,.02,.24])
     if opened:
         arm(p,'L',add(p['shoulderL'],[.02,.30,-.025]),add(p['shoulderL'],[.04,.58,-.05]),add(p['shoulderL'],[.04,.67,-.05]))
     elif lower: arm(p,'L',[.43,.135,-.18],[.25,.07,-.12],[.17,.04,-.1])
@@ -101,13 +101,13 @@ def shoulder_ir(raise_hand=False):
     return p
 
 def plow(stage=0):
-    hip=[[0,.15,0],[0,.23,0],[.13,.69,0],[.18,.83,0]][stage]
+    hip=[[0,.15,0],[0,.23,0],[.21,.62,0],[.25,.64,0]][stage]
     p=body(hip,[.48,.14,0],head=[.71,.115,0],face=[0,1,0],chest=[.28,.24 if stage<2 else .46,0])
     for s,z in [('L',-.13),('R',.13)]:
         if stage==0:k,a,t=[-.43,.095,z],[-.85,.08,z],[-1,.04,z]
         elif stage==1:k,a,t=[-.015,.67,z],[-.03,1.11,z],[-.03,1.28,z]
-        elif stage==2:k,a,t=[.45,1.04,z],[.86,.91,z],[1,.81,z]
-        else:k,a,t=[.62,.53,z],[1,.105,z],[1.13,.025,z]
+        elif stage==2:k,a,t=[.46,.97,z],[.86,.87,z],[1,.77,z]
+        else:k,a,t=[.67,.36,z],[1,.105,z],[1.13,.025,z]
         leg(p,s,k,a,t)
         arm(p,s,[.18,.10,z*1.6],[-.13,.07,z*1.7],[-.22,.04,z*1.7])
     return p

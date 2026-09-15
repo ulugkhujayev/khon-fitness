@@ -9,14 +9,14 @@ manifest={}
 for key,g in guides.items():
     count=64;step_frames=[round(i*(count-1)/(len(g['steps'])-1)) for i in range(len(g['steps']))]
     for view in range(2):
-        sheet=Image.new('RGB',(384*8,304*8))
+        sheet=Image.new('RGB',(512*8,400*8))
         for f in range(count):
             im=Image.open(source/key/f'v{view}-{f:03}.png').convert('RGB')
-            assert im.size==(384,304)
-            sheet.paste(im,((f%8)*384,(f//8)*304))
-        sheet.save(out/f'{key}-{view}.webp',quality=86,method=6)
-        Image.open(source/key/f'v{view}-{count-1:03}.png').convert('RGB').save(out/f'{key}-{view}-poster.webp',quality=90,method=6)
-    manifest[key]={'name':g['name'],'frameCount':count,'columns':8,'frameWidth':384,'frameHeight':304,
+            assert im.size==(512,400)
+            sheet.paste(im,((f%8)*512,(f//8)*400))
+        sheet.save(out/f'{key}-{view}.webp',quality=92,method=6)
+        Image.open(source/key/f'v{view}-{count-1:03}.png').convert('RGB').save(out/f'{key}-{view}-poster.webp',quality=95,method=6)
+    manifest[key]={'name':g['name'],'frameCount':count,'columns':8,'frameWidth':512,'frameHeight':400,
         'steps':[{'title':step[0],'instruction':step[1],'frame':step_frames[i]} for i,step in enumerate(g['steps'])],
         'loopStart':step_frames[g['loopStart']],'moving':g['reps']}
 (out/'guides.json').write_text(json.dumps(manifest,indent=2,ensure_ascii=False)+'\n')

@@ -186,13 +186,15 @@ the old build with no uninstall. Needs REQUEST_INSTALL_PACKAGES.
 ## Stretching (phase 3)
 
 Stretching is a daily routine, not a plan item. Today shows one row: the
-active routine, its length, a dot that is green when done today. Tap opens a ready screen with a drawn figure, stretch name, side, and
+active routine, its length, a dot that is green when done today. Tap opens a ready screen with an automatically playing 3D demonstration, stretch name, side, and
 Start button. Start gives a three-second preparation countdown before work.
+Numbered steps let the user inspect setup and movement, and Change view
+switches camera angles. Demo playback is independent of the exercise clock.
 Each stretch and side change waits for the user to start the next one.
 Held poses stay still; repeated movements follow the timer and freeze on pause. Same audio engine and lock-screen
 notification as the interval timer. The end writes a session and returns to
 Today. Programs has a Stretching row: routines (one active), a stretch
-library with figure thumbnails, custom stretches pick a figure from the set.
+library with 3D thumbnails and step guides. Custom stretches pick a guide from the set.
 
 ## Eating window (phase 3)
 

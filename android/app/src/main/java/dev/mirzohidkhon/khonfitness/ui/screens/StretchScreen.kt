@@ -108,17 +108,16 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
                         val cycle = ((phase.seconds - st.remaining) / (phase.seconds.toDouble() / phase.reps)) % 1.0
                         (if (cycle < .5) cycle * 2 else (1 - cycle) * 2).toFloat()
                     } else 1f
-                    Figure(phase.figure, Modifier.size(if (compact) 144.dp else 224.dp).padding(vertical = 8.dp),
-                        mirror = phase.side == "Right", animate = false, progress = motion)
-                    val cue = Figures.cue(phase.figure)
-                    if (cue.isNotEmpty()) Text(cue, color = Color.White.copy(alpha = .8f),
-                        style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = if (compact) 8.dp else 16.dp))
-                    Text(when { st.paused -> "Paused"; st.awaitingStart -> if (st.index == 0) "Ready" else "Next stretch";
+                    key(st.sessionId, st.index) {
+                        StretchDemonstration(phase.figure, mirror = phase.side == "Right",
+                            preview = st.awaitingStart, exerciseProgress = if (phase.reps > 0) motion else null,
+                            compact = compact, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+                    }
+                    Text(when { st.paused -> "Paused"; st.awaitingStart -> "${if (st.index == 0) "Ready" else "Next stretch"} · ${mmss(st.remaining)}";
                         st.preparing -> "Get ready"; else -> if (phase.reps > 0) "Move" else "Hold" },
                         color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-                    Text(if (st.preparing) kotlin.math.ceil(st.preparation).toInt().toString() else mmss(st.remaining),
+                    if (!st.awaitingStart) Text(if (st.preparing) kotlin.math.ceil(st.preparation).toInt().toString() else mmss(st.remaining),
                         color = Color.White, style = TextStyle(fontFamily = MaterialTheme.typography.headlineLarge.fontFamily,
                             fontSize = if (compact) 72.sp else 88.sp, fontWeight = FontWeight.Bold,
                             fontFeatureSettings = "tnum", textAlign = TextAlign.Center),

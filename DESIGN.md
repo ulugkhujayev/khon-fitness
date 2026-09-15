@@ -139,12 +139,18 @@ Two lines, 88 px total, hairline between rows.
   widths and at least 48 dp tap targets. The routine title is centered.
 - One primary action stays at the bottom: Start, Pause, or Resume. Content
   scrolls above it on short screens or with large text. Controls never overlap.
-- The stretch name and side appear above the figure. One concise movement
-  cue sits beneath it, then the timer and routine progress.
+- The stretch name and side appear above an offline 3D human demonstration.
+  Before Start, the guide automatically plays setup, movement, and hold steps.
+  Numbered steps pause on a position. Play demo restarts the lesson. Change
+  view switches between two camera angles. Each step has a plain instruction.
+- Demo playback does not start the exercise clock. A new stretch or side
+  opens with its demonstration playing. The Start button stays fixed below
+  the scrollable guide, timer, and routine progress.
 - Held stretches show the held position. Repeated movements follow the
   exercise clock and freeze when paused. No bouncing through a held pose.
-- Figures use a side or oblique view suited to the movement. Far limbs are
-  dimmer. Plow places feet beyond the head; 90/90 shows both knee bends.
+- The clothed model has separate shoulders and hips, visible hands and feet,
+  and floor contact shadows. Right-side guides mirror both images and cues.
+  Plow places feet beyond the head; 90/90 shows both knee bends.
 - Beeps and speech use Android media audio and its selected output. The
   notification is silent. Disconnecting headphones pauses active playback.
 

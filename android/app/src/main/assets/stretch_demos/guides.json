@@ -1,0 +1,246 @@
+{
+  "wgs": {
+    "name": "World's greatest stretch",
+    "frameCount": 64,
+    "columns": 8,
+    "frameWidth": 384,
+    "frameHeight": 304,
+    "steps": [
+      {
+        "title": "Set up",
+        "instruction": "Step your left foot beside your left hand. Keep the back leg long.",
+        "frame": 0
+      },
+      {
+        "title": "Lower",
+        "instruction": "Bring your left elbow toward the inside of your front foot.",
+        "frame": 32
+      },
+      {
+        "title": "Rotate",
+        "instruction": "Turn your chest left and reach your left hand up. Follow it with your eyes.",
+        "frame": 63
+      }
+    ],
+    "loopStart": 32,
+    "moving": true
+  },
+  "needle": {
+    "name": "Thread the needle",
+    "frameCount": 64,
+    "columns": 8,
+    "frameWidth": 384,
+    "frameHeight": 304,
+    "steps": [
+      {
+        "title": "Set up",
+        "instruction": "Start on hands and knees. Put your hands under your shoulders.",
+        "frame": 0
+      },
+      {
+        "title": "Thread",
+        "instruction": "Slide your left arm under your right arm, palm facing up.",
+        "frame": 32
+      },
+      {
+        "title": "Hold",
+        "instruction": "Lower your left shoulder and the side of your head to the mat. Keep your hips over your knees.",
+        "frame": 63
+      }
+    ],
+    "loopStart": 32,
+    "moving": false
+  },
+  "ninety": {
+    "name": "90/90 stretch",
+    "frameCount": 64,
+    "columns": 8,
+    "frameWidth": 384,
+    "frameHeight": 304,
+    "steps": [
+      {
+        "title": "Set up",
+        "instruction": "Sit on the floor with your knees bent and your feet planted.",
+        "frame": 0
+      },
+      {
+        "title": "Front leg",
+        "instruction": "Lower your left knee. Bring that shin across your body, with the knee bent to 90°.",
+        "frame": 21
+      },
+      {
+        "title": "Back leg",
+        "instruction": "Fold your right leg behind you, also at 90°. Rest both legs on the floor.",
+        "frame": 42
+      },
+      {
+        "title": "Lean",
+        "instruction": "Keep your chest long. Lean from your hips over your front shin.",
+        "frame": 63
+      }
+    ],
+    "loopStart": 21,
+    "moving": false
+  },
+  "plow": {
+    "name": "Plow pose",
+    "frameCount": 64,
+    "columns": 8,
+    "frameWidth": 384,
+    "frameHeight": 304,
+    "steps": [
+      {
+        "title": "Set up",
+        "instruction": "Lie on your back with your arms beside you, palms down.",
+        "frame": 0
+      },
+      {
+        "title": "Lift",
+        "instruction": "Bring your legs up together. Keep your head still.",
+        "frame": 21
+      },
+      {
+        "title": "Roll",
+        "instruction": "Lift your hips and slowly take your legs over your head.",
+        "frame": 42
+      },
+      {
+        "title": "Hold",
+        "instruction": "Reach your toes toward the floor behind your head. Keep your weight on your shoulders.",
+        "frame": 63
+      }
+    ],
+    "loopStart": 21,
+    "moving": false
+  },
+  "hipflexor": {
+    "name": "Hip flexor stretch",
+    "frameCount": 64,
+    "columns": 8,
+    "frameWidth": 384,
+    "frameHeight": 304,
+    "steps": [
+      {
+        "title": "Set up",
+        "instruction": "Kneel on your right knee. Plant your left foot in front.",
+        "frame": 0
+      },
+      {
+        "title": "Tuck",
+        "instruction": "Tuck your pelvis and gently squeeze your right glute.",
+        "frame": 32
+      },
+      {
+        "title": "Hold",
+        "instruction": "Keep your chest upright. Shift slightly forward until the front of your right hip stretches.",
+        "frame": 63
+      }
+    ],
+    "loopStart": 32,
+    "moving": false
+  },
+  "fold": {
+    "name": "Hamstring stretch",
+    "frameCount": 64,
+    "columns": 8,
+    "frameWidth": 384,
+    "frameHeight": 304,
+    "steps": [
+      {
+        "title": "Stand",
+        "instruction": "Stand with your feet hip-width apart.",
+        "frame": 0
+      },
+      {
+        "title": "Fold",
+        "instruction": "Bend at your hips and reach your hands toward the floor.",
+        "frame": 32
+      },
+      {
+        "title": "Hold",
+        "instruction": "Relax your neck. Keep a small bend in your knees if needed.",
+        "frame": 63
+      }
+    ],
+    "loopStart": 32,
+    "moving": false
+  },
+  "elephant": {
+    "name": "Elephant walks",
+    "frameCount": 64,
+    "columns": 8,
+    "frameWidth": 384,
+    "frameHeight": 304,
+    "steps": [
+      {
+        "title": "Set up",
+        "instruction": "Fold forward and place your hands on the floor.",
+        "frame": 0
+      },
+      {
+        "title": "Bend one knee",
+        "instruction": "Keep your hands down. Bend one knee while the other leg lengthens.",
+        "frame": 32
+      },
+      {
+        "title": "Switch",
+        "instruction": "Slowly straighten that leg as you bend the other knee.",
+        "frame": 63
+      }
+    ],
+    "loopStart": 32,
+    "moving": true
+  },
+  "catcow": {
+    "name": "Cat cow",
+    "frameCount": 64,
+    "columns": 8,
+    "frameWidth": 384,
+    "frameHeight": 304,
+    "steps": [
+      {
+        "title": "Set up",
+        "instruction": "Start on hands and knees, with hands under shoulders and knees under hips.",
+        "frame": 0
+      },
+      {
+        "title": "Round",
+        "instruction": "Push the floor away. Round your back and let your head drop.",
+        "frame": 32
+      },
+      {
+        "title": "Arch",
+        "instruction": "Gently lower your belly and lift your chest. Move slowly between the two positions.",
+        "frame": 63
+      }
+    ],
+    "loopStart": 32,
+    "moving": true
+  },
+  "shoulderir": {
+    "name": "Shoulder internal rotation",
+    "frameCount": 64,
+    "columns": 8,
+    "frameWidth": 384,
+    "frameHeight": 304,
+    "steps": [
+      {
+        "title": "Stand",
+        "instruction": "Stand tall and let your shoulders relax.",
+        "frame": 0
+      },
+      {
+        "title": "Reach back",
+        "instruction": "Bend your left elbow and place the back of your hand against your lower back.",
+        "frame": 32
+      },
+      {
+        "title": "Slide up",
+        "instruction": "Gently slide your hand upward. Keep your chest still and avoid forcing the movement.",
+        "frame": 63
+      }
+    ],
+    "loopStart": 32,
+    "moving": false
+  }
+}

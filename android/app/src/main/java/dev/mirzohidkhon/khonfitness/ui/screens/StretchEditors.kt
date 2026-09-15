@@ -124,7 +124,7 @@ fun StretchLibraryScreen(vm: AppViewModel, nav: NavHostController) {
             GroupedList {
                 list.forEachIndexed { i, st ->
                     ListRow(st.name, secondary = listOfNotNull(if (st.sided) "per side" else null, if (st.mode == StretchMode.REPS) "${st.reps} reps" else "${st.seconds} s").joinToString(" · "), divider = i > 0,
-                        trailing = { Figure(st.figure, Modifier.size(36.dp).padding(end = 6.dp), color = K.Muted, animate = false) }) { nav.navigate(Routes.stretchEditor(st.id)) }
+                        trailing = { Figure(st.figure, Modifier.size(36.dp).padding(end = 6.dp)) }) { nav.navigate(Routes.stretchEditor(st.id)) }
                 }
                 if (list.isEmpty()) ListRow("Nothing matches", chevron = false, divider = false, titleColor = K.Muted)
             }
@@ -147,10 +147,10 @@ fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
     Column(Modifier.fillMaxSize()) {
         EditorTopBar("Stretches", if (existing == null) "New stretch" else "Stretch", onBack = { nav.popBackStack() }) { save(); nav.popBackStack() }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
-            Box(Modifier.fillMaxWidth().padding(bottom = 12.dp), contentAlignment = androidx.compose.ui.Alignment.Center) { Figure(draft.figure, Modifier.size(160.dp)) }
+            StretchDemonstration(draft.figure, compact = true, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))
             GroupedList {
                 FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Stretch name") }
-                FieldRow("Figure", onClick = { figureSheet = true }) { Text(draft.figure, fontWeight = FontWeight.SemiBold); Chevron() }
+                FieldRow("Guide", onClick = { figureSheet = true }) { Text(Figures.name(draft.figure), fontWeight = FontWeight.SemiBold); Chevron() }
                 FieldRow("Per side") { Switch(draft.sided, { draft = draft.copy(sided = it) }, colors = switchColors) }
                 FieldRow("Reps") { Switch(draft.mode == StretchMode.REPS, { draft = draft.copy(mode = if (it) StretchMode.REPS else StretchMode.HOLD, reps = if (it && draft.reps == 0) 10 else draft.reps) }, colors = switchColors) }
                 if (draft.mode == StretchMode.REPS) FieldRow("Rep count") { NumberField(draft.reps.toDouble(), { draft = draft.copy(reps = (it ?: 1.0).toInt().coerceIn(1, 50)) }, 1.0, "", Modifier.width(150.dp), 0, 38) }
@@ -167,8 +167,8 @@ fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
             }
         }
     }
-    if (figureSheet) Sheet("Figure", { figureSheet = false }) {
-        ChoiceList { Figures.keys.forEachIndexed { i, k -> ChoiceRow(k, draft.figure == k, divider = i > 0) { draft = draft.copy(figure = k); figureSheet = false } } }
+    if (figureSheet) Sheet("Guide", { figureSheet = false }) {
+        ChoiceList { Figures.keys.forEachIndexed { i, k -> ChoiceRow(Figures.name(k), draft.figure == k, divider = i > 0) { draft = draft.copy(figure = k); figureSheet = false } } }
     }
     if (confirmDelete) ConfirmSheet("Delete this stretch?", "", "Delete", { confirmDelete = false }) { vm.run { vm.repo.deleteStretch(id) }; nav.popBackStack() }
 }

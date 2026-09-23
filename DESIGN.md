@@ -148,8 +148,10 @@ Two lines, 88 px total, hairline between rows.
   the scrollable guide, timer, and routine progress.
 - Held stretches show the held position. Repeated movements follow the
   exercise clock and freeze when paused. No bouncing through a held pose.
-- The clothed model has separate shoulders and hips, visible hands and feet,
-  and floor contact shadows. Right-side guides mirror both images and cues.
+- The continuous human mesh has a gray body, dark shorts from the navel to
+  just below the knees, coral muscle highlights, visible hands and feet,
+  and floor contact shadows. Right-side
+  guides mirror both images and cues.
   Plow places feet beyond the head; 90/90 shows both knee bends.
 - Beeps and speech use Android media audio and its selected output. The
   notification is silent. Disconnecting headphones pauses active playback.

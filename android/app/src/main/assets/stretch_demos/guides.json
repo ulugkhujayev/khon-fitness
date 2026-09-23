@@ -8,22 +8,23 @@
     "steps": [
       {
         "title": "Set up",
-        "instruction": "Step your left foot beside your left hand. Keep the back leg long.",
+        "instruction": "Step your left foot outside your left hand, knee over ankle. Keep your right leg long.",
         "frame": 0
       },
       {
         "title": "Lower",
-        "instruction": "Bring your left elbow toward the inside of your front foot.",
+        "instruction": "Plant your right hand. Exhale and lower your left elbow inside your left foot.",
         "frame": 32
       },
       {
         "title": "Rotate",
-        "instruction": "Turn your chest left and reach your left hand up. Follow it with your eyes.",
+        "instruction": "Inhale. Open your chest left and reach your left hand up. Follow it with your eyes.",
         "frame": 63
       }
     ],
     "loopStart": 32,
-    "moving": true
+    "moving": true,
+    "repHoldFraction": 0.0
   },
   "needle": {
     "name": "Thread the needle",
@@ -39,17 +40,18 @@
       },
       {
         "title": "Thread",
-        "instruction": "Slide your left arm under your right arm, palm facing up.",
+        "instruction": "Exhale. Slide your left arm under your right arm, palm up.",
         "frame": 32
       },
       {
         "title": "Hold",
-        "instruction": "Lower your left shoulder and the side of your head to the mat. Keep your hips over your knees.",
+        "instruction": "Rest your left shoulder and ear on the mat. Keep your hips over your knees and breathe.",
         "frame": 63
       }
     ],
     "loopStart": 32,
-    "moving": false
+    "moving": false,
+    "repHoldFraction": 0.0
   },
   "ninety": {
     "name": "90/90 stretch",
@@ -60,27 +62,28 @@
     "steps": [
       {
         "title": "Set up",
-        "instruction": "Sit on the floor with your knees bent and your feet planted.",
+        "instruction": "Sit tall with both sit bones down. Bend your knees and plant your feet.",
         "frame": 0
       },
       {
         "title": "Front leg",
-        "instruction": "Lower your left knee. Bring that shin across your body, with the knee bent to 90°.",
+        "instruction": "Lower your left knee in front. Bend it to 90 degrees with your calf on the floor.",
         "frame": 21
       },
       {
         "title": "Back leg",
-        "instruction": "Fold your right leg behind you, also at 90°. Rest both legs on the floor.",
+        "instruction": "Take your right thigh out to the side. Bend the knee to 90 degrees, with the lower leg pointing back.",
         "frame": 42
       },
       {
         "title": "Lean",
-        "instruction": "Keep your chest long. Lean from your hips over your front shin.",
+        "instruction": "Lengthen your spine. Hinge over your front shin and breathe.",
         "frame": 63
       }
     ],
     "loopStart": 21,
-    "moving": false
+    "moving": false,
+    "repHoldFraction": 0.0
   },
   "plow": {
     "name": "Plow pose",
@@ -101,17 +104,18 @@
       },
       {
         "title": "Roll",
-        "instruction": "Lift your hips and slowly take your legs over your head.",
+        "instruction": "Slowly roll your hips up and carry your legs overhead. Do not swing.",
         "frame": 42
       },
       {
         "title": "Hold",
-        "instruction": "Reach your toes toward the floor behind your head. Keep your weight on your shoulders.",
+        "instruction": "Rest your toes on the floor or a support. Keep weight on your upper back, not your neck. Breathe.",
         "frame": 63
       }
     ],
     "loopStart": 21,
-    "moving": false
+    "moving": false,
+    "repHoldFraction": 0.0
   },
   "hipflexor": {
     "name": "Hip flexor stretch",
@@ -122,22 +126,23 @@
     "steps": [
       {
         "title": "Set up",
-        "instruction": "Kneel on your right knee. Plant your left foot in front.",
+        "instruction": "Kneel on your right knee under your hip. Place your left knee over your ankle.",
         "frame": 0
       },
       {
         "title": "Tuck",
-        "instruction": "Tuck your pelvis and gently squeeze your right glute.",
+        "instruction": "Tuck your tailbone. Gently squeeze your right glute and keep your ribs down.",
         "frame": 32
       },
       {
         "title": "Hold",
-        "instruction": "Keep your chest upright. Shift slightly forward until the front of your right hip stretches.",
+        "instruction": "Stay tall. Shift your hips slightly forward and breathe.",
         "frame": 63
       }
     ],
     "loopStart": 32,
-    "moving": false
+    "moving": false,
+    "repHoldFraction": 0.0
   },
   "fold": {
     "name": "Hamstring stretch",
@@ -153,17 +158,18 @@
       },
       {
         "title": "Fold",
-        "instruction": "Bend at your hips and reach your hands toward the floor.",
+        "instruction": "Hinge at your hips with a long spine. Keep your knees soft and reach for your shins or the floor.",
         "frame": 32
       },
       {
         "title": "Hold",
-        "instruction": "Relax your neck. Keep a small bend in your knees if needed.",
+        "instruction": "Relax your neck and breathe slowly. Keep a small bend in your knees.",
         "frame": 63
       }
     ],
     "loopStart": 32,
-    "moving": false
+    "moving": false,
+    "repHoldFraction": 0.0
   },
   "elephant": {
     "name": "Elephant walks",
@@ -174,22 +180,23 @@
     "steps": [
       {
         "title": "Set up",
-        "instruction": "Fold forward and place your hands on the floor.",
+        "instruction": "Stand hip-width. Hinge forward and plant your hands on the floor or blocks.",
         "frame": 0
       },
       {
         "title": "Bend one knee",
-        "instruction": "Keep your hands down. Bend one knee while the other leg lengthens.",
+        "instruction": "Keep your hands still. Lift your left heel and bend your left knee. Lengthen your right leg.",
         "frame": 32
       },
       {
         "title": "Switch",
-        "instruction": "Slowly straighten that leg as you bend the other knee.",
+        "instruction": "Lower your left heel as you lift your right heel and bend your right knee. Breathe with each switch.",
         "frame": 63
       }
     ],
     "loopStart": 32,
-    "moving": true
+    "moving": true,
+    "repHoldFraction": 0.2
   },
   "catcow": {
     "name": "Cat cow",
@@ -200,22 +207,23 @@
     "steps": [
       {
         "title": "Set up",
-        "instruction": "Start on hands and knees, with hands under shoulders and knees under hips.",
+        "instruction": "Start on hands and knees. Keep your knees and feet hip-width, with the tops of your feet down.",
         "frame": 0
       },
       {
         "title": "Round",
-        "instruction": "Push the floor away. Round your back and let your head drop.",
+        "instruction": "Exhale. Push the floor away, round your spine, and tuck your chin and tailbone gently.",
         "frame": 32
       },
       {
         "title": "Arch",
-        "instruction": "Gently lower your belly and lift your chest. Move slowly between the two positions.",
+        "instruction": "Inhale. Lift your tailbone, lower your belly, and open your chest. Gaze ahead.",
         "frame": 63
       }
     ],
     "loopStart": 32,
-    "moving": true
+    "moving": true,
+    "repHoldFraction": 0.0
   },
   "shoulderir": {
     "name": "Shoulder internal rotation",
@@ -226,21 +234,22 @@
     "steps": [
       {
         "title": "Stand",
-        "instruction": "Stand tall and let your shoulders relax.",
+        "instruction": "Stand tall with your shoulders relaxed and down.",
         "frame": 0
       },
       {
         "title": "Reach back",
-        "instruction": "Bend your left elbow and place the back of your hand against your lower back.",
+        "instruction": "Bend your left elbow. Rest the back of your hand on your sacrum and keep the elbow close.",
         "frame": 32
       },
       {
         "title": "Slide up",
-        "instruction": "Gently slide your hand upward. Keep your chest still and avoid forcing the movement.",
+        "instruction": "Slide your hand a little way up your low back. Breathe and stop at a mild pull.",
         "frame": 63
       }
     ],
     "loopStart": 32,
-    "moving": false
+    "moving": false,
+    "repHoldFraction": 0.0
   }
 }

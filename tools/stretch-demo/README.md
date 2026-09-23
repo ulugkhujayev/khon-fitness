@@ -1,13 +1,16 @@
 # Stretch demonstrations
 
-Nine original 3D human guides, each with two camera angles and numbered setup,
+Nine 3D human guides, each with two camera angles and numbered setup,
 movement, and hold steps. Android plays offline sprite sheets. There is no
 browser, network dependency, or runtime 3D engine.
 
-The model has separate shoulders and hips, clothing, hands, feet, a face,
-and a floor mat with shadows. Pose coordinates are in metres, with X forward,
-Y up, and Z toward the person's right. Source poses and camera choices are
-in `poses.py`. SceneKit renders the geometry in `render.swift`.
+The model uses a continuous athletic human mesh with its native skeleton and
+skin weights. It has a gray body, dark knee-length shorts with a high waist,
+and coral muscle highlights. The clothing color follows the rest mesh as the
+body bends.
+Pose coordinates are in metres, with X forward, Y up, and Z toward the
+person's right. Source poses and camera choices are in `poses.py`. SceneKit
+deforms and renders the mesh in `render.swift`.
 
 Run from the repository root on macOS:
 
@@ -37,11 +40,35 @@ layout keeps the human large enough to read on a phone and lets the viewer
 inspect each position. The native app implements that choice. The obsolete
 2D pose generator and preview have been retired.
 
-The geometry is original, not a downloaded human asset. Visual inspection
-checks the authored poses and intermediate frames; it does not establish
-clinical suitability or prove that a first-time user understands every move.
+The human mesh, skeleton, and weights come from the official MakeHuman CC0
+assets. [Model provenance and rebuild instructions](model/README.md) record
+the exact source commit and shape settings. `prepare_model.py` builds the
+checked-in model without MakeHuman installed. The model is a build input;
+Android bundles only the rendered images. Muscle highlights are visual
+guides, not a clinical muscle atlas.
+
+To review the actual packaged animations against saved previous posters:
+
+```sh
+python3 tools/stretch-demo/preview.py --out dist/qa-anatomy-revision/index.html --before dist/qa-anatomy-revision/before
+python3 -m http.server 8766
+```
+
+Open `http://localhost:8766/dist/qa-anatomy-revision/`. The page plays both camera
+views, mirrors the figure, and lets you inspect every frame and numbered step.
+Save previous posters in `dist/qa-anatomy-revision/before/` before replacing assets.
 
 ## Visual regression check
+
+Run `python3 tools/stretch-demo/verify_motion.py` before rendering. It uses
+the renderer's actual Swift pose and skinning code to check all 64 frames.
+It rejects sudden limb rolls beyond the authored motion and landmark jumps
+above 15 cm per frame. It also reports the largest skin movement between
+frames. These checks catch defects that numbered-pose images can miss.
+
+Run `python3 tools/stretch-demo/verify_highlights.py` to check phase and side
+masks. Inspect the rendered images too. A mask check cannot prove its color
+reads correctly on the shaded model.
 
 Run `uv run --with pillow python tools/stretch-demo/verify.py /tmp/khon-render`
 after packing. It compares the last exercise rendered alone with the same
@@ -50,6 +77,4 @@ The renderer also rejects any camera with a rolled horizon.
 
 The camera uses an explicit world up vector. SceneKit's one-argument
 `look(at:)` uses the camera's current `worldUp`, which caused accumulated
-roll in 0.4.3. Continuous limb meshes, independently oriented pelvis and
-shoulder rings, shaped soles, and higher-resolution frames replace the
-segmented 0.4.3 model.
+roll in 0.4.3. The same camera check applies to the weighted human mesh.

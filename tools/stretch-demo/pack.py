@@ -18,6 +18,7 @@ for key,g in guides.items():
         Image.open(source/key/f'v{view}-{count-1:03}.png').convert('RGB').save(out/f'{key}-{view}-poster.webp',quality=95,method=6)
     manifest[key]={'name':g['name'],'frameCount':count,'columns':8,'frameWidth':512,'frameHeight':400,
         'steps':[{'title':step[0],'instruction':step[1],'frame':step_frames[i]} for i,step in enumerate(g['steps'])],
-        'loopStart':step_frames[g['loopStart']],'moving':g['reps']}
+        'loopStart':step_frames[g['loopStart']],'moving':g['reps'],
+        'repHoldFraction':0.2 if key=='elephant' else 0.0}
 (out/'guides.json').write_text(json.dumps(manifest,indent=2,ensure_ascii=False)+'\n')
 print('Packed',len(manifest),'guides;',round(sum(p.stat().st_size for p in out.iterdir())/1e6,2),'MB')

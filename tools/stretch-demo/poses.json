@@ -33,6 +33,11 @@
           0.12403473458920836,
           0.0
         ],
+        "pelvisUp": [
+          0.9922778767136677,
+          0.12403473458920836,
+          0.0
+        ],
         "hipL": [
           -0.04,
           0.56,
@@ -101,17 +106,17 @@
         "elbowL": [
           0.37,
           0.33,
-          -0.2
+          -0.12
         ],
         "wristL": [
           0.42,
           0.065,
-          -0.25
+          -0.08
         ],
         "handL": [
           0.51,
           0.025,
-          -0.25
+          -0.08
         ]
       },
       {
@@ -141,6 +146,11 @@
           0
         ],
         "up": [
+          0.93834311681711,
+          -0.3457053588273565,
+          0.0
+        ],
+        "pelvisUp": [
           0.93834311681711,
           -0.3457053588273565,
           0.0
@@ -257,6 +267,11 @@
           0.12403473458920836,
           0.0
         ],
+        "pelvisUp": [
+          0.9922778767136677,
+          0.12403473458920836,
+          0.0
+        ],
         "hipL": [
           -0.04,
           0.56,
@@ -342,15 +357,15 @@
     "steps": [
       [
         "Set up",
-        "Step your left foot beside your left hand. Keep the back leg long."
+        "Step your left foot outside your left hand, knee over ankle. Keep your right leg long."
       ],
       [
         "Lower",
-        "Bring your left elbow toward the inside of your front foot."
+        "Plant your right hand. Exhale and lower your left elbow inside your left foot."
       ],
       [
         "Rotate",
-        "Turn your chest left and reach your left hand up. Follow it with your eyes."
+        "Inhale. Open your chest left and reach your left hand up. Follow it with your eyes."
       ]
     ],
     "views": [
@@ -409,6 +424,11 @@
           0.0,
           0.0
         ],
+        "pelvisUp": [
+          1.0,
+          0.0,
+          0.0
+        ],
         "hipL": [
           -0.31,
           0.54,
@@ -432,62 +452,62 @@
         "kneeL": [
           -0.31,
           0.075,
-          -0.18
+          -0.2
         ],
         "ankleL": [
           -0.73,
           0.07,
-          -0.18
+          -0.2
         ],
         "toeL": [
           -0.88,
           0.04,
-          -0.18
+          -0.2
         ],
         "elbowL": [
           0.22,
           0.31,
-          -0.18
+          -0.2
         ],
         "wristL": [
           0.24,
           0.06,
-          -0.18
+          -0.2
         ],
         "handL": [
           0.34,
           0.025,
-          -0.18
+          -0.2
         ],
         "kneeR": [
           -0.31,
           0.075,
-          0.18
+          0.2
         ],
         "ankleR": [
           -0.73,
           0.07,
-          0.18
+          0.2
         ],
         "toeR": [
           -0.88,
           0.04,
-          0.18
+          0.2
         ],
         "elbowR": [
           0.22,
           0.31,
-          0.18
+          0.2
         ],
         "wristR": [
           0.24,
           0.06,
-          0.18
+          0.2
         ],
         "handR": [
           0.34,
           0.025,
-          0.18
+          0.2
         ]
       },
       {
@@ -517,6 +537,11 @@
           1
         ],
         "up": [
+          0.8470638945081477,
+          -0.5314910710639359,
+          0.0
+        ],
+        "pelvisUp": [
           0.8470638945081477,
           -0.5314910710639359,
           0.0
@@ -633,6 +658,11 @@
           -0.5314910710639359,
           0.0
         ],
+        "pelvisUp": [
+          0.8470638945081477,
+          -0.5314910710639359,
+          0.0
+        ],
         "hipL": [
           -0.31,
           0.54,
@@ -722,11 +752,11 @@
       ],
       [
         "Thread",
-        "Slide your left arm under your right arm, palm facing up."
+        "Exhale. Slide your left arm under your right arm, palm up."
       ],
       [
         "Hold",
-        "Lower your left shoulder and the side of your head to the mat. Keep your hips over your knees."
+        "Rest your left shoulder and ear on the mat. Keep your hips over your knees and breathe."
       ]
     ],
     "views": [
@@ -738,7 +768,7 @@
       [
         0.7,
         2.8,
-        3
+        -3
       ]
     ],
     "target": [
@@ -781,6 +811,11 @@
           0
         ],
         "up": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "pelvisUp": [
           0.0,
           1.0,
           0.0
@@ -893,6 +928,11 @@
           0
         ],
         "up": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "pelvisUp": [
           0.0,
           1.0,
           0.0
@@ -1005,6 +1045,11 @@
           0
         ],
         "up": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "pelvisUp": [
           0.0,
           1.0,
           0.0
@@ -1121,6 +1166,11 @@
           0.855048519085446,
           -0.13555647253793654
         ],
+        "pelvisUp": [
+          0.5005162062939196,
+          0.855048519085446,
+          -0.13555647253793654
+        ],
         "hipL": [
           0,
           0.15,
@@ -1206,19 +1256,19 @@
     "steps": [
       [
         "Set up",
-        "Sit on the floor with your knees bent and your feet planted."
+        "Sit tall with both sit bones down. Bend your knees and plant your feet."
       ],
       [
         "Front leg",
-        "Lower your left knee. Bring that shin across your body, with the knee bent to 90\u00b0."
+        "Lower your left knee in front. Bend it to 90 degrees with your calf on the floor."
       ],
       [
         "Back leg",
-        "Fold your right leg behind you, also at 90\u00b0. Rest both legs on the floor."
+        "Take your right thigh out to the side. Bend the knee to 90 degrees, with the lower leg pointing back."
       ],
       [
         "Lean",
-        "Keep your chest long. Lean from your hips over your front shin."
+        "Lengthen your spine. Hinge over your front shin and breathe."
       ]
     ],
     "views": [
@@ -1228,9 +1278,9 @@
         3
       ],
       [
+        -2.3,
         2.5,
-        1.1,
-        -3
+        2.6
       ]
     ],
     "target": [
@@ -1273,6 +1323,11 @@
           0
         ],
         "up": [
+          0.9997830567281122,
+          -0.02082881368183563,
+          0.0
+        ],
+        "pelvisUp": [
           0.9997830567281122,
           -0.02082881368183563,
           0.0
@@ -1389,6 +1444,11 @@
           -0.18428853505018533,
           0.0
         ],
+        "pelvisUp": [
+          0.9828721869343219,
+          -0.18428853505018533,
+          0.0
+        ],
         "hipL": [
           0,
           0.23,
@@ -1501,6 +1561,11 @@
           -0.8715755371245494,
           0.0
         ],
+        "pelvisUp": [
+          0.4902612396325591,
+          -0.8715755371245494,
+          0.0
+        ],
         "hipL": [
           0.21,
           0.62,
@@ -1584,8 +1649,8 @@
       },
       {
         "hip": [
-          0.25,
-          0.64,
+          0.39,
+          0.68,
           0
         ],
         "shoulder": [
@@ -1594,8 +1659,8 @@
           0
         ],
         "chest": [
-          0.28,
-          0.46,
+          0.4,
+          0.48,
           0
         ],
         "head": [
@@ -1609,18 +1674,23 @@
           0
         ],
         "up": [
-          0.4179056082321443,
-          -0.9084904526785746,
+          0.16439898730535724,
+          -0.9863939238321439,
+          0.0
+        ],
+        "pelvisUp": [
+          0.16439898730535724,
+          -0.9863939238321439,
           0.0
         ],
         "hipL": [
-          0.25,
-          0.64,
+          0.39,
+          0.68,
           -0.12
         ],
         "hipR": [
-          0.25,
-          0.64,
+          0.39,
+          0.68,
           0.12
         ],
         "shoulderL": [
@@ -1634,8 +1704,8 @@
           0.19
         ],
         "kneeL": [
-          0.67,
-          0.36,
+          0.75,
+          0.44,
           -0.13
         ],
         "ankleL": [
@@ -1664,8 +1734,8 @@
           -0.221
         ],
         "kneeR": [
-          0.67,
-          0.36,
+          0.75,
+          0.44,
           0.13
         ],
         "ankleR": [
@@ -1706,11 +1776,11 @@
       ],
       [
         "Roll",
-        "Lift your hips and slowly take your legs over your head."
+        "Slowly roll your hips up and carry your legs overhead. Do not swing."
       ],
       [
         "Hold",
-        "Reach your toes toward the floor behind your head. Keep your weight on your shoulders."
+        "Rest your toes on the floor or a support. Keep weight on your upper back, not your neck. Breathe."
       ]
     ],
     "views": [
@@ -1741,22 +1811,22 @@
       {
         "hip": [
           0,
-          0.58,
+          0.48,
           0
         ],
         "shoulder": [
           0,
-          1.1,
+          1.0,
           0
         ],
         "chest": [
           0.0,
-          0.8556,
+          0.7556,
           0.0
         ],
         "head": [
           0.0,
-          1.34,
+          1.24,
           0.0
         ],
         "face": [
@@ -1769,28 +1839,33 @@
           1.0,
           0.0
         ],
+        "pelvisUp": [
+          0.0,
+          1.0,
+          0.0
+        ],
         "hipL": [
           0,
-          0.58,
+          0.48,
           -0.12
         ],
         "hipR": [
           0,
-          0.58,
+          0.48,
           0.12
         ],
         "shoulderL": [
           0.0,
-          1.1,
+          1.0,
           -0.19
         ],
         "shoulderR": [
           0.0,
-          1.1,
+          1.0,
           0.19
         ],
         "kneeL": [
-          0.41,
+          0.4,
           0.48,
           -0.14
         ],
@@ -1805,70 +1880,187 @@
           -0.14
         ],
         "kneeR": [
-          -0.34,
+          -0.05,
           0.075,
           0.14
         ],
         "ankleR": [
-          -0.76,
+          -0.47,
           0.07,
           0.14
         ],
         "toeR": [
-          -0.91,
+          -0.62,
           0.04,
           0.14
         ],
         "elbowL": [
-          0.03,
-          0.85,
-          -0.34
+          0.09,
+          0.76,
+          -0.29
         ],
         "wristL": [
-          0.02,
-          0.65,
-          -0.18
+          0.24,
+          0.59,
+          -0.15
         ],
         "handL": [
-          0.016878902741436518,
-          0.5875780548287304,
-          -0.13006244386298427
+          0.2850351975024481,
+          0.5389601094972254,
+          -0.10796714899771512
         ],
         "elbowR": [
-          0.03,
-          0.85,
-          0.34
+          0.09,
+          0.76,
+          0.29
         ],
         "wristR": [
-          0.02,
-          0.65,
-          0.18
+          0.24,
+          0.59,
+          0.15
         ],
         "handR": [
-          0.016878902741436518,
-          0.5875780548287304,
-          0.13006244386298427
+          0.2850351975024481,
+          0.5389601094972254,
+          0.10796714899771512
+        ]
+      },
+      {
+        "hip": [
+          0,
+          0.48,
+          0
+        ],
+        "shoulder": [
+          0,
+          1.0,
+          0
+        ],
+        "chest": [
+          0.0,
+          0.7556,
+          0.0
+        ],
+        "head": [
+          0.0,
+          1.24,
+          0.0
+        ],
+        "face": [
+          1,
+          0,
+          0
+        ],
+        "up": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "pelvisUp": [
+          -0.14,
+          0.99,
+          0
+        ],
+        "hipL": [
+          0,
+          0.48,
+          -0.12
+        ],
+        "hipR": [
+          0,
+          0.48,
+          0.12
+        ],
+        "shoulderL": [
+          0.0,
+          1.0,
+          -0.19
+        ],
+        "shoulderR": [
+          0.0,
+          1.0,
+          0.19
+        ],
+        "kneeL": [
+          0.4,
+          0.48,
+          -0.14
+        ],
+        "ankleL": [
+          0.45,
+          0.075,
+          -0.14
+        ],
+        "toeL": [
+          0.62,
+          0.035,
+          -0.14
+        ],
+        "kneeR": [
+          -0.05,
+          0.075,
+          0.14
+        ],
+        "ankleR": [
+          -0.47,
+          0.07,
+          0.14
+        ],
+        "toeR": [
+          -0.62,
+          0.04,
+          0.14
+        ],
+        "elbowL": [
+          0.09,
+          0.76,
+          -0.29
+        ],
+        "wristL": [
+          0.24,
+          0.59,
+          -0.15
+        ],
+        "handL": [
+          0.2850351975024481,
+          0.5389601094972254,
+          -0.10796714899771512
+        ],
+        "elbowR": [
+          0.09,
+          0.76,
+          0.29
+        ],
+        "wristR": [
+          0.24,
+          0.59,
+          0.15
+        ],
+        "handR": [
+          0.2850351975024481,
+          0.5389601094972254,
+          0.10796714899771512
         ]
       },
       {
         "hip": [
           0.04,
-          0.58,
+          0.48,
           0
         ],
         "shoulder": [
           0.04,
-          1.1,
+          1.0,
           0
         ],
         "chest": [
           0.04,
-          0.8556,
+          0.7556,
           0.0
         ],
         "head": [
           0.04,
-          1.34,
+          1.24,
           0.0
         ],
         "face": [
@@ -1881,28 +2073,33 @@
           1.0,
           0.0
         ],
+        "pelvisUp": [
+          -0.14,
+          0.99,
+          0
+        ],
         "hipL": [
           0.04,
-          0.58,
+          0.48,
           -0.12
         ],
         "hipR": [
           0.04,
-          0.58,
+          0.48,
           0.12
         ],
         "shoulderL": [
           0.04,
-          1.1,
+          1.0,
           -0.19
         ],
         "shoulderR": [
           0.04,
-          1.1,
+          1.0,
           0.19
         ],
         "kneeL": [
-          0.422,
+          0.44,
           0.48,
           -0.14
         ],
@@ -1917,176 +2114,64 @@
           -0.14
         ],
         "kneeR": [
-          -0.34,
+          -0.05,
           0.075,
           0.14
         ],
         "ankleR": [
-          -0.76,
+          -0.47,
           0.07,
           0.14
         ],
         "toeR": [
-          -0.91,
+          -0.62,
           0.04,
           0.14
         ],
         "elbowL": [
-          0.07,
-          0.85,
-          -0.34
+          0.13,
+          0.76,
+          -0.29
         ],
         "wristL": [
-          0.06,
-          0.65,
-          -0.18
+          0.24,
+          0.59,
+          -0.15
         ],
         "handL": [
-          0.05687890274143651,
-          0.5875780548287304,
-          -0.13006244386298427
+          0.27574755640290505,
+          0.5347537764682376,
+          -0.1045031100326663
         ],
         "elbowR": [
-          0.07,
-          0.85,
-          0.34
+          0.13,
+          0.76,
+          0.29
         ],
         "wristR": [
-          0.06,
-          0.65,
-          0.18
+          0.24,
+          0.59,
+          0.15
         ],
         "handR": [
-          0.05687890274143651,
-          0.5875780548287304,
-          0.13006244386298427
-        ]
-      },
-      {
-        "hip": [
-          0.09,
-          0.58,
-          0
-        ],
-        "shoulder": [
-          0.09,
-          1.1,
-          0
-        ],
-        "chest": [
-          0.09,
-          0.8556,
-          0.0
-        ],
-        "head": [
-          0.09,
-          1.34,
-          0.0
-        ],
-        "face": [
-          1,
-          0,
-          0
-        ],
-        "up": [
-          0.0,
-          1.0,
-          0.0
-        ],
-        "hipL": [
-          0.09,
-          0.58,
-          -0.12
-        ],
-        "hipR": [
-          0.09,
-          0.58,
-          0.12
-        ],
-        "shoulderL": [
-          0.09,
-          1.1,
-          -0.19
-        ],
-        "shoulderR": [
-          0.09,
-          1.1,
-          0.19
-        ],
-        "kneeL": [
-          0.437,
-          0.48,
-          -0.14
-        ],
-        "ankleL": [
-          0.45,
-          0.075,
-          -0.14
-        ],
-        "toeL": [
-          0.62,
-          0.035,
-          -0.14
-        ],
-        "kneeR": [
-          -0.34,
-          0.075,
-          0.14
-        ],
-        "ankleR": [
-          -0.76,
-          0.07,
-          0.14
-        ],
-        "toeR": [
-          -0.91,
-          0.04,
-          0.14
-        ],
-        "elbowL": [
-          0.12,
-          0.85,
-          -0.34
-        ],
-        "wristL": [
-          0.11,
-          0.65,
-          -0.18
-        ],
-        "handL": [
-          0.10687890274143652,
-          0.5875780548287304,
-          -0.13006244386298427
-        ],
-        "elbowR": [
-          0.12,
-          0.85,
-          0.34
-        ],
-        "wristR": [
-          0.11,
-          0.65,
-          0.18
-        ],
-        "handR": [
-          0.10687890274143652,
-          0.5875780548287304,
-          0.13006244386298427
+          0.27574755640290505,
+          0.5347537764682376,
+          0.1045031100326663
         ]
       }
     ],
     "steps": [
       [
         "Set up",
-        "Kneel on your right knee. Plant your left foot in front."
+        "Kneel on your right knee under your hip. Place your left knee over your ankle."
       ],
       [
         "Tuck",
-        "Tuck your pelvis and gently squeeze your right glute."
+        "Tuck your tailbone. Gently squeeze your right glute and keep your ribs down."
       ],
       [
         "Hold",
-        "Keep your chest upright. Shift slightly forward until the front of your right hip stretches."
+        "Stay tall. Shift your hips slightly forward and breathe."
       ]
     ],
     "views": [
@@ -2141,6 +2226,11 @@
           0
         ],
         "up": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "pelvisUp": [
           0.0,
           1.0,
           0.0
@@ -2257,6 +2347,11 @@
           -0.7071067811865476,
           0.0
         ],
+        "pelvisUp": [
+          0.7071067811865476,
+          -0.7071067811865476,
+          0.0
+        ],
         "hipL": [
           -0.16,
           0.89,
@@ -2365,6 +2460,11 @@
           0
         ],
         "up": [
+          0.7071067811865476,
+          -0.7071067811865476,
+          0.0
+        ],
+        "pelvisUp": [
           0.7071067811865476,
           -0.7071067811865476,
           0.0
@@ -2458,11 +2558,11 @@
       ],
       [
         "Fold",
-        "Bend at your hips and reach your hands toward the floor."
+        "Hinge at your hips with a long spine. Keep your knees soft and reach for your shins or the floor."
       ],
       [
         "Hold",
-        "Relax your neck. Keep a small bend in your knees if needed."
+        "Relax your neck and breathe slowly. Keep a small bend in your knees."
       ]
     ],
     "views": [
@@ -2521,6 +2621,11 @@
           -0.7071067811865476,
           0.0
         ],
+        "pelvisUp": [
+          0.7071067811865476,
+          -0.7071067811865476,
+          0.0
+        ],
         "hipL": [
           -0.16,
           0.89,
@@ -2633,6 +2738,11 @@
           -0.7071067811865476,
           0.0
         ],
+        "pelvisUp": [
+          0.7071067811865476,
+          -0.7071067811865476,
+          0.0
+        ],
         "hipL": [
           -0.16,
           0.89,
@@ -2654,17 +2764,17 @@
           0.19
         ],
         "kneeL": [
-          0.11,
-          0.48,
+          0.06,
+          0.52,
           -0.15
         ],
         "ankleL": [
-          0,
-          0.075,
+          -0.04,
+          0.13,
           -0.15
         ],
         "toeL": [
-          0.17,
+          0.13,
           0.035,
           -0.15
         ],
@@ -2745,6 +2855,11 @@
           -0.7071067811865476,
           0.0
         ],
+        "pelvisUp": [
+          0.7071067811865476,
+          -0.7071067811865476,
+          0.0
+        ],
         "hipL": [
           -0.16,
           0.89,
@@ -2796,17 +2911,17 @@
           -0.22499999999999998
         ],
         "kneeR": [
-          0.11,
-          0.48,
+          0.06,
+          0.52,
           0.15
         ],
         "ankleR": [
-          0,
-          0.075,
+          -0.04,
+          0.13,
           0.15
         ],
         "toeR": [
-          0.17,
+          0.13,
           0.035,
           0.15
         ],
@@ -2830,15 +2945,15 @@
     "steps": [
       [
         "Set up",
-        "Fold forward and place your hands on the floor."
+        "Stand hip-width. Hinge forward and plant your hands on the floor or blocks."
       ],
       [
         "Bend one knee",
-        "Keep your hands down. Bend one knee while the other leg lengthens."
+        "Keep your hands still. Lift your left heel and bend your left knee. Lengthen your right leg."
       ],
       [
         "Switch",
-        "Slowly straighten that leg as you bend the other knee."
+        "Lower your left heel as you lift your right heel and bend your right knee. Breathe with each switch."
       ]
     ],
     "views": [
@@ -2897,114 +3012,7 @@
           0.0,
           0.0
         ],
-        "hipL": [
-          -0.31,
-          0.54,
-          -0.12
-        ],
-        "hipR": [
-          -0.31,
-          0.54,
-          0.12
-        ],
-        "shoulderL": [
-          0.21,
-          0.54,
-          -0.19
-        ],
-        "shoulderR": [
-          0.21,
-          0.54,
-          0.19
-        ],
-        "kneeL": [
-          -0.31,
-          0.075,
-          -0.18
-        ],
-        "ankleL": [
-          -0.73,
-          0.07,
-          -0.18
-        ],
-        "toeL": [
-          -0.88,
-          0.04,
-          -0.18
-        ],
-        "elbowL": [
-          0.22,
-          0.31,
-          -0.18
-        ],
-        "wristL": [
-          0.24,
-          0.06,
-          -0.18
-        ],
-        "handL": [
-          0.34,
-          0.025,
-          -0.18
-        ],
-        "kneeR": [
-          -0.31,
-          0.075,
-          0.18
-        ],
-        "ankleR": [
-          -0.73,
-          0.07,
-          0.18
-        ],
-        "toeR": [
-          -0.88,
-          0.04,
-          0.18
-        ],
-        "elbowR": [
-          0.22,
-          0.31,
-          0.18
-        ],
-        "wristR": [
-          0.24,
-          0.06,
-          0.18
-        ],
-        "handR": [
-          0.34,
-          0.025,
-          0.18
-        ]
-      },
-      {
-        "hip": [
-          -0.31,
-          0.54,
-          0
-        ],
-        "shoulder": [
-          0.21,
-          0.54,
-          0
-        ],
-        "chest": [
-          -0.05,
-          0.66,
-          0
-        ],
-        "head": [
-          0.35,
-          0.36,
-          0
-        ],
-        "face": [
-          -0.5,
-          -0.85,
-          0
-        ],
-        "up": [
+        "pelvisUp": [
           1.0,
           0.0,
           0.0
@@ -3032,62 +3040,179 @@
         "kneeL": [
           -0.31,
           0.075,
-          -0.18
+          -0.2
         ],
         "ankleL": [
           -0.73,
           0.07,
-          -0.18
+          -0.2
         ],
         "toeL": [
           -0.88,
           0.04,
-          -0.18
+          -0.2
         ],
         "elbowL": [
           0.22,
           0.31,
-          -0.18
+          -0.2
         ],
         "wristL": [
           0.24,
           0.06,
-          -0.18
+          -0.2
         ],
         "handL": [
           0.34,
           0.025,
-          -0.18
+          -0.2
         ],
         "kneeR": [
           -0.31,
           0.075,
-          0.18
+          0.2
         ],
         "ankleR": [
           -0.73,
           0.07,
-          0.18
+          0.2
         ],
         "toeR": [
           -0.88,
           0.04,
-          0.18
+          0.2
         ],
         "elbowR": [
           0.22,
           0.31,
-          0.18
+          0.2
         ],
         "wristR": [
           0.24,
           0.06,
-          0.18
+          0.2
         ],
         "handR": [
           0.34,
           0.025,
-          0.18
+          0.2
+        ]
+      },
+      {
+        "hip": [
+          -0.31,
+          0.54,
+          0
+        ],
+        "shoulder": [
+          0.21,
+          0.54,
+          0
+        ],
+        "chest": [
+          -0.05,
+          0.66,
+          0
+        ],
+        "head": [
+          0.37,
+          0.43,
+          0
+        ],
+        "face": [
+          0.45,
+          -0.55,
+          0
+        ],
+        "up": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "pelvisUp": [
+          0.96,
+          0.28,
+          0
+        ],
+        "hipL": [
+          -0.31,
+          0.54,
+          -0.12
+        ],
+        "hipR": [
+          -0.31,
+          0.54,
+          0.12
+        ],
+        "shoulderL": [
+          0.21,
+          0.54,
+          -0.19
+        ],
+        "shoulderR": [
+          0.21,
+          0.54,
+          0.19
+        ],
+        "kneeL": [
+          -0.31,
+          0.075,
+          -0.2
+        ],
+        "ankleL": [
+          -0.73,
+          0.07,
+          -0.2
+        ],
+        "toeL": [
+          -0.88,
+          0.04,
+          -0.2
+        ],
+        "elbowL": [
+          0.22,
+          0.31,
+          -0.2
+        ],
+        "wristL": [
+          0.24,
+          0.06,
+          -0.2
+        ],
+        "handL": [
+          0.34,
+          0.025,
+          -0.2
+        ],
+        "kneeR": [
+          -0.31,
+          0.075,
+          0.2
+        ],
+        "ankleR": [
+          -0.73,
+          0.07,
+          0.2
+        ],
+        "toeR": [
+          -0.88,
+          0.04,
+          0.2
+        ],
+        "elbowR": [
+          0.22,
+          0.31,
+          0.2
+        ],
+        "wristR": [
+          0.24,
+          0.06,
+          0.2
+        ],
+        "handR": [
+          0.34,
+          0.025,
+          0.2
         ]
       },
       {
@@ -3121,6 +3246,11 @@
           0.0,
           0.0
         ],
+        "pelvisUp": [
+          0.96,
+          -0.28,
+          0
+        ],
         "hipL": [
           -0.31,
           0.54,
@@ -3144,77 +3274,77 @@
         "kneeL": [
           -0.31,
           0.075,
-          -0.18
+          -0.2
         ],
         "ankleL": [
           -0.73,
           0.07,
-          -0.18
+          -0.2
         ],
         "toeL": [
           -0.88,
           0.04,
-          -0.18
+          -0.2
         ],
         "elbowL": [
           0.22,
           0.31,
-          -0.18
+          -0.2
         ],
         "wristL": [
           0.24,
           0.06,
-          -0.18
+          -0.2
         ],
         "handL": [
           0.34,
           0.025,
-          -0.18
+          -0.2
         ],
         "kneeR": [
           -0.31,
           0.075,
-          0.18
+          0.2
         ],
         "ankleR": [
           -0.73,
           0.07,
-          0.18
+          0.2
         ],
         "toeR": [
           -0.88,
           0.04,
-          0.18
+          0.2
         ],
         "elbowR": [
           0.22,
           0.31,
-          0.18
+          0.2
         ],
         "wristR": [
           0.24,
           0.06,
-          0.18
+          0.2
         ],
         "handR": [
           0.34,
           0.025,
-          0.18
+          0.2
         ]
       }
     ],
     "steps": [
       [
         "Set up",
-        "Start on hands and knees, with hands under shoulders and knees under hips."
+        "Start on hands and knees. Keep your knees and feet hip-width, with the tops of your feet down."
       ],
       [
         "Round",
-        "Push the floor away. Round your back and let your head drop."
+        "Exhale. Push the floor away, round your spine, and tuck your chin and tailbone gently."
       ],
       [
         "Arch",
-        "Gently lower your belly and lift your chest. Move slowly between the two positions."
+        "Inhale. Lift your tailbone, lower your belly, and open your chest. Gaze ahead."
       ]
     ],
     "views": [
@@ -3224,9 +3354,9 @@
         3.2
       ],
       [
-        -1.8,
-        1.4,
-        3
+        -3.1,
+        1.2,
+        0.8
       ]
     ],
     "target": [
@@ -3269,6 +3399,11 @@
           0
         ],
         "up": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "pelvisUp": [
           0.0,
           1.0,
           0.0
@@ -3385,6 +3520,11 @@
           1.0,
           0.0
         ],
+        "pelvisUp": [
+          0.0,
+          1.0,
+          0.0
+        ],
         "hipL": [
           0,
           0.92,
@@ -3421,19 +3561,19 @@
           -0.14
         ],
         "elbowL": [
-          -0.09,
-          1.1,
-          -0.32
+          -0.07,
+          1.12,
+          -0.26
         ],
         "wristL": [
-          -0.145,
-          0.95,
-          -0.015
+          -0.13,
+          0.87,
+          -0.04
         ],
         "handL": [
-          -0.145,
-          1.03,
-          0.02
+          -0.13,
+          0.94,
+          0
         ],
         "kneeR": [
           0.005,
@@ -3497,6 +3637,11 @@
           1.0,
           0.0
         ],
+        "pelvisUp": [
+          0.0,
+          1.0,
+          0.0
+        ],
         "hipL": [
           0,
           0.92,
@@ -3533,19 +3678,19 @@
           -0.14
         ],
         "elbowL": [
-          -0.09,
-          1.1,
-          -0.32
+          -0.07,
+          1.12,
+          -0.26
         ],
         "wristL": [
-          -0.145,
-          1.17,
-          -0.015
+          -0.13,
+          0.94,
+          -0.04
         ],
         "handL": [
-          -0.145,
-          1.25,
-          0.02
+          -0.13,
+          1.01,
+          0
         ],
         "kneeR": [
           0.005,
@@ -3582,15 +3727,15 @@
     "steps": [
       [
         "Stand",
-        "Stand tall and let your shoulders relax."
+        "Stand tall with your shoulders relaxed and down."
       ],
       [
         "Reach back",
-        "Bend your left elbow and place the back of your hand against your lower back."
+        "Bend your left elbow. Rest the back of your hand on your sacrum and keep the elbow close."
       ],
       [
         "Slide up",
-        "Gently slide your hand upward. Keep your chest still and avoid forcing the movement."
+        "Slide your hand a little way up your low back. Breathe and stop at a mild pull."
       ]
     ],
     "views": [

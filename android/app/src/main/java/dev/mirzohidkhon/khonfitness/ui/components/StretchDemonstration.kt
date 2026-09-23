@@ -50,7 +50,7 @@ private object DemoCatalog {
     }
 }
 
-private data class DemoBitmap(val path: String, val image: ImageBitmap)
+private data class DemoBitmap(val path: String, val image: ImageBitmap, val background: Color)
 
 /** Decode the current view on an IO thread. Full color avoids banding in the studio background. */
 @Composable
@@ -66,11 +66,12 @@ private fun DemoFrame(figure: String, guide: StretchDemo, view: Int, frame: Int,
                     if (poster) inSampleSize = 2
                 })
             }
-            bitmap?.let { DemoBitmap(path, it.asImageBitmap()) }
+            bitmap?.let { DemoBitmap(path, it.asImageBitmap(), Color(it.getPixel(0, 0))) }
         }
     }
     Canvas(modifier.clip(RoundedCornerShape(if (poster) 6.dp else 16.dp))
-        .background(Color(0xFFEDF0F4)).semantics { contentDescription = description }) {
+        .background(loaded?.takeIf { it.path == path }?.background ?: Color(0xFFF2F2F2))
+        .semantics { contentDescription = description }) {
         // A late result for the previous angle must never be drawn as the new one.
         val bitmap = loaded?.takeIf { it.path == path }?.image ?: return@Canvas
         val width = if (poster) bitmap.width else guide.frameWidth
@@ -119,7 +120,7 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
         if (playing && preview && visible) {
             var previous = android.os.SystemClock.elapsedRealtime()
             while (true) {
-                delay(80)
+                delay(40)
                 val now = android.os.SystemClock.elapsedRealtime()
                 elapsedMs += now - previous
                 previous = now
@@ -127,7 +128,8 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
         }
     }
     val frame = if (preview) { if (playing) guide.previewFrame(elapsedMs) else manualFrame } else guide.exerciseFrame(exerciseProgress)
-    val selectedStep = if (preview) guide.stepAt(frame) else guide.steps.lastIndex
+    val selectedStep = if (preview) guide.stepAt(frame) else
+        guide.steps.indices.minBy { kotlin.math.abs(guide.steps[it].frame - frame) }
     val instruction = guide.steps[selectedStep].instruction.forDemoSide(mirror)
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         DemoFrame(figure, guide, view, frame, mirror,

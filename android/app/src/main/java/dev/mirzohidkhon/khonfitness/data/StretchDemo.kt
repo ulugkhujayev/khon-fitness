@@ -16,6 +16,7 @@ data class StretchDemo(
     val steps: List<DemoStep>,
     val loopStart: Int,
     val moving: Boolean,
+    val repHoldFraction: Float = 0f,
 ) {
     /** First show the setup, then move into each position and hold it long enough to inspect. */
     fun previewFrame(elapsedMs: Long): Int {
@@ -27,9 +28,13 @@ data class StretchDemo(
 
     fun stepAt(frame: Int): Int = steps.indexOfFirst { frame <= it.frame }.let { if (it < 0) steps.lastIndex else it }
 
-    /** The timer supplies rep progress. A timed hold stays in the final position. */
-    fun exerciseFrame(progress: Float?): Int = if (progress == null) frameCount - 1 else
-        (loopStart + progress.coerceIn(0f, 1f) * (frameCount - 1 - loopStart)).roundToInt()
+    /** Reserve part of each half-cycle for its endpoints. Timed holds stay in the final position. */
+    fun exerciseFrame(progress: Float?): Int {
+        if (progress == null) return frameCount - 1
+        val movement = ((progress.coerceIn(0f, 1f) - repHoldFraction) / (1f - 2f * repHoldFraction))
+            .coerceIn(0f, 1f)
+        return (loopStart + movement * (frameCount - 1 - loopStart)).roundToInt()
+    }
 }
 
 /** Mirror the instruction as well as the image, without replacing substrings inside other words. */

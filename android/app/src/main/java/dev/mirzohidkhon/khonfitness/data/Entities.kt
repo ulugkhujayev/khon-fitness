@@ -1,5 +1,6 @@
 package dev.mirzohidkhon.khonfitness.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
@@ -136,6 +137,7 @@ data class Bodyweight(@PrimaryKey val date: String, val kg: Double)
 @Entity(tableName = "week_plan")
 data class WeekPlan(@PrimaryKey val weekday: Int, val itemType: String, val itemId: String? = null)
 
+/** A date that leaves the weekly template. [auto] rows only freeze a past date before a template edit: no mark, no way back to the template. */
 @Serializable
 @Entity(tableName = "day_overrides")
-data class DayOverride(@PrimaryKey val date: String, val itemType: String, val itemId: String? = null)
+data class DayOverride(@PrimaryKey val date: String, val itemType: String, val itemId: String? = null, @ColumnInfo(defaultValue = "0") val auto: Boolean = false)

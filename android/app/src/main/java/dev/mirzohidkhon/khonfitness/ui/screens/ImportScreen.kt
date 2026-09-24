@@ -40,11 +40,7 @@ fun ImportScreen(vm: AppViewModel, nav: NavHostController) {
     var refresh by remember { mutableIntStateOf(0) }
     val cardio = exercises.filter { it.kind == Kind.CARDIO && !it.archived }
 
-    fun defaultExercise(d: ImportDraft): Exercise? {
-        val planned = plan.itemFor(d.date).cardio
-        if (planned != null && planned.modalityId == d.modalityId) return planned
-        return cardio.filter { it.modalityId == d.modalityId }.sortedBy { it.intervals }.firstOrNull() ?: cardio.firstOrNull()
-    }
+    fun defaultExercise(d: ImportDraft): Exercise? = HealthImport.defaultExercise(d.modalityId, plan.itemFor(d.date).cardio, cardio)
 
     val permLauncher = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { refresh++ }
     LaunchedEffect(refresh, status) {
@@ -82,7 +78,8 @@ fun ImportScreen(vm: AppViewModel, nav: NavHostController) {
                     PrimaryButton("Allow") { permLauncher.launch(HealthImport.readPermissions) }
                 }
                 else -> {
-                    val list = drafts
+                    val list = drafts?.filter { !it.strength }
+                    val strengthCount = drafts?.count { it.strength } ?: 0
                     error?.let { Text(it, color = K.Red, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 12.dp)) }
                     when {
                         list == null -> Text("Reading…", color = K.Muted)
@@ -92,14 +89,18 @@ fun ImportScreen(vm: AppViewModel, nav: NavHostController) {
                                 list.forEachIndexed { i, d ->
                                     val ex = defaultExercise(d)
                                     val parts = listOfNotNull("${d.seconds / 60} min", d.distanceM?.let { "${fmt(it / 1000.0)} km" }, d.avgHr?.let { "$it bpm" })
-                                    ListRow("${d.date.format(shortDate)} · ${d.typeName} · ${d.originLabel}", secondary = parts.joinToString(" · "), dotColor = ex?.let { exerciseColor(it, modalities) } ?: K.Dim, dotFilled = ex?.intensity == Intensity.HIGH, divider = i > 0) { picking = d }
+                                    ListRow("${d.date.format(shortDate)} · ${d.typeName} · ${d.originLabel}", secondary = (parts + listOfNotNull(if (ex == null) "tap to choose" else null)).joinToString(" · "), dotColor = ex?.let { exerciseColor(it, modalities) } ?: K.Dim, dotFilled = ex?.intensity == Intensity.HIGH, divider = i > 0) { picking = d }
                                 }
                             }
                             Spacer(Modifier.height(16.dp))
-                            PrimaryButton("Import all ${list.size}") { list.forEach { d -> defaultExercise(d)?.let { import(d, it) } } }
-                            Text("Each one becomes a session under the exercise shown. Tap a row to pick a different exercise first.", color = K.Dim, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 10.dp))
+                            val ready = list.mapNotNull { d -> defaultExercise(d)?.let { d to it } }
+                            if (ready.isNotEmpty()) PrimaryButton(if (ready.size == list.size) "Import all ${list.size}" else "Import ${ready.size} matched") { ready.forEach { (d, e) -> import(d, e) } }
+                            Text(if (ready.size == list.size) "Each one becomes a session under the exercise shown. Tap a row to pick a different exercise first."
+                                else "Sessions marked \"tap to choose\" have no matching exercise; tap one to pick it. The rest import under the exercise shown.",
+                                color = K.Dim, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 10.dp))
                         }
                     }
+                    if (strengthCount > 0) Text("$strengthCount strength ${if (strengthCount == 1) "workout" else "workouts"} from the watch not shown. Gym sessions are logged in the app.", color = K.Dim, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 16.dp))
                     if (BuildConfig.DEBUG) {
                         Spacer(Modifier.height(32.dp))
                         val writeLauncher = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { vm.run { runCatching { HealthImport.writeTestRun(context) }.onFailure { error = it.message }; refresh++ } }

@@ -87,7 +87,7 @@ class KhonRepository(private val dao: KhonDao) {
         fun itemFor(date: LocalDate): PlanItem {
             val o = overrides.find { it.date == date.iso() }
             val type: String; val id: String?; val overridden: Boolean
-            if (o != null) { type = o.itemType; id = o.itemId; overridden = true }
+            if (o != null) { type = o.itemType; id = o.itemId; overridden = !o.auto }
             else { val w = plan.find { it.weekday == date.dayOfWeek.value }; type = w?.itemType ?: ItemType.REST; id = w?.itemId; overridden = false }
             return when (type) {
                 ItemType.PROGRAM -> programs.find { it.id == id }?.let { PlanItem(type, program = it, overridden = overridden) } ?: PlanItem(ItemType.REST)
@@ -108,7 +108,8 @@ class KhonRepository(private val dao: KhonDao) {
 
     suspend fun exercise(id: String) = dao.exercise(id)
     suspend fun saveExercise(e: Exercise) = dao.upsert(e)
-    suspend fun exerciseUsage(id: String): Int = dao.setLogCountFor(id) + dao.cardioSessionCountFor(id)
+    suspend fun exerciseUsage(id: String): Int = dao.setLogCountFor(id) + dao.cardioSessionCountFor(id) +
+        dao.blockExerciseCountFor(id) + dao.weekPlanCardioCountFor(id) + dao.overrideCardioCountFor(id)
     suspend fun deleteExercise(id: String) { if (exerciseUsage(id) == 0) dao.deleteExercise(id) }
     suspend fun mergeExercise(from: String, into: String) {
         dao.moveSetLogs(from, into); dao.moveCardioSessions(from, into); dao.moveBlockExercises(from, into)
@@ -128,7 +129,15 @@ class KhonRepository(private val dao: KhonDao) {
     suspend fun saveBlockExercise(be: BlockExercise) = dao.upsert(be)
     suspend fun deleteBlockExercise(id: String) = dao.deleteBlockExercise(id)
 
-    suspend fun saveWeekPlan(weekday: Int, itemType: String, itemId: String?) = dao.upsert(WeekPlan(weekday, itemType, itemId))
+    /** Changes a weekday in the template. Past dates of that weekday first get auto overrides with the old value, so history keeps its plan. */
+    suspend fun saveWeekPlan(weekday: Int, itemType: String, itemId: String?, today: LocalDate = LocalDate.now()) {
+        val old = dao.weekPlanOnce().find { it.weekday == weekday }
+        if ((old?.itemType ?: ItemType.REST) == itemType && old?.itemId == itemId) return
+        val overrides = dao.overridesOnce()
+        val first = PlanRules.freezeFrom(dao.sessionsOnce().map { it.date } + dao.stretchSessionsOnce().map { it.date } + dao.bodyweightsOnce().map { it.date } + dao.windowDaysOnce().map { it.date } + overrides.map { it.date }, today)
+        val frozen = PlanRules.datesToFreeze(weekday, first, today, overrides.map { it.date }.toSet()).map { DayOverride(it.iso(), old?.itemType ?: ItemType.REST, old?.itemId, auto = true) }
+        dao.saveWeekPlan(frozen, WeekPlan(weekday, itemType, itemId))
+    }
     suspend fun saveOverride(date: String, itemType: String, itemId: String?) = dao.upsert(DayOverride(date, itemType, itemId))
     suspend fun clearOverride(date: String) = dao.deleteOverride(date)
     suspend fun swapDays(a: LocalDate, b: LocalDate) {
@@ -253,6 +262,23 @@ class KhonRepository(private val dao: KhonDao) {
     /** Older installs have no stretches yet; the routine arrives on first start after the update. */
     suspend fun seedStretchesIfEmpty() { if (dao.stretchesOnce().isEmpty()) Seed.applyStretches(dao) }
     suspend fun resetToSeed() { dao.clearAll(); Seed.apply(dao); Seed.applyStretches(dao) }
+}
+
+object PlanRules {
+    /** First day the app was in use: the earliest date any record carries, or null on a fresh install. */
+    fun firstUse(dates: Iterable<String>): LocalDate? = dates.filter { it.isNotBlank() }.minOrNull()?.toDate()
+
+    /** Where freezing starts: the first-use date or one year back, whichever is earlier, so no visible past day moves. */
+    fun freezeFrom(dates: Iterable<String>, today: LocalDate): LocalDate = listOfNotNull(firstUse(dates), today.minusYears(1)).min()
+
+    /** Past dates of [weekday] from [first] to yesterday that still follow the template. */
+    fun datesToFreeze(weekday: Int, first: LocalDate?, today: LocalDate, overridden: Set<String>): List<LocalDate> {
+        if (first == null) return emptyList()
+        return generateSequence(first) { it.plusDays(1) }.takeWhile { it < today }.filter { it.dayOfWeek.value == weekday && it.iso() !in overridden }.toList()
+    }
+
+    /** Two days can swap when they differ and neither is in the past. */
+    fun canSwap(a: LocalDate, b: LocalDate, today: LocalDate): Boolean = a != b && a >= today && b >= today
 }
 
 fun SetLog.key(): String = "$exerciseId:$setIndex"

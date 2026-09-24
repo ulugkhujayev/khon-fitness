@@ -15,16 +15,25 @@ import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
+import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.map
 
 /** Cardio session form: the fields come from the exercise, one row per work interval when it has intervals. */
 @Composable
 fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
-    val session by vm.repo.session(sessionId).collectAsStateWithLifecycle(null)
+    val sessionState by remember(sessionId) { vm.repo.session(sessionId).map { it to true } }.collectAsStateWithLifecycle(null to false)
+    val session = sessionState.first
+    LeaveIfSessionMissing(nav, "cardio/{id}", sessionId, loaded = sessionState.second, missing = session == null)
     val intervals by vm.repo.intervalLogs(sessionId).collectAsStateWithLifecycle(emptyList())
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val s = session ?: return
     val ex = exercises.find { it.id == s.exerciseId }
-    val fields = ex?.fieldList ?: listOf("time", "distance", "avgHr")
+    // Current exercise fields, plus any value this session already stores: a field removed later must not hide old data.
+    val stored = listOfNotNull("time".takeIf { s.timeSec != null }, "distance".takeIf { s.distanceM != null }, "avgHr".takeIf { s.avgHr != null },
+        "watts".takeIf { s.watts != null }, "laps".takeIf { s.laps != null }, "poolLength".takeIf { s.poolLength != null }, "stroke".takeIf { s.stroke != null })
+    val current = ex?.fieldList ?: listOf("time", "distance", "avgHr")
+    val fields = current + stored.filter { it !in current }
     var draft by remember(s.id) { mutableStateOf(s) }
     var ivs by remember(intervals.size) { mutableStateOf(intervals) }
     var strokeSheet by remember { mutableStateOf(false) }

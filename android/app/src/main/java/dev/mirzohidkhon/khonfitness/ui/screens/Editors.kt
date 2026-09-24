@@ -165,7 +165,7 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
                 TextButton("Merge into…") { sheet = "merge" }
                 TextButton("Delete", K.Red, enabled = usage == 0) { vm.run { vm.repo.deleteExercise(exerciseId) }; nav.popBackStack() }
             }
-            if (usage > 0) Text("Used in $usage logged sets, so it can be archived or merged, not deleted.", color = K.Dim, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+            if (usage > 0) Text("Used in a session, program, or plan. Archive or merge instead.", color = K.Dim, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
         }
     }
     when (sheet) {

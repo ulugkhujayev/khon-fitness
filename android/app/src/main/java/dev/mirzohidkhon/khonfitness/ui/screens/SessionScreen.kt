@@ -31,11 +31,16 @@ import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import kotlinx.coroutines.delay
+import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.map
 
 /** A program session: live logging while unfinished, read-only with an Edit toggle after. */
 @Composable
 fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
-    val session by vm.repo.session(sessionId).collectAsStateWithLifecycle(null)
+    val sessionState by remember(sessionId) { vm.repo.session(sessionId).map { it to true } }.collectAsStateWithLifecycle(null to false)
+    val session = sessionState.first
+    LeaveIfSessionMissing(nav, "session/{id}", sessionId, loaded = sessionState.second, missing = session == null)
     val logs by vm.repo.setLogs(sessionId).collectAsStateWithLifecycle(emptyList())
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     var previous by remember { mutableStateOf<Map<String, SetLog>>(emptyMap()) }

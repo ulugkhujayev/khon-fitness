@@ -25,6 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -122,7 +124,8 @@ fun ChoiceList(content: @Composable () -> Unit) {
 @Composable
 fun ChoiceRow(title: String, selected: Boolean, dotColor: Color? = null, dotFilled: Boolean = true, divider: Boolean = true, onClick: () -> Unit) {
     ListRow(title, secondary = null, dotColor = dotColor, dotFilled = dotFilled, chevron = false, divider = divider,
-        trailing = { if (selected) Text("✓", color = K.Accent, fontWeight = FontWeight.Bold, fontSize = 18.sp) }, onClick = onClick)
+        // The row itself is selectable, so TalkBack reads its state; the glyph is hidden.
+        trailing = { Box(Modifier.clearAndSetSemantics {}) { if (selected) Text("✓", color = K.Accent, fontWeight = FontWeight.Bold, fontSize = 18.sp) } }, selected = selected, onClick = onClick)
 }
 
 

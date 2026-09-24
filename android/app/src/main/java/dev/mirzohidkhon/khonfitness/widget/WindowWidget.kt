@@ -24,6 +24,8 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
+import androidx.glance.semantics.contentDescription
+import androidx.glance.semantics.semantics
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -32,22 +34,37 @@ import dev.mirzohidkhon.khonfitness.KhonApp
 import dev.mirzohidkhon.khonfitness.MainActivity
 import dev.mirzohidkhon.khonfitness.data.EatingWindow
 import dev.mirzohidkhon.khonfitness.data.iso
-import dev.mirzohidkhon.khonfitness.ui.screens.windowSummary
+import dev.mirzohidkhon.khonfitness.data.EatingWindowRules
 import java.time.LocalDate
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.flow.first
+import java.time.LocalDateTime
 
-/** 2x1 eating-window tile: a dot, Open or Closed, and the time left. Tap opens the window sheet. */
+/** 2x1 eating-window tile: a dot, Open or Closed, and the next change time. Tap opens the window sheet. */
 class WindowWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repo = (context.applicationContext as KhonApp).repo
-        val w = repo.eatingWindowOnce()
-        val (open, text) = windowSummary(w, repo.windowDay(LocalDate.now().iso()))
+        // Collected inside the composition: Glance runs this function once per session, and updates inside a live session only recompose.
+        val w0 = repo.eatingWindow.first()
+        val days0 = repo.windowDays.first()
         provideContent {
+            val w = repo.eatingWindow.collectAsState(w0).value ?: EatingWindow()
+            val days = repo.windowDays.collectAsState(days0).value
+            // A widget redraws only on data changes, boundaries, reminders, and every 30 min, so it shows a clock time rather than a countdown.
+            val now = LocalDateTime.now()
+            val st = EatingWindowRules.state(w, days.find { it.date == now.toLocalDate().iso() }, now)
+            val open = w.enabled && st.open
+            val text = if (!w.enabled) "Tap to set hours"
+                else if (open && st.changesAt.toLocalDate() > now.toLocalDate()) "until midnight"
+                else (if (open) "until " else "opens ") + EatingWindowRules.hhmm(st.changesAt.hour * 60 + st.changesAt.minute)
             val openApp = actionStartActivity(Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_WINDOW).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
-            Row(GlanceModifier.fillMaxSize().background(Color(0xFF1C1C1E)).cornerRadius(20.dp).padding(horizontal = 14.dp).clickable(openApp), verticalAlignment = Alignment.CenterVertically) {
+            val status = if (!w.enabled) "Window off" else if (open) "Open" else "Closed"
+            Row(GlanceModifier.fillMaxSize().background(Color(0xFF1C1C1E)).cornerRadius(20.dp).padding(horizontal = 14.dp).clickable(openApp)
+                .semantics { contentDescription = "Eating window: " + (if (w.enabled) "$status, $text" else "off, $text") }, verticalAlignment = Alignment.CenterVertically) {
                 Box(GlanceModifier.size(12.dp).background(if (open) Color(0xFF30D158) else Color(0xFF636366)).cornerRadius(6.dp)) {}
                 Spacer(GlanceModifier.width(12.dp))
                 Column {
-                    Text(if (!w.enabled) "Window off" else if (open) "Open" else "Closed", style = TextStyle(color = ColorProvider(Color.White), fontSize = 17.sp, fontWeight = FontWeight.Bold))
+                    Text(status, style = TextStyle(color = ColorProvider(Color.White), fontSize = 17.sp, fontWeight = FontWeight.Bold))
                     Text(text, style = TextStyle(color = ColorProvider(Color(0xFF8E8E93)), fontSize = 13.sp))
                 }
             }

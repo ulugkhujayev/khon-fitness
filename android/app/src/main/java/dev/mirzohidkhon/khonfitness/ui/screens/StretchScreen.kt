@@ -29,6 +29,8 @@ import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.BuildConfig
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.timer.TimerService
+import dev.mirzohidkhon.khonfitness.timer.Phase
+import dev.mirzohidkhon.khonfitness.timer.PhaseKind
 import dev.mirzohidkhon.khonfitness.timer.mmss
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
@@ -36,17 +38,19 @@ import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import kotlinx.coroutines.delay
 
-/** Builds the player steps for a routine: sided stretches become two phases. Returns "label|side|seconds|figure|reps|stretchId" lines. */
-fun routineSteps(routineId: String, routineStretches: List<RoutineStretch>, stretches: List<Stretch>): List<String> =
+/** Builds the player phases for a routine; sided stretches become two phases. */
+fun routineSteps(routineId: String, routineStretches: List<RoutineStretch>, stretches: List<Stretch>): List<Phase> =
     routineStretches.filter { it.routineId == routineId }.sortedBy { it.sortOrder }.flatMap { rs ->
         val st = stretches.find { it.id == rs.stretchId } ?: return@flatMap emptyList()
         val sec = rs.seconds ?: st.seconds
         val reps = if (st.mode == StretchMode.REPS) st.reps else 0
-        if (st.sided) listOf("Left", "Right").map { side -> "${st.name}|$side|$sec|${st.figure}|$reps|${st.id}" } else listOf("${st.name}||$sec|${st.figure}|$reps|${st.id}")
+        val sides = if (st.sided) listOf("Left", "Right") else listOf("")
+        sides.map { side -> Phase(PhaseKind.WORK, sec, 0, label = st.name, side = side,
+            figure = st.figure, reps = reps, stretchId = st.id) }
     }
 
 fun routineSeconds(routineId: String, routineStretches: List<RoutineStretch>, stretches: List<Stretch>): Int =
-    routineSteps(routineId, routineStretches, stretches).sumOf { it.split("|")[2].toInt() }
+    routineSteps(routineId, routineStretches, stretches).sumOf { it.seconds }
 
 /** Full-screen stretch player. The service owns the clock and writes the session; this screen shows the figure and leaves at the end. */
 @Composable
@@ -59,6 +63,13 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
     val stretches by vm.stretches.collectAsStateWithLifecycle()
     val view = LocalView.current
     DisposableEffect(Unit) { view.keepScreenOn = true; onDispose { view.keepScreenOn = false } }
+    // The player is portrait only: in landscape the figure is cut and the cue needs scrolling. Restore the prior setting on leave.
+    DisposableEffect(Unit) {
+        val activity = context as? android.app.Activity
+        val previous = activity?.requestedOrientation
+        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        onDispose { if (previous != null) activity.requestedOrientation = previous }
+    }
     val routine = routines.find { it.id == routineId }
     val sessionId = remember { "$routineId:" + newId() }
 

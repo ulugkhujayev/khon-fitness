@@ -33,6 +33,7 @@ data class ImportDraft(
     val laps: Int? = null,
     val poolLength: Int? = null,
     val mergedIds: List<String> = listOf(sourceId),
+    val strength: Boolean = false,
 ) {
     val date: LocalDate get() = start.atZone(ZoneId.systemDefault()).toLocalDate()
     val seconds: Int get() = ChronoUnit.SECONDS.between(start, end).toInt()
@@ -69,6 +70,19 @@ object HealthImport {
     suspend fun hasPermissions(context: Context): Boolean =
         client(context).permissionController.getGrantedPermissions().containsAll(readPermissions)
 
+    /** Gym workouts are logged in the app itself; a watch copy must never become a cardio session. */
+    val strengthTypes = setOf(ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING, ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING, ExerciseSessionRecord.EXERCISE_TYPE_CALISTHENICS)
+
+    /**
+     * The exercise a draft imports as without asking: the day's planned cardio when its modality matches, else the plainest
+     * exercise of that modality. A workout type with no modality, or no exercise for it, gets none; the user picks.
+     */
+    fun defaultExercise(modalityId: String?, planned: Exercise?, cardio: List<Exercise>): Exercise? {
+        if (modalityId == null) return null
+        if (planned != null && planned.modalityId == modalityId) return planned
+        return cardio.filter { it.modalityId == modalityId }.sortedBy { it.intervals }.firstOrNull()
+    }
+
     /** Maps a Health Connect exercise type to one of the seeded modality ids. */
     fun modalityFor(type: Int): Pair<String, String?> = when (type) {
         ExerciseSessionRecord.EXERCISE_TYPE_RUNNING, ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL -> "Run" to "run"
@@ -99,6 +113,7 @@ object HealthImport {
                 modalityId = modality, distanceM = distance?.toInt()?.takeIf { it > 0 }, avgHr = samples.takeIf { it.isNotEmpty() }?.let { s -> s.map { it.second }.average().toInt() },
                 hrSamples = samples, origins = listOf(rec.metadata.dataOrigin.packageName),
                 laps = rec.laps.size.takeIf { it > 0 }, poolLength = lapLengths.takeIf { it.isNotEmpty() }?.sorted()?.let { it[it.size / 2].toInt() },
+                strength = rec.exerciseType in strengthTypes,
             )
         }.sortedByDescending { it.start }.let(::mergeOverlaps)
     }
@@ -128,7 +143,7 @@ object HealthImport {
         val c = client(context)
         val end = Instant.now(); val start = end.minus(60, ChronoUnit.DAYS)
         val sessions = c.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, TimeRangeFilter.between(start, end))).records
-            .filter { it.metadata.id !in alreadyImported && (BuildConfig.DEBUG || it.metadata.dataOrigin.packageName != context.packageName) }
+            .filter { it.metadata.id !in alreadyImported && it.exerciseType !in strengthTypes && (BuildConfig.DEBUG || it.metadata.dataOrigin.packageName != context.packageName) }
         return mergeOverlaps(sessions.map { rec -> val (n, m) = modalityFor(rec.exerciseType); ImportDraft(rec.metadata.id, rec.startTime, rec.endTime, n, m, null, null, emptyList(), listOf(rec.metadata.dataOrigin.packageName)) }).size
     }
 

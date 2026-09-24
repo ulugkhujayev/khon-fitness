@@ -21,6 +21,8 @@ import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.time.LocalDate
 import java.time.LocalDateTime
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 
 /** Secondary text for the Today row and the widget: "closes in 2 h 10 m", "opens 12:00", "Off". */
 fun windowSummary(w: EatingWindow?, day: WindowDay?, now: LocalDateTime = LocalDateTime.now()): Pair<Boolean, String> {
@@ -46,8 +48,8 @@ fun WindowSheet(vm: AppViewModel, onDismiss: () -> Unit) {
                 if (st.open) ListRow("Close now", chevron = false, divider = false, titleColor = K.Accent) { vm.run { vm.repo.closeWindowNow(today.iso(), System.currentTimeMillis()); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) }; onDismiss() }
                 else ListRow("Open now", chevron = false, divider = false, titleColor = K.Accent) { vm.run { vm.repo.openWindowNow(today.iso(), System.currentTimeMillis()); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) }; onDismiss() }
             }
-            FieldRow("Opens", divider = w.enabled) { TimeStepper(w.startMinute) { m -> save(w.copy(startMinute = m.coerceIn(0, w.endMinute - 60))) } }
-            FieldRow("Closes") { TimeStepper(w.endMinute) { m -> save(w.copy(endMinute = m.coerceIn(w.startMinute + 60, 24 * 60 - 1))) } }
+            FieldRow("Opens", divider = w.enabled) { TimeStepper(w.startMinute, "Opens") { m -> save(w.copy(startMinute = m.coerceIn(0, w.endMinute - 60))) } }
+            FieldRow("Closes") { TimeStepper(w.endMinute, "Closes") { m -> save(w.copy(endMinute = m.coerceIn(w.startMinute + 60, 24 * 60 - 1))) } }
             FieldRow("Remind before", divider = true) { NumberField(w.remindBeforeMin.toDouble(), { v -> save(w.copy(remindBeforeMin = (v ?: 0.0).toInt().coerceIn(0, 120))) }, 5.0, "min", Modifier.width(176.dp), 0, 38) }
             FieldRow("On") { Switch(w.enabled, { save(w.copy(enabled = it)) }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
         }
@@ -67,10 +69,10 @@ fun WindowSheet(vm: AppViewModel, onDismiss: () -> Unit) {
 
 /** hh:mm with 15-minute steps, in the number-widget shape. */
 @Composable
-fun TimeStepper(minute: Int, onChange: (Int) -> Unit) {
+fun TimeStepper(minute: Int, name: String, onChange: (Int) -> Unit) {
     Row(Modifier.width(150.dp).height(38.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).background(K.Surface2), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Box(Modifier.width(40.dp).fillMaxHeight().clickable { onChange(minute - 15) }, contentAlignment = androidx.compose.ui.Alignment.Center) { Text("−", fontWeight = FontWeight.Medium) }
+        Box(Modifier.width(40.dp).fillMaxHeight().clickable(role = androidx.compose.ui.semantics.Role.Button) { onChange(minute - 15) }.clearAndSetSemantics { contentDescription = "$name 15 minutes earlier" }, contentAlignment = androidx.compose.ui.Alignment.Center) { Text("−", fontWeight = FontWeight.Medium) }
         Text(EatingWindowRules.hhmm(minute), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        Box(Modifier.width(40.dp).fillMaxHeight().clickable { onChange(minute + 15) }, contentAlignment = androidx.compose.ui.Alignment.Center) { Text("+", fontWeight = FontWeight.Medium) }
+        Box(Modifier.width(40.dp).fillMaxHeight().clickable(role = androidx.compose.ui.semantics.Role.Button) { onChange(minute + 15) }.clearAndSetSemantics { contentDescription = "$name 15 minutes later" }, contentAlignment = androidx.compose.ui.Alignment.Center) { Text("+", fontWeight = FontWeight.Medium) }
     }
 }

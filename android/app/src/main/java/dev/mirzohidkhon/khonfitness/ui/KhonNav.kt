@@ -29,6 +29,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -69,6 +71,15 @@ fun KhonNav() {
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: Routes.TODAY
     val tab = when { route.startsWith(Routes.HISTORY) -> 1; route.startsWith(Routes.PROGRAMS) || route.startsWith("program") || route.startsWith("block") || route.startsWith("exercise") || route.startsWith("modality") || route == Routes.LIBRARY || route == Routes.MODALITIES || route == Routes.WEEK_PLAN || route == Routes.ROUTINES || route == Routes.STRETCHES || route.startsWith("routine") || route.startsWith("stretcheditor") -> 2; route == Routes.IMPORT -> 1; else -> 0 }
+    // Widget and notification requests are consumed by Today. Return there first, or a request that lands on
+    // another screen waits and fires later with stale data.
+    val startRequested by dev.mirzohidkhon.khonfitness.MainActivity.startRequested.collectAsStateWithLifecycle()
+    val windowRequested by dev.mirzohidkhon.khonfitness.MainActivity.windowRequested.collectAsStateWithLifecycle()
+    LaunchedEffect(startRequested, windowRequested) {
+        if ((startRequested || windowRequested) && nav.currentDestination?.route != Routes.TODAY) {
+            if (!nav.popBackStack(Routes.TODAY, inclusive = false)) nav.navigate(Routes.TODAY) { launchSingleTop = true }
+        }
+    }
     val showBar = route == Routes.TODAY || route == Routes.HISTORY || route == Routes.PROGRAMS
     Scaffold(containerColor = K.Bg, bottomBar = { if (showBar) BottomBar(tab) { i -> nav.navigate(listOf(Routes.TODAY, Routes.HISTORY, Routes.PROGRAMS)[i]) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true; restoreState = true } } }) { pad ->
         Box(Modifier.fillMaxSize().padding(pad).consumeWindowInsets(pad).imePadding()) {
@@ -121,6 +132,17 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
                     Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = if (active) K.Accent else K.Muted, modifier = Modifier.padding(top = 2.dp))
                 }
             }
+        }
+    }
+}
+
+/** Leave a session screen whose session no longer exists, while that screen is still on top. Without this it draws nothing. */
+@Composable
+fun LeaveIfSessionMissing(nav: NavHostController, route: String, sessionId: String, loaded: Boolean, missing: Boolean) {
+    LaunchedEffect(loaded, missing) {
+        val top = nav.currentBackStackEntry
+        if (loaded && missing && top?.destination?.route == route && top.arguments?.getString("id") == sessionId) {
+            if (!nav.popBackStack(Routes.TODAY, inclusive = false)) nav.navigate(Routes.TODAY) { launchSingleTop = true }
         }
     }
 }

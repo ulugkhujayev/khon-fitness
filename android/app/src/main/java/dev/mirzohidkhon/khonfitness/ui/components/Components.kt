@@ -3,6 +3,7 @@ package dev.mirzohidkhon.khonfitness.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,6 +54,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.util.Locale
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.Role
 
 /** Inset grouped list radius. iOS 26 groups use a large concentric radius. */
 val GroupShape = RoundedCornerShape(20.dp)
@@ -85,9 +90,11 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier, trailing: (@Compos
 }
 
 @Composable
-fun TextButton(text: String, color: Color = K.Accent, enabled: Boolean = true, onClick: () -> Unit) {
-    Box(Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(8.dp)).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = if (enabled) color else K.Dim, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
+fun TextButton(text: String, color: Color = K.Accent, enabled: Boolean = true, description: String? = null, onClick: () -> Unit) {
+    val spoken = if (description != null) Modifier.semantics { contentDescription = description } else Modifier
+    Box(Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(8.dp)).clickable(enabled = enabled, role = Role.Button, onClick = onClick).then(spoken).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+        Text(text, color = if (enabled) color else K.Dim, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium,
+            modifier = if (description != null) Modifier.clearAndSetSemantics {} else Modifier)
     }
 }
 
@@ -130,17 +137,26 @@ fun ListRow(
     divider: Boolean = true,
     titleColor: Color = K.Text,
     trailing: (@Composable RowScope.() -> Unit)? = null,
+    selected: Boolean? = null,
     onClick: (() -> Unit)? = null,
 ) {
+    val largeText = androidx.compose.ui.platform.LocalConfiguration.current.fontScale >= 1.5f
     Column(modifier.fillMaxWidth()) {
         if (divider) HorizontalDivider(Modifier.padding(start = if (dotColor != null) 42.dp else 16.dp), color = K.Divider, thickness = 0.7.dp)
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 48.dp).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(start = 16.dp, end = 14.dp),
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).then(if (onClick == null) Modifier else if (selected != null) Modifier.selectable(selected, role = Role.RadioButton, onClick = onClick) else Modifier.clickable(onClick = onClick)).padding(start = 16.dp, end = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (dotColor != null) { Box(Modifier.width(26.dp), contentAlignment = Alignment.CenterStart) { Dot(dotColor, dotFilled) } }
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = titleColor, modifier = Modifier.weight(1f).padding(vertical = 12.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (secondary != null) Text(secondary, style = MaterialTheme.typography.bodyMedium, color = K.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp))
+            if (largeText && secondary != null) {
+                Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
+                    Text(title, style = MaterialTheme.typography.bodyLarge, color = titleColor, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    Text(secondary, style = MaterialTheme.typography.bodyMedium, color = K.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                }
+            } else {
+                Text(title, style = MaterialTheme.typography.bodyLarge, color = titleColor, modifier = Modifier.weight(1f).padding(vertical = 12.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (secondary != null) Text(secondary, style = MaterialTheme.typography.bodyMedium, color = K.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp))
+            }
             trailing?.invoke(this)
             if (chevron) Chevron()
         }
@@ -217,7 +233,7 @@ fun NumberField(
         Modifier.fillMaxWidth().height(height.dp).bringIntoViewRequester(bringIntoView).clip(RoundedCornerShape(10.dp)).background(K.Surface2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StepButton("−", stepWidth) { commit(((value ?: 0.0) - step).coerceAtLeast(0.0)) }
+        StepButton("−", "Decrease by ${fmt(step, decimals)} $unit".trim(), stepWidth) { commit(((value ?: 0.0) - step).coerceAtLeast(0.0)) }
         Box(Modifier.width(1.dp).fillMaxHeight().background(K.Divider))
         BasicTextField(
             value = text,
@@ -249,14 +265,14 @@ fun NumberField(
         if (compact) Spacer(Modifier.width(8.dp))
         else Text(unit, color = K.Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp, end = 8.dp))
         Box(Modifier.width(1.dp).fillMaxHeight().background(K.Divider))
-        StepButton("+", stepWidth) { commit((value ?: 0.0) + step) }
+        StepButton("+", "Increase by ${fmt(step, decimals)} $unit".trim(), stepWidth) { commit((value ?: 0.0) + step) }
     }
     }
 }
 
 @Composable
-private fun RowScope.StepButton(glyph: String, width: Int = 44, onClick: () -> Unit) {
-    Box(Modifier.width(width.dp).fillMaxHeight().clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+private fun RowScope.StepButton(glyph: String, label: String, width: Int = 44, onClick: () -> Unit) {
+    Box(Modifier.width(width.dp).fillMaxHeight().clickable(role = Role.Button, onClick = onClick).clearAndSetSemantics { contentDescription = label }, contentAlignment = Alignment.Center) {
         Text(glyph, fontSize = 22.sp, fontWeight = FontWeight.Medium, color = K.Text)
     }
 }

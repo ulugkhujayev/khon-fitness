@@ -148,10 +148,23 @@ fun Chip(text: String, active: Boolean, onClick: () -> Unit) {
 @Composable
 fun ModalitiesScreen(vm: AppViewModel, nav: NavHostController) {
     val modalities by vm.modalities.collectAsStateWithLifecycle()
+    var showArchived by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         EditorTopBar("Programs", "Modalities", onBack = { nav.popBackStack() }, done = "+") { nav.navigate(Routes.modality("new")) }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
-            GroupedList { modalities.filter { !it.archived }.forEachIndexed { i, m -> ListRow(m.name, dotColor = androidx.compose.ui.graphics.Color(m.color), divider = i > 0) { nav.navigate(Routes.modality(m.id)) } } }
+            GroupedList { modalities.filter { showArchived || !it.archived }.forEachIndexed { i, m ->
+                ListRow(m.name, dotColor = androidx.compose.ui.graphics.Color(m.color), divider = i > 0,
+                    titleColor = if (m.archived) K.Dim else K.Text) { nav.navigate(Routes.modality(m.id)) }
+            } }
+            Spacer(Modifier.height(16.dp))
+            GroupedList { FieldRow("Show archived", divider = false) {
+                androidx.compose.material3.Switch(showArchived, { showArchived = it },
+                    colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = K.Green,
+                        checkedThumbColor = androidx.compose.ui.graphics.Color.White,
+                        uncheckedTrackColor = K.Surface3,
+                        uncheckedThumbColor = androidx.compose.ui.graphics.Color.White,
+                        uncheckedBorderColor = androidx.compose.ui.graphics.Color.Transparent))
+            } }
         }
     }
 }

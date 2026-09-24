@@ -37,6 +37,15 @@ data class StretchDemo(
     }
 }
 
+/** Maps vsync times to demo time from one origin, so rounding per frame never accumulates into drift. */
+class DemoClock(private val startMs: Long) {
+    private var originNanos = Long.MIN_VALUE
+    fun elapsedMs(frameTimeNanos: Long): Long {
+        if (originNanos == Long.MIN_VALUE) originNanos = frameTimeNanos
+        return startMs + (frameTimeNanos - originNanos) / 1_000_000
+    }
+}
+
 /** Mirror the instruction as well as the image, without replacing substrings inside other words. */
 fun String.forDemoSide(rightSide: Boolean): String = if (!rightSide) this else
     Regex("\\b(left|right)\\b", RegexOption.IGNORE_CASE).replace(this) { match ->

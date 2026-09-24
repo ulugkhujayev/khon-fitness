@@ -14,6 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -30,6 +33,24 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.unit.toSize
+import androidx.compose.ui.zIndex
 
 @Composable
 fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
@@ -59,33 +80,95 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 24.dp)) {
         ScreenTitle("History") { TextButton("Import") { nav.navigate(Routes.IMPORT) } }
         Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton("‹") { month = month.minusMonths(1) }
+            TextButton("‹", description = "Previous month") { month = month.minusMonths(1) }
             Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy")), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-            TextButton("›") { month = month.plusMonths(1) }
+            TextButton("›", description = "Next month") { month = month.plusMonths(1) }
         }
-        Row(Modifier.fillMaxWidth()) { listOf("M", "T", "W", "T", "F", "S", "S").forEach { Text(it, color = K.Dim, fontSize = 12.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f)) } }
+        Row(Modifier.fillMaxWidth().clearAndSetSemantics {}) { listOf("M", "T", "W", "T", "F", "S", "S").forEach { Text(it, color = K.Dim, fontSize = 12.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f)) } }
         val first = month.atDay(1).with(DayOfWeek.MONDAY).let { if (it > month.atDay(1)) it.minusWeeks(1) else it }
-        val sessionsByDate = sessions.filter { it.finished }.groupBy { it.date }
+        val largeText = androidx.compose.ui.platform.LocalConfiguration.current.fontScale >= 1.5f
+        val daySize = if (largeText) 34.dp else 26.dp
+        val dayHeight = if (largeText) 56.dp else 46.dp
+        val cellShape = RoundedCornerShape(10.dp)
+        val haptics = LocalHapticFeedback.current
+        val cellBounds = remember(month) { HashMap<LocalDate, Rect>() }
+        var dragFrom by remember { mutableStateOf<LocalDate?>(null) }
+        var dragOver by remember { mutableStateOf<LocalDate?>(null) }
+        var dragOffset by remember { mutableStateOf(Offset.Zero) }
         var d = first
         while (d <= month.atEndOfMonth() || d.dayOfWeek != DayOfWeek.MONDAY) {
-            Row(Modifier.fillMaxWidth()) {
+            val weekStart = d
+            Row(Modifier.fillMaxWidth().zIndex(if (dragFrom?.let { it >= weekStart && it < weekStart.plusWeeks(1) } == true) 1f else 0f)) {
                 for (i in 0 until 7) {
                     val date = d
                     val inMonth = YearMonth.from(date) == month
-                    val done = sessionsByDate[date.iso()]
+                    val dots = dayDots(date.iso(), sessions, stretchSessions)
+                    val count = sessions.count { it.date == date.iso() && it.finished } + stretchSessions.count { it.date == date.iso() }
                     val item = plan.itemFor(date)
-                    val color: Pair<Color, Boolean>? = if (done != null) sessionColor(done.first(), exercises, modalities) else itemColor(item, modalities)
-                    val planned = done == null
-                    Column(
-                        Modifier.weight(1f).height(46.dp).clip(RoundedCornerShape(10.dp)).background(if (date == selected) K.Surface2 else Color.Transparent).clickable { selected = date }.padding(top = 6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                    val planned = itemColor(item, modalities)
+                    val isSelected = date == selected
+                    val lifted = dragFrom == date
+                    val target = dragOver == date && dragFrom?.let { PlanRules.canSwap(it, date, today) } == true
+                    val dateDescription = buildString {
+                        append(date.format(longDate))
+                        if (date == today) append(", today")
+                        if (count > 0) append(", $count ${if (count == 1) "session" else "sessions"}")
+                        else append(if (item.isRest) ", rest" else ", planned ${item.name}")
+                        if (item.overridden) append(", plan changed")
+                    }
+                    val actions = buildList {
+                        add(CustomAccessibilityAction("Change plan") { selected = date; planDate = date; true })
+                        if (PlanRules.canSwap(date, date.minusDays(1), today)) add(CustomAccessibilityAction("Swap with previous day") { vm.run { vm.repo.swapDays(date, date.minusDays(1)) }; true })
+                        if (PlanRules.canSwap(date, date.plusDays(1), today)) add(CustomAccessibilityAction("Swap with next day") { vm.run { vm.repo.swapDays(date, date.plusDays(1)) }; true })
+                    }
+                    Box(
+                        Modifier.weight(1f).height(dayHeight).zIndex(if (lifted) 1f else 0f)
+                            .onGloballyPositioned { cellBounds[date] = Rect(it.positionInRoot(), it.size.toSize()) }
+                            .then(if (lifted) Modifier else Modifier.clip(cellShape))
+                            .clickable(role = Role.Button) { selected = date }
+                            .pointerInput(date, cellBounds) {
+                                // Long press, then release in place to change the plan, or drag onto another date to swap the two.
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    val long = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    val origin = cellBounds[date]?.topLeft ?: Offset.Zero
+                                    var over: LocalDate? = date; var released = false
+                                    dragFrom = date; dragOver = null; dragOffset = Offset.Zero
+                                    try {
+                                        while (true) {
+                                            val change = awaitPointerEvent().changes.firstOrNull { it.id == long.id } ?: break
+                                            change.consume()
+                                            if (!change.pressed) { released = true; break }
+                                            dragOffset = change.position - long.position
+                                            over = cellBounds.entries.firstOrNull { it.value.contains(origin + change.position) }?.key
+                                            dragOver = over?.takeIf { it != date }
+                                        }
+                                    } finally { dragFrom = null; dragOver = null; dragOffset = Offset.Zero }
+                                    val drop = over
+                                    if (released && drop == date) { selected = date; planDate = date }
+                                    else if (released && drop != null && PlanRules.canSwap(date, drop, today)) vm.run { vm.repo.swapDays(date, drop) }
+                                }
+                            }
+                            .clearAndSetSemantics { contentDescription = dateDescription; if (isSelected) this.selected = true; customActions = actions },
                     ) {
-                        Box(Modifier.size(26.dp).clip(CircleShape).background(if (date == today) K.Accent else Color.Transparent), contentAlignment = Alignment.Center) {
-                            Text(date.dayOfMonth.toString(), fontSize = 15.sp, fontWeight = if (date == today) FontWeight.Bold else FontWeight.Normal, color = if (date == today) K.AccentInk else if (inMonth) K.Text else K.Dim)
-                        }
-                        Box(Modifier.padding(top = 4.dp).height(8.dp), contentAlignment = Alignment.Center) {
-                            if (color != null) Box(Modifier.alpha(if (planned) 0.4f else 1f)) { Dot(color.first, color.second, size = if (planned) 5 else 7) }
-                            else if (stretchSessions.any { it.date == date.iso() }) Dot(K.Green, false, size = 5)
+                        Column(
+                            Modifier.fillMaxSize()
+                                .graphicsLayer { if (lifted) { translationX = dragOffset.x; translationY = dragOffset.y; scaleX = 1.12f; scaleY = 1.12f; shadowElevation = 8.dp.toPx(); shape = cellShape; clip = true } }
+                                .clip(cellShape).background(if (lifted) K.Surface3 else if (target) K.AccentSoft else if (isSelected) K.Surface2 else Color.Transparent)
+                                .then(if (target) Modifier.border(2.dp, K.Accent, cellShape) else Modifier).padding(top = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Box {
+                                Box(Modifier.size(daySize).clip(CircleShape).background(if (date == today) K.Accent else Color.Transparent), contentAlignment = Alignment.Center) {
+                                    Text(date.dayOfMonth.toString(), fontSize = 15.sp, fontWeight = if (date == today) FontWeight.Bold else FontWeight.Normal, color = if (date == today) K.AccentInk else if (inMonth) K.Text else K.Dim)
+                                }
+                                if (item.overridden) Box(Modifier.align(Alignment.TopEnd).offset(x = 3.dp, y = (-1).dp).size(5.dp).clip(CircleShape).background(K.Muted))
+                            }
+                            Row(Modifier.padding(top = 4.dp).height(8.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                if (dots.isNotEmpty()) dots.forEach { s -> if (s == null) Dot(K.Green, true, size = 7) else sessionColor(s, exercises, modalities).let { Dot(it.first, it.second, size = 7) } }
+                                else if (planned != null) Box(Modifier.alpha(0.4f)) { Dot(planned.first, planned.second, size = 5) }
+                            }
                         }
                     }
                     d = d.plusDays(1)
@@ -94,7 +177,7 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
         }
         Spacer(Modifier.height(20.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(selected.format(longDate), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(selected.format(longDate), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(end = 12.dp))
             TextButton("Plan") { planDate = selected }
         }
         Spacer(Modifier.height(8.dp))
@@ -111,7 +194,7 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
             if (daySessions.isNotEmpty()) daySessions.forEachIndexed { i, s ->
                 val c = sessionColor(s, exercises, modalities)
                 val logs = allLogs.filter { it.sessionId == s.id && it.status == SetStatus.DONE }
-                val secondary = if (s.itemType == ItemType.PROGRAM) "${logs.size} sets · ${fmt(logs.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }, 0)} kg" else listOfNotNull(s.timeSec?.let { if (it % 60 == 0) "${it / 60} min" else "${fmt(it / 60.0, 1)} min" }, s.distanceM?.let { "${fmt(it / 1000.0)} km" }).joinToString(" · ")
+                val secondary = if (s.itemType == ItemType.PROGRAM) "${logs.size} ${if (logs.size == 1) "set" else "sets"} · ${fmt(logs.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }, 0)} kg" else listOfNotNull(s.timeSec?.let { if (it % 60 == 0) "${it / 60} min" else "${fmt(it / 60.0, 1)} min" }, s.distanceM?.let { "${fmt(it / 1000.0)} km" }).joinToString(" · ")
                 ListRow(s.programName ?: s.exerciseName ?: "Session", secondary = if (s.finished) secondary else "in progress", dotColor = c.first, dotFilled = c.second, divider = i > 0) {
                     nav.navigate(if (s.itemType == ItemType.PROGRAM) Routes.session(s.id) else Routes.cardio(s.id))
                 }
@@ -212,6 +295,11 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
         ChoiceList { strength.forEachIndexed { i, e -> ChoiceRow(e.name, e.id == chosenId, divider = i > 0) { exerciseId = e.id; pickExercise = false } } }
     }
 }
+
+/** One entry per finished session and stretch run on [date], in start order, at most [max]: the session, or null for a stretch run. */
+fun dayDots(date: String, sessions: List<Session>, stretches: List<StretchSession>, max: Int = 3): List<Session?> =
+    (sessions.filter { it.date == date && it.finished }.map { it.startedAt to it } + stretches.filter { it.date == date }.map { it.startedAt to null })
+        .sortedBy { it.first }.take(max).map { it.second }
 
 fun sessionColor(s: Session, exercises: List<Exercise>, modalities: List<Modality>): Pair<Color, Boolean> =
     if (s.itemType == ItemType.PROGRAM) K.Accent to true

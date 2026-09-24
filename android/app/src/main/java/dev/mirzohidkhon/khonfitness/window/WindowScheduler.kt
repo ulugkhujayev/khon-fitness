@@ -76,10 +76,11 @@ class WindowReceiver : BroadcastReceiver() {
                 val w = app.repo.eatingWindowOnce()
                 if (w.enabled) {
                     val st = EatingWindowRules.state(w, app.repo.windowDay(LocalDate.now().iso()), LocalDateTime.now())
+                    val changesAt = EatingWindowRules.hhmm(st.changesAt.hour * 60 + st.changesAt.minute)
                     when (intent.action) {
-                        "dev.mirzohidkhon.khonfitness.WINDOW_REMIND" -> WindowScheduler.notify(context, if (st.open) "Window closes in ${w.remindBeforeMin} min" else "Window opens in ${w.remindBeforeMin} min", if (st.open) "Closes at " + EatingWindowRules.hhmm(w.endMinute) else "Opens at " + EatingWindowRules.hhmm(w.startMinute))
+                        "dev.mirzohidkhon.khonfitness.WINDOW_REMIND" -> WindowScheduler.notify(context, if (st.open) "Window closes in ${w.remindBeforeMin} min" else "Window opens in ${w.remindBeforeMin} min", if (st.open) "Closes at $changesAt" else "Opens at $changesAt")
                         Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED -> Unit
-                        else -> WindowScheduler.notify(context, if (st.open) "Eating window open" else "Eating window closed", if (st.open) "Until " + EatingWindowRules.hhmm(w.endMinute) else "Opens at " + EatingWindowRules.hhmm(w.startMinute))
+                        else -> WindowScheduler.notify(context, if (st.open) "Eating window open" else "Eating window closed", if (st.open) "Until $changesAt" else "Opens at $changesAt")
                     }
                 }
             }

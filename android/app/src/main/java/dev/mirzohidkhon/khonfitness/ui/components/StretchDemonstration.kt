@@ -32,11 +32,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import dev.mirzohidkhon.khonfitness.data.DemoClock
 import dev.mirzohidkhon.khonfitness.data.StretchDemo
 import dev.mirzohidkhon.khonfitness.data.forDemoSide
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlin.math.roundToInt
@@ -52,34 +54,58 @@ private object DemoCatalog {
 
 private data class DemoBitmap(val path: String, val image: ImageBitmap, val background: Color)
 
-/** Decode the current view on an IO thread. Full color avoids banding in the studio background. */
+/** Full color avoids banding in the studio background. A sheet moves to a HARDWARE bitmap, so its 50 MiB live
+ *  only in graphics memory and upload on this IO thread instead of on the first drawn frame. */
+private fun decodeDemo(context: Context, path: String, poster: Boolean): DemoBitmap? {
+    val decoded = context.assets.open(path).use { stream ->
+        BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply {
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+            if (poster) inSampleSize = 2
+        })
+    } ?: return null
+    val background = Color(decoded.getPixel(0, 0))
+    val bitmap = if (poster) decoded else decoded.copy(Bitmap.Config.HARDWARE, false)?.also { decoded.recycle() } ?: decoded
+    return DemoBitmap(path, bitmap.asImageBitmap(), background)
+}
+
+/** Keeps only the last sheet shown, and drops it a second after the last panel leaves (the gap covers a phase
+ *  change, which disposes one panel before the next appears). Decodes run one at a time, so rapid skips never stack buffers. */
+private object DemoSheets {
+    private val lock = Mutex()
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private var panels = 0
+    var last: DemoBitmap? = null
+        private set
+    fun peek(path: String): DemoBitmap? = last?.takeIf { it.path == path }
+    suspend fun load(context: Context, path: String): DemoBitmap? = lock.withLock {
+        peek(path) ?: withContext(Dispatchers.IO) { decodeDemo(context, path, poster = false) }?.also { if (panels > 0) last = it }
+    }
+    fun enter() { panels++ }
+    fun leave() { if (--panels == 0) main.postDelayed({ if (panels == 0) last = null }, 1000) }
+}
+
+/** Decode off the main thread. Until the new view is ready the previous image stays, so the panel never flashes empty.
+ *  [frame] is read only while drawing: a new frame index redraws the canvas without a recomposition. */
 @Composable
-private fun DemoFrame(figure: String, guide: StretchDemo, view: Int, frame: Int, mirror: Boolean,
+private fun DemoFrame(figure: String, guide: StretchDemo, view: Int, frame: () -> Int, mirror: Boolean,
     modifier: Modifier, poster: Boolean = false, description: String = guide.name) {
     val context = LocalContext.current
     val path = "stretch_demos/$figure-$view${if (poster) "-poster" else ""}.webp"
-    val loaded by produceState<DemoBitmap?>(null, path) {
-        value = withContext(Dispatchers.IO) {
-            val bitmap = context.assets.open(path).use { stream ->
-                BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply {
-                    inPreferredConfig = Bitmap.Config.ARGB_8888
-                    if (poster) inSampleSize = 2
-                })
-            }
-            bitmap?.let { DemoBitmap(path, it.asImageBitmap(), Color(it.getPixel(0, 0))) }
-        }
+    if (!poster) DisposableEffect(Unit) { DemoSheets.enter(); onDispose { DemoSheets.leave() } }
+    val loaded by produceState(if (poster) null else DemoSheets.peek(path) ?: DemoSheets.last?.takeIf { it.path.startsWith("stretch_demos/$figure-") }, path) {
+        // A cancelled load never assigns, so a late result for the previous angle is never drawn as the new one.
+        value = if (poster) withContext(Dispatchers.IO) { decodeDemo(context, path, poster = true) } else DemoSheets.load(context, path)
     }
     Canvas(modifier.clip(RoundedCornerShape(if (poster) 6.dp else 16.dp))
-        .background(loaded?.takeIf { it.path == path }?.background ?: Color(0xFFF2F2F2))
+        .background(loaded?.background ?: Color(0xFFF2F2F2))
         .semantics { contentDescription = description }) {
-        // A late result for the previous angle must never be drawn as the new one.
-        val bitmap = loaded?.takeIf { it.path == path }?.image ?: return@Canvas
+        val bitmap = loaded?.image ?: return@Canvas
         val width = if (poster) bitmap.width else guide.frameWidth
         val height = if (poster) bitmap.height else guide.frameHeight
         val ratio = minOf(size.width / width, size.height / height)
         val dest = IntSize((width * ratio).roundToInt(), (height * ratio).roundToInt())
         val origin = IntOffset(((size.width - dest.width) / 2).roundToInt(), ((size.height - dest.height) / 2).roundToInt())
-        val safeFrame = frame.coerceIn(0, guide.frameCount - 1)
+        val safeFrame = frame().coerceIn(0, guide.frameCount - 1)
         val source = if (poster) IntOffset.Zero else IntOffset((safeFrame % guide.columns) * width, (safeFrame / guide.columns) * height)
         scale(if (mirror) -1f else 1f, 1f) {
             drawImage(bitmap, srcOffset = source, srcSize = IntSize(width, height), dstOffset = origin, dstSize = dest)
@@ -91,7 +117,7 @@ private fun DemoFrame(figure: String, guide: StretchDemo, view: Int, frame: Int,
 fun DemoPoster(figure: String, modifier: Modifier, mirror: Boolean = false) {
     val context = LocalContext.current
     val guide = remember(figure) { DemoCatalog.read(context)[figure] }
-    if (guide != null) DemoFrame(figure, guide, 0, guide.frameCount - 1, mirror, modifier, poster = true)
+    if (guide != null) DemoFrame(figure, guide, 0, { guide.frameCount - 1 }, mirror, modifier, poster = true)
     else Box(modifier, contentAlignment = Alignment.Center) { Text("No demo", color = K.Muted, fontSize = 12.sp) }
 }
 
@@ -107,7 +133,9 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
     }
     var view by rememberSaveable(figure, mirror) { mutableIntStateOf(0) }
     var playing by rememberSaveable(figure, mirror) { mutableStateOf(true) }
+    // Written every vsync but never read during composition, so it causes no recomposition.
     var elapsedMs by rememberSaveable(figure, mirror) { mutableLongStateOf(0L) }
+    var playFrame by rememberSaveable(figure, mirror) { mutableIntStateOf(guide.previewFrame(0)) }
     var manualFrame by rememberSaveable(figure, mirror) { mutableIntStateOf(0) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var visible by remember { mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) }
@@ -116,20 +144,21 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
+    // The sprites play at 13-20 frames per second. The vsync clock only picks the index; an unchanged index writes nothing.
     LaunchedEffect(playing, preview, visible, figure, mirror) {
         if (playing && preview && visible) {
-            var previous = android.os.SystemClock.elapsedRealtime()
-            while (true) {
-                delay(40)
-                val now = android.os.SystemClock.elapsedRealtime()
-                elapsedMs += now - previous
-                previous = now
+            val clock = DemoClock(elapsedMs)
+            while (true) withFrameNanos { now ->
+                elapsedMs = clock.elapsedMs(now)
+                playFrame = guide.previewFrame(elapsedMs)
             }
         }
     }
-    val frame = if (preview) { if (playing) guide.previewFrame(elapsedMs) else manualFrame } else guide.exerciseFrame(exerciseProgress)
-    val selectedStep = if (preview) guide.stepAt(frame) else
-        guide.steps.indices.minBy { kotlin.math.abs(guide.steps[it].frame - frame) }
+    val exerciseFrame = if (preview) 0 else guide.exerciseFrame(exerciseProgress)
+    val frame = { if (!preview) exerciseFrame else if (playing) playFrame else manualFrame }
+    val previewStep by remember(guide, mirror) { derivedStateOf { guide.stepAt(if (playing) playFrame else manualFrame) } }
+    val selectedStep = if (preview) previewStep else
+        guide.steps.indices.minBy { kotlin.math.abs(guide.steps[it].frame - exerciseFrame) }
     val instruction = guide.steps[selectedStep].instruction.forDemoSide(mirror)
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         DemoFrame(figure, guide, view, frame, mirror,
@@ -137,7 +166,7 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
             description = "${guide.name}. ${guide.steps[selectedStep].title}. $instruction")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             if (preview) DemoControl(if (playing) "Pause demo" else "Play demo") {
-                if (playing) manualFrame = frame else elapsedMs = 0L
+                if (playing) manualFrame = playFrame else { elapsedMs = 0L; playFrame = guide.previewFrame(0) }
                 playing = !playing
             } else Spacer(Modifier.width(1.dp))
             DemoControl("Change view", "Change camera angle. View ${view + 1} of 2") { view = 1 - view }

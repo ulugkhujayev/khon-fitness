@@ -13,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,6 +29,8 @@ import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.time.DayOfWeek
 import java.time.LocalDate
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.Role
 
 @Composable
 fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
@@ -94,7 +98,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
                 if (doneToday.isNotEmpty()) {
                     val s = doneToday.first()
                     val done = logs.filter { it.sessionId == s.id && it.status == SetStatus.DONE }
-                    val line = if (s.itemType == ItemType.PROGRAM) "Done · ${done.size} sets · ${fmt(done.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) } / 1000.0, 1)} t" else "Done · " + listOfNotNull(s.timeSec?.let { "${it / 60} min" }, s.distanceM?.let { "${fmt(it / 1000.0)} km" }).joinToString(" · ")
+                    val line = if (s.itemType == ItemType.PROGRAM) "Done · ${done.size} ${if (done.size == 1) "set" else "sets"} · ${fmt(done.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) } / 1000.0, 1)} t" else "Done · " + listOfNotNull(s.timeSec?.let { "${it / 60} min" }, s.distanceM?.let { "${fmt(it / 1000.0)} km" }).joinToString(" · ")
                     Text(line, color = K.Green, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
                     Row { TextButton("Start again") { vm.startItem(item) { s2 -> nav.navigate(when { s2.itemType == ItemType.PROGRAM -> Routes.session(s2.id); item.cardio?.intervals == true -> Routes.timer(s2.id); else -> Routes.cardio(s2.id) }) } } }
                 } else {
@@ -133,7 +137,8 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
         val latest = bodyweights.lastOrNull()
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Bodyweight", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            Text(if (latest == null) "—" else "${fmt(latest.kg)} kg", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(if (latest == null) "—" else "${fmt(latest.kg)} kg", fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                modifier = if (latest == null) Modifier.semantics { contentDescription = "No entry yet" } else Modifier)
         }
         val start = today.minusDays(29)
         val recent = bodyweights.filter { it.date.toDate() >= start }
@@ -157,8 +162,11 @@ fun WeekStrip(today: LocalDate, plan: KhonRepository.PlanData, modalities: List<
             val item = plan.itemFor(date)
             val color = itemColor(item, modalities)
             val isToday = date == today
+            val dateDescription = "${date.format(longDate)}, ${item.name}" + if (isToday) ", today" else ""
             Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable { onTap(date) }.padding(vertical = 4.dp),
+                Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                    .clickable(onClickLabel = "Change plan", role = Role.Button) { onTap(date) }
+                    .clearAndSetSemantics { contentDescription = dateDescription }.padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(date.dayOfWeek.name.take(1), fontSize = 12.sp, fontWeight = FontWeight.Medium, color = if (isToday) K.Accent else K.Muted)

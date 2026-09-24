@@ -1,5 +1,5 @@
 <resources>
     <string name="app_name">Khon Fitness</string>
     <string name="widget_description">Workout of the day with a Start button</string>
-    <string name="window_widget_description">Eating window: open or closed, and the time left</string>
+    <string name="window_widget_description">Eating window: open or closed, and the next change time</string>
 </resources>

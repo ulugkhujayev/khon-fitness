@@ -18,7 +18,12 @@ chest correction flattens its rounded lower contour and lifts the lower edge.
 It leaves the skeleton, skin weights, and body topology intact. The correction
 uses a smooth front-chest depth cap, six smoothing passes across neighboring
 vertices, and a 24 mm masked lift. `prepare_model.py` records the exact
-formula. There is no external texture.
+formula.
+
+`anatomy_map.png` is the only texture. `bake_anatomy.py` generates it from
+this mesh's UVs and hand-authored muscle-border curves. It is original work,
+not derived from any third-party texture. Rebuild it whenever the mesh or its
+UVs change.
 
 ## Source and license
 

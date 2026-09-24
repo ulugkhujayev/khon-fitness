@@ -20,6 +20,9 @@ interface KhonDao {
     @Query("DELETE FROM exercises WHERE id = :id") suspend fun deleteExercise(id: String)
     @Query("SELECT COUNT(*) FROM set_logs WHERE exerciseId = :id") suspend fun setLogCountFor(id: String): Int
     @Query("SELECT COUNT(*) FROM sessions WHERE exerciseId = :id") suspend fun cardioSessionCountFor(id: String): Int
+    @Query("SELECT COUNT(*) FROM block_exercises WHERE exerciseId = :id") suspend fun blockExerciseCountFor(id: String): Int
+    @Query("SELECT COUNT(*) FROM week_plan WHERE itemType = 'cardio' AND itemId = :id") suspend fun weekPlanCardioCountFor(id: String): Int
+    @Query("SELECT COUNT(*) FROM day_overrides WHERE itemType = 'cardio' AND itemId = :id") suspend fun overrideCardioCountFor(id: String): Int
     @Query("UPDATE set_logs SET exerciseId = :to WHERE exerciseId = :from") suspend fun moveSetLogs(from: String, to: String)
     @Query("UPDATE sessions SET exerciseId = :to WHERE exerciseId = :from") suspend fun moveCardioSessions(from: String, to: String)
     @Query("UPDATE block_exercises SET exerciseId = :to WHERE exerciseId = :from") suspend fun moveBlockExercises(from: String, to: String)
@@ -100,6 +103,7 @@ interface KhonDao {
     @Upsert suspend fun upsert(o: DayOverride)
     @Upsert suspend fun upsertOverrides(list: List<DayOverride>)
     @Query("DELETE FROM day_overrides WHERE date = :date") suspend fun deleteOverride(date: String)
+    @Transaction suspend fun saveWeekPlan(frozen: List<DayOverride>, plan: WeekPlan) { upsertOverrides(frozen); upsert(plan) }
 
     // stretching
     @Query("SELECT * FROM stretches ORDER BY name") fun stretches(): Flow<List<Stretch>>

@@ -14,7 +14,9 @@ for key,g in guides.items():
             im=Image.open(source/key/f'v{view}-{f:03}.png').convert('RGB')
             assert im.size==(512,400)
             sheet.paste(im,((f%8)*512,(f//8)*400))
-        sheet.save(out/f'{key}-{view}.webp',quality=92,method=6)
+        # Quality 88: the illustration strokes add detail; 88 keeps them clean and
+        # the bundle near its earlier size. 92 grew it by 18 percent.
+        sheet.save(out/f'{key}-{view}.webp',quality=88,method=6)
         Image.open(source/key/f'v{view}-{count-1:03}.png').convert('RGB').save(out/f'{key}-{view}-poster.webp',quality=95,method=6)
     manifest[key]={'name':g['name'],'frameCount':count,'columns':8,'frameWidth':512,'frameHeight':400,
         'steps':[{'title':step[0],'instruction':step[1],'frame':step_frames[i]} for i,step in enumerate(g['steps'])],

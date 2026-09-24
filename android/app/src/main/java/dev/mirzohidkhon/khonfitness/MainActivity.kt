@@ -16,6 +16,7 @@ class MainActivity : ComponentActivity() {
         if (intent?.action == dev.mirzohidkhon.khonfitness.widget.TodayWidget.ACTION_START_TODAY) startRequested.value = true
         if (intent?.action == ACTION_OPEN_WINDOW) windowRequested.value = true
         dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(this)
+        dev.mirzohidkhon.khonfitness.timer.TimerService.restore(this)
         (getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(dev.mirzohidkhon.khonfitness.update.UpdatedReceiver.NOTIFICATION_ID)
         setContent { KhonTheme { KhonNav() } }
     }

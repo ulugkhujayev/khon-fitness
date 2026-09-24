@@ -60,7 +60,181 @@ func material(_ hex:Int,_ roughness:Float=0.9)->SCNMaterial {
 func unlitMaterial(_ hex:Int)->SCNMaterial {
     let m=SCNMaterial();m.diffuse.contents=color(hex);m.lightingModel = .constant;m.isDoubleSided=true;return m
 }
-let figureMaterial=material(0xFFFFFF,0.82),eyeMaterial=material(0x45494C,0.88)
+let eyeMaterial=material(0x45494C,0.88)
+
+// MARK: Illustration shading
+// The figure imitates an anatomy-atlas drawing: near-white skin, thin gray
+// contour strokes, soft gray grooves between muscle groups, and fine fiber
+// lines inside the red-orange targets. bake_anatomy.py writes the anatomy map
+// in the mesh's UV space. Its channels are distances in millimetres, so the
+// shader can draw strokes of constant screen width at any camera scale:
+//   R: distance to a major muscle-group border (0.1 mm per step, 25.5 mm max)
+//   G: distance to a minor border, such as abdominal segments or serratus
+//   B: triangle wave across muscle fibers, 0 on a fiber line
+// Texture coordinate channels feed the shader per vertex:
+//   0: mesh UVs for the anatomy map
+//   1: (highlight intensity, shorts coverage), per frame, via the multiply slot
+//   2: (outline scale, highlight region shape), via the emission slot
+//   3: (hair amount, unused), via the ambient slot
+// Lambert ignores unused slots, so each channel rides on a slot it samples;
+// the shader resets those slots afterwards.
+struct Illustration {
+    // Outline color, linear light (about #33373B).
+    static let lineColor="0.034, 0.038, 0.043"
+    // Stroke half-widths in pixels and darkness at full strength.
+    static let majorLine:(width:Float,darkness:Float)=(0.45,0.66)
+    static let minorLine:(width:Float,darkness:Float)=(0.40,0.48)
+    static let groove:(radiusMM:Float,darkness:Float)=(3.0,0.18)
+    static let fiber:(width:Float,darkness:Float)=(0.42,0.30)
+    // Muscle relief: each border is a groove; the muscle rises from it in a
+    // rounded ease-out over widthMM to heightMM. The shader bends the normal,
+    // so bellies stay white on the lit side and turn gray toward each border.
+    static let relief:(heightMM:Float,widthMM:Float)=(7.0,22.0)
+    // SceneKit screen-space ambient occlusion: gray in armpits, folds, contacts.
+    static let ambientOcclusion:(intensity:Float,radius:Float)=(1.0,0.06)
+    // Outline hull thickness in pixels at the packaged 400-pixel frame height.
+    static let outlinePixels:Float=1.15
+    // Target colors in linear light, and the threshold of the crisp target
+    // contour on the 0...1 region value, with a darker red rim on the contour.
+    static let accent="0.80, 0.14, 0.055",shortsAccent="0.52, 0.075, 0.04"
+    static let skin="0.86, 0.86, 0.85",hair="0.10, 0.095, 0.09"
+    // Smoothing passes over the surface before the threshold (about 4 cm).
+    static let highlightSmoothing=24
+    static let highlightEdge:(low:Float,high:Float,rimDarkness:Float)=(0.18,0.36,0.18)
+}
+// Review override, for example KHON_ILLUSTRATION=majorDark=0.6,reliefHeight=0
+let illustrationOverrides:[String:Float]={
+    var result=[String:Float]()
+    for item in (ProcessInfo.processInfo.environment["KHON_ILLUSTRATION"] ?? "").split(separator:",") {
+        let pair=item.split(separator:"=");if pair.count==2,let value=Float(pair[1]) { result[String(pair[0])]=value }
+    }
+    return result
+}()
+func tuned(_ key:String,_ value:Float)->Float { illustrationOverrides[key] ?? value }
+func whiteImage()->NSImage {
+    let image=NSImage(size:NSSize(width:2,height:2));image.lockFocus();NSColor.white.setFill()
+    NSRect(x:0,y:0,width:2,height:2).fill();image.unlockFocus();return image
+}
+let anatomyMapPath=ProcessInfo.processInfo.environment["KHON_ANATOMY_MAP"] ?? "tools/stretch-demo/model/anatomy_map.png"
+let figureSurfaceShader="""
+#pragma arguments
+texture2d<float> anatomyMap;
+float majorWidth;
+float majorDark;
+float minorWidth;
+float minorDark;
+float grooveRadius;
+float grooveDark;
+float fiberWidth;
+float fiberDark;
+float reliefHeight;
+float reliefWidth;
+float pixelMM;
+float hlLow;
+float hlHigh;
+float rimDark;
+#pragma body
+constexpr sampler smp(filter::linear, address::clamp_to_edge);
+float3 a = anatomyMap.sample(smp, _surface.diffuseTexcoord).rgb;
+float2 data = _surface.multiplyTexcoord;
+float shape = _surface.emissionTexcoord.y;
+// Crisp muscle contour: threshold the full-strength region, then fade it in
+// with the phase level (intensity / shape).
+float level = clamp(data.x / max(shape, 1e-3), 0.0, 1.0);
+float edge = smoothstep(hlLow, hlHigh, shape);
+float strength = edge * level;
+float rim = (1.0 - smoothstep(0.0, 1.3, abs(shape - 0.5 * (hlLow + hlHigh)) / max(fwidth(shape), 1e-4))) * level;
+float coverWidth = max(fwidth(data.y), 1e-4);
+float skin = 1.0 - smoothstep(0.5 - coverWidth, 0.5 + coverWidth, data.y);
+float hair = smoothstep(0.35, 0.65, _surface.ambientTexcoord.x);
+float3 skinColor = mix(float3(SKIN), float3(HAIR), hair);
+skin *= 1.0 - hair;
+float dMajor = a.r * 25.5;
+float dMinor = a.g * 25.5;
+// The camera is orthographic, so one pixel covers pixelMM everywhere.
+float pxMajor = dMajor / pixelMM;
+float pxMinor = dMinor / pixelMM;
+float lineMajor = (1.0 - smoothstep(majorWidth - 0.5, majorWidth + 0.5, pxMajor)) * step(dMajor, 25.0);
+float lineMinor = (1.0 - smoothstep(minorWidth - 0.5, minorWidth + 0.5, pxMinor)) * step(dMinor, 25.0);
+float groove = max(exp(-(dMajor * dMajor) / (grooveRadius * grooveRadius)), 0.6 * exp(-(dMinor * dMinor) / (grooveRadius * grooveRadius * 0.5)));
+float tw = a.b;
+float fiber = (1.0 - smoothstep(fiberWidth - 0.5, fiberWidth + 0.5, tw / max(fwidth(tw), 1e-4))) * step(tw, 0.98);
+// Surface-gradient bump mapping without tangents (Mikkelsen 2010).
+// Rounded bellies: height eases out from each border over reliefWidth.
+float uMajor = 1.0 - min(dMajor / reliefWidth, 1.0);
+float uMinor = 1.0 - min(dMinor / (reliefWidth * 0.7), 1.0);
+float h = (1.0 - uMajor * uMajor) + 0.5 * (1.0 - uMinor * uMinor);
+h *= reliefHeight * 0.001 * skin;
+float3 dpdx = dfdx(_surface.position), dpdy = dfdy(_surface.position);
+float3 n = normalize(_surface.normal);
+float3 r1 = cross(dpdy, n), r2 = cross(n, dpdx);
+float det = dot(dpdx, r1);
+float3 grad = sign(det) * (dfdx(h) * r1 + dfdy(h) * r2);
+_surface.normal = normalize(abs(det) * n - grad);
+float shade = 1.0 - groove * grooveDark * skin;
+shade *= 1.0 - lineMajor * majorDark * mix(0.35, 1.0, skin);
+shade *= 1.0 - lineMinor * minorDark * skin;
+shade *= 1.0 - fiber * fiberDark * strength;
+float3 accent = mix(float3(ACCENT), float3(SHORTS_ACCENT), 1.0 - skin);
+float3 base = mix(_surface.diffuse.rgb, skinColor, max(skin, hair));
+float3 albedo = mix(base, accent, strength);
+albedo *= 1.0 - rim * rimDark;
+_surface.diffuse = float4(albedo * shade, 1.0);
+_surface.ambient = _surface.diffuse;
+_surface.multiply = float4(1.0);
+_surface.emission = float4(0.0);
+"""
+let outlineGeometryShader="""
+#pragma arguments
+float outlineWidth;
+#pragma body
+_geometry.position.xyz += _geometry.normal * (outlineWidth * _geometry.texcoords[2].x);
+"""
+let outlineSurfaceShader="""
+#pragma body
+// Replace, not multiply: the hull shares the figure's vertex colors.
+_surface.diffuse = float4(float3(LINE_COLOR), 1.0);
+"""
+func makeFigureMaterial()->SCNMaterial {
+    let m=SCNMaterial();m.lightingModel = .lambert;m.isDoubleSided=true
+    let white=whiteImage()
+    m.diffuse.contents=white;m.diffuse.mappingChannel=0
+    m.multiply.contents=white;m.multiply.mappingChannel=1
+    // Lambert ignores the specular slot, so channel 2 rides on emission, zeroed below.
+    m.emission.contents=white;m.emission.mappingChannel=2
+    // Channel 3 rides on the ambient slot; the shader restores ambient = diffuse.
+    m.ambient.contents=white;m.ambient.mappingChannel=3
+    guard let map=NSImage(contentsOfFile:anatomyMapPath) else { fatalError("Missing anatomy map: \(anatomyMapPath)") }
+    let property=SCNMaterialProperty(contents:map);property.mipFilter = .none;property.minificationFilter = .linear;property.magnificationFilter = .linear
+    property.wrapS = .clamp;property.wrapT = .clamp
+    m.setValue(property,forKey:"anatomyMap")
+    let values:[String:Float]=["majorWidth":Illustration.majorLine.width,"majorDark":Illustration.majorLine.darkness,
+        "minorWidth":Illustration.minorLine.width,"minorDark":Illustration.minorLine.darkness,
+        "grooveRadius":Illustration.groove.radiusMM,"grooveDark":Illustration.groove.darkness,
+        "fiberWidth":Illustration.fiber.width,"fiberDark":Illustration.fiber.darkness,
+        "reliefHeight":Illustration.relief.heightMM,"reliefWidth":Illustration.relief.widthMM,
+        "hlLow":Illustration.highlightEdge.low,"hlHigh":Illustration.highlightEdge.high,"rimDark":Illustration.highlightEdge.rimDarkness]
+    for (key,value) in values { m.setValue(NSNumber(value:tuned(key,value)),forKey:key) }
+    let shader=figureSurfaceShader.replacingOccurrences(of:"SHORTS_ACCENT",with:Illustration.shortsAccent).replacingOccurrences(of:"ACCENT",with:Illustration.accent)
+        .replacingOccurrences(of:"SKIN",with:Illustration.skin).replacingOccurrences(of:"HAIR",with:Illustration.hair)
+    m.shaderModifiers=[.surface:shader];return m
+}
+func makeOutlineMaterial()->SCNMaterial {
+    let m=SCNMaterial();m.lightingModel = .constant;m.cullMode = .front;m.isDoubleSided=false
+    m.setValue(NSNumber(value:Float(0.004)),forKey:"outlineWidth")
+    m.shaderModifiers=[.geometry:outlineGeometryShader,.surface:outlineSurfaceShader.replacingOccurrences(of:"LINE_COLOR",with:Illustration.lineColor)];return m
+}
+// Created on first use, so pose probes that never render do not need the map.
+var sharedFigureMaterial:SCNMaterial?=nil
+var sharedOutlineMaterial:SCNMaterial?=nil
+func figureMaterial()->SCNMaterial {
+    if let m=sharedFigureMaterial { return m }
+    let m=makeFigureMaterial();sharedFigureMaterial=m;return m
+}
+func outlineMaterial()->SCNMaterial {
+    if let m=sharedOutlineMaterial { return m }
+    let m=makeOutlineMaterial();sharedOutlineMaterial=m;return m
+}
 
 func smoothstep(_ edge0:Float,_ edge1:Float,_ value:Float)->Float {
     let t=min(1,max(0,(value-edge0)/(edge1-edge0)));return t*t*(3-2*t)
@@ -171,6 +345,58 @@ final class HumanModel {
     let file:HumanMeshFile;let positions:[V];let normals:[V];let triangles:[Int32]
     let boneNames:[String];let restMatrices:[M];let inverseBindMatrices:[M]
     let restLandmarks:[String:V]
+    // Static texture channels for the illustration shader, built once.
+    var uvSource:SCNGeometrySource?=nil
+    var outlineValues:[Float]?=nil
+    var hairValues:[Float]?=nil
+    var hairChannel:SCNGeometrySource?=nil
+    var smoothedShapes=[String:[Float]]()
+    // Neighbors over the welded surface, so UV seams do not split a field.
+    lazy var weldedNeighbors:(ids:[Int],neighbors:[[Int]])={
+        let ids=file.mesh.sourceVertexIds ?? Array(positions.indices)
+        let count=(ids.max() ?? 0)+1
+        var sets=Array(repeating:Set<Int>(),count:count)
+        for t in stride(from:0,to:triangles.count,by:3) {
+            let a=ids[Int(triangles[t])],b=ids[Int(triangles[t+1])],c=ids[Int(triangles[t+2])]
+            sets[a].formUnion([b,c]);sets[b].formUnion([a,c]);sets[c].formUnion([a,b])
+        }
+        return (ids,sets.map { Array($0) })
+    }()
+    // Fill unknown values (-1) from known neighbors, one ring per pass.
+    func dilateOverSurface(_ values:[Float],iterations:Int)->[Float] {
+        let (ids,neighbors)=weldedNeighbors
+        var welded=Array(repeating:Float(-1),count:neighbors.count)
+        for (i,id) in ids.enumerated() { welded[id]=max(welded[id],values[i]) }
+        for _ in 0..<iterations {
+            var next=welded
+            for v in welded.indices where welded[v]<0 {
+                for n in neighbors[v] where welded[n]>=0 { next[v]=max(next[v],welded[n]) }
+            }
+            welded=next
+        }
+        return ids.map { welded[$0] }
+    }
+    func smoothOverSurface(_ values:[Float],iterations:Int)->[Float] {
+        let (ids,neighbors)=weldedNeighbors
+        var welded=Array(repeating:Float(0),count:neighbors.count)
+        for (i,id) in ids.enumerated() { welded[id]=values[i] }
+        for _ in 0..<iterations {
+            var next=welded
+            for v in welded.indices where !neighbors[v].isEmpty {
+                var sum:Float=0;for n in neighbors[v] { sum+=welded[n] }
+                next[v]=0.5*welded[v]+0.5*sum/Float(neighbors[v].count)
+            }
+            welded=next
+        }
+        return ids.map { welded[$0] }
+    }
+    // Texture channel 3: short hair, so the head reads as a person, not a mannequin.
+    func hairSource()->SCNGeometrySource {
+        if let hairChannel { return hairChannel }
+        var values=[Float]();values.reserveCapacity(positions.count*2)
+        for i in positions.indices { values.append(hairAmount(i));values.append(0) }
+        let source=HumanModel.texcoordSource(values);hairChannel=source;return source
+    }
 
     init(path:String) throws {
         let decoded=try JSONDecoder().decode(HumanMeshFile.self,from:Data(contentsOf:URL(fileURLWithPath:path)))
@@ -211,10 +437,32 @@ final class HumanModel {
             landmarks["hipL"]=left;landmarks["hipR"]=right;landmarks["hip"]=(left+right)*0.5
         }
         restLandmarks=landmarks
+        if let sourceUVs=decoded.mesh.uvs,sourceUVs.count==positions.count*2 {
+            // OBJ UVs grow upward; texture rows grow downward.
+            var flipped=[Float]();flipped.reserveCapacity(sourceUVs.count)
+            for i in stride(from:0,to:sourceUVs.count,by:2) { flipped.append(sourceUVs[i]);flipped.append(1-sourceUVs[i+1]) }
+            uvSource=HumanModel.texcoordSource(flipped)
+        }
         let required=["hip","chest","shoulder","head","hipL","hipR","kneeL","kneeR","ankleL","ankleR","toeL","toeR","shoulderL","shoulderR","elbowL","elbowR","wristL","wristR","handL","handR"]
         precondition(required.allSatisfy { restLandmarks[$0] != nil },"human_mesh.json is missing pose-control landmarks")
     }
 
+    static func texcoordSource(_ values:[Float])->SCNGeometrySource {
+        let data=values.withUnsafeBufferPointer { Data(buffer:$0) }
+        return SCNGeometrySource(data:data,semantic:.texcoord,vectorCount:values.count/2,usesFloatComponents:true,componentsPerVector:2,bytesPerComponent:4,dataOffset:0,dataStride:8)
+    }
+    // Thin the outline on fingers, toes, and the face so they keep their shape.
+    func outlineScaleValues()->[Float] {
+        if let outlineValues { return outlineValues }
+        var values=[Float]();values.reserveCapacity(positions.count)
+        for i in positions.indices {
+            let hand=boneWeight(i,["finger","thumb","metacarpal","wrist"])
+            let foot=boneWeight(i,["toe"])
+            let face=boneWeight(i,["jaw","oris","oculi","orbicularis","levator","risorius","temporalis","special","tongue","eye"])
+            values.append(max(0.30,1-0.62*min(1,hand)-0.45*min(1,foot)-0.40*min(1,face)))
+        }
+        outlineValues=values;return values
+    }
     func side(_ lowerName:String)->String? {
         if lowerName.hasSuffix(".l") || lowerName.hasSuffix("_l") || lowerName.contains("left") { return "L" }
         if lowerName.hasSuffix(".r") || lowerName.hasSuffix("_r") || lowerName.contains("right") { return "R" }
@@ -300,6 +548,20 @@ final class HumanModel {
         return upper*lower
     }
     func isShorts(_ vertex:Int)->Bool { shortsAmount(vertex)>0.5 }
+    // Short cropped hair above a hairline that runs from the forehead down to the nape.
+    func hairAmount(_ vertex:Int)->Float {
+        if let hairValues { return hairValues[vertex] }
+        var values=[Float]()
+        let head=restLandmarks["head"]!
+        for i in positions.indices {
+            let p=positions[i],weight=boneWeight(i,["head"])
+            let dx=p.x-head.x
+            let line=dx>0 ? head.y-0.004+dx*0.40:head.y-0.004+dx*0.75
+            let ear=smoothstep(0.064,0.074,abs(p.z))*(1-smoothstep(1.655,1.675,p.y))*smoothstep(-0.03,0.0,dx+0.02)
+            values.append(smoothstep(0.55,0.85,weight)*smoothstep(line-0.004,line+0.006,p.y)*(1-ear))
+        }
+        hairValues=values;return values[vertex]
+    }
     func phaseStrength(_ values:[Float],_ progress:Float)->Float {
         precondition(!values.isEmpty,"Highlight phases cannot be empty")
         let p=min(Float(values.count-1),max(0,progress)),lower=Int(p.rounded(.down)),upper=min(values.count-1,lower+1)
@@ -310,6 +572,12 @@ final class HumanModel {
         smoothstep(lower-edge,lower+edge,value)*(1-smoothstep(upper-edge,upper+edge,value))
     }
     func accentIntensity(_ vertex:Int,_ exercise:String,_ focus:String,_ progress:Float)->Float {
+        accentLevels(vertex,exercise,focus,progress).intensity
+    }
+    // intensity: the phase-weighted highlight used everywhere else.
+    // shape: the same regions at full strength. The shader draws a crisp muscle
+    // contour where shape crosses a threshold and fills it with intensity/shape.
+    func accentLevels(_ vertex:Int,_ exercise:String,_ focus:String,_ progress:Float)->(intensity:Float,shape:Float) {
         let p=positions[vertex],r=restLandmarks
         let s=p.z<(r["hipL"]!.z+r["hipR"]!.z)*0.5 ? "L":"R"
         let thigh=boneWeight(vertex,["upperleg","thigh"],side:s)
@@ -340,8 +608,11 @@ final class HumanModel {
         let chest=torso*smoothstep(0.18,0.48,torso)*softBand(torsoT,0.56,0.98,0.10)*front
         let oblique=torso*smoothstep(0.18,0.48,torso)*softBand(torsoT,0.20,0.72,0.10)*sideReach*smoothstep(-0.055,0.025,p.x-r["hip"]!.x)
         func sideMask(_ target:String,_ region:Float)->Float { target==s ? region:0 }
-        var intensity:Float=0
-        func add(_ region:Float,_ values:[Float]) { intensity=max(intensity,region*phaseStrength(values,progress)) }
+        var intensity:Float=0,shape:Float=0
+        func add(_ region:Float,_ values:[Float]) {
+            intensity=max(intensity,region*phaseStrength(values,progress))
+            if values.contains(where:{$0>0}) { shape=max(shape,region) }
+        }
         switch exercise {
         case "hipflexor": add(sideMask("R",frontHip),[0,0.48,1])
         case "shoulderir": add(sideMask("L",rearShoulder),[0,0.48,1])
@@ -365,7 +636,7 @@ final class HumanModel {
             add(sideMask("L",chest),[0,0,0.92]);add(sideMask("L",oblique),[0,0,0.86]);add(sideMask("L",midBack),[0,0,0.82])
         default: break
         }
-        return min(1,max(0,intensity))
+        return (min(1,max(0,intensity)),min(1,max(0,shape)))
     }
 
     func geometry(_ pose:[String:V],exercise:String,focus:String,progress:Float=0)->SCNGeometry {
@@ -424,24 +695,39 @@ final class HumanModel {
             if total<0.0001 { p=positions[i];n=normals[i] }
             posedPositions[i]=nodev(p);posedNormals[i]=nodev(unit(n))
         }
-        let body=V(0.59,0.61,0.63),shorts=V(0.11,0.13,0.15),shortsTrim=V(0.16,0.18,0.20)
-        let accent=V(0.72,0.22,0.18),shortsAccent=V(0.58,0.17,0.15)
+        // Linear-light albedo: near-white skin and a saturated red-orange target.
+        let shorts=V(0.075,0.083,0.092),shortsTrim=V(0.13,0.14,0.15)
         let waist=restLandmarks["hip"]!.y+0.13
         let hem=min(restLandmarks["kneeL"]!.y,restLandmarks["kneeR"]!.y)-0.06
         var colors=[SIMD4<Float>]();colors.reserveCapacity(positions.count)
+        // The shader mixes in the red-orange target from these channels.
+        var channel=[Float](),extra=[Float]();channel.reserveCapacity(positions.count*2);extra.reserveCapacity(positions.count*2)
+        let outline=outlineScaleValues()
+        // Smooth both highlight fields over the surface. The shader thresholds
+        // the smoothed shape, so each target ends in a rounded, tapered edge
+        // instead of the straight cut of a band limit or the shorts hem.
+        var intensity=[Float](),shape=[Float]();intensity.reserveCapacity(positions.count);shape.reserveCapacity(positions.count)
+        for i in positions.indices { let levels=accentLevels(i,exercise,focus,progress);intensity.append(levels.intensity);shape.append(levels.shape) }
+        let iterations=Illustration.highlightSmoothing
+        // The phase level belongs to each region; spread it outward without
+        // blending, so a resting region never picks up a neighbor's tint.
+        let level=dilateOverSurface(positions.indices.map { shape[$0]>0.05 ? min(1,intensity[$0]/shape[$0]):-1 },iterations:iterations)
+        if let cached=smoothedShapes[exercise] { shape=cached } else { shape=smoothOverSurface(shape,iterations:iterations);smoothedShapes[exercise]=shape }
+        intensity=positions.indices.map { max(0,level[$0])*shape[$0] }
         for i in positions.indices {
-            let coverage=shortsAmount(i),strength=accentIntensity(i,exercise,focus,progress)
+            let coverage=shortsAmount(i)
+            channel.append(intensity[i]);channel.append(coverage)
+            extra.append(outline[i]);extra.append(shape[i])
             let band=positions[i].y>waist-0.018 || positions[i].y<hem+0.018
             let cloth=band ? shortsTrim:shorts
-            let base=body*(1-coverage)+cloth*coverage,target=accent*(1-coverage)+shortsAccent*coverage
-            let rgb=base*(1-strength)+target*strength
-            colors.append(SIMD4(rgb.x,rgb.y,rgb.z,1))
+            // The color carries the cloth; the shader cuts the skin/cloth edge per pixel.
+            colors.append(SIMD4(cloth.x,cloth.y,cloth.z,1))
         }
         let colorData=colors.withUnsafeBufferPointer { Data(buffer:$0) }
         let colorSource=SCNGeometrySource(data:colorData,semantic:.color,vectorCount:colors.count,usesFloatComponents:true,componentsPerVector:4,bytesPerComponent:4,dataOffset:0,dataStride:16)
-        let sources=[SCNGeometrySource(vertices:posedPositions),SCNGeometrySource(normals:posedNormals),colorSource]
-        let geometry=SCNGeometry(sources:sources,elements:[SCNGeometryElement(indices:triangles,primitiveType:.triangles)])
-        geometry.materials=[figureMaterial];return geometry
+        var sources=[SCNGeometrySource(vertices:posedPositions),SCNGeometrySource(normals:posedNormals),colorSource]
+        if let uvSource { sources+=[uvSource,HumanModel.texcoordSource(channel),HumanModel.texcoordSource(extra),hairSource()] }
+        return SCNGeometry(sources:sources,elements:[SCNGeometryElement(indices:triangles,primitiveType:.triangles)])
     }
 
     func posedBoneHead(_ name:String,_ pose:[String:V])->V? {
@@ -451,13 +737,77 @@ final class HumanModel {
 }
 
 func humanNode(_ mesh:HumanModel,_ pose:[String:V],exercise:String,focus:String,progress:Float=0)->SCNNode {
-    let root=SCNNode();root.geometry=mesh.geometry(pose,exercise:exercise,focus:focus,progress:progress)
+    let root=SCNNode(),geometry=mesh.geometry(pose,exercise:exercise,focus:focus,progress:progress)
+    geometry.materials=[figureMaterial()];root.geometry=geometry
+    // Inverted hull: back faces pushed out along the normal draw the contour.
+    let hull=geometry.copy() as! SCNGeometry;hull.materials=[outlineMaterial()]
+    let outline=SCNNode(geometry:hull);outline.castsShadow=false;root.addChildNode(outline)
     for name in ["eye.L","eye.R"] {
         guard let position=mesh.posedBoneHead(name,pose) else { continue }
         let sphere=SCNSphere(radius:0.006);sphere.segmentCount=16;sphere.materials=[eyeMaterial]
         let eye=SCNNode(geometry:sphere);eye.simdPosition=position;root.addChildNode(eye)
     }
     return root
+}
+
+// MARK: Stage
+// Scene, lights, and camera shared by the frame renderer and review probes.
+final class Stage {
+    let scene=SCNScene(),keyLight=SCNNode(),camera=SCNNode(),renderer:SCNRenderer
+    init() {
+        let backdrop=0xF4F5F4
+        scene.background.contents=color(backdrop);scene.background.intensity=1
+        let floor=SCNFloor();floor.reflectivity=0;floor.materials=[unlitMaterial(backdrop)]
+        let ground=SCNNode(geometry:floor);ground.simdPosition=V(0,-0.025,0);scene.rootNode.addChildNode(ground)
+        let matGeometry=SCNBox(width:2.4,height:0.009,length:1.1,chamferRadius:0.025);matGeometry.materials=[material(0xE7E8E8)]
+        let matNode=SCNNode(geometry:matGeometry);matNode.simdPosition=V(0,-0.008,0);scene.rootNode.addChildNode(matNode)
+        keyLight.light=SCNLight();keyLight.light!.type = .directional;keyLight.light!.intensity=900
+        keyLight.light!.castsShadow=true;keyLight.light!.shadowMode = .forward;keyLight.light!.shadowRadius=8;keyLight.light!.shadowSampleCount=32
+        keyLight.light!.shadowBias=0.002;keyLight.light!.shadowMapSize=CGSize(width:2048,height:2048)
+        keyLight.light!.orthographicScale=3.0;keyLight.light!.zNear=0.01;keyLight.light!.zFar=10
+        keyLight.light!.shadowColor=NSColor(white:0,alpha:0.13);keyLight.eulerAngles=SCNVector3(-0.60,0.80,0);scene.rootNode.addChildNode(keyLight)
+        let fill=SCNNode();fill.light=SCNLight();fill.light!.type = .ambient;fill.light!.intensity=90;fill.light!.color=color(0xFFFFFF);scene.rootNode.addChildNode(fill)
+        let rim=SCNNode();rim.light=SCNLight();rim.light!.type = .directional;rim.light!.intensity=170;rim.light!.color=color(0xF2F4F5);rim.eulerAngles=SCNVector3(-0.4,2.3,0);scene.rootNode.addChildNode(rim)
+        camera.camera=SCNCamera();camera.camera!.usesOrthographicProjection=true;camera.camera!.zNear=0.01;camera.camera!.zFar=100;scene.rootNode.addChildNode(camera)
+        let ao=tuned("ssao",Illustration.ambientOcclusion.intensity)
+        if ao>0 {
+            camera.camera!.screenSpaceAmbientOcclusionIntensity=CGFloat(ao)
+            camera.camera!.screenSpaceAmbientOcclusionRadius=CGFloat(tuned("ssaoRadius",Illustration.ambientOcclusion.radius))
+            camera.camera!.screenSpaceAmbientOcclusionDepthThreshold=CGFloat(tuned("ssaoDepth",0.2))
+            camera.camera!.screenSpaceAmbientOcclusionNormalThreshold=CGFloat(tuned("ssaoNormal",0.3))
+        }
+        renderer=SCNRenderer(device:MTLCreateSystemDefaultDevice(),options:nil);renderer.scene=scene;renderer.pointOfView=camera;renderer.isJitteringEnabled=false
+    }
+    // Aim the camera and key light. The outline keeps a constant pixel width.
+    func aim(target:V,offset:V,orthographicScale:Float,height:Int) {
+        camera.simdPosition=target+offset;camera.look(at:nodev(target),up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
+        camera.camera!.orthographicScale=Double(orthographicScale)
+        keyLight.simdPosition=camera.simdPosition-camera.simdWorldRight*0.55+V(0,0.75,0)
+        keyLight.look(at:nodev(target+V(0,0.35,0)),up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
+        precondition(abs(camera.simdWorldRight.y)<0.0001,"Camera horizon must remain level")
+        let pixel=2*orthographicScale/Float(height*Stage.supersample)
+        outlineMaterial().setValue(NSNumber(value:Illustration.outlinePixels*pixel),forKey:"outlineWidth")
+        figureMaterial().setValue(NSNumber(value:pixel*1000),forKey:"pixelMM")
+    }
+    // Render at twice the size and average each 2x2 block. Hairline strokes
+    // stay one output pixel wide instead of smearing over two.
+    static let supersample=2
+    func snapshot(width:Int,height:Int)->NSBitmapImageRep {
+        let k=Stage.supersample
+        let image=renderer.snapshot(atTime:0,with:CGSize(width:width*k,height:height*k),antialiasingMode:.multisampling4X)
+        let big=NSBitmapImageRep(data:image.tiffRepresentation!)!
+        precondition(big.pixelsWide==width*k && big.pixelsHigh==height*k,"Unexpected snapshot size")
+        let out=NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:width,pixelsHigh:height,bitsPerSample:8,samplesPerPixel:3,hasAlpha:false,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:width*3,bitsPerPixel:24)!
+        let source=big.bitmapData!,target=out.bitmapData!
+        let stride=big.bytesPerRow,step=big.bitsPerPixel/8
+        precondition(!big.isPlanar && step>=3 && big.bitsPerSample==8,"Unexpected snapshot format")
+        for y in 0..<height { for x in 0..<width { for c in 0..<3 {
+            var total=0
+            for dy in 0..<k { for dx in 0..<k { total+=Int(source[(y*k+dy)*stride+(x*k+dx)*step+c]) } }
+            target[y*width*3+x*3+c]=UInt8((total+k*k/2)/(k*k))
+        } } }
+        return out
+    }
 }
 
 let args=CommandLine.arguments
@@ -470,45 +820,27 @@ let guides=try JSONDecoder().decode([String:Guide].self,from:Data(contentsOf:URL
 let humanMesh=try HumanModel(path:modelPath)
 try FileManager.default.createDirectory(atPath:out,withIntermediateDirectories:true)
 
-let backdrop=0xF4F5F4
-let scene=SCNScene();scene.background.contents=color(backdrop);scene.background.intensity=1
-let floor=SCNFloor();floor.reflectivity=0;floor.materials=[unlitMaterial(backdrop)]
-let ground=SCNNode(geometry:floor);ground.simdPosition=V(0,-0.025,0);scene.rootNode.addChildNode(ground)
-let matGeometry=SCNBox(width:2.4,height:0.009,length:1.1,chamferRadius:0.025);matGeometry.materials=[material(0xE7E8E8)]
-let matNode=SCNNode(geometry:matGeometry);matNode.simdPosition=V(0,-0.008,0);scene.rootNode.addChildNode(matNode)
-let keyLight=SCNNode();keyLight.light=SCNLight();keyLight.light!.type = .directional;keyLight.light!.intensity=1000
-keyLight.light!.castsShadow=true;keyLight.light!.shadowMode = .forward;keyLight.light!.shadowRadius=8;keyLight.light!.shadowSampleCount=32
-keyLight.light!.shadowBias=0.002;keyLight.light!.shadowMapSize=CGSize(width:2048,height:2048)
-keyLight.light!.orthographicScale=3.0;keyLight.light!.zNear=0.01;keyLight.light!.zFar=10
-keyLight.light!.shadowColor=NSColor(white:0,alpha:0.13);keyLight.eulerAngles=SCNVector3(-0.60,0.80,0);scene.rootNode.addChildNode(keyLight)
-let fill=SCNNode();fill.light=SCNLight();fill.light!.type = .ambient;fill.light!.intensity=260;fill.light!.color=color(0xFFFFFF);scene.rootNode.addChildNode(fill)
-let rim=SCNNode();rim.light=SCNLight();rim.light!.type = .directional;rim.light!.intensity=150;rim.light!.color=color(0xF2F4F5);rim.eulerAngles=SCNVector3(-0.4,2.3,0);scene.rootNode.addChildNode(rim)
-let camera=SCNNode();camera.camera=SCNCamera();camera.camera!.usesOrthographicProjection=true;camera.camera!.zNear=0.01;camera.camera!.zFar=100;scene.rootNode.addChildNode(camera)
-let renderer=SCNRenderer(device:MTLCreateSystemDefaultDevice(),options:nil);renderer.scene=scene;renderer.pointOfView=camera;renderer.isJitteringEnabled=false
+let stage=Stage()
+// Review renders may set KHON_FRAMES=0,63 to write only some frames.
+let frameList=ProcessInfo.processInfo.environment["KHON_FRAMES"].map { Set($0.split(separator:",").compactMap { Int($0) }) }
 var model:SCNNode?=nil
 let frameCount=64
-for key in guides.keys.sorted() where only=="all" || only==key {
+for key in guides.keys.sorted() where only=="all" || only.split(separator:",").contains(Substring(key)) {
     let g=guides[key]!,dir=out+"/"+key;try FileManager.default.createDirectory(atPath:dir,withIntermediateDirectories:true)
     for view in 0..<2 {
-        let target=v(g.target)
-        camera.simdPosition=target+v(g.views[view]);camera.look(at:nodev(target),up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
-        let zoom:[String:Float]=["hipflexor":0.82,"plow":0.86,"wgs":0.93,"ninety":0.90,"catcow":0.90,"fold":0.90,"elephant":0.90,"shoulderir":0.90,"needle":0.90]
-        camera.camera!.orthographicScale=Double(g.span/2*(zoom[key] ?? 1))
-        keyLight.simdPosition=camera.simdPosition-camera.simdWorldRight*0.55+V(0,0.75,0)
-        keyLight.look(at:nodev(target+V(0,0.35,0)),up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
-        precondition(abs(camera.simdWorldRight.y)<0.0001,"Camera horizon must remain level")
+        let zoom:[String:Float]=["hipflexor":0.82,"plow":0.72,"wgs":0.93,"ninety":0.90,"catcow":0.90,"fold":0.90,"elephant":0.90,"shoulderir":0.90,"needle":0.90]
+        let compact=mode=="frames" || mode=="preview"
+        let width=compact ? 512:1024,height=compact ? 400:800
+        stage.aim(target:v(g.target),offset:v(g.views[view]),orthographicScale:g.span/2*(zoom[key] ?? 1),height:height)
         let count=mode=="frames" ? frameCount:g.poses.count
-        for f in 0..<count {
+        for f in 0..<count where frameList==nil || frameList!.contains(f) {
             autoreleasepool {
                 let pos=mode=="frames" ? Float(f)/Float(count-1)*Float(g.poses.count-1):Float(f)
                 let i=min(g.poses.count-2,Int(pos)),t0=pos-Float(i),t=t0*t0*(3-2*t0)
                 let pose=interpolate(g.poses[i],g.poses[i+1],t,key)
                 let progress=Float(i)+t
-                model?.removeFromParentNode();model=humanNode(humanMesh,pose,exercise:key,focus:g.focus,progress:progress);scene.rootNode.addChildNode(model!)
-                let compact=mode=="frames" || mode=="preview"
-                let width=compact ? 512:1024,height=compact ? 400:800
-                let image=renderer.snapshot(atTime:0,with:CGSize(width:width,height:height),antialiasingMode:.multisampling4X)
-                let representation=NSBitmapImageRep(data:image.tiffRepresentation!)!
+                model?.removeFromParentNode();model=humanNode(humanMesh,pose,exercise:key,focus:g.focus,progress:progress);stage.scene.rootNode.addChildNode(model!)
+                let representation=stage.snapshot(width:width,height:height)
                 try! representation.representation(using:.png,properties:[:])!.write(to:URL(fileURLWithPath:dir+String(format:"/v%d-%03d.png",view,f)))
             }
         }

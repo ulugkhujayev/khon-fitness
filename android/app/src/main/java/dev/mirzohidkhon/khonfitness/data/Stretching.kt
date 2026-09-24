@@ -90,10 +90,12 @@ object EatingWindowRules {
         val start = date.atStartOfDay().plusMinutes(w.startMinute.toLong())
         val end = date.atStartOfDay().plusMinutes(w.endMinute.toLong())
         val inHours = minute in w.startMinute until w.endMinute
-        val openedEarly = day?.openedAt != null && minute < w.startMinute
-        val closedEarly = day?.closedAt != null && minute < w.endMinute
-        val open = (inHours || openedEarly) && !closedEarly
+        val zone = java.time.ZoneId.systemDefault()
+        val openedEarly = day?.openedAt?.let { it < start.atZone(zone).toInstant().toEpochMilli() } == true && minute < w.startMinute
+        val openedLate = day?.openedAt?.let { it >= end.atZone(zone).toInstant().toEpochMilli() } == true && minute >= w.endMinute
+        val open = (inHours || openedEarly || openedLate) && day?.closedAt == null
         val changesAt = when {
+            openedLate && open -> date.plusDays(1).atStartOfDay()
             open -> end
             minute < w.startMinute -> start
             else -> start.plusDays(1)

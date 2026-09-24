@@ -1,12 +1,17 @@
 package dev.mirzohidkhon.khonfitness.timer
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class PhaseKind { WARMUP, WORK, REST, DONE }
+@Serializable
 data class Phase(
     val kind: PhaseKind, val seconds: Int, val round: Int,
     /** Stretch fields: the stretch name, side ("" / "Left" / "Right"), figure key, rep count for a reps stretch. */
     val label: String = "", val side: String = "", val figure: String = "", val reps: Int = 0, val stretchId: String = "",
 )
 
+@Serializable
 data class TimerState(
     val sessionId: String,
     val title: String,

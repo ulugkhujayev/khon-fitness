@@ -27,6 +27,9 @@ import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import kotlinx.coroutines.delay
+import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.map
 
 /** Full-screen interval countdown. The service owns the clock; this screen only shows it. */
 @Composable
@@ -34,7 +37,9 @@ fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val context = LocalContext.current
     val state by TimerService.state.collectAsStateWithLifecycle()
     val finished by TimerService.finished.collectAsStateWithLifecycle()
-    val session by vm.repo.session(sessionId).collectAsStateWithLifecycle(null)
+    val sessionState by remember(sessionId) { vm.repo.session(sessionId).map { it to true } }.collectAsStateWithLifecycle(null to false)
+    val session = sessionState.first
+    LeaveIfSessionMissing(nav, "timer/{id}", sessionId, loaded = sessionState.second, missing = session == null)
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val view = LocalView.current
     DisposableEffect(Unit) { view.keepScreenOn = true; onDispose { view.keepScreenOn = false } }

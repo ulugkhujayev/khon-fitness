@@ -1,5 +1,5 @@
 {
-  "name": "mobile",
+  "name": "khon-fitness-expo",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
@@ -26,10 +26,13 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "start": "bunx expo start",
+    "android": "bunx expo start --android",
+    "ios": "bunx expo start --ios",
+    "typecheck": "bunx tsc --noEmit",
+    "doctor": "bunx expo-doctor",
+    "add": "bunx expo install"
   },
-  "private": true
+  "private": true,
+  "packageManager": "bun@1.4.2"
 }

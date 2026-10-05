@@ -1,18 +1,22 @@
 # Khon Fitness (Expo)
 
-Cross-platform rewrite of the Android app in `../android`, for Android and
-iOS from one codebase. `../SPEC.md` and `../DESIGN.md` still bind every
+Cross-platform rewrite of the Khon Fitness Android app
+(github.com/ulugkhujayev/khon-fitness, Kotlin + Compose + Room) for Android
+and iOS from one codebase. `docs/SPEC.md` and `docs/DESIGN.md` bind every
 screen.
 
-Stack: Expo SDK 57, TypeScript, Expo Router, expo-sqlite (from stage 1).
+Stack: Bun, Expo SDK 57, TypeScript, Expo Router, expo-sqlite.
 
 ## Run
 
+Everything goes through Bun. Do not use npm or yarn; `bun.lock` is the lock file.
+
 ```sh
-cd mobile
-npm install
-npx expo start        # scan the QR code with Expo Go
-npx tsc --noEmit      # typecheck
+bun install
+bun run start         # scan the QR code with Expo Go
+bun run typecheck
+bun run add <pkg>     # bunx expo install: SDK-compatible versions
+bun run doctor
 ```
 
 The Android package id is `dev.mirzohidkhon.khonfitness.expo`, so this
@@ -24,6 +28,7 @@ signed release.
 - `src/app/` routes. `(tabs)/` holds Today, History, Programs.
 - `src/theme/` HIG palette, Inter text styles, spacing (mirrors `Theme.kt`).
 - `src/components/` shared UI: floating tab bar, grouped lists, buttons.
+- `src/db/` SQLite schema, seed, repository (stage 1).
 
 ## Stages
 

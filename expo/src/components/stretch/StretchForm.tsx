@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Linking, StyleSheet, Text } from 'react-native';
 import { EditorScreen } from '@/components/layout';
 import {
-  BottomActions, Capsule, Chevron, ChoiceSheet, ConfirmSheet, FieldRow, FieldValue, GroupedList, InlineTextField, ListRow, NumberRow, TextButton,
+  BottomActions, Capsule, ChoiceSheet, ConfirmSheet, FieldRow, FieldValue, GroupedList, InlineTextField, ListRow, NumberRow, TextButton,
   ToggleRow,
 } from '@/components/ui';
 import { clampReps, clampStretchSeconds, figureName, FIGURES, newStretch, withRepsMode } from '@/domain/stretch';
@@ -46,7 +46,6 @@ export function StretchForm({
         </FieldRow>
         <FieldRow label="Guide" onPress={() => setGuideOpen(true)}>
           <FieldValue text={figureName(draft.figure)} />
-          <Chevron />
         </FieldRow>
         <ToggleRow label="Per side" value={draft.sided} onChange={(sided) => set({ sided })} />
         <ToggleRow label="Reps" value={reps} onChange={(on) => setDraft(withRepsMode(draft, on))} />

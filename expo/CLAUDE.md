@@ -252,9 +252,14 @@ Android emulator; still unverified on a device: the share sheet export, the
 document picker import (including a real backup from the Kotlin app), the
 stage 2 refactor, all of stage 3 (above all the calendar long press and drag
 on both platforms), all of stage 4 (beeps, speech, alerts on a locked phone,
-restore after the app is closed), all of stage 5 (above all the sprite
-playback and its memory with 4096 x 3200 sheets on both platforms, the
-player flow, and the window notifications), and a physical phone. Stage 4
+restore after the app is closed), most of stage 5, and a physical phone.
+At the user's request stage 5 was looked at once on the iOS simulator
+(2026-10-06, deep links and seeded rows, no taps): the Today rows (window
+closed, opened early), the player's ready screen with the sprite demo
+playing and its steps advancing, Stretching, the routine editor, the
+library and the stretch editor. Still unverified: anything behind a tap
+(Start, Pause, Skip, Stop, the window sheet), the window notifications,
+sprite memory over a whole routine, and all of stage 5 on Android. Stage 4
 added native modules: rebuild the dev build (`bun run ios` / `bun run android`). Ask the user to check those himself
 when they matter.
 

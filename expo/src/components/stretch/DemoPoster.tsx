@@ -19,6 +19,7 @@ export function DemoPoster({ figure, size = 36 }: { figure: string; size?: numbe
 }
 
 const styles = StyleSheet.create({
-  poster: { borderRadius: 6, backgroundColor: K.DemoBackdrop, marginRight: 6 },
-  none: { ...Type.caption1, color: K.Muted, marginRight: 6 },
+  // Apart from the row's value text before it and its chevron after it.
+  poster: { borderRadius: 6, backgroundColor: K.DemoBackdrop, marginLeft: 10, marginRight: 6 },
+  none: { ...Type.caption1, color: K.Muted, marginLeft: 10, marginRight: 6 },
 });

@@ -8,11 +8,14 @@ const NARROW = 400;
 /** Editor field row (DESIGN.md, Editors): the label on the left, the value or control on the right. */
 export function FieldRow({
   label,
+  note,
   divider = true,
   onPress,
   children,
 }: {
   label: string;
+  /** A muted line under the label, e.g. "per side"; it never takes width from the control. */
+  note?: string;
   /** Hairline above the row; off for the first row of a group. */
   divider?: boolean;
   onPress?: () => void;
@@ -28,7 +31,10 @@ export function FieldRow({
       style={({ pressed }) => [pressed && styles.pressed]}>
       {divider ? <View style={styles.divider} /> : null}
       <View style={styles.row}>
-        <Text style={[Type.body, { width: width < NARROW ? 104 : 128 }]}>{label}</Text>
+        <View style={[styles.label, { width: width < NARROW ? 104 : 128 }]}>
+          <Text style={Type.body}>{label}</Text>
+          {note ? <Text style={styles.note}>{note}</Text> : null}
+        </View>
         <View style={styles.value}>{children}</View>
       </View>
     </Pressable>
@@ -40,4 +46,7 @@ const styles = StyleSheet.create({
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: K.Divider, marginLeft: 16 },
   row: { flexDirection: 'row', alignItems: 'center', minHeight: Space.rowMin, paddingHorizontal: 16, gap: 12 },
   value: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+  // A label that wraps keeps clear of the separators; one line stays inside the 48 pt row.
+  label: { paddingVertical: 10 },
+  note: { ...Type.footnote, color: K.Muted },
 });

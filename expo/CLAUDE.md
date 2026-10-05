@@ -13,6 +13,10 @@ cloud session on claude.ai) into new chats. Read it before doing anything.
   before the next stage.
 - Push every finished stage to `origin main`. The user pulls on his Mac
   himself; do not write project files into his folders outside the repo.
+- **Never run the app.** No `expo run:ios|android`, no `expo start`, no
+  simulators or emulators, no builds on devices, no adb or simctl. The user
+  runs and tests the app himself. Verify by code only: typecheck, lint,
+  `bun test`, and the bundle export below (user's rule, 2026-10-05).
 
 ## What this project is
 
@@ -150,20 +154,11 @@ bun test                   # 50 tests at the end of stage 2; also passes under T
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 
-Then run it: `bunx expo run:ios` / `bunx expo run:android` (dev builds; a new
-native library needs one). Verified on the iOS simulator (iPhone 17 Pro) and
-the Android emulator (Pixel 9 Pro / 10 Pro): SQLite, fonts, splash and every
-stage 2 flow. Not yet verified: the share sheet export, the document picker
-import (including a real backup from the Kotlin app), and a physical phone.
-
-QA on the Mac: the Android emulator takes `adb shell input tap/swipe/text`
-(density 3; screenshots with `adb exec-out screencap -p`). The iOS simulator
-runs without the Simulator window here, so there are no taps: seed rows into
-the app's `Documents/SQLite/khon.db` (`xcrun simctl get_app_container … data`,
-app terminated first) and open a screen with
-`xcrun simctl openurl booted dev.mirzohidkhon.khonfitness.expo://session/<id>`.
-Remove the seeded rows afterwards. Fast Refresh does not always reach a
-second device; restart the app before trusting a screenshot.
+These are the only checks. Do not run the app or open a simulator or
+emulator (see "The user"). Stage 2 was checked once on the iOS simulator and
+Android emulator; still unverified on a device: the share sheet export, the
+document picker import (including a real backup from the Kotlin app), and a
+physical phone. Ask the user to check those himself when they matter.
 
 ## Commits
 

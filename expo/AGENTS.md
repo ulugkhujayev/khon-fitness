@@ -13,6 +13,7 @@ This is an Expo/React Native mobile application. Prioritize mobile-first pattern
   Then run `bunx expo prebuild --clean` and commit the regenerated folders together with the source change.
 - Changes that tools make there are fine to commit: `bunx expo prebuild`, `pod install` (`Podfile.lock`, `project.pbxproj`) and autolinking.
 - If a change seems to need a native edit that no config or plugin can express, stop and ask the owner. Do not patch the generated files.
+- Claude Code enforces this with `Edit(/android/**)` and `Edit(/ios/**)` deny rules in `.claude/settings.json`. Other agents have no such guard, so they follow this section themselves.
 - Paths like `android/app/src/main/java/dev/mirzohidkhon/...` in `CLAUDE.md` belong to the original Kotlin app, a separate repo cloned to `../khon-fitness`. Read them, never write them.
 
 ## Expo has changed — do not trust your training data

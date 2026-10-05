@@ -1,4 +1,5 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
+import { K, Type } from '@/theme';
 import { FieldRow } from './FieldRow';
 import { COMPACT_WIDTH, NumberField } from './NumberField';
 
@@ -11,6 +12,7 @@ export function NumberRow({
   decimals,
   divider = true,
   placeholder,
+  note,
   onChange,
 }: {
   label: string;
@@ -20,10 +22,13 @@ export function NumberRow({
   decimals: number;
   divider?: boolean;
   placeholder?: string;
+  /** A muted word before the field, e.g. "per side". */
+  note?: string;
   onChange: (v: number | null) => void;
 }) {
   return (
     <FieldRow label={label} divider={divider}>
+      {note ? <Text style={styles.note}>{note}</Text> : null}
       <NumberField
         value={value}
         onChange={onChange}
@@ -41,4 +46,5 @@ export function NumberRow({
 
 const styles = StyleSheet.create({
   field: { width: COMPACT_WIDTH },
+  note: { ...Type.footnote, color: K.Muted, marginRight: 8 },
 });

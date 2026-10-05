@@ -1,16 +1,20 @@
 /**
- * The running interval timer (TimerService.kt without the Android service): one timer at a time, a 50 ms clock
- * while the app is open, cues on each transition, a snapshot on each transition, alerts while in the background,
- * and the elapsed time written to the session at the end. Screens read it through `useTimer`.
+ * The running timer (TimerService.kt without the Android service): a cardio interval timer or a stretch routine,
+ * one at a time. A 50 ms clock while the app is open, cues and a snapshot on each transition, alerts while in the
+ * background, and the result written at the end: the cardio session's time, or a stretch session.
+ * Screens read it through `useTimer`.
  */
 import { AppState, AppStateStatus, NativeEventSubscription } from 'react-native';
+import { cancelAlerts, prepareNotifications, scheduleAlerts } from '@/alerts/notifications';
+import { today } from '@/domain/dates';
+import { routineOf, stretchSessionFor } from '@/domain/stretch';
 import {
-  advanced, begin, buildPhases, Cue, expired, finished, isDone, isPreparing, pause, resume, tick, TimerState, timerState, transitionCues,
-  upcomingAlerts,
+  advanced, begin, buildPhases, Cue, expired, finished, isDone, isPreparing, pause, Phase, phaseSpeech, resume, skip, tick, TimerState, timerState,
+  transitionCues, upcomingAlerts,
 } from '@/domain/timer';
 import { Exercise, Session } from '@/domain/types';
+import { newId } from '@/db/id';
 import * as repo from '@/db/repository';
-import { cancelAlerts, prepareAlerts, scheduleAlerts } from './alerts';
 import { clearSnapshot, loadSnapshot, saveSnapshot } from './snapshots';
 import { play, prepareSound, silence } from './sound';
 
@@ -100,9 +104,9 @@ function onAppState(status: AppStateStatus) {
   if (status === 'background') {
     stopLoop();
     saveSnapshot(s);
-    void scheduleAlerts(upcomingAlerts(s, Date.now()), s.sessionId);
+    void scheduleAlerts('timer', upcomingAlerts(s, Date.now()), { sessionId: s.sessionId, stretch: s.stretch });
   } else if (status === 'active') {
-    void cancelAlerts();
+    void cancelAlerts('timer');
     step();
     if (view.state && !isDone(view.state)) startInterval();
   }
@@ -113,21 +117,36 @@ function onAppState(status: AppStateStatus) {
 /** Opens the timer for a cardio session, or continues the one already running or saved for it. */
 export function startTimer(session: Session, exercise: Exercise) {
   void prepareSound();
-  void prepareAlerts();
-  if (continueExisting(session.id)) return;
+  void prepareNotifications();
+  if (continueExisting(session.id, false)) return;
   const phases = buildPhases(exercise.warmupSec, exercise.workSec, exercise.restSec, exercise.rounds);
   if (phases.length === 0) return;
   setState(timerState({ sessionId: session.id, title: exercise.name, phases, remaining: phases[0].seconds, awaitingStart: true, startedAt: Date.now() }), null);
   runLoop();
 }
 
-function continueExisting(sessionId: string): boolean {
+/**
+ * Opens a stretch routine at its first ready screen, or continues the run of this routine already going or saved.
+ * Each run gets its own id, "routineId:runId", which becomes the id of its stretch session.
+ */
+export function startStretch(routineId: string, title: string, phases: Phase[]) {
+  void prepareSound();
+  void prepareNotifications();
+  const sessionId = `${routineId}:${newId()}`;
+  if (continueExisting(sessionId, true) || view.state || phases.length === 0) return;
+  setState(timerState({ sessionId, title, phases, remaining: phases[0].seconds, stretch: true, startedAt: Date.now() }), null);
+  runLoop();
+}
+
+/** A live or saved timer of the same kind for the same session continues; stretch runs match by routine. */
+function continueExisting(sessionId: string, stretch: boolean): boolean {
+  const same = (id: string) => (stretch ? routineOf(id) === routineOf(sessionId) : id === sessionId);
   const live = view.state;
-  if (live && !isDone(live) && live.sessionId === sessionId) return true;
+  if (live && !isDone(live) && live.stretch === stretch && same(live.sessionId)) return true;
   if (live) return false;
   const snap = loadSnapshot();
   const now = Date.now();
-  if (!snap || snap.state.stretch || snap.state.sessionId !== sessionId || expired(snap, now)) return false;
+  if (!snap || snap.state.stretch !== stretch || !same(snap.state.sessionId) || expired(snap, now)) return false;
   const s = advanced(snap, now);
   setState(s, null);
   runLoop();
@@ -160,6 +179,17 @@ export function resumeTimer() {
   setState(resume(s));
 }
 
+/** Skip: a stretch moves on to the next ready screen, or ends the routine after the last one. */
+export function skipTimer() {
+  const s = view.state;
+  if (!s || isDone(s)) return;
+  silence();
+  const next = skip(s);
+  setState(next);
+  if (isDone(next)) void end(false, transitionCues(s, next));
+  else play({ say: `Ready for ${phaseSpeech(next)}` });
+}
+
 /** Stop: ends the timer early; the time done so far is still written. */
 export const stopTimer = () => end(true);
 
@@ -169,7 +199,7 @@ export function setTimerSpeed(speed: number) {
   if (s) setState({ ...s, speed });
 }
 
-/** Writes the elapsed time to the session, clears the snapshot, and reports how the timer ended. `cues` play after the silence. */
+/** Writes the result (TimerService.recordTimer), clears the snapshot, and reports how the timer ended. `cues` play after the silence. */
 async function end(early: boolean, cues: Cue[] = []) {
   const s = view.state;
   if (ending || !s) return;
@@ -181,10 +211,10 @@ async function end(early: boolean, cues: Cue[] = []) {
   setState(done);
   // A done snapshot until the result is written: if the app dies in between, the restore writes it.
   saveSnapshot(done);
-  void cancelAlerts();
+  void cancelAlerts('timer');
   const elapsedSec = Math.floor(s.elapsed);
   try {
-    await repo.patchSession(s.sessionId, { timeSec: elapsedSec });
+    await record(s, elapsedSec);
     clearSnapshot(s.sessionId);
   } finally {
     ending = false;
@@ -192,24 +222,44 @@ async function end(early: boolean, cues: Cue[] = []) {
   }
 }
 
+/** A stretch run becomes a stretch session once it counts; a cardio timer writes its time to the session. */
+async function record(s: TimerState, elapsedSec: number) {
+  if (!s.stretch) {
+    await repo.patchSession(s.sessionId, { timeSec: elapsedSec });
+    return;
+  }
+  const run = stretchSessionFor(s, today());
+  if (run) await repo.saveStretchSession(run);
+}
+
 // ---------------------------------------------------------------- restore
+
+/** A snapshot is stale once its cardio session is gone or saved, or its routine is gone or the run already recorded. */
+async function stillOpen(s: TimerState): Promise<boolean> {
+  if (!s.stretch) {
+    const session = await repo.session(s.sessionId);
+    return session != null && session.finishedAt == null;
+  }
+  const [routines, runs] = await Promise.all([repo.stretchRoutines(), repo.stretchSessions()]);
+  return routines.some((r) => r.id === routineOf(s.sessionId)) && !runs.some((r) => r.id === s.sessionId);
+}
 
 /**
  * App start: brings back a timer the system closed mid-workout, advanced by the time the app was gone.
- * One that ran out meanwhile writes its result; a stale one (session gone or saved, over an hour past its end) is dropped.
+ * One that ran out meanwhile writes its result; a stale one (see `stillOpen`, or over an hour past its end) is dropped.
  */
 export async function restoreTimer() {
   if (view.state) return;
   const snap = loadSnapshot();
-  if (!snap || snap.state.stretch) return;
-  const session = await repo.session(snap.state.sessionId);
-  const now = Date.now();
-  if (!session || session.finishedAt != null || expired(snap, now)) {
+  if (!snap) return;
+  const open = await stillOpen(snap.state);
+  if (!open || expired(snap, Date.now())) {
     clearSnapshot(snap.state.sessionId);
     return;
   }
   if (view.state) return;
-  void cancelAlerts();
+  const now = Date.now();
+  void cancelAlerts('timer');
   void prepareSound();
   const s = advanced(snap, now);
   setState(s, null);

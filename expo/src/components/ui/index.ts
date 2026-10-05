@@ -31,6 +31,7 @@ export { Segmented } from './Segmented';
 export { Sheet } from './Sheet';
 export { SheetGroupTitle } from './SheetGroupTitle';
 export { TextButton } from './TextButton';
+export { TimeStepper } from './TimeStepper';
 export { TitleRow } from './TitleRow';
 export { Toggle } from './Toggle';
 export { ToggleRow } from './ToggleRow';

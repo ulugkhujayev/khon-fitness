@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Alert, StyleSheet, Text } from 'react-native';
+import { rescheduleWindow } from '@/alerts/windowReminders';
 import { EditorScreen } from '@/components/layout';
 import { GroupedList, ListRow } from '@/components/ui';
 import { BackupError } from '@/domain/backup';
@@ -7,7 +8,7 @@ import { pickBackupText, shareBackup } from '@/db/backupFile';
 import { describeBackupText, importJson, resetToSeed } from '@/db/repository';
 import { K, Type } from '@/theme';
 
-/** Export, import and reset. Import first says what the file holds, then asks merge or replace. */
+/** Export, import and reset. Import first says what the file holds, then asks merge or replace. Both re-plan the window's reminders. */
 export default function SettingsScreen() {
   const [status, setStatus] = useState<{ text: string; error?: boolean } | null>(null);
 
@@ -36,15 +37,15 @@ export default function SettingsScreen() {
     const body = text;
     Alert.alert('Import backup', summary, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Merge', onPress: () => run(() => importJson(body, false), 'Backup merged') },
-      { text: 'Replace all', style: 'destructive', onPress: () => run(() => importJson(body, true), 'Backup restored') },
+      { text: 'Merge', onPress: () => run(() => importJson(body, false).then(rescheduleWindow), 'Backup merged') },
+      { text: 'Replace all', style: 'destructive', onPress: () => run(() => importJson(body, true).then(rescheduleWindow), 'Backup restored') },
     ]);
   };
 
   const onReset = () =>
     Alert.alert('Reset to built-in data', 'Every session, bodyweight and edit is deleted.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', style: 'destructive', onPress: () => run(resetToSeed, 'Reset to built-in data') },
+      { text: 'Reset', style: 'destructive', onPress: () => run(() => resetToSeed().then(rescheduleWindow), 'Reset to built-in data') },
     ]);
 
   return (

@@ -7,8 +7,8 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
+import { NotificationHost } from '@/alerts/NotificationHost';
 import { DataProvider } from '@/db/DataProvider';
-import { TimerHost } from '@/timer/TimerHost';
 import { Font, K } from '@/theme';
 
 export { ErrorBoundary } from 'expo-router';
@@ -60,7 +60,7 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: K.Bg } }}>
               <Stack.Screen name="(tabs)" />
             </Stack>
-            <TimerHost />
+            <NotificationHost />
           </DataProvider>
         </ThemeProvider>
       </KeyboardProvider>

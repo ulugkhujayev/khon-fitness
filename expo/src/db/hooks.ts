@@ -5,28 +5,44 @@
 import { useEffect, useState } from 'react';
 import { preview } from '@/domain/format';
 import { doneSessionFor, itemFor } from '@/domain/plan';
+import { activeRoutine, routineSummary } from '@/domain/stretch';
 import { SetLog } from '@/domain/types';
 import { doneLine } from '@/domain/workout';
 import * as repo from './repository';
 import { TABLES as T } from './schema';
 import { useLive } from './useLive';
 
-/** Today: the plan around the date, its resolved item, a running session, the done line, bodyweights. */
+/**
+ * Today: the plan around the date, its resolved item, a running session, the done line, bodyweights,
+ * the active stretch routine (green once stretched today), and the eating window with its days.
+ */
 export function useToday(date: string) {
   return useLive(
     async () => {
-      const [plan, modalities, blocks, blockExercises, bodyweights, unfinished, sessions] = await Promise.all([
-        repo.planData(), repo.modalities(), repo.blocks(), repo.blockExercises(), repo.bodyweights(), repo.unfinishedSession(), repo.sessions(),
-      ]);
+      const [plan, modalities, blocks, blockExercises, bodyweights, unfinished, sessions, routines, routineStretches, stretches, stretchSessions, eatingWindow, windowDays] =
+        await Promise.all([
+          repo.planData(), repo.modalities(), repo.blocks(), repo.blockExercises(), repo.bodyweights(), repo.unfinishedSession(), repo.sessions(),
+          repo.stretchRoutines(), repo.routineStretches(), repo.stretches(), repo.stretchSessions(), repo.eatingWindow(), repo.windowDays(),
+        ]);
       const item = itemFor(plan, date);
       const done = doneSessionFor(sessions, item, date);
+      const routine = activeRoutine(routines);
       return {
-        plan, modalities, bodyweights, unfinished, item,
+        plan, modalities, bodyweights, unfinished, item, eatingWindow, windowDays,
         line: preview(item, blocks, blockExercises, modalities),
         doneText: done ? doneLine(done, await repo.setLogs(done.id)) : null,
+        routine: routine && {
+          id: routine.id,
+          name: routine.name,
+          line: routineSummary(routine.id, routineStretches, stretches),
+          doneToday: stretchSessions.some((r) => r.date === date),
+        },
       };
     },
-    [...repo.PLAN_TABLES, T.modalities, T.blocks, T.blockExercises, T.bodyweights, T.sessions, T.setLogs],
+    [
+      ...repo.PLAN_TABLES, T.modalities, T.blocks, T.blockExercises, T.bodyweights, T.sessions, T.setLogs,
+      T.stretchRoutines, T.routineStretches, T.stretches, T.stretchSessions, T.eatingWindow, T.windowDays,
+    ],
     [date],
   );
 }
@@ -119,19 +135,25 @@ export function usePlan() {
   );
 }
 
-/** How many sessions, programs and plan days use an exercise; 0 for a new one. Delete is allowed only at 0. */
-export function useExerciseUsage(id: string | null): number {
-  const [usage, setUsage] = useState(0);
+/** A count read once per id; 0 for a new item (null id). */
+function useCountOf(id: string | null, read: (id: string) => Promise<number>): number {
+  const [n, setN] = useState(0);
   useEffect(() => {
     if (!id) return;
     let alive = true;
-    repo.exerciseUsage(id).then((n) => alive && setUsage(n));
+    read(id).then((v) => alive && setN(v));
     return () => {
       alive = false;
     };
-  }, [id]);
-  return usage;
+  }, [id, read]);
+  return n;
 }
+
+/** How many sessions, programs and plan days use an exercise. Delete is allowed only at 0. */
+export const useExerciseUsage = (id: string | null) => useCountOf(id, repo.exerciseUsage);
+
+/** How many routine rows use a stretch. Delete is allowed only at 0. */
+export const useStretchUseCount = (id: string | null) => useCountOf(id, repo.stretchUseCount);
 
 /** History: every session with its sets and interval rows, stretch runs, bodyweights, and the plan for the calendar. */
 export function useHistory() {
@@ -155,5 +177,16 @@ export function useCardioSession(id: string) {
     },
     [T.sessions, T.exercises, T.intervalLogs],
     [id],
+  );
+}
+
+/** Stretching screens and the player: the routines, their stretches in order, the stretch library. */
+export function useStretching() {
+  return useLive(
+    async () => {
+      const [routines, routineStretches, stretches] = await Promise.all([repo.stretchRoutines(), repo.routineStretches(), repo.stretches()]);
+      return { routines, routineStretches, stretches };
+    },
+    [T.stretchRoutines, T.routineStretches, T.stretches],
   );
 }

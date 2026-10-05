@@ -42,9 +42,12 @@ cd ios && pod install     # on the Mac, after every regenerate
 
 - `src/app/` routes. `(tabs)/` holds Today, History, Programs.
 - `src/theme/` HIG palette, Inter text styles, spacing (mirrors `Theme.kt`).
-- `src/components/` shared UI: floating tab bar, nav bar, grouped lists, buttons.
+- `src/components/` shared UI: floating tab bar, nav bar, grouped lists, buttons,
+  and one folder per feature.
+- `src/timer/` the running timer (cardio intervals and stretch routines);
+  `src/alerts/` scheduled notifications (timer phases, eating window).
 - `src/domain/` pure logic with no Expo imports: entity types, plan rules,
-  set-log building, eating window, backup parsing, seed data.
+  set-log building, timer, stretching, eating window, backup parsing, seed data.
 - `src/db/` expo-sqlite: the Room v4 schema, a serialized write queue,
   `useLive` (re-runs a query when its tables change), the repository,
   backup to and from a file.
@@ -62,10 +65,11 @@ export has the same JSON keys, so it goes back the other way too.
 0. Base: navigation, theme, shared components. Done.
 1. Data: Room schema on expo-sqlite, seed, repository, JSON import and export
    compatible with the Kotlin app's backup. Done.
-2. Gym: Today, live session, programs and exercise editors.
-3. History: calendar, bodyweight chart, estimated 1RM per exercise.
-4. Cardio: interval timer, cues, background notifications.
-5. Stretching and eating window.
+2. Gym: Today, live session, programs and exercise editors. Done.
+3. History: calendar, bodyweight chart, estimated 1RM per exercise. Done.
+4. Cardio: interval timer, cues, background notifications. Done.
+5. Stretching (routines, stretch library, a player with the pre-rendered 3D
+   demonstrations) and the eating window with its reminders. Done.
 6. Platform parts: Health Connect and HealthKit, widgets, EAS Update in
    place of the APK updater.
 7. EAS Build for Android and iOS.

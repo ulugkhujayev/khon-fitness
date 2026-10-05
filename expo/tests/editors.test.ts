@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { dateLabelIndices, niceStep, scaleFor, valueLabelIndices } from '../src/domain/chart';
 import { longDate, monthDay, monthGrid, monthStart, monthTitle, shortDate, weekdayName, weekOf } from '../src/domain/dates';
 import {
-  asCardio, asStrength, blockSummary, filterLibrary, freeSlot, moveBlock, newExercise, nextSortOrder, searchByName, toggleIn, withIntervals,
+  asCardio, asStrength, blockSummary, filterLibrary, freeSlot, moveInOrder, newExercise, nextSortOrder, searchByName, toggleIn, withIntervals,
   withMaxReps, withMinReps, withSets,
 } from '../src/domain/editors';
 import { SEED_EXERCISES } from '../src/domain/seed';
@@ -48,8 +48,8 @@ describe('block editor', () => {
 
   test('moving a block swaps sort orders with its neighbour', () => {
     const bs: Block[] = [0, 1, 2].map((i) => ({ id: `b${i}`, programId: 'p', sortOrder: i, superset: true }));
-    expect(moveBlock(bs, 1, -1).map((b) => [b.id, b.sortOrder])).toEqual([['b1', 0], ['b0', 1]]);
-    expect(moveBlock(bs, 2, 1)).toEqual([]);
+    expect(moveInOrder(bs, 1, -1).map((b) => [b.id, b.sortOrder])).toEqual([['b1', 0], ['b0', 1]]);
+    expect(moveInOrder(bs, 2, 1)).toEqual([]);
   });
 });
 

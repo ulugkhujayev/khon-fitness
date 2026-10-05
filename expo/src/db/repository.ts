@@ -279,12 +279,21 @@ export const saveRoutine = (r: StretchRoutine) =>
     await tx.upsert(T.stretchRoutines, r);
     if (r.active) await tx.run(T.stretchRoutines, 'UPDATE stretch_routines SET active = (id = ?)', [r.id]);
   });
+export const patchRoutine = (id: string, patch: Partial<Omit<StretchRoutine, 'id' | 'active'>>) =>
+  write((tx) => tx.patch(T.stretchRoutines, id, patch));
+/** One routine is active: turning one on turns the others off. */
+export const setRoutineActive = (id: string, active: boolean) =>
+  write(async (tx) => {
+    await tx.patch(T.stretchRoutines, id, { active });
+    if (active) await tx.run(T.stretchRoutines, 'UPDATE stretch_routines SET active = (id = ?)', [id]);
+  });
 export const deleteRoutine = (id: string) =>
   write(async (tx) => {
     await tx.run(T.routineStretches, 'DELETE FROM routine_stretches WHERE routineId = ?', [id]);
     await tx.run(T.stretchRoutines, 'DELETE FROM stretch_routines WHERE id = ?', [id]);
   });
 export const saveRoutineStretches = (list: RoutineStretch[]) => write((tx) => tx.upsert(T.routineStretches, list));
+export const patchRoutineStretch = (id: string, patch: Partial<Omit<RoutineStretch, 'id'>>) => write((tx) => tx.patch(T.routineStretches, id, patch));
 export const deleteRoutineStretch = (id: string) =>
   write((tx) => tx.run(T.routineStretches, 'DELETE FROM routine_stretches WHERE id = ?', [id]));
 export const saveStretchSession = (s: StretchSession) => write((tx) => tx.upsert(T.stretchSessions, s));

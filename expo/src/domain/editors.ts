@@ -1,5 +1,5 @@
 /** Rules behind the program, block and exercise editors (ui/screens/Editors.kt, ProgramsScreen.kt). */
-import { Block, BlockExercise, Defaults, Exercise, Intensity, Kind, Modality, splitList } from './types';
+import { BlockExercise, Defaults, Exercise, Intensity, Kind, Modality, splitList } from './types';
 
 /** Twelve preset colors for a modality, ARGB like Kotlin's PRESET_COLORS. */
 export const PRESET_COLORS = [
@@ -47,13 +47,13 @@ export function freeSlot(mine: BlockExercise[]): number | null {
   return [0, 1].find((s) => !mine.some((be) => be.slot === s)) ?? null;
 }
 
-/** The two blocks to save when the block at `index` moves one place up (-1) or down (+1). */
-export function moveBlock(siblings: Block[], index: number, dir: -1 | 1): Block[] {
+/** The two rows to save when the row at `index` of an ordered list moves one place up (-1) or down (+1). */
+export function moveInOrder<T extends { sortOrder: number }>(list: T[], index: number, dir: -1 | 1): T[] {
   const j = index + dir;
-  if (j < 0 || j >= siblings.length) return [];
+  if (j < 0 || j >= list.length) return [];
   return [
-    { ...siblings[index], sortOrder: j },
-    { ...siblings[j], sortOrder: index },
+    { ...list[index], sortOrder: j },
+    { ...list[j], sortOrder: index },
   ];
 }
 
@@ -118,7 +118,7 @@ export function blockSummary(blockId: string, blockExercises: BlockExercise[], e
 }
 
 /** Sort order for a new block: after the highest one, since deletes leave gaps a count would collide with. */
-export const nextSortOrder = (blocks: Block[]) => blocks.reduce((m, b) => Math.max(m, b.sortOrder + 1), 0);
+export const nextSortOrder = (list: { sortOrder: number }[]) => list.reduce((m, x) => Math.max(m, x.sortOrder + 1), 0);
 
 /** Name of a modality, or empty when it is gone. */
 export const modalityName = (modalityId: string | null, modalities: Modality[]) => modalities.find((m) => m.id === modalityId)?.name ?? '';

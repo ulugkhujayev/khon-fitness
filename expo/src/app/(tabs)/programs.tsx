@@ -7,7 +7,7 @@ import { newId } from '@/db/id';
 import * as repo from '@/db/repository';
 import { K } from '@/theme';
 
-/** Programs tab (ProgramsScreen.kt): the programs (the active one filled), then the library, modalities, week plan and settings. */
+/** Programs tab (ProgramsScreen.kt): the programs (the active one filled), then the library, stretching, modalities, week plan and settings. */
 export default function ProgramsScreen() {
   const { data } = usePrograms();
 
@@ -40,6 +40,7 @@ export default function ProgramsScreen() {
           <View style={styles.gap} />
           <GroupedList>
             <ListRow title="Exercises" value={String(data.exercises.filter((e) => !e.archived).length)} onPress={() => router.push('/library')} />
+            <ListRow title="Stretching" onPress={() => router.push('/stretching')} />
             <ListRow title="Modalities" value={String(data.modalities.filter((m) => !m.archived).length)} onPress={() => router.push('/modalities')} />
             <ListRow title="Week plan" onPress={() => router.push('/week-plan')} />
             <ListRow title="Settings" onPress={() => router.push('/settings')} last />

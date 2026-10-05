@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { BlockExerciseGroup } from '@/components/editors/BlockExerciseGroup';
 import { EditorScreen } from '@/components/layout';
 import { BottomActions, Capsule, ChoiceSheet, GroupedList, SearchField, TextButton, ToggleRow } from '@/components/ui';
-import { freeSlot, moveBlock, searchByName } from '@/domain/editors';
+import { freeSlot, moveInOrder, searchByName } from '@/domain/editors';
 import { Defaults, Kind } from '@/domain/types';
 import { useBlock } from '@/db/hooks';
 import { newId } from '@/db/id';
@@ -59,8 +59,8 @@ export default function BlockEditor() {
         <TextButton text={data.mine.length === 0 ? 'Add exercise' : 'Add second exercise'} onPress={() => choose(free)} style={styles.add} />
       ) : null}
       <BottomActions>
-        {index > 0 ? <TextButton text="Move up" onPress={() => repo.saveBlocks(moveBlock(data.siblings, index, -1))} /> : null}
-        {index < data.siblings.length - 1 ? <TextButton text="Move down" onPress={() => repo.saveBlocks(moveBlock(data.siblings, index, 1))} /> : null}
+        {index > 0 ? <TextButton text="Move up" onPress={() => repo.saveBlocks(moveInOrder(data.siblings, index, -1))} /> : null}
+        {index < data.siblings.length - 1 ? <TextButton text="Move down" onPress={() => repo.saveBlocks(moveInOrder(data.siblings, index, 1))} /> : null}
         <TextButton
           text="Delete block"
           color={K.Red}

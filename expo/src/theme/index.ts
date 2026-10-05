@@ -37,6 +37,14 @@ export const K = {
   PhaseRest: '#1E3A5F',
   OnPhaseMuted: 'rgba(255,255,255,0.75)',
   OnPhaseDim: 'rgba(255,255,255,0.6)',
+  /** The step instruction in the stretch player and editor (white at 90 percent). */
+  OnPhaseText: 'rgba(255,255,255,0.9)',
+  /** Underline of an unselected demonstration step (white at 20 percent). */
+  OnPhaseLine: 'rgba(255,255,255,0.2)',
+  /** Studio background of the stretch demonstration renders (assets/stretch_demos/README.md). */
+  DemoBackdrop: '#F5F5F5',
+  /** Text on the white primary button of the stretch player. */
+  Black: '#000000',
 } as const;
 
 /** Inter, bundled as the stand-in for SF Pro. Keys must match useFonts in the root layout. */
@@ -80,6 +88,9 @@ export const Type = {
   countdown: { ...t(96, Font.bold, 112, -5), ...tabular },
   /** "Round 2 of 4" under the countdown (24 sp semibold). */
   round: t(24, Font.semibold, 30),
+  /** The stretch player's countdown (StretchScreen.kt: 88 sp bold, 72 on screens under 680 dp). */
+  stretchCountdown: { ...t(88, Font.bold, 100), ...tabular },
+  stretchCountdownCompact: { ...t(72, Font.bold, 84), ...tabular },
 } as const;
 
 export const Space = {

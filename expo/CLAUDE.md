@@ -13,6 +13,10 @@ cloud session on claude.ai) into new chats. Read it before doing anything.
   before the next stage.
 - Push every finished stage to `origin main`. The user pulls on his Mac
   himself; do not write project files into his folders outside the repo.
+- **The user deploys the app himself** (2026-10-06): the EAS project
+  (`eas init`, `eas update:configure`), EAS Build, signing, `eas update` and
+  store submission are his. Never run eas-cli commands that create, build,
+  publish or submit anything.
 - **Never run the app.** No `expo run:ios|android`, no `expo start`, no
   simulators or emulators, no builds on devices, no adb or simctl. The user
   runs and tests the app himself. Verify by code only: typecheck, lint,
@@ -276,11 +280,12 @@ reads during render and no synchronous `setState` inside effects.
    Today's "Update ready" row. ImportDefaultTest is ported. Not like Kotlin:
    the Android window widget refreshes on writes and every 30 minutes rather
    than at the exact boundary (iOS gets a timeline with each change); EAS
-   Update needs a project first (`bunx eas-cli init`, then
-   `bunx eas-cli update:configure`, which adds `updates.url`), so until then
-   updates are off; the iOS app now carries HealthKit and App Group
+   Update needs a project first (`eas init`, then `eas update:configure`,
+   which adds `updates.url`; the user does this), so until then updates are
+   off; the iOS app now carries HealthKit and App Group
    entitlements and a widget extension, which a free Apple team cannot sign.
-7. **Next:** EAS project, EAS Build and signing for both stores.
+7. EAS project, EAS Build, signing and store release: done by the user
+   himself, not by an agent (see "The user").
 
 ## Checks before calling anything done
 

@@ -53,6 +53,11 @@ git clone --depth 1 https://github.com/ulugkhujayev/khon-fitness.git ../khon-fit
   committed** (user's request). Change native config in `app.json` / config
   plugins, then `bunx expo prebuild --clean`; never hand-edit them.
   `pod install` runs on the Mac.
+- `bun run ios` / `bun run android` are `expo run:ios|android`: they build the
+  native project and open that build, never Expo Go. `bun run start` passes
+  `--dev-client` for the same reason. Without it `expo start` targets Expo Go,
+  because `expo-dev-client` is not installed. Prebuild did not rewrite these
+  scripts itself: it only matches `expo start --ios` without `bunx`.
 - `docs/SPEC.md` and `docs/DESIGN.md` (copied from the original) bind every
   screen: HIG dark palette, Inter, grouped inset lists, one primary button
   per screen, no captions or pill badges, number widget with − / + .

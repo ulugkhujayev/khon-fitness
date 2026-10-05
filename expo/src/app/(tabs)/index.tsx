@@ -12,23 +12,25 @@ import { useNow } from '@/components/today/useNow';
 import { WindowSheet } from '@/components/today/WindowSheet';
 import { BarCircleButton, GroupedList, ListRow, ScreenTitle } from '@/components/ui';
 import { today as todayIso } from '@/domain/dates';
-import { sessionScreen } from '@/domain/plan';
-import { Session } from '@/domain/types';
+import { pendingLine } from '@/domain/health';
 import { windowSummary } from '@/domain/window';
 import { useToday } from '@/db/hooks';
 import * as repo from '@/db/repository';
-import { openSession, openStretchPlayer } from '@/navigation';
+import { usePendingImports } from '@/health/usePendingImports';
+import { useAppUpdate } from '@/updates/useAppUpdate';
+import { openStretchPlayer, resumeSession, startItem } from '@/navigation';
 import { K } from '@/theme';
-import { getView } from '@/timer/engine';
 
-/** A running session continues where it is: its timer while that runs, else its screen. */
-const resume = (s: Session) => openSession(s.id, sessionScreen(s.itemType, getView().state?.sessionId === s.id));
-
-/** Today (TodayScreen.kt): the week strip, today's item with Start or Resume, the stretch routine, the eating window, bodyweight. */
+/**
+ * Today (TodayScreen.kt): the week strip, today's item with Start or Resume, the stretch routine, the eating window,
+ * band sessions waiting for import, a downloaded update, bodyweight.
+ */
 export default function TodayScreen() {
   const today = todayIso();
   const { data } = useToday(today);
   const [now, refreshNow] = useNow();
+  const pending = usePendingImports(data?.imported ?? null);
+  const update = useAppUpdate();
   const [planDate, setPlanDate] = useState(today);
   const [planOpen, setPlanOpen] = useState(false);
   const [windowOpen, setWindowOpen] = useState(false);
@@ -40,9 +42,7 @@ export default function TodayScreen() {
     if (!data || starting.current) return;
     starting.current = true;
     try {
-      const s = await repo.startItem(data.item);
-      // An interval exercise starts in its timer, a steady one in the form.
-      if (s) openSession(s.id, sessionScreen(s.itemType, data.item.cardio?.intervals === true));
+      await startItem(data.item);
     } finally {
       starting.current = false;
     }
@@ -74,7 +74,12 @@ export default function TodayScreen() {
               setPlanOpen(true);
             }}
           />
-          <TodayCard item={data.item} line={data.line} unfinished={data.unfinished} doneText={data.doneText} onStart={start} onResume={resume} />
+          <TodayCard item={data.item} line={data.line} unfinished={data.unfinished} doneText={data.doneText} onStart={start} onResume={(s) => resumeSession(s)} />
+          {update.ready ? (
+            <GroupedList style={styles.row}>
+              <ListRow title="Update ready" value="Restart" dot={K.Accent} last onPress={update.restart} />
+            </GroupedList>
+          ) : null}
           {data.routine ? (
             <GroupedList style={styles.row}>
               <ListRow
@@ -97,6 +102,11 @@ export default function TodayScreen() {
               onPress={() => setWindowOpen(true)}
             />
           </GroupedList>
+          {pending > 0 ? (
+            <GroupedList style={styles.row}>
+              <ListRow title={pendingLine(pending)} dot={K.Green} last onPress={() => router.push('/import')} />
+            </GroupedList>
+          ) : null}
           <BodyweightSection today={today} bodyweights={data.bodyweights} onAdd={(kg) => repo.saveBodyweight(today, kg)} />
           <DayPlanSheet visible={planOpen} date={planDate} plan={data.plan} modalities={data.modalities} onDismiss={() => setPlanOpen(false)} />
           <WindowSheet

@@ -34,6 +34,10 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>ExpoWidgetsAppGroupIdentifier</key>
+	<string>group.dev.mirzohidkhon.khonfitness.expo</string>
+	<key>ExpoWidgets_EnablePushNotifications</key>
+	<false/>
 	<key>LSMinimumSystemVersion</key>
 	<string>12.0</string>
 	<key>LSRequiresIPhoneOS</key>
@@ -45,6 +49,12 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Khon Fitness reads your workouts and heart rate to log them as cardio sessions.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<false/>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

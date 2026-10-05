@@ -7,10 +7,15 @@ import { BackupError } from '@/domain/backup';
 import { pickBackupText, shareBackup } from '@/db/backupFile';
 import { describeBackupText, importJson, resetToSeed } from '@/db/repository';
 import { K, Type } from '@/theme';
+import { appVersion, useAppUpdate } from '@/updates/useAppUpdate';
 
-/** Export, import and reset. Import first says what the file holds, then asks merge or replace. Both re-plan the window's reminders. */
+/**
+ * Export, import and reset, and app updates. Import first says what the file holds, then asks merge or replace;
+ * import and reset re-plan the window's reminders.
+ */
 export default function SettingsScreen() {
   const [status, setStatus] = useState<{ text: string; error?: boolean } | null>(null);
+  const update = useAppUpdate();
 
   const run = async (fn: () => Promise<void>, done: string) => {
     try {
@@ -52,12 +57,18 @@ export default function SettingsScreen() {
     <EditorScreen title="Settings">
       <GroupedList>
         <ListRow title="Export backup" color={K.Accent} onPress={onExport} chevron={false} />
-        <ListRow title="Import backup" color={K.Accent} onPress={onImport} chevron={false} last />
+        <ListRow title="Import backup" color={K.Accent} onPress={onImport} chevron={false} />
+        {update.ready ? (
+          <ListRow title="Restart to update" value={appVersion} color={K.Accent} onPress={update.restart} chevron={false} last />
+        ) : (
+          <ListRow title="Check for update" value={update.busy ? 'Checking…' : appVersion} onPress={update.check} chevron={false} last />
+        )}
       </GroupedList>
       <GroupedList style={styles.group}>
         <ListRow title="Reset to built-in data" color={K.Red} onPress={onReset} chevron={false} last />
       </GroupedList>
       {status ? <Text style={[styles.status, status.error && styles.error]}>{status.text}</Text> : null}
+      {update.message ? <Text style={styles.status}>{update.message}</Text> : null}
     </EditorScreen>
   );
 }

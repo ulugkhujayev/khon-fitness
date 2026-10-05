@@ -4,5 +4,11 @@
   <dict>
     <key>aps-environment</key>
     <string>development</string>
+    <key>com.apple.developer.healthkit</key>
+    <true/>
+    <key>com.apple.security.application-groups</key>
+    <array>
+      <string>group.dev.mirzohidkhon.khonfitness.expo</string>
+    </array>
   </dict>
 </plist>

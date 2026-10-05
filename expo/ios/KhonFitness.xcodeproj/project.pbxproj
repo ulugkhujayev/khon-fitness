@@ -8,25 +8,65 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		2B0618CB936B728CD6EA05D2 /* libPods-KhonFitness.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A941FFB676B885C305FDC57 /* libPods-KhonFitness.a */; };
+		1AB3441D7A6F4E679148579E /* ExpoWidgetsTarget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 070BAE36E0624169B3094422 /* ExpoWidgetsTarget.appex */; };
+		1B534AD2837A9CBD7BD8941B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A721A96DFE1A6F86BBCC0237 /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		59A712961566114123CCF199 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5D4D6C3909A1EFA18DB11B3 /* ExpoModulesProvider.swift */; };
-		5E6BB9875117EC7814F9762F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9B53A1A51BAED29AEBD3A9D7 /* PrivacyInfo.xcprivacy */; };
+		451970BD54044673B067FC85 /* TodayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A7EA5ECE39347BC82DCDBD8 /* TodayWidget.swift */; };
+		59173976A8610AE13BCAD1E3 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89C9EA6FD92942B1A6F7F917 /* ExpoModulesProvider.swift */; };
+		6AABB46534BAF6EAEE25389A /* libPods-ExpoWidgetsTarget.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2ECA2AEB408CDA42A8DA22B1 /* libPods-ExpoWidgetsTarget.a */; };
+		A117EF9C3338496A847F4A38 /* index.swift in Sources */ = {isa = PBXBuildFile; fileRef = A65C109F40EC49C6842EEE57 /* index.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		E0C2EE6F33A1605F9BBCF747 /* libPods-KhonFitness.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DE08C87913D6EC04E9166F10 /* libPods-KhonFitness.a */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F388D66C2DD4457FB82F400B /* WindowWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 280AF18A13394B13AA50C606 /* WindowWidget.swift */; };
+		FB9FAB76C92E27FD76B989AB /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AD65B758630AAC8ADFDD6B7 /* ExpoModulesProvider.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		EF8A99DE463B49CFA84DBB8F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1FED8401CE124E8EAF4C8BC1;
+			remoteInfo = ExpoWidgetsTarget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0C6DF2532F3F42E4B30CB913 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				1AB3441D7A6F4E679148579E /* ExpoWidgetsTarget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
-		123CF4F8167589F64481C253 /* Pods-KhonFitness.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-KhonFitness.debug.xcconfig"; path = "Target Support Files/Pods-KhonFitness/Pods-KhonFitness.debug.xcconfig"; sourceTree = "<group>"; };
+		070BAE36E0624169B3094422 /* ExpoWidgetsTarget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = undefined; name = ExpoWidgetsTarget.appex; path = ExpoWidgetsTarget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07F961A680F5B00A75B9A /* KhonFitness.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KhonFitness.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = KhonFitness/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = KhonFitness/Info.plist; sourceTree = "<group>"; };
-		3A941FFB676B885C305FDC57 /* libPods-KhonFitness.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-KhonFitness.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		700624FF5110A57E0AF65155 /* Pods-KhonFitness.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-KhonFitness.release.xcconfig"; path = "Target Support Files/Pods-KhonFitness/Pods-KhonFitness.release.xcconfig"; sourceTree = "<group>"; };
-		9B53A1A51BAED29AEBD3A9D7 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = KhonFitness/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		280AF18A13394B13AA50C606 /* WindowWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = WindowWidget.swift; path = WindowWidget.swift; sourceTree = "<group>"; };
+		2A7EA5ECE39347BC82DCDBD8 /* TodayWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TodayWidget.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
+		2ECA2AEB408CDA42A8DA22B1 /* libPods-ExpoWidgetsTarget.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ExpoWidgetsTarget.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		40C46E631F6B2B4488FE8D8E /* Pods-KhonFitness.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-KhonFitness.debug.xcconfig"; path = "Target Support Files/Pods-KhonFitness/Pods-KhonFitness.debug.xcconfig"; sourceTree = "<group>"; };
+		4AD65B758630AAC8ADFDD6B7 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-KhonFitness/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		5069BCB7F51EEF8C18C51AF5 /* Pods-ExpoWidgetsTarget.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExpoWidgetsTarget.debug.xcconfig"; path = "Target Support Files/Pods-ExpoWidgetsTarget/Pods-ExpoWidgetsTarget.debug.xcconfig"; sourceTree = "<group>"; };
+		5569CDF49A6540619CA080D7 /* Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = Info.plist; path = Info.plist; sourceTree = "<group>"; };
+		89C9EA6FD92942B1A6F7F917 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-ExpoWidgetsTarget/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		A4BB2EF9760A6F3826289819 /* Pods-ExpoWidgetsTarget.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExpoWidgetsTarget.release.xcconfig"; path = "Target Support Files/Pods-ExpoWidgetsTarget/Pods-ExpoWidgetsTarget.release.xcconfig"; sourceTree = "<group>"; };
+		A65C109F40EC49C6842EEE57 /* index.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = index.swift; path = index.swift; sourceTree = "<group>"; };
+		A721A96DFE1A6F86BBCC0237 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = KhonFitness/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = KhonFitness/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		D5D4D6C3909A1EFA18DB11B3 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-KhonFitness/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		C71FC081FF706A781E935729 /* Pods-KhonFitness.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-KhonFitness.release.xcconfig"; path = "Target Support Files/Pods-KhonFitness/Pods-KhonFitness.release.xcconfig"; sourceTree = "<group>"; };
+		CAE4BD852A764361AED6295F /* ExpoWidgetsTarget.entitlements */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = ExpoWidgetsTarget.entitlements; path = ExpoWidgetsTarget.entitlements; sourceTree = "<group>"; };
+		DE08C87913D6EC04E9166F10 /* libPods-KhonFitness.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-KhonFitness.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = KhonFitness/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* KhonFitness-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "KhonFitness-Bridging-Header.h"; path = "KhonFitness/KhonFitness-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -37,13 +77,30 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2B0618CB936B728CD6EA05D2 /* libPods-KhonFitness.a in Frameworks */,
+				E0C2EE6F33A1605F9BBCF747 /* libPods-KhonFitness.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C805B20092364DB7B8EE8333 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6AABB46534BAF6EAEE25389A /* libPods-ExpoWidgetsTarget.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		02CB260581EAAACBDA8B994E /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				5FED75150833F1B70ADEDEE4 /* ExpoWidgetsTarget */,
+				B9F4BEF3C469C24C86F7DE37 /* KhonFitness */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* KhonFitness */ = {
 			isa = PBXGroup;
 			children = (
@@ -53,7 +110,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				9B53A1A51BAED29AEBD3A9D7 /* PrivacyInfo.xcprivacy */,
+				A721A96DFE1A6F86BBCC0237 /* PrivacyInfo.xcprivacy */,
 			);
 			name = KhonFitness;
 			sourceTree = "<group>";
@@ -62,19 +119,18 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				3A941FFB676B885C305FDC57 /* libPods-KhonFitness.a */,
+				2ECA2AEB408CDA42A8DA22B1 /* libPods-ExpoWidgetsTarget.a */,
+				DE08C87913D6EC04E9166F10 /* libPods-KhonFitness.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		65198AB0573A5B23DA3207D0 /* Pods */ = {
+		5FED75150833F1B70ADEDEE4 /* ExpoWidgetsTarget */ = {
 			isa = PBXGroup;
 			children = (
-				123CF4F8167589F64481C253 /* Pods-KhonFitness.debug.xcconfig */,
-				700624FF5110A57E0AF65155 /* Pods-KhonFitness.release.xcconfig */,
+				89C9EA6FD92942B1A6F7F917 /* ExpoModulesProvider.swift */,
 			);
-			name = Pods;
-			path = Pods;
+			name = ExpoWidgetsTarget;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -91,8 +147,9 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				65198AB0573A5B23DA3207D0 /* Pods */,
-				E8D1A901ACEFAF1D20999F7F /* ExpoModulesProviders */,
+				A3804A0A0C324216BB9C2C2F /* ExpoWidgetsTarget */,
+				D63357E9948972CD04EB1749 /* Pods */,
+				02CB260581EAAACBDA8B994E /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -103,8 +160,30 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* KhonFitness.app */,
+				070BAE36E0624169B3094422 /* ExpoWidgetsTarget.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A3804A0A0C324216BB9C2C2F /* ExpoWidgetsTarget */ = {
+			isa = PBXGroup;
+			children = (
+				CAE4BD852A764361AED6295F /* ExpoWidgetsTarget.entitlements */,
+				5569CDF49A6540619CA080D7 /* Info.plist */,
+				A65C109F40EC49C6842EEE57 /* index.swift */,
+				2A7EA5ECE39347BC82DCDBD8 /* TodayWidget.swift */,
+				280AF18A13394B13AA50C606 /* WindowWidget.swift */,
+			);
+			name = ExpoWidgetsTarget;
+			path = ExpoWidgetsTarget;
+			sourceTree = "<group>";
+		};
+		B9F4BEF3C469C24C86F7DE37 /* KhonFitness */ = {
+			isa = PBXGroup;
+			children = (
+				4AD65B758630AAC8ADFDD6B7 /* ExpoModulesProvider.swift */,
+			);
+			name = KhonFitness;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -116,20 +195,16 @@
 			path = KhonFitness/Supporting;
 			sourceTree = "<group>";
 		};
-		C4E194A85005D28931259D3F /* KhonFitness */ = {
+		D63357E9948972CD04EB1749 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				D5D4D6C3909A1EFA18DB11B3 /* ExpoModulesProvider.swift */,
+				5069BCB7F51EEF8C18C51AF5 /* Pods-ExpoWidgetsTarget.debug.xcconfig */,
+				A4BB2EF9760A6F3826289819 /* Pods-ExpoWidgetsTarget.release.xcconfig */,
+				40C46E631F6B2B4488FE8D8E /* Pods-KhonFitness.debug.xcconfig */,
+				C71FC081FF706A781E935729 /* Pods-KhonFitness.release.xcconfig */,
 			);
-			name = KhonFitness;
-			sourceTree = "<group>";
-		};
-		E8D1A901ACEFAF1D20999F7F /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				C4E194A85005D28931259D3F /* KhonFitness */,
-			);
-			name = ExpoModulesProviders;
+			name = Pods;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -140,22 +215,43 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "KhonFitness" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				D4A549445B914BD9DA3866CB /* [Expo] Configure project */,
+				03B5D9E6D8AF893A2CF49F81 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				C2CF704F791B980EF5BA56BB /* [CP] Embed Pods Frameworks */,
+				0C6DF2532F3F42E4B30CB913 /* Embed Foundation Extensions */,
+				2A06E66C180C0755F44D0A62 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				46753CF1E5DD4C39A3F6A708 /* PBXTargetDependency */,
 			);
 			name = KhonFitness;
 			productName = KhonFitness;
 			productReference = 13B07F961A680F5B00A75B9A /* KhonFitness.app */;
 			productType = "com.apple.product-type.application";
+		};
+		1FED8401CE124E8EAF4C8BC1 /* ExpoWidgetsTarget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1694653FDE254815AADC980E /* Build configuration list for PBXNativeTarget "ExpoWidgetsTarget" */;
+			buildPhases = (
+				713F56496C6CC711487E728A /* [CP] Check Pods Manifest.lock */,
+				6899146E62E99BEEDAE6F9BD /* [Expo] Configure project */,
+				C56F3448C73848D887A5F1B6 /* Sources */,
+				C805B20092364DB7B8EE8333 /* Frameworks */,
+				C68F55F8B147737B476287B2 /* [CP] Copy Pods Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ExpoWidgetsTarget;
+			productName = ExpoWidgetsTarget;
+			productReference = 070BAE36E0624169B3094422 /* ExpoWidgetsTarget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -166,6 +262,9 @@
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
+						LastSwiftMigration = 1250;
+					};
+					1FED8401CE124E8EAF4C8BC1 = {
 						LastSwiftMigration = 1250;
 					};
 				};
@@ -184,6 +283,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* KhonFitness */,
+				1FED8401CE124E8EAF4C8BC1 /* ExpoWidgetsTarget */,
 			);
 		};
 /* End PBXProject section */
@@ -196,7 +296,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				5E6BB9875117EC7814F9762F /* PrivacyInfo.xcprivacy in Resources */,
+				1B534AD2837A9CBD7BD8941B /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -220,97 +320,7 @@
 			shellPath = /bin/sh;
 			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios absolute | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n`\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
 		};
-		08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-KhonFitness-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-KhonFitness/Pods-KhonFitness-resources.sh",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXApplication/ExpoApplication_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoNotifications/ExpoNotifications_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoSystemUI/ExpoSystemUI_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-timing/React-timing_privacy.bundle",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoApplication_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoNotifications_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoSystemUI_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-timing_privacy.bundle",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-KhonFitness/Pods-KhonFitness-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		C2CF704F791B980EF5BA56BB /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-KhonFitness/Pods-KhonFitness-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem.framework/ExpoFileSystem",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoFont/ExpoFont.framework/ExpoFont",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesCore/ExpoModulesCore.framework/ExpoModulesCore",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesJSI/ExpoModulesJSI.framework/ExpoModulesJSI",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesWorklets/ExpoModulesWorklets.framework/ExpoModulesWorklets",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermesvm.framework/hermesvm",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoFileSystem.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoFont.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesCore.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesJSI.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesWorklets.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-KhonFitness/Pods-KhonFitness-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		D4A549445B914BD9DA3866CB /* [Expo] Configure project */ = {
+		03B5D9E6D8AF893A2CF49F81 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -334,6 +344,164 @@
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-KhonFitness/expo-configure-project.sh\"\n";
 		};
+		08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-KhonFitness-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		2A06E66C180C0755F44D0A62 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-KhonFitness/Pods-KhonFitness-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesJSI/ExpoModulesJSI.framework/ExpoModulesJSI",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermesvm.framework/hermesvm",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesJSI.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-KhonFitness/Pods-KhonFitness-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		6899146E62E99BEEDAE6F9BD /* [Expo] Configure project */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/.xcode.env",
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/ExpoWidgetsTarget/ExpoWidgetsTarget.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-ExpoWidgetsTarget/expo-configure-project.sh",
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Pods/Target Support Files/Pods-ExpoWidgetsTarget/ExpoModulesProvider.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-ExpoWidgetsTarget/expo-configure-project.sh\"\n";
+		};
+		713F56496C6CC711487E728A /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-ExpoWidgetsTarget-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-KhonFitness/Pods-KhonFitness-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXApplication/ExpoApplication_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXUpdates/EXUpdates.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoNotifications/ExpoNotifications_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoSystemUI/ExpoSystemUI_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoWidgets/ExpoWidgets.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ReachabilitySwift/ReachabilitySwift.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-timing/React-timing_privacy.bundle",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoApplication_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXUpdates.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoNotifications_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoSystemUI_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoWidgets.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ReachabilitySwift.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-timing_privacy.bundle",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-KhonFitness/Pods-KhonFitness-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		C68F55F8B147737B476287B2 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ExpoWidgetsTarget/Pods-ExpoWidgetsTarget-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoWidgets/ExpoWidgets.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-timing/React-timing_privacy.bundle",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoWidgets.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-timing_privacy.bundle",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-ExpoWidgetsTarget/Pods-ExpoWidgetsTarget-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -342,16 +510,57 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				59A712961566114123CCF199 /* ExpoModulesProvider.swift in Sources */,
+				FB9FAB76C92E27FD76B989AB /* ExpoModulesProvider.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C56F3448C73848D887A5F1B6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A117EF9C3338496A847F4A38 /* index.swift in Sources */,
+				451970BD54044673B067FC85 /* TodayWidget.swift in Sources */,
+				F388D66C2DD4457FB82F400B /* WindowWidget.swift in Sources */,
+				59173976A8610AE13BCAD1E3 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		46753CF1E5DD4C39A3F6A708 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1FED8401CE124E8EAF4C8BC1 /* ExpoWidgetsTarget */;
+			targetProxy = EF8A99DE463B49CFA84DBB8F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		10809DBDA3994DE88806A14A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5069BCB7F51EEF8C18C51AF5 /* Pods-ExpoWidgetsTarget.debug.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ExpoWidgetsTarget/ExpoWidgetsTarget.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ExpoWidgetsTarget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ExpoWidgetsTarget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.mirzohidkhon.khonfitness.expo.ExpoWidgetsTarget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 123CF4F8167589F64481C253 /* Pods-KhonFitness.debug.xcconfig */;
+			baseConfigurationReference = 40C46E631F6B2B4488FE8D8E /* Pods-KhonFitness.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -388,7 +597,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 700624FF5110A57E0AF65155 /* Pods-KhonFitness.release.xcconfig */;
+			baseConfigurationReference = C71FC081FF706A781E935729 /* Pods-KhonFitness.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -414,6 +623,28 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		2C47629F62FB481C9527F328 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A4BB2EF9760A6F3826289819 /* Pods-ExpoWidgetsTarget.release.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ExpoWidgetsTarget/ExpoWidgetsTarget.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ExpoWidgetsTarget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ExpoWidgetsTarget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.mirzohidkhon.khonfitness.expo.ExpoWidgetsTarget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -561,6 +792,15 @@
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,
 				13B07F951A680F5B00A75B9A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1694653FDE254815AADC980E /* Build configuration list for PBXNativeTarget "ExpoWidgetsTarget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				10809DBDA3994DE88806A14A /* Debug */,
+				2C47629F62FB481C9527F328 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

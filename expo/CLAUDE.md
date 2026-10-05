@@ -77,7 +77,20 @@ expo-speech (spoken cues), expo-keep-awake (timer and stretch player),
 expo-notifications (timer alerts while the app sleeps, eating-window
 reminders), `expo-sqlite/kv-store` (the running timer's snapshot). The stretch
 demonstrations are pre-rendered WebP sprite sheets in `assets/stretch_demos`
-(see its README), shown with the plain `Image`.
+(see its README), shown with the plain `Image`. Stage 6: react-native-health-connect
+(Android; its Expo plugin, minSdk 26 through expo-build-properties),
+@kingstinct/react-native-healthkit with react-native-nitro-modules (iOS),
+react-native-android-widget (Android widgets drawn from JS, also while the app
+is closed), expo-widgets with @expo/ui (iOS widgets; excluded from Android
+autolinking in package.json because its Glance module clashes with
+react-native-android-widget's WorkManager), expo-updates (EAS Update). The app
+entry is `index.ts` (Expo Router plus the Android widget task handler).
+expo-build-properties also sets `ios.usePrecompiledModules: false`: Expo's
+precompiled `ExpoModulesWorklets.xcframework` ships without its umbrella header
+and was built with an older Swift, so `@expo/ui` (which imports it) fails to
+compile ("umbrella header 'ExpoModulesWorklets_umbrella.h' not found", "this
+SDK is not supported by the compiler"). Every Expo pod now builds from source;
+the first iOS build takes longer.
 Check the SDK 57 docs before using any Expo API (see AGENTS.md); do not
 code Expo APIs from memory. ESLint 9 with `eslint-config-expo` (ESLint 10
 breaks `eslint-plugin-react`); its React Compiler rules are on, so no ref
@@ -112,7 +125,23 @@ reads during render and no synchronous `setState` inside effects.
     clock-driven pose during it; DemoFrame shifts a whole sprite sheet inside a
     one-frame clip, so a new frame never decodes again; DemoPoster;
     `demoAssets.ts` with the literal requires; StretchPlayerView; StretchForm;
-    RoutineOrderList).
+    RoutineOrderList), `import/` (HealthIntro, DraftList, DraftSheet).
+- `src/health/`: the platform's health store behind one `HealthSource`
+  (`source.android.ts` Health Connect, `source.ios.ts` HealthKit, `source.ts`
+  none), `useHealthImport` (status, permission, 60 days of workouts) and
+  `usePendingImports` (Today's band row, counted on focus without details).
+  Debug builds can write a test run; its write permissions live only in the
+  debug manifest (`plugins/withDebugHealthWrite.js`).
+- `src/widgets/`: `data.ts` (cards from the database, `WIDGET_TABLES`),
+  `links.ts` (taps open `khonfitness://start` or `://window`, handled by
+  `src/app/start.tsx` and `window.tsx`), `android/` (TodayWidget,
+  WindowWidget, `render.tsx`), `ios/` (expo-widgets components; colors come in
+  the props because widget code cannot import the theme), `register` (the
+  Android task handler) and `refresh` (Android redraws, iOS timelines), each
+  with platform files, and `WidgetHost` (root layout: redraw after writes to
+  `WIDGET_TABLES` and when the app leaves the screen).
+- `src/updates/useAppUpdate.ts`: EAS Update check, download and restart
+  (Settings row, Today's "Update ready" row); off in development builds.
 - `src/timer/`: the running timer (TimerService.kt without the Android
   service), a cardio interval timer or a stretch routine. `engine.ts` owns the
   one timer: a 50 ms clock while the app is open, cues per transition, a
@@ -133,12 +162,13 @@ reads during render and no synchronous `setState` inside effects.
   schedule current, open what a tapped notification belongs to).
 - `src/navigation.ts`: `openSession` / `replaceSession` open a session in the
   screen `sessionScreen` (domain/plan.ts) picks: live session, timer or form;
+  `resumeSession` and `startItem` (Today and the widget's Start);
   `openStretchPlayer`.
 - `src/db/hooks.ts`: the named reads screens use (`useToday` with the active
   routine and the eating window, `useSession`, `usePreviousLogs`,
   `usePrograms`, `useProgram`, `useBlock`, `useLibrary`, `useModalities`,
   `usePlan`, `useExerciseUsage`, `useHistory`, `useCardioSession`,
-  `useStretching`, `useStretchUseCount`).
+  `useStretching`, `useStretchUseCount`, `useImportData`).
 - `src/domain/`: pure TypeScript, **no Expo or React imports**, so `bun test`
   runs it. `types.ts` (entities with Kotlin field names, `Defaults` = Kotlin
   constructor defaults), `dates.ts` (local `yyyy-MM-dd`, ISO weekday 1..7;
@@ -154,7 +184,10 @@ reads during render and no synchronous `setState` inside effects.
   `stretchGuides.json`, preview and exercise frames, `DemoClock`, routine
   steps and summary, player text, when a run counts, editor limits),
   `window.ts` (`EatingWindowRules`, the Today summary, the 28-day strip, hour
-  limits, `windowAlerts`), `format.ts` (`fmt`, `parseNumberInput`, `dur`,
+  limits, `windowAlerts`), `health.ts` (workout kinds, drafts, merging band
+  and watch copies, default exercise, interval heart rate, the imported
+  session), `widgets.ts` (the Today and window widget cards, the window
+  timeline), `format.ts` (`fmt`, `parseNumberInput`, `dur`,
   `preview`), `backup.ts` (`parseBackup`, `describeBackup`), `seed.ts`.
 - `src/db/`: `schema.ts` (Room v4 DDL verbatim, 17 tables, `COLUMNS`,
   `BOOL_COLUMNS`), `rows.ts` (bool 0/1 conversion, upsert SQL),
@@ -233,16 +266,28 @@ reads during render and no synchronous `setState` inside effects.
    alarms) and re-planned on every change and return to the app; there is no
    window widget yet (stage 6); the player has no lock-screen notification
    (as with the cardio timer).
-6. **Next:** Platform: Health Connect (Android) and HealthKit (iOS) import, home-screen
-   widgets, EAS Update instead of the APK self-updater.
-7. EAS Build and signing for both stores.
+6. **Done.** Platform. Import (`import`, History → Import; Today shows "N new
+   sessions from the band"): Health Connect or Apple Health workouts of the
+   last 60 days, band and watch copies merged, each with a default exercise
+   (Import all, or tap to pick); an imported record never shows again; strength
+   workouts are left out. Widgets: Today (item, stretch line, Start / Resume /
+   Open) and Eating window (Open / Closed, the next change), on Android and
+   iOS. EAS Update replaces the APK updater: Settings → Check for update, and
+   Today's "Update ready" row. ImportDefaultTest is ported. Not like Kotlin:
+   the Android window widget refreshes on writes and every 30 minutes rather
+   than at the exact boundary (iOS gets a timeline with each change); EAS
+   Update needs a project first (`bunx eas-cli init`, then
+   `bunx eas-cli update:configure`, which adds `updates.url`), so until then
+   updates are off; the iOS app now carries HealthKit and App Group
+   entitlements and a widget extension, which a free Apple team cannot sign.
+7. **Next:** EAS project, EAS Build and signing for both stores.
 
 ## Checks before calling anything done
 
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 135 tests at the end of stage 5; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 151 tests at the end of stage 6; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 
@@ -265,7 +310,14 @@ cancels them all), and the player (step tab and Change view, Start with
 next ready screen, Skip, the mirrored right side, Stop back to Today with
 the run recorded and shown in History). Still unverified: the window
 notifications actually firing, sprite memory over a whole routine, the
-player's taps on iOS, and a physical phone. Stage 4
+player's taps on iOS, and a physical phone. Stage 6 was checked on the
+Android emulator at the user's request (2026-10-06): Health Connect status,
+read permission, the debug test run, the import list, the picker, Today's
+band row, the imported session in History, both widgets drawn while the app
+was closed, Start / Resume / window taps, widget redraws after writes, and
+Settings' update row. On iOS it was built and opened on the simulator (Today,
+the Import screen asking for Apple Health); the HealthKit read, the widgets
+and the taps are unverified there. Stage 4
 added native modules: rebuild the dev build (`bun run ios` / `bun run android`). Ask the user to check those himself
 when they matter.
 

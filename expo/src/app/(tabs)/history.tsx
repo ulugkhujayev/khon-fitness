@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
 import { BodyweightHistory } from '@/components/history/BodyweightHistory';
 import { CalendarGrid } from '@/components/history/CalendarGrid';
 import { CardioTrendsSection } from '@/components/history/CardioTrendsSection';
@@ -8,7 +9,7 @@ import { ExerciseProgress } from '@/components/history/ExerciseProgress';
 import { MuscleVolumeList } from '@/components/history/MuscleVolumeList';
 import { TabScreen } from '@/components/layout';
 import { DayPlanSheet } from '@/components/plan/DayPlanSheet';
-import { MonthSwitcher, ScreenTitle, TitleRow } from '@/components/ui';
+import { MonthSwitcher, ScreenTitle, TextButton, TitleRow } from '@/components/ui';
 import { monthStart, monthWeeks, today as todayIso } from '@/domain/dates';
 import { muscleVolume, stretchMonth } from '@/domain/history';
 import { itemFor, sessionScreen } from '@/domain/plan';
@@ -19,7 +20,7 @@ import { getView } from '@/timer/engine';
 
 /**
  * History (HistoryScreen.kt): the month calendar, the selected day, stretching in the month, bodyweight,
- * exercise progress, sets per muscle and cardio trends.
+ * exercise progress, sets per muscle and cardio trends. Import brings in band workouts.
  */
 export default function HistoryScreen() {
   const today = todayIso();
@@ -42,7 +43,7 @@ export default function HistoryScreen() {
 
   return (
     <TabScreen scrollEnabled={!dragging}>
-      <ScreenTitle text="History" />
+      <ScreenTitle text="History" trailing={<TextButton text="Import" label="Import workouts" onPress={() => router.push('/import')} />} />
       {data ? (
         <>
           <MonthSwitcher month={month} onChange={setMonth} />

@@ -9,6 +9,7 @@ import 'react-native-reanimated';
 
 import { NotificationHost } from '@/alerts/NotificationHost';
 import { DataProvider } from '@/db/DataProvider';
+import { WidgetHost } from '@/widgets/WidgetHost';
 import { Font, K } from '@/theme';
 
 export { ErrorBoundary } from 'expo-router';
@@ -61,6 +62,7 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
             </Stack>
             <NotificationHost />
+            <WidgetHost />
           </DataProvider>
         </ThemeProvider>
       </KeyboardProvider>

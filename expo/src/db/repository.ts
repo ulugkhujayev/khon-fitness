@@ -4,6 +4,7 @@
  */
 import { today as todayIso } from '@/domain/dates';
 import { Backup, describeBackup, parseBackup } from '@/domain/backup';
+import { ImportDraft, importedIds, importedSession } from '@/domain/health';
 import { itemFor, itemId, PlanData, PlanItem, PlanRules } from '@/domain/plan';
 import {
   SEED_BLOCK_EXERCISES, SEED_BLOCKS, SEED_EATING_WINDOW, SEED_EXERCISES, SEED_MODALITIES, SEED_PROGRAM,
@@ -89,10 +90,8 @@ export async function exerciseUsage(id: string): Promise<number> {
 
 export const stretchUseCount = (id: string) => count('SELECT COUNT(*) AS n FROM routine_stretches WHERE stretchId = ?', [id]);
 
-export async function importedSourceIds(): Promise<string[]> {
-  const rows = await all<Session>(T.sessions, 'sourceId IS NOT NULL');
-  return rows.flatMap((s) => (s.sourceId ?? '').split(','));
-}
+/** Health Connect / HealthKit record ids already imported. */
+export const importedSourceIds = async () => importedIds(await all<Session>(T.sessions, 'sourceId IS NOT NULL'));
 
 // ---------------------------------------------------------------- exercises, modalities
 
@@ -299,6 +298,17 @@ export const deleteRoutineStretch = (id: string) =>
 export const saveStretchSession = (s: StretchSession) => write((tx) => tx.upsert(T.stretchSessions, s));
 export const deleteStretchSession = (id: string) =>
   write((tx) => tx.run(T.stretchSessions, 'DELETE FROM stretch_sessions WHERE id = ?', [id]));
+
+// ---------------------------------------------------------------- health import
+
+/** A finished cardio session from a band workout, with per-interval heart rate for an interval exercise. */
+export function importDraft(d: ImportDraft, ex: Exercise) {
+  const { session, intervals } = importedSession(d, ex, newId(), newId);
+  return write(async (tx) => {
+    await tx.upsert(T.sessions, session);
+    if (intervals.length > 0) await tx.upsert(T.intervalLogs, intervals);
+  });
+}
 
 // ---------------------------------------------------------------- eating window
 

@@ -23,7 +23,10 @@
       "permissions": [
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.USE_EXACT_ALARM",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_DISTANCE"
       ]
     },
     "web": {
@@ -57,11 +60,89 @@
           "icon": "./assets/images/android-icon-monochrome.png",
           "color": "#FF9F0A"
         }
-      ]
+      ],
+      "react-native-health-connect",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          },
+          "ios": {
+            "usePrecompiledModules": false
+          }
+        }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Khon Fitness reads your workouts and heart rate to log them as cardio sessions.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Today",
+              "label": "Today",
+              "description": "Workout of the day with a Start button",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "EatingWindow",
+              "label": "Eating window",
+              "description": "Eating window: open or closed, and the next change time",
+              "minWidth": "140dp",
+              "minHeight": "50dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 1,
+              "resizeMode": "horizontal",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "TodayWidget",
+              "displayName": "Today",
+              "description": "Workout of the day with a Start button",
+              "supportedFamilies": [
+                "systemSmall"
+              ],
+              "contentMarginsDisabled": false
+            },
+            {
+              "name": "WindowWidget",
+              "displayName": "Eating window",
+              "description": "Eating window: open or closed, and the next change time",
+              "supportedFamilies": [
+                "systemSmall"
+              ],
+              "contentMarginsDisabled": false
+            }
+          ]
+        }
+      ],
+      "./plugins/withDebugHealthWrite.js"
     ],
     "experiments": {
       "typedRoutes": true
     },
-    "backgroundColor": "#000000"
+    "backgroundColor": "#000000",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }

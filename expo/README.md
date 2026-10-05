@@ -70,6 +70,6 @@ export has the same JSON keys, so it goes back the other way too.
 4. Cardio: interval timer, cues, background notifications. Done.
 5. Stretching (routines, stretch library, a player with the pre-rendered 3D
    demonstrations) and the eating window with its reminders. Done.
-6. Platform parts: Health Connect and HealthKit, widgets, EAS Update in
-   place of the APK updater.
+6. Platform parts: Health Connect and HealthKit import, home-screen widgets on
+   both platforms, EAS Update in place of the APK updater. Done.
 7. EAS Build for Android and iOS.

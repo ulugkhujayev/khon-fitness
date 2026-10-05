@@ -4,9 +4,10 @@
  */
 import { useEffect, useState } from 'react';
 import { preview } from '@/domain/format';
+import { importedIds } from '@/domain/health';
 import { doneSessionFor, itemFor } from '@/domain/plan';
 import { activeRoutine, routineSummary } from '@/domain/stretch';
-import { SetLog } from '@/domain/types';
+import { Kind, SetLog } from '@/domain/types';
 import { doneLine } from '@/domain/workout';
 import * as repo from './repository';
 import { TABLES as T } from './schema';
@@ -14,7 +15,8 @@ import { useLive } from './useLive';
 
 /**
  * Today: the plan around the date, its resolved item, a running session, the done line, bodyweights,
- * the active stretch routine (green once stretched today), and the eating window with its days.
+ * the active stretch routine (green once stretched today), the eating window with its days, and the
+ * health record ids already imported (for the band row).
  */
 export function useToday(date: string) {
   return useLive(
@@ -29,6 +31,7 @@ export function useToday(date: string) {
       const routine = activeRoutine(routines);
       return {
         plan, modalities, bodyweights, unfinished, item, eatingWindow, windowDays,
+        imported: importedIds(sessions),
         line: preview(item, blocks, blockExercises, modalities),
         doneText: done ? doneLine(done, await repo.setLogs(done.id)) : null,
         routine: routine && {
@@ -188,5 +191,16 @@ export function useStretching() {
       return { routines, routineStretches, stretches };
     },
     [T.stretchRoutines, T.routineStretches, T.stretches],
+  );
+}
+
+/** Health import: the cardio library and plan for default exercises, modality colors, and the record ids already imported. */
+export function useImportData() {
+  return useLive(
+    async () => {
+      const [exercises, modalities, plan, imported] = await Promise.all([repo.exercises(), repo.modalities(), repo.planData(), repo.importedSourceIds()]);
+      return { cardio: exercises.filter((e) => e.kind === Kind.CARDIO && !e.archived), modalities, plan, imported };
+    },
+    [T.sessions, T.exercises, T.modalities, ...repo.PLAN_TABLES],
   );
 }

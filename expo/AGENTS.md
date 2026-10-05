@@ -16,6 +16,20 @@ This is an Expo/React Native mobile application. Prioritize mobile-first pattern
 - Claude Code enforces this with `Edit(/android/**)` and `Edit(/ios/**)` deny rules in `.claude/settings.json`. Other agents have no such guard, so they follow this section themselves.
 - Paths like `android/app/src/main/java/dev/mirzohidkhon/...` in `CLAUDE.md` belong to the original Kotlin app, a separate repo cloned to `../khon-fitness`. Read them, never write them.
 
+## Code quality: write it like a senior engineer
+
+The owner reviews for this. Code that works but ignores these rules is not done.
+
+- **Reuse before writing.** Before building UI, read `src/components/` and use what is there (rows, field rows, sheets, number widget, buttons, chart). If two screens need the same piece, or a piece is described in `docs/DESIGN.md`, it is a shared component. Never copy a block of JSX from one screen into another; extract it.
+- **Thin route files.** A file in `src/app/` reads its params, gets data from a hook and composes components. It holds only its default export; sub-components (rows, sheets, forms, sections) live in `src/components/<feature>/` (for example `src/components/session/SetRow.tsx`). Keep a route file under about 150 lines.
+- **Small, single-purpose components.** One exported component per file, the file named after it. Split a component that grows past about 150 lines or does two jobs. Props get an explicit type; prefer a few clear props to a config object.
+- **Logic out of components.** Rules, calculations, formatting and parsing go to `src/domain/` (pure TypeScript) with a `bun test` case. Components render and call handlers.
+- **Data through hooks.** Screens read with named hooks (`useSession(id)`, `usePlan()`) built on `useLive`, and write through `src/db/repository.ts`. No SQL and no chains of repository calls inside a component.
+- **Theme tokens only.** Colors, type and spacing come from `src/theme` (`K`, `Type`, `Space`). No raw hex values or ad-hoc font sizes in components; a size from `docs/DESIGN.md` that has no token gets a short comment naming the rule.
+- **Strict types.** No `any`, no unchecked `as` casts, no `!` unless the line above proves the value exists. No dead code, unused exports or commented-out blocks.
+- **Accessible by default.** Every pressable has a role and a label, touch targets are at least 44 pt, state (selected, checked, disabled) is exposed.
+- **Comments say why.** A one-line doc comment on each exported component or function; inline comments only for decisions that are not obvious from the code.
+
 ## Expo has changed — do not trust your training data
 
 Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:

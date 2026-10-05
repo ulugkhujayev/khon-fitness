@@ -123,6 +123,9 @@ reads during render and no synchronous `setState` inside effects.
   Missing keys take Kotlin defaults on import (kotlinx omits defaults).
 - New logic goes in `src/domain` with a `bun test` case in `tests/`. Port the
   matching Kotlin unit test when one exists.
+- Code quality bar (reusable components, thin route files, hooks for data,
+  theme tokens, strict types): AGENTS.md, "Code quality". It binds every
+  change.
 
 ## Stages
 

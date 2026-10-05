@@ -22,12 +22,15 @@ export function LineChart({
   unit,
   height = 180,
   decimals = 1,
+  format,
   style,
 }: {
   points: ChartPoint[];
   unit: string;
   height?: number;
   decimals?: number;
+  /** Text for a value on the axis and the labels, e.g. a pace as m:ss. Defaults to the number with `decimals`. */
+  format?: (v: number) => string;
   style?: ViewStyle;
 }) {
   const [width, setWidth] = useState(0);
@@ -38,13 +41,26 @@ export function LineChart({
           <Text style={styles.emptyText}>No data yet</Text>
         </View>
       ) : width > 0 ? (
-        <Plot points={points} unit={unit} width={width} height={height} decimals={decimals} />
+        <Plot points={points} unit={unit} width={width} height={height} label={(v, d) => format?.(v) ?? fmt(v, d ?? decimals)} />
       ) : null}
     </View>
   );
 }
 
-function Plot({ points, unit, width, height, decimals }: { points: ChartPoint[]; unit: string; width: number; height: number; decimals: number }) {
+function Plot({
+  points,
+  unit,
+  width,
+  height,
+  label,
+}: {
+  points: ChartPoint[];
+  unit: string;
+  width: number;
+  height: number;
+  /** Value text; the axis passes its own decimals. */
+  label: (v: number, decimals?: number) => string;
+}) {
   const n = points.length;
   const plotW = width - PAD.l - PAD.r;
   const plotH = height - PAD.t - PAD.b;
@@ -67,7 +83,7 @@ function Plot({ points, unit, width, height, decimals }: { points: ChartPoint[];
       ))}
       {ticks.map((v) => (
         <SvgText key={`t${v}`} x={PAD.l - 8} y={yFor(v) + 4} textAnchor="end" {...TICK}>
-          {fmt(v, step < 1 ? 1 : 0)}
+          {label(v, step < 1 ? 1 : 0)}
         </SvgText>
       ))}
       <Path d={area} fill={K.Accent} fillOpacity={0.13} />
@@ -90,7 +106,7 @@ function Plot({ points, unit, width, height, decimals }: { points: ChartPoint[];
             fill={last ? K.Text : K.Muted}
             fontSize={last ? Type.caption1.fontSize : Type.caption2.fontSize}
             fontFamily={last ? Font.bold : Font.medium}>
-            {fmt(p.value, decimals) + (last && unit ? ` ${unit}` : '')}
+            {label(p.value) + (last && unit ? ` ${unit}` : '')}
           </SvgText>
         );
       })}

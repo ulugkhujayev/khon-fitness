@@ -86,25 +86,31 @@ reads during render and no synchronous `setState` inside effects.
     (TextButton, PrimaryButton, Capsule, PlusButton, BarCircleButton), lists
     (GroupedList, ListRow, FieldRow, FieldValue, ToggleRow, Empty), inputs
     (NumberField, NumberRow, InlineTextField, SearchField, Segmented, Toggle,
-    DateRow, MonthGrid), sheets (Sheet, ChoiceSheet, ChoiceList, ChoiceRow,
-    SheetGroupTitle, ConfirmSheet), LineChart, ProgressBar, Dot, Check.
+    DateRow, MonthGrid, MonthSwitcher), sheets (Sheet, ChoiceSheet,
+    ChoiceList, ChoiceRow, SheetGroupTitle, ConfirmSheet), TitleRow,
+    LineChart (`format` for m:ss), ProgressBar, Dot, Check.
     Pick lists use `ChoiceSheet`; do not build another sheet of choice rows.
   - `layout/`: NavBar, BackButton, EditorScreen (empty = loading frame),
     TabScreen, FloatingTabBar.
-  - Feature folders: `plan/` (WeekStrip, PlanItemSheet, `colors.ts`),
-    `today/`, `session/` (BlockCard, SetRow, SwapSheet, … and the hooks
-    `useFieldFocus`, `useLeaveWhenGone`), `editors/` (ExerciseForm with a
-    table-driven select config, ModalityForm, ColorSheet, BlockExerciseGroup).
+  - Feature folders: `plan/` (WeekStrip, PlanItemSheet, DayPlanSheet for
+    one date, `colors.ts`), `today/`, `session/` (BlockCard, SetRow,
+    SwapSheet, … and the hooks `useFieldFocus`, `useLeaveWhenGone`),
+    `editors/` (ExerciseForm with a table-driven select config, ModalityForm,
+    ColorSheet, BlockExerciseGroup), `history/` (CalendarGrid with the
+    `useDayDrag` long-press drag, CalendarDay, DayDetail, BodyweightHistory,
+    ExerciseProgress, MuscleVolumeList, CardioTrendsSection).
 - `src/db/hooks.ts`: the named reads screens use (`useToday`, `useSession`,
   `usePreviousLogs`, `usePrograms`, `useProgram`, `useBlock`, `useLibrary`,
-  `useModalities`, `usePlan`, `useExerciseUsage`).
+  `useModalities`, `usePlan`, `useExerciseUsage`, `useHistory`).
 - `src/domain/`: pure TypeScript, **no Expo or React imports**, so `bun test`
   runs it. `types.ts` (entities with Kotlin field names, `Defaults` = Kotlin
   constructor defaults), `dates.ts` (local `yyyy-MM-dd`, ISO weekday 1..7;
   never use UTC/`toISOString` for dates), `plan.ts` (`itemFor`, `PlanRules`),
   `session.ts` (`buildSetLogs`, `previousByKey`, `epley`), `workout.ts`
   (summary, block grouping and title, next pending set, gains, effort,
-  Today's done line),
+  Today's done line), `history.ts` (day dots, day labels, calendar hit test
+  and drop rule, session lines, e1RM progress, weekly sets per muscle, cardio
+  trends),
   `editors.ts` (block/exercise editor rules, library filter, preset colors),
   `chart.ts` (chart scale and label picks), `window.ts`
   (`EatingWindowRules`), `format.ts` (`fmt`, `parseNumberInput`, `dur`,
@@ -149,15 +155,21 @@ reads during render and no synchronous `setState` inside effects.
    Edit for a finished session), program, block, exercise and modality
    editors, exercise library, week plan. Cardio items show Start disabled
    until stage 4 (there is no cardio screen yet).
-3. **Next: History.** Month calendar with session dots (port `dayDots` and
-   `DayDotsTest`), tap a day to open the session (`session/[id]` already
-   renders finished sessions), long-press a day to change it and drag one
-   day onto another to swap (`swapDays`, `PlanRules.canSwap`; Kotlin does
-   this on History, not Today), bodyweight chart (`LineChart`), exercise
-   picker with e1RM chart (Epley), top set, recent sessions table.
-   `MonthGrid` in `DateRow.tsx` is the calendar to grow.
-4. Cardio: cardio session screen, interval timer with cues that keeps running
-   in the background (Kotlin uses a foreground service), manual entry.
+3. **Done.** History: month calendar with session dots, a changed-plan mark
+   and the plan as a faint dot; tap selects a day, long press opens its
+   plan, drag onto a day ahead swaps the two (screen readers get the same as
+   custom actions); the day's sessions and stretch runs; stretching in the
+   month; bodyweight chart; e1RM chart and top sets per exercise; sets per
+   muscle this week and last; cardio trends (pace, heart rate, interval heart
+   rate, time). The Kotlin Import button (Health Connect) waits for stage 6.
+   Cardio rows in the day list open nothing until stage 4.
+4. **Next: Cardio.** Port `CardioScreen.kt`, `TimerScreen.kt` and `timer/`
+   (`TimerState.kt`, `CueGate.kt`, `TimerService.kt` with their tests):
+   cardio session screen with the fields of the exercise and one row per
+   work interval, the interval timer with cues that keeps running in the
+   background (Kotlin uses a foreground service), manual entry; then enable
+   cardio Start / Resume on Today (`hasSessionScreen`) and cardio rows in
+   History.
 5. Stretching (routine player, 3D demo figures from `StretchDemo.kt` /
    `tools/stretch-demo`) and the eating window (sheet, reminders).
 6. Platform: Health Connect (Android) and HealthKit (iOS) import, home-screen
@@ -169,15 +181,17 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 57 tests after the stage 2 refactor; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 73 tests at the end of stage 3; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 
 These are the only checks. Do not run the app or open a simulator or
 emulator (see "The user"). Stage 2 was checked once on the iOS simulator and
 Android emulator; still unverified on a device: the share sheet export, the
-document picker import (including a real backup from the Kotlin app), and a
-physical phone. Ask the user to check those himself when they matter.
+document picker import (including a real backup from the Kotlin app), the
+stage 2 refactor, all of stage 3 (above all the calendar long press and drag
+on both platforms), and a physical phone. Ask the user to check those himself
+when they matter.
 
 ## Commits
 

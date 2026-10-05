@@ -8,10 +8,15 @@ import { K, Space } from '@/theme';
 const TAB_BAR_SPACE = 96;
 
 /** A scrolling tab screen: black background, 16 pt margins, content clears the floating tab bar and the keyboard. */
-export function TabScreen({ children }: { children: ReactNode }) {
+export function TabScreen({ children, scrollEnabled = true }: { children: ReactNode; /** Off while a drag inside owns the touch. */ scrollEnabled?: boolean }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView
+        bottomOffset={24}
+        scrollEnabled={scrollEnabled}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         {children}
       </KeyboardAwareScrollView>
     </SafeAreaView>

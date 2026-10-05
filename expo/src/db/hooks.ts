@@ -132,3 +132,16 @@ export function useExerciseUsage(id: string | null): number {
   }, [id]);
   return usage;
 }
+
+/** History: every session with its sets and interval rows, stretch runs, bodyweights, and the plan for the calendar. */
+export function useHistory() {
+  return useLive(
+    async () => {
+      const [sessions, logs, intervals, stretches, bodyweights, plan, exercises, modalities] = await Promise.all([
+        repo.sessions(), repo.allSetLogs(), repo.allIntervalLogs(), repo.stretchSessions(), repo.bodyweights(), repo.planData(), repo.exercises(), repo.modalities(),
+      ]);
+      return { sessions, logs, intervals, stretches, bodyweights, plan, exercises, modalities };
+    },
+    [T.sessions, T.setLogs, T.intervalLogs, T.stretchSessions, T.bodyweights, T.modalities, ...repo.PLAN_TABLES],
+  );
+}

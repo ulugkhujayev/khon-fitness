@@ -1,14 +1,13 @@
 import { useRef, useState } from 'react';
-import { StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { TabScreen } from '@/components/layout';
-import { PlanItemSheet } from '@/components/plan/PlanItemSheet';
+import { DayPlanSheet } from '@/components/plan/DayPlanSheet';
 import { WeekStrip } from '@/components/plan/WeekStrip';
 import { BodyweightSection } from '@/components/today/BodyweightSection';
 import { TodayCard } from '@/components/today/TodayCard';
-import { BarCircleButton, ScreenTitle, TextButton } from '@/components/ui';
-import { longDate, today as todayIso } from '@/domain/dates';
-import { hasSessionScreen, itemFor, itemId } from '@/domain/plan';
+import { BarCircleButton, ScreenTitle } from '@/components/ui';
+import { today as todayIso } from '@/domain/dates';
+import { hasSessionScreen } from '@/domain/plan';
 import { Session } from '@/domain/types';
 import { useToday } from '@/db/hooks';
 import * as repo from '@/db/repository';
@@ -36,8 +35,6 @@ export default function TodayScreen() {
     }
   };
 
-  const planned = data ? itemFor(data.plan, planDate) : null;
-
   return (
     <TabScreen>
       <ScreenTitle
@@ -57,36 +54,10 @@ export default function TodayScreen() {
           />
           <TodayCard item={data.item} line={data.line} unfinished={data.unfinished} doneText={data.doneText} onStart={start} onResume={openSession} />
           <BodyweightSection today={today} bodyweights={data.bodyweights} onAdd={(kg) => repo.saveBodyweight(today, kg)} />
-          <PlanItemSheet
-            visible={planOpen}
-            title={longDate(planDate)}
-            plan={data.plan}
-            modalities={data.modalities}
-            current={planned ? { itemType: planned.itemType, itemId: itemId(planned) } : null}
-            onPick={({ itemType, itemId: id }) => {
-              repo.saveOverride(planDate, itemType, id);
-              setPlanOpen(false);
-            }}
-            onDismiss={() => setPlanOpen(false)}
-            footer={
-              planned?.overridden ? (
-                <TextButton
-                  text="Back to weekly template"
-                  style={styles.backToTemplate}
-                  onPress={() => {
-                    repo.clearOverride(planDate);
-                    setPlanOpen(false);
-                  }}
-                />
-              ) : null
-            }
-          />
+          <DayPlanSheet visible={planOpen} date={planDate} plan={data.plan} modalities={data.modalities} onDismiss={() => setPlanOpen(false)} />
         </>
       ) : null}
     </TabScreen>
   );
 }
 
-const styles = StyleSheet.create({
-  backToTemplate: { alignSelf: 'flex-start', marginTop: 12 },
-});

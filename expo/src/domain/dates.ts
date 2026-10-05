@@ -84,6 +84,17 @@ export function monthGrid(date: string): (string | null)[] {
   return cells;
 }
 
+/** Whole weeks, Monday first, that cover the month holding the date; days of the months around fill the edges. */
+export function monthWeeks(date: string): string[][] {
+  const next = monthStart(date, 1);
+  const weeks: string[][] = [];
+  for (let d = mondayOf(monthStart(date)); d < next; d = addDays(d, 7)) weeks.push(Array.from({ length: 7 }, (_, i) => addDays(d, i)));
+  return weeks;
+}
+
+/** Both dates fall in the same calendar month. */
+export const sameMonth = (a: string, b: string) => a.slice(0, 7) === b.slice(0, 7);
+
 /** The seven dates of the week that holds the date, Monday first. */
 export const weekOf = (date: string): string[] => Array.from({ length: 7 }, (_, i) => addDays(mondayOf(date), i));
 

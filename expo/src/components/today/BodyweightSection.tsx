@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { LineChart, NumberField, TextButton } from '@/components/ui';
+import { StyleSheet, View } from 'react-native';
+import { LineChart, NumberField, TextButton, TitleRow } from '@/components/ui';
 import { addDays } from '@/domain/dates';
 import { fmt } from '@/domain/format';
 import { Bodyweight } from '@/domain/types';
-import { tabular, Type } from '@/theme';
 
 /** The chart covers the last 30 days, today included. */
 const CHART_DAYS = 30;
@@ -24,12 +23,7 @@ export function BodyweightSection({ today, bodyweights, onAdd }: { today: string
 
   return (
     <View>
-      <View style={styles.header}>
-        <Text style={styles.title}>Bodyweight</Text>
-        <Text style={styles.latest} accessibilityLabel={latest ? `${fmt(latest.kg)} kg` : 'No entry yet'}>
-          {latest ? `${fmt(latest.kg)} kg` : '—'}
-        </Text>
-      </View>
+      <TitleRow title="Bodyweight" value={latest ? `${fmt(latest.kg)} kg` : '—'} valueLabel={latest ? undefined : 'No entry yet'} large style={styles.header} />
       {recent.length > 0 ? <LineChart points={recent.map((b) => ({ date: b.date, value: b.kg }))} unit="kg" height={130} style={styles.chart} /> : null}
       <View style={styles.add}>
         <NumberField
@@ -58,9 +52,7 @@ export function BodyweightSection({ today, bodyweights, onAdd }: { today: string
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', marginTop: 28 },
-  title: { ...Type.headline, flex: 1 },
-  latest: { ...Type.title2, ...tabular },
+  header: { marginTop: 28 },
   chart: { marginTop: 8 },
   add: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
   field: { flex: 1 },

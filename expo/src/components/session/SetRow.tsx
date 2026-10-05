@@ -40,7 +40,8 @@ export function SetRow({
   const tag = setTag(log);
   const isDone = log.status === SetStatus.DONE;
   const decimals = kgDecimals(log.stepKg, log.weightKg, prev?.weightKg);
-  const prevKg = prev ? fmt(prev.weightKg, decimals) : '';
+  // Rows saved before sets started at 0 kg may hold no weight; they read as 0.
+  const prevKg = fmt(prev?.weightKg ?? 0, decimals);
   const prevReps = prev?.reps ?? 0;
 
   return (
@@ -77,7 +78,7 @@ export function SetRow({
               decimals={decimals}
               inputRef={inputRef}
               label={`${tag} weight`}
-              placeholder={prev ? prevKg : undefined}
+              placeholder={prev ? prevKg : '0'}
               compact={compact}
             />
             <SetDelta gain={gain(prev?.weightKg, log.weightKg, decimals, 'kg')} unit={compact ? 'kg' : null} />
@@ -98,7 +99,7 @@ export function SetRow({
         </View>
       ) : (
         <Text style={[styles.result, log.status === SetStatus.SKIPPED && styles.skipped]}>
-          {log.status === SetStatus.SKIPPED ? 'skipped' : `${fmt(log.weightKg, decimals)} kg × ${log.reps ?? 0} reps`}
+          {log.status === SetStatus.SKIPPED ? 'skipped' : `${fmt(log.weightKg ?? 0, decimals)} kg × ${log.reps ?? 0} reps`}
         </Text>
       )}
     </View>

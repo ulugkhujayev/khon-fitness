@@ -58,7 +58,7 @@ describe('buildSetLogs', () => {
     const bench0 = logs.find((l) => setKey(l) === 'bench:0')!;
     expect([bench0.weightKg, bench0.reps]).toEqual([60, 10]);
     const leg0 = logs.find((l) => setKey(l) === 'legpress:0')!;
-    expect([leg0.weightKg, leg0.reps]).toEqual([null, 8]);
+    expect([leg0.weightKg, leg0.reps]).toEqual([0, 8]);
   });
 
   test('epley', () => {

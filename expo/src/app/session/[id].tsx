@@ -66,13 +66,17 @@ export default function SessionScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {finished ? <NavBar title={s.programName ?? 'Session'} trailing={<Capsule text={editing ? 'Done' : 'Edit'} onPress={() => setEditing((e) => !e)} />} /> : null}
+      {/* The header stays put while the sets scroll: Finish and the progress are always in reach. */}
+      {finished ? (
+        <NavBar title={s.programName ?? 'Session'} trailing={<Capsule text={editing ? 'Done' : 'Edit'} onPress={() => setEditing((e) => !e)} />} />
+      ) : (
+        <SessionHeader title={s.programName ?? 'Session'} date={s.date} done={doneCount(logs)} total={logs.length} onFinish={openSummary} />
+      )}
       <KeyboardAwareScrollView
         bottomOffset={24}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
-        {!finished ? <SessionHeader title={s.programName ?? 'Session'} date={s.date} done={doneCount(logs)} total={logs.length} onFinish={openSummary} /> : null}
         {blocks.map((blockLogs, bi) => (
           <BlockCard
             key={blockLogs[0].blockIndex}
@@ -144,7 +148,7 @@ export default function SessionScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: K.Bg },
-  content: { paddingHorizontal: Space.margin, paddingTop: 6 },
+  content: { paddingHorizontal: Space.margin },
   gap: { height: 20 },
   delete: { alignSelf: 'flex-start', marginTop: 20 },
 });

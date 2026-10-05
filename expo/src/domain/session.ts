@@ -19,7 +19,7 @@ export const epley = (weight: number, reps: number) => weight * (1 + reps / 30);
 /**
  * Snapshots every block of a program into set logs in execution order.
  * A superset with two or more exercises alternates A1 B1 A2 B2; anything else runs straight through.
- * Each set is prefilled from the previous done set with the same key, or gets reps = minReps.
+ * Each set is prefilled from the previous done set with the same key, or starts at 0 kg and minReps.
  */
 export function buildSetLogs(
   detail: ProgramDetail,
@@ -65,7 +65,8 @@ export function buildSetLogs(
 
   return logs.map((l) => {
     const p = previous.get(setKey(l));
-    return p ? { ...l, weightKg: p.weightKg, reps: p.reps } : { ...l, reps: l.minReps };
+    // A first time starts at 0 kg and the low end of the rep range: real values, like the reps, not an empty field.
+    return p ? { ...l, weightKg: p.weightKg ?? 0, reps: p.reps ?? l.minReps } : { ...l, weightKg: 0, reps: l.minReps };
   });
 }
 

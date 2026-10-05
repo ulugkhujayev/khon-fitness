@@ -4,10 +4,13 @@ import { Capsule, ProgressBar } from '@/components/ui';
 import { shortDate } from '@/domain/dates';
 import { K, Space, Type } from '@/theme';
 
-/** Top of a running session (SessionScreen.kt): Back and Finish, the program name, the date, sets done and a progress bar. */
+/**
+ * Top of a running session (SessionScreen.kt): Back and Finish, the program name, the date, sets done and a
+ * progress bar. It sits above the scrolling sets, so it stays in view.
+ */
 export function SessionHeader({ title, date, done, total, onFinish }: { title: string; date: string; done: number; total: number; onFinish: () => void }) {
   return (
-    <View>
+    <View style={styles.header}>
       <View style={styles.bar}>
         <BackButton label="Today" />
         <Capsule text="Finish" onPress={onFinish} />
@@ -27,6 +30,7 @@ export function SessionHeader({ title, date, done, total, onFinish }: { title: s
 }
 
 const styles = StyleSheet.create({
+  header: { paddingHorizontal: Space.margin, paddingTop: 6 },
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: Space.tapMin, marginBottom: 4 },
   title: { ...Type.title1, marginTop: 4 },
   meta: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },

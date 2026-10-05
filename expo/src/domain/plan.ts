@@ -68,8 +68,12 @@ export function doneSessionFor(sessions: Session[], item: PlanItem, date: string
   );
 }
 
-/** Session types that have a screen so far: programs. Cardio sessions get theirs in stage 4. */
-export const hasSessionScreen = (itemType: string) => itemType === ItemType.PROGRAM;
+/** The screens a session opens in. */
+export type SessionScreen = 'session' | 'timer' | 'cardio';
+
+/** A program opens in the live session; cardio in the interval timer while it runs (or starts one), else in the form. */
+export const sessionScreen = (itemType: string, inTimer: boolean): SessionScreen =>
+  itemType === ItemType.PROGRAM ? 'session' : inTimer ? 'timer' : 'cardio';
 
 /** Id of the item a plan item points at, or null for rest. */
 export const itemId = (item: PlanItem): string | null => item.program?.id ?? item.cardio?.id ?? null;

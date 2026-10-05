@@ -7,14 +7,15 @@ import { BodyweightSection } from '@/components/today/BodyweightSection';
 import { TodayCard } from '@/components/today/TodayCard';
 import { BarCircleButton, ScreenTitle } from '@/components/ui';
 import { today as todayIso } from '@/domain/dates';
-import { hasSessionScreen } from '@/domain/plan';
+import { sessionScreen } from '@/domain/plan';
 import { Session } from '@/domain/types';
 import { useToday } from '@/db/hooks';
 import * as repo from '@/db/repository';
+import { openSession } from '@/navigation';
+import { getView } from '@/timer/engine';
 
-function openSession(s: Session) {
-  if (hasSessionScreen(s.itemType)) router.push(`/session/${s.id}`);
-}
+/** A running session continues where it is: its timer while that runs, else its screen. */
+const resume = (s: Session) => openSession(s.id, sessionScreen(s.itemType, getView().state?.sessionId === s.id));
 
 /** Today (TodayScreen.kt): the week strip, today's item with Start or Resume, bodyweight. */
 export default function TodayScreen() {
@@ -29,7 +30,8 @@ export default function TodayScreen() {
     starting.current = true;
     try {
       const s = await repo.startItem(data.item);
-      if (s) openSession(s);
+      // An interval exercise starts in its timer, a steady one in the form.
+      if (s) openSession(s.id, sessionScreen(s.itemType, data.item.cardio?.intervals === true));
     } finally {
       starting.current = false;
     }
@@ -52,7 +54,7 @@ export default function TodayScreen() {
               setPlanOpen(true);
             }}
           />
-          <TodayCard item={data.item} line={data.line} unfinished={data.unfinished} doneText={data.doneText} onStart={start} onResume={openSession} />
+          <TodayCard item={data.item} line={data.line} unfinished={data.unfinished} doneText={data.doneText} onStart={start} onResume={resume} />
           <BodyweightSection today={today} bodyweights={data.bodyweights} onAdd={(kg) => repo.saveBodyweight(today, kg)} />
           <DayPlanSheet visible={planOpen} date={planDate} plan={data.plan} modalities={data.modalities} onDismiss={() => setPlanOpen(false)} />
         </>

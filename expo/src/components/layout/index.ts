@@ -4,3 +4,4 @@ export { EditorScreen } from './EditorScreen';
 export { NavBar } from './NavBar';
 export { FloatingTabBar } from './TabBar';
 export { TabScreen } from './TabScreen';
+export { useLeaveWhenGone } from './useLeaveWhenGone';

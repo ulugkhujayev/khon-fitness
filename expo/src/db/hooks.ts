@@ -145,3 +145,15 @@ export function useHistory() {
     [T.sessions, T.setLogs, T.intervalLogs, T.stretchSessions, T.bodyweights, T.modalities, ...repo.PLAN_TABLES],
   );
 }
+
+/** A cardio session with its exercise (null when gone) and its interval rows. `session` is null once it is gone. */
+export function useCardioSession(id: string) {
+  return useLive(
+    async () => {
+      const [session, exercises, intervals] = await Promise.all([repo.session(id), repo.exercises(), repo.intervalLogs(id)]);
+      return { session, exercise: exercises.find((e) => e.id === session?.exerciseId) ?? null, intervals };
+    },
+    [T.sessions, T.exercises, T.intervalLogs],
+    [id],
+  );
+}

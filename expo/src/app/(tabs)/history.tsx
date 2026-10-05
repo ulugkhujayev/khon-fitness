@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
 import { BodyweightHistory } from '@/components/history/BodyweightHistory';
 import { CalendarGrid } from '@/components/history/CalendarGrid';
 import { CardioTrendsSection } from '@/components/history/CardioTrendsSection';
@@ -12,9 +11,11 @@ import { DayPlanSheet } from '@/components/plan/DayPlanSheet';
 import { MonthSwitcher, ScreenTitle, TitleRow } from '@/components/ui';
 import { monthStart, monthWeeks, today as todayIso } from '@/domain/dates';
 import { muscleVolume, stretchMonth } from '@/domain/history';
-import { itemFor } from '@/domain/plan';
+import { itemFor, sessionScreen } from '@/domain/plan';
 import { useHistory } from '@/db/hooks';
 import * as repo from '@/db/repository';
+import { openSession } from '@/navigation';
+import { getView } from '@/timer/engine';
 
 /**
  * History (HistoryScreen.kt): the month calendar, the selected day, stretching in the month, bodyweight,
@@ -70,7 +71,7 @@ export default function HistoryScreen() {
               exercises={data.exercises}
               modalities={data.modalities}
               onPlan={() => openPlan(selected)}
-              onOpen={(s) => router.push(`/session/${s.id}`)}
+              onOpen={(s) => openSession(s.id, sessionScreen(s.itemType, getView().state?.sessionId === s.id))}
             />
           </View>
           {stretching ? <TitleRow title="Stretching" value={stretching} style={styles.section} /> : null}

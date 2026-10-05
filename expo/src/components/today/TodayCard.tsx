@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton, TextButton } from '@/components/ui';
-import { hasSessionScreen, PlanItem } from '@/domain/plan';
+import { PlanItem } from '@/domain/plan';
 import { Session } from '@/domain/types';
 import { K, Space, Type } from '@/theme';
 
@@ -30,7 +30,7 @@ export function TodayCard({
       <View style={styles.card}>
         <Text style={Type.title2}>{unfinished.programName ?? unfinished.exerciseName ?? 'Session'}</Text>
         <Text style={[styles.line, styles.green]}>In progress</Text>
-        <PrimaryButton text="Resume" enabled={hasSessionScreen(unfinished.itemType)} onPress={() => onResume(unfinished)} />
+        <PrimaryButton text="Resume" onPress={() => onResume(unfinished)} />
       </View>
     );
   }
@@ -39,7 +39,7 @@ export function TodayCard({
       <View style={styles.card}>
         <Text style={Type.title2}>{item.name}</Text>
         <Text style={[styles.line, styles.green, styles.doneLine]}>{doneText}</Text>
-        <TextButton text="Start again" enabled={hasSessionScreen(item.itemType)} onPress={onStart} style={styles.again} />
+        <TextButton text="Start again" onPress={onStart} style={styles.again} />
       </View>
     );
   }
@@ -47,7 +47,7 @@ export function TodayCard({
     <View style={styles.card}>
       <Text style={Type.title2}>{item.name}</Text>
       <Text style={[styles.line, item.isRest && styles.lastLine]}>{line}</Text>
-      {item.isRest ? null : <PrimaryButton text="Start" enabled={hasSessionScreen(item.itemType)} onPress={onStart} />}
+      {item.isRest ? null : <PrimaryButton text="Start" onPress={onStart} />}
     </View>
   );
 }

@@ -31,6 +31,12 @@ export const K = {
   Shadow: '#000000',
   /** Toggle thumb and the ring around the chosen color swatch. */
   White: '#FFFFFF',
+  // Interval timer backgrounds (TimerScreen.kt): warm-up gray, work green, rest blue; text on them in white.
+  PhaseWarmup: '#3A3A40',
+  PhaseWork: '#14532D',
+  PhaseRest: '#1E3A5F',
+  OnPhaseMuted: 'rgba(255,255,255,0.75)',
+  OnPhaseDim: 'rgba(255,255,255,0.6)',
 } as const;
 
 /** Inter, bundled as the stand-in for SF Pro. Keys must match useFonts in the root layout. */
@@ -70,6 +76,10 @@ export const Type = {
   value: { fontFamily: Font.bold, fontSize: 19, color: K.Text, ...tabular },
   /** The − and + glyphs of the number widget (StepButton in Components.kt, 22 sp medium). */
   stepGlyph: t(22, Font.medium, 28),
+  /** The countdown of the interval timer (TimerScreen.kt: 96 sp bold, tight tracking). */
+  countdown: { ...t(96, Font.bold, 112, -5), ...tabular },
+  /** "Round 2 of 4" under the countdown (24 sp semibold). */
+  round: t(24, Font.semibold, 30),
 } as const;
 
 export const Space = {

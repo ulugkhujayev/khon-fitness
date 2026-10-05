@@ -3,7 +3,7 @@ import { itemColor, sessionColor } from '@/components/plan/colors';
 import { GroupedList, ListRow, TextButton, TitleRow } from '@/components/ui';
 import { longDate } from '@/domain/dates';
 import { sessionLine, stretchLine } from '@/domain/history';
-import { hasSessionScreen, PlanItem } from '@/domain/plan';
+import { PlanItem } from '@/domain/plan';
 import { Exercise, Modality, Session, SetLog, StretchSession } from '@/domain/types';
 import { K } from '@/theme';
 
@@ -58,7 +58,7 @@ export function DayDetail({
         value: sessionLine(s, logs),
         dot: c.color,
         filled: c.filled,
-        onPress: hasSessionScreen(s.itemType) ? () => onOpen(s) : undefined,
+        onPress: () => onOpen(s),
       };
     }),
   ];

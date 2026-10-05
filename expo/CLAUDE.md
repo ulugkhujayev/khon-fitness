@@ -71,7 +71,11 @@ Expo SDK 57, React Native 0.86, TypeScript strict, Expo Router (routes in
 expo-sharing, expo-document-picker, expo-crypto, expo-symbols,
 expo-system-ui, react-native-svg (charts), react-native-keyboard-controller
 (`KeyboardProvider` in the root layout; screens scroll with
-`KeyboardAwareScrollView` so a focused field stays above the keyboard).
+`KeyboardAwareScrollView` so a focused field stays above the keyboard),
+expo-audio (timer beeps from `assets/sounds`, made by `bun scripts/beeps.ts`),
+expo-speech (spoken cues), expo-keep-awake (timer screen),
+expo-notifications (timer alerts while the app sleeps), `expo-sqlite/kv-store`
+(the running timer's snapshot).
 Check the SDK 57 docs before using any Expo API (see AGENTS.md); do not
 code Expo APIs from memory. ESLint 9 with `eslint-config-expo` (ESLint 10
 breaks `eslint-plugin-react`); its React Compiler rules are on, so no ref
@@ -91,14 +95,26 @@ reads during render and no synchronous `setState` inside effects.
     LineChart (`format` for m:ss), ProgressBar, Dot, Check.
     Pick lists use `ChoiceSheet`; do not build another sheet of choice rows.
   - `layout/`: NavBar, BackButton, EditorScreen (empty = loading frame),
-    TabScreen, FloatingTabBar.
+    TabScreen, FloatingTabBar, `useLeaveWhenGone` (leave a screen whose record
+    is gone).
   - Feature folders: `plan/` (WeekStrip, PlanItemSheet, DayPlanSheet for
     one date, `colors.ts`), `today/`, `session/` (BlockCard, SetRow,
     SwapSheet, … and the hooks `useFieldFocus`, `useLeaveWhenGone`),
     `editors/` (ExerciseForm with a table-driven select config, ModalityForm,
     ColorSheet, BlockExerciseGroup), `history/` (CalendarGrid with the
     `useDayDrag` long-press drag, CalendarDay, DayDetail, BodyweightHistory,
-    ExerciseProgress, MuscleVolumeList, CardioTrendsSection).
+    ExerciseProgress, MuscleVolumeList, CardioTrendsSection), `cardio/`
+    (TimerView, CardioForm, CardioFieldRows, IntervalRows, ComputedRow).
+- `src/timer/`: the interval timer at run time (TimerService.kt without the
+  Android service). `engine.ts` owns the one running timer: a 50 ms clock
+  while the app is open, cues per transition, a snapshot per transition, and
+  on going to the background it stops the clock and schedules the phase
+  changes as local notifications (`alerts.ts`), cancelled on return; the end
+  writes `timeSec`. `sound.ts` (beeps, speech through `CueGate`, vibration),
+  `snapshots.ts` (kv-store), `useTimer` (useSyncExternalStore), `TimerHost`
+  (root layout: restore at start, open the timer from a tapped alert).
+- `src/navigation.ts`: `openSession` / `replaceSession` open a session in the
+  screen `sessionScreen` (domain/plan.ts) picks: live session, timer or form.
 - `src/db/hooks.ts`: the named reads screens use (`useToday`, `useSession`,
   `usePreviousLogs`, `usePrograms`, `useProgram`, `useBlock`, `useLibrary`,
   `useModalities`, `usePlan`, `useExerciseUsage`, `useHistory`).
@@ -110,7 +126,8 @@ reads during render and no synchronous `setState` inside effects.
   (summary, block grouping and title, next pending set, gains, effort,
   Today's done line), `history.ts` (day dots, day labels, calendar hit test
   and drop rule, session lines, e1RM progress, weekly sets per muscle, cardio
-  trends),
+  trends), `timer.ts` (TimerState, snapshot, CueGate, cue and alert rules,
+  timer screen text), `cardio.ts` (form fields, values, pace, save patch),
   `editors.ts` (block/exercise editor rules, library filter, preset colors),
   `chart.ts` (chart scale and label picks), `window.ts`
   (`EatingWindowRules`), `format.ts` (`fmt`, `parseNumberInput`, `dur`,
@@ -163,15 +180,27 @@ reads during render and no synchronous `setState` inside effects.
    muscle this week and last; cardio trends (pace, heart rate, interval heart
    rate, time). The Kotlin Import button (Health Connect) waits for stage 6.
    Cardio rows in the day list open nothing until stage 4.
-4. **Next: Cardio.** Port `CardioScreen.kt`, `TimerScreen.kt` and `timer/`
-   (`TimerState.kt`, `CueGate.kt`, `TimerService.kt` with their tests):
-   cardio session screen with the fields of the exercise and one row per
-   work interval, the interval timer with cues that keeps running in the
-   background (Kotlin uses a foreground service), manual entry; then enable
-   cardio Start / Resume on Today (`hasSessionScreen`) and cardio rows in
-   History.
-5. Stretching (routine player, 3D demo figures from `StretchDemo.kt` /
-   `tools/stretch-demo`) and the eating window (sheet, reminders).
+4. **Done.** Cardio: the form (`cardio/[id]`: date, the exercise's fields,
+   pace, one row per work interval, effort, note; Save / Discard) and the
+   interval timer (`timer/[id]`: phase colors, 3-2-1 start, three beeps
+   before each change, spoken cues, long beep at the end, screen kept on,
+   Stop writes the time so far). Today starts and resumes cardio, History
+   opens cardio sessions. TimerStateTest, TimerSnapshotTest and CueGateTest
+   are ported. Not like Kotlin: no lock-screen notification with Pause and
+   Stop and no Android foreground service; while the app sleeps the phase
+   changes arrive as scheduled notifications (one sound each, not the three
+   beeps), and the state catches up from the wall clock on return. Pulling
+   headphones does not pause. The expo-notifications plugin adds the iOS push
+   entitlement (`aps-environment`), which a free Apple team cannot sign.
+5. **Next: Stretching and the eating window.** Port `StretchScreen.kt`,
+   `StretchEditors.kt`, `data/Stretching.kt`, `StretchDemo.kt` (and
+   `tools/stretch-demo`), `WindowSheet.kt` and the Kotlin tests
+   (StretchDemoTest, StretchRoutineStepsTest, DemoClockTest,
+   EatingWindowRulesTest is ported already). The timer domain already holds
+   the stretch fields (`stretch`, `skip`, waits for Start at each side); the
+   engine needs a `startStretch` that records a StretchSession at the end.
+   Eating window reminders go through expo-notifications like the timer
+   alerts, with their own `kind`.
 6. Platform: Health Connect (Android) and HealthKit (iOS) import, home-screen
    widgets, EAS Update instead of the APK self-updater.
 7. EAS Build and signing for both stores.
@@ -181,7 +210,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 73 tests at the end of stage 3; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 108 tests at the end of stage 4; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 
@@ -190,7 +219,9 @@ emulator (see "The user"). Stage 2 was checked once on the iOS simulator and
 Android emulator; still unverified on a device: the share sheet export, the
 document picker import (including a real backup from the Kotlin app), the
 stage 2 refactor, all of stage 3 (above all the calendar long press and drag
-on both platforms), and a physical phone. Ask the user to check those himself
+on both platforms), all of stage 4 (beeps, speech, alerts on a locked phone,
+restore after the app is closed), and a physical phone. Stage 4 added native
+modules: rebuild the dev build (`bun run ios` / `bun run android`). Ask the user to check those himself
 when they matter.
 
 ## Commits

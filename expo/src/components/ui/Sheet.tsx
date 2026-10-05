@@ -3,24 +3,17 @@ import { Animated, GestureResponderEvent, Modal, Pressable, ScrollView, StyleShe
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { K, Type } from '@/theme';
-import { Check, ListRow, PrimaryButton, TextButton } from './ui';
+
+/** A drag this far down, or this fast (pt per ms), dismisses the sheet. */
+const DISMISS_DISTANCE = 80;
+const DISMISS_VELOCITY = 0.8;
 
 /**
- * Bottom sheet (DESIGN.md): top radius 24, a 36 x 5 grabber, the sheet on the group surface,
+ * Bottom sheet (DESIGN.md, Sheets): top radius 24, a 36 x 5 grabber, the sheet on the group surface,
  * groups inside on the elevated fill. Swipe the top down or tap outside to dismiss.
  * It slides out after `visible` turns false, so callers keep the data the content shows until it opens again.
  */
-export function Sheet({
-  visible,
-  title,
-  onDismiss,
-  children,
-}: {
-  visible: boolean;
-  title?: string;
-  onDismiss: () => void;
-  children: ReactNode;
-}) {
+export function Sheet({ visible, title, onDismiss, children }: { visible: boolean; title?: string; onDismiss: () => void; children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [mounted, setMounted] = useState(visible);
@@ -60,20 +53,14 @@ export function Sheet({
   };
   const onTouchEnd = () => {
     const d = drag.current;
-    if (d.y - d.y0 > 80 || d.vy > 0.8) onDismiss();
+    if (d.y - d.y0 > DISMISS_DISTANCE || d.vy > DISMISS_VELOCITY) onDismiss();
     else Animated.spring(shift, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
   };
 
   return (
-    <Modal
-      visible={mounted}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      navigationBarTranslucent
-      onRequestClose={onDismiss}>
-      <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: fade }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} accessibilityLabel="Close" />
+    <Modal visible={mounted} transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={onDismiss}>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, { opacity: fade }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Close" />
       </Animated.View>
       {/* The sheet shrinks and scrolls when the keyboard takes room, instead of sliding off the top. */}
       <KeyboardAvoidingView behavior="padding" style={[styles.bottom, { paddingTop: insets.top + 24 }]} pointerEvents="box-none">
@@ -82,18 +69,14 @@ export function Sheet({
           <View collapsable={false} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
             <View style={styles.grabber} />
             {title ? (
-              <Text style={[Type.title2, styles.title]} accessibilityRole="header">
+              <Text style={styles.title} accessibilityRole="header">
                 {title}
               </Text>
             ) : (
-              <View style={{ height: 12 }} />
+              <View style={styles.noTitle} />
             )}
           </View>
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {children}
           </ScrollView>
         </Animated.View>
@@ -102,82 +85,13 @@ export function Sheet({
   );
 }
 
-/** Group header inside a sheet. */
-export function SheetGroupTitle({ text }: { text: string }) {
-  return <Text style={[Type.footnote, styles.groupTitle]}>{text}</Text>;
-}
-
-/** Choice list inside a sheet: rows on the elevated fill. */
-export function ChoiceList({ children }: { children: ReactNode }) {
-  return <View style={styles.choices}>{children}</View>;
-}
-
-/** A choice: optional color dot, the name, a check when selected. */
-export function ChoiceRow({
-  title,
-  selected,
-  dot,
-  dotFilled = true,
-  last = false,
-  onPress,
-}: {
-  title: string;
-  selected: boolean;
-  dot?: string;
-  dotFilled?: boolean;
-  last?: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <ListRow
-      title={title}
-      dot={dot}
-      dotFilled={dotFilled}
-      chevron={false}
-      last={last}
-      elevated
-      selected={selected}
-      trailing={selected ? <Check /> : null}
-      onPress={onPress}
-    />
-  );
-}
-
-/** Confirm for a destructive action: what goes, a red button, Cancel. */
-export function ConfirmSheet({
-  visible,
-  title,
-  body,
-  action,
-  onDismiss,
-  onConfirm,
-}: {
-  visible: boolean;
-  title: string;
-  body: string;
-  action: string;
-  onDismiss: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <Sheet visible={visible} title={title} onDismiss={onDismiss}>
-      <Text style={[Type.subheadline, { color: K.Muted }]}>{body}</Text>
-      <PrimaryButton text={action} color={K.Red} onPress={onConfirm} style={{ marginTop: 16 }} />
-      <View style={{ alignItems: 'center', marginTop: 8 }}>
-        <TextButton text="Cancel" color={K.Muted} onPress={onDismiss} />
-      </View>
-    </Sheet>
-  );
-}
-
 const styles = StyleSheet.create({
-  backdrop: { backgroundColor: 'rgba(0,0,0,0.55)' },
+  scrim: { backgroundColor: K.Scrim },
   bottom: { flex: 1, justifyContent: 'flex-end' },
   sheet: { flexShrink: 1, backgroundColor: K.Surface, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  scroll: { flexGrow: 0, flexShrink: 1 },
   grabber: { alignSelf: 'center', width: 36, height: 5, borderRadius: 3, backgroundColor: K.Dim, marginTop: 6, marginBottom: 2 },
-  title: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12 },
+  title: { ...Type.title2, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12 },
+  noTitle: { height: 12 },
+  scroll: { flexGrow: 0, flexShrink: 1 },
   content: { paddingHorizontal: 16, paddingBottom: 8 },
-  groupTitle: { color: K.Muted, paddingLeft: 16, paddingTop: 14, paddingBottom: 6 },
-  choices: { backgroundColor: K.Elevated, borderRadius: 20, overflow: 'hidden' },
 });

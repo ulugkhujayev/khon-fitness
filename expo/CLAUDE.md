@@ -81,21 +81,30 @@ reads during render and no synchronous `setState` inside effects.
 
 - `src/theme/index.ts`: `K` colors, `Type` text styles, `Space`; same names
   and values as `Theme.kt`. Fonts load in `src/app/_layout.tsx`.
-- `src/components/`: `ui.tsx` (ScreenTitle, SectionTitle, TextButton,
-  PlusButton, BarCircleButton, Capsule, PrimaryButton, GroupedList, ListRow,
-  FieldRow/FieldValue, InlineTextField, Toggle, Dot, BottomActions, Empty),
-  `NumberField.tsx` (number widget and `NumberRow`), `Sheet.tsx` (bottom
-  sheet, ChoiceList/ChoiceRow, ConfirmSheet), `EditorScreen.tsx` (NavBar +
-  keyboard-aware scroll), `controls.tsx` (SearchField, Segmented),
-  `DateRow.tsx` (MonthGrid calendar in a sheet), `LineChart.tsx` (svg),
-  `WeekStrip.tsx`, `colors.ts` (item/exercise/modality colors), `NavBar.tsx`,
-  `Screen.tsx` (`TabScreen`), `TabBar.tsx` (floating capsule).
+- `src/components/` (one exported component per file):
+  - `ui/`: design-system primitives with a barrel `index.ts`: buttons
+    (TextButton, PrimaryButton, Capsule, PlusButton, BarCircleButton), lists
+    (GroupedList, ListRow, FieldRow, FieldValue, ToggleRow, Empty), inputs
+    (NumberField, NumberRow, InlineTextField, SearchField, Segmented, Toggle,
+    DateRow, MonthGrid), sheets (Sheet, ChoiceSheet, ChoiceList, ChoiceRow,
+    SheetGroupTitle, ConfirmSheet), LineChart, ProgressBar, Dot, Check.
+    Pick lists use `ChoiceSheet`; do not build another sheet of choice rows.
+  - `layout/`: NavBar, BackButton, EditorScreen (empty = loading frame),
+    TabScreen, FloatingTabBar.
+  - Feature folders: `plan/` (WeekStrip, PlanItemSheet, `colors.ts`),
+    `today/`, `session/` (BlockCard, SetRow, SwapSheet, … and the hooks
+    `useFieldFocus`, `useLeaveWhenGone`), `editors/` (ExerciseForm with a
+    table-driven select config, ModalityForm, ColorSheet, BlockExerciseGroup).
+- `src/db/hooks.ts`: the named reads screens use (`useToday`, `useSession`,
+  `usePreviousLogs`, `usePrograms`, `useProgram`, `useBlock`, `useLibrary`,
+  `useModalities`, `usePlan`, `useExerciseUsage`).
 - `src/domain/`: pure TypeScript, **no Expo or React imports**, so `bun test`
   runs it. `types.ts` (entities with Kotlin field names, `Defaults` = Kotlin
   constructor defaults), `dates.ts` (local `yyyy-MM-dd`, ISO weekday 1..7;
   never use UTC/`toISOString` for dates), `plan.ts` (`itemFor`, `PlanRules`),
   `session.ts` (`buildSetLogs`, `previousByKey`, `epley`), `workout.ts`
-  (summary, block grouping, next pending set, gains, Today's done line),
+  (summary, block grouping and title, next pending set, gains, effort,
+  Today's done line),
   `editors.ts` (block/exercise editor rules, library filter, preset colors),
   `chart.ts` (chart scale and label picks), `window.ts`
   (`EatingWindowRules`), `format.ts` (`fmt`, `parseNumberInput`, `dur`,
@@ -160,7 +169,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 50 tests at the end of stage 2; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 57 tests after the stage 2 refactor; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

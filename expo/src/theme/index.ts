@@ -21,6 +21,16 @@ export const K = {
   Blue: '#0A84FF',
   Red: '#FF453A',
   Elevated: '#2C2C2E',
+  // Alpha copies the Kotlin screens build inline (K.Green.copy(alpha = …) and the like), named here.
+  /** A logged set row: systemGreen at 5 percent. */
+  GreenTint: 'rgba(48,209,88,0.05)',
+  /** Dimmed screen behind a sheet. */
+  Scrim: 'rgba(0,0,0,0.55)',
+  /** 1 pt edge of the floating tab bar: white at 6 percent. */
+  Hairline: 'rgba(255,255,255,0.06)',
+  Shadow: '#000000',
+  /** Toggle thumb and the ring around the chosen color swatch. */
+  White: '#FFFFFF',
 } as const;
 
 /** Inter, bundled as the stand-in for SF Pro. Keys must match useFonts in the root layout. */
@@ -39,6 +49,9 @@ const t = (size: number, family: string, line: number, spacing = 0): TextStyle =
   color: K.Text,
 });
 
+/** Tabular figures for numbers. */
+export const tabular: TextStyle = { fontVariant: ['tabular-nums'] };
+
 /** HIG text styles at the default size (DESIGN.md, HIG mapping). */
 export const Type = {
   largeTitle: t(34, Font.bold, 41, -0.4),
@@ -50,10 +63,14 @@ export const Type = {
   footnote: t(13, Font.regular, 18),
   caption1: t(12, Font.regular, 16),
   caption2: t(11, Font.regular, 13),
+  /**
+   * Value in the number widget: bold tabular figures (NumberField in Components.kt, 19 sp).
+   * No line height: it sits in a TextInput, where one shifts the text off center.
+   */
+  value: { fontFamily: Font.bold, fontSize: 19, color: K.Text, ...tabular },
+  /** The − and + glyphs of the number widget (StepButton in Components.kt, 22 sp medium). */
+  stepGlyph: t(22, Font.medium, 28),
 } as const;
-
-/** Tabular figures for numbers. */
-export const tabular: TextStyle = { fontVariant: ['tabular-nums'] };
 
 export const Space = {
   margin: 16,

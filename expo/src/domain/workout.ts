@@ -34,10 +34,11 @@ export function summarize(logs: SetLog[], all: SetLog[], sessionId: string): Sum
 export function groupBlocks(logs: SetLog[]): SetLog[][] {
   const map = new Map<number, SetLog[]>();
   for (const l of [...logs].sort((a, b) => a.order - b.order)) {
-    if (!map.has(l.blockIndex)) map.set(l.blockIndex, []);
-    map.get(l.blockIndex)!.push(l);
+    const block = map.get(l.blockIndex);
+    if (block) block.push(l);
+    else map.set(l.blockIndex, [l]);
   }
-  return [...map.keys()].sort((a, b) => a - b).map((k) => map.get(k)!);
+  return [...map.entries()].sort((a, b) => a[0] - b[0]).map(([, block]) => block);
 }
 
 /** The block to open first: the first one with a pending set, else the first. */
@@ -52,6 +53,22 @@ export function nextPending(logs: SetLog[], after: SetLog): SetLog | undefined {
     .filter((l) => l.order > after.order && l.status === SetStatus.PENDING)
     .sort((a, b) => a.order - b.order)[0];
 }
+
+/** Exercise names of a block, A first, joined: "Bench Press · Leg Press". */
+export function blockTitle(logs: SetLog[]): string {
+  const bySlot = new Map<number, string>();
+  for (const l of logs) if (!bySlot.has(l.slot)) bySlot.set(l.slot, l.exerciseName);
+  return [...bySlot.entries()].sort((a, b) => a[0] - b[0]).map(([, name]) => name).join(' · ');
+}
+
+/** Every set of the block is logged or skipped. */
+export const isBlockDone = (logs: SetLog[]) => logs.every((l) => l.status !== SetStatus.PENDING);
+
+/** Sets logged as done. */
+export const doneCount = (logs: SetLog[]) => logs.filter((l) => l.status === SetStatus.DONE).length;
+
+/** Effort is a whole number 1..10, or empty. */
+export const clampEffort = (v: number | null): number | null => (v == null ? null : Math.min(10, Math.max(1, Math.trunc(v))));
 
 /** "A1", "B3". */
 export const setTag = (l: Pick<SetLog, 'slot' | 'setIndex'>) => String.fromCharCode(65 + l.slot) + (l.setIndex + 1);

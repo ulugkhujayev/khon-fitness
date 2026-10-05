@@ -2,9 +2,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { longDate, parseIso, weekdayName, weekOf } from '@/domain/dates';
 import { itemFor, PlanData } from '@/domain/plan';
 import { Modality } from '@/domain/types';
-import { Font, K } from '@/theme';
+import { Font, K, tabular, Type } from '@/theme';
+import { Dot } from '@/components/ui';
 import { itemColor } from './colors';
-import { Dot } from './ui';
 
 /**
  * Monday to Sunday of this week (DESIGN.md, Today): weekday letter over the day number, today in an
@@ -34,10 +34,10 @@ export function WeekStrip({
             accessibilityRole="button"
             accessibilityLabel={`${longDate(date)}, ${item.name}${isToday ? ', today' : ''}`}
             accessibilityHint="Change plan"
-            style={({ pressed }) => [styles.cell, pressed && { backgroundColor: K.Surface }]}>
-            <Text style={[styles.letter, { color: isToday ? K.Accent : K.Muted }]}>{weekdayName(i + 1)[0]}</Text>
-            <View style={[styles.day, isToday && { backgroundColor: K.Accent }]}>
-              <Text style={[styles.num, isToday && { fontFamily: Font.bold, color: K.AccentInk }]}>{parseIso(date).getDate()}</Text>
+            style={({ pressed }) => [styles.cell, pressed && styles.pressed]}>
+            <Text style={[styles.letter, isToday && styles.todayLetter]}>{weekdayName(i + 1)[0]}</Text>
+            <View style={[styles.day, isToday && styles.todayDay]}>
+              <Text style={[styles.number, isToday && styles.todayNumber]}>{parseIso(date).getDate()}</Text>
             </View>
             <View style={styles.dotBox}>{c ? <Dot color={c.color} filled={c.filled} size={7} /> : null}</View>
           </Pressable>
@@ -50,8 +50,12 @@ export function WeekStrip({
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 4 },
   cell: { flex: 1, alignItems: 'center', borderRadius: 10, paddingVertical: 4 },
-  letter: { fontFamily: Font.medium, fontSize: 12 },
+  pressed: { backgroundColor: K.Surface },
+  letter: { ...Type.caption1, fontFamily: Font.medium, color: K.Muted },
+  todayLetter: { color: K.Accent },
   day: { marginTop: 5, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  num: { fontFamily: Font.medium, fontSize: 17, color: K.Text, fontVariant: ['tabular-nums'] },
+  todayDay: { backgroundColor: K.Accent },
+  number: { ...Type.body, fontFamily: Font.medium, ...tabular },
+  todayNumber: { fontFamily: Font.bold, color: K.AccentInk },
   dotBox: { marginTop: 5, height: 8, justifyContent: 'center' },
 });

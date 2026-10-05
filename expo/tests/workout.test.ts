@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { fmt, parseNumberInput, sets } from '../src/domain/format';
 import { Defaults, ItemType, Session, SetLog, SetStatus } from '../src/domain/types';
-import { doneLine, firstOpenBlock, gain, groupBlocks, kgDecimals, nextPending, setTag, summarize } from '../src/domain/workout';
+import {
+  blockTitle, clampEffort, doneCount, doneLine, firstOpenBlock, gain, groupBlocks, isBlockDone, kgDecimals, nextPending, setTag, summarize,
+} from '../src/domain/workout';
 
 const log = (p: Partial<SetLog> & Pick<SetLog, 'id' | 'order'>): SetLog => ({
   ...Defaults.setLog,
@@ -116,5 +118,30 @@ describe('number input', () => {
     expect(fmt(null)).toBe('');
     expect(sets(1)).toBe('1 set');
     expect(sets(6)).toBe('6 sets');
+  });
+});
+
+describe('block helpers', () => {
+  const logs = [
+    log({ id: 'b1', order: 1, slot: 1, exerciseName: 'Leg Press', status: SetStatus.DONE }),
+    log({ id: 'a1', order: 0, status: SetStatus.SKIPPED }),
+    log({ id: 'a2', order: 2, setIndex: 1, status: SetStatus.PENDING }),
+  ];
+
+  test('title lists each exercise once, A first', () => {
+    expect(blockTitle(logs)).toBe('Bench press · Leg Press');
+  });
+
+  test('done means nothing pending; done count counts only logged sets', () => {
+    expect(isBlockDone(logs)).toBe(false);
+    expect(isBlockDone(logs.slice(0, 2))).toBe(true);
+    expect(doneCount(logs)).toBe(1);
+  });
+
+  test('effort is a whole number 1..10 or empty', () => {
+    expect(clampEffort(15)).toBe(10);
+    expect(clampEffort(0)).toBe(1);
+    expect(clampEffort(7.6)).toBe(7);
+    expect(clampEffort(null)).toBeNull();
   });
 });

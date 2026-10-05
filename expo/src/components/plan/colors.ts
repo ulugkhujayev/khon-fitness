@@ -8,9 +8,6 @@ const FALLBACK = 0xff9b9ba3;
 export const modalityColor = (modalityId: string | null, modalities: Modality[]) =>
   argbToHex(modalities.find((m) => m.id === modalityId)?.color ?? FALLBACK);
 
-export const modalityName = (modalityId: string | null, modalities: Modality[]) =>
-  modalities.find((m) => m.id === modalityId)?.name ?? '';
-
 /** Accent for strength, the modality color for cardio. Same as exerciseColor in Common.kt. */
 export const exerciseColor = (ex: Exercise, modalities: Modality[]) =>
   ex.kind === Kind.STRENGTH ? K.Accent : modalityColor(ex.modalityId, modalities);

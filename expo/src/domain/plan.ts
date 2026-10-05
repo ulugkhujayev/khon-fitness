@@ -1,5 +1,5 @@
 import { addDays, addYears, weekday } from './dates';
-import { DayOverride, Exercise, ItemType, Program, WeekPlan } from './types';
+import { DayOverride, Exercise, ItemType, Program, Session, WeekPlan } from './types';
 
 /** What a day holds once template and override are resolved. */
 export interface PlanItem {
@@ -29,22 +29,8 @@ export interface PlanData {
   exercises: Exercise[];
 }
 
-/** Resolved plan for a date: an override wins over the weekday template. Missing items fall back to rest. */
-export function itemFor(data: PlanData, date: string): PlanItem {
-  const o = data.overrides.find((x) => x.date === date);
-  let type: string;
-  let id: string | null;
-  let overridden: boolean;
-  if (o) {
-    type = o.itemType;
-    id = o.itemId;
-    overridden = !o.auto;
-  } else {
-    const w = data.plan.find((x) => x.weekday === weekday(date));
-    type = w?.itemType ?? ItemType.REST;
-    id = w?.itemId ?? null;
-    overridden = false;
-  }
+/** The item a type and id point at; a program or exercise that is gone falls back to rest. */
+function resolve(data: PlanData, type: string, id: string | null, overridden: boolean): PlanItem {
   switch (type) {
     case ItemType.PROGRAM: {
       const p = data.programs.find((x) => x.id === id);
@@ -58,6 +44,32 @@ export function itemFor(data: PlanData, date: string): PlanItem {
       return planItem(ItemType.REST, null, null, overridden);
   }
 }
+
+/** Resolved plan for a date: an override wins over the weekday template. Missing items fall back to rest. */
+export function itemFor(data: PlanData, date: string): PlanItem {
+  const o = data.overrides.find((x) => x.date === date);
+  if (o) return resolve(data, o.itemType, o.itemId, !o.auto);
+  return templateItem(data, weekday(date));
+}
+
+/** What the weekly template holds for a weekday (1 = Monday), ignoring overrides. */
+export function templateItem(data: PlanData, day: number): PlanItem {
+  const w = data.plan.find((x) => x.weekday === day);
+  return resolve(data, w?.itemType ?? ItemType.REST, w?.itemId ?? null, false);
+}
+
+/** The finished session that did this date's item, newest first in `sessions`; undefined when not done yet. */
+export function doneSessionFor(sessions: Session[], item: PlanItem, date: string): Session | undefined {
+  return sessions.find(
+    (s) =>
+      s.date === date &&
+      s.finishedAt != null &&
+      ((item.program != null && s.programId === item.program.id) || (item.cardio != null && s.exerciseId === item.cardio.id)),
+  );
+}
+
+/** Session types that have a screen so far: programs. Cardio sessions get theirs in stage 4. */
+export const hasSessionScreen = (itemType: string) => itemType === ItemType.PROGRAM;
 
 /** Id of the item a plan item points at, or null for rest. */
 export const itemId = (item: PlanItem): string | null => item.program?.id ?? item.cardio?.id ?? null;

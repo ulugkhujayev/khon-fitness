@@ -2,7 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { dateLabelIndices, niceStep, scaleFor, valueLabelIndices } from '../src/domain/chart';
 import { longDate, monthDay, monthGrid, monthStart, monthTitle, shortDate, weekdayName, weekOf } from '../src/domain/dates';
 import {
-  asCardio, asStrength, filterLibrary, freeSlot, moveBlock, newExercise, toggleIn, withIntervals, withMaxReps, withMinReps, withSets,
+  asCardio, asStrength, blockSummary, filterLibrary, freeSlot, moveBlock, newExercise, nextSortOrder, searchByName, toggleIn, withIntervals,
+  withMaxReps, withMinReps, withSets,
 } from '../src/domain/editors';
 import { SEED_EXERCISES } from '../src/domain/seed';
 import { Block, BlockExercise, Kind } from '../src/domain/types';
@@ -27,6 +28,22 @@ describe('block editor', () => {
     expect(freeSlot([{ ...be, slot: 1 }])).toBe(0);
     expect(freeSlot([be])).toBe(1);
     expect(freeSlot([be, { ...be, slot: 1 }])).toBeNull();
+  });
+
+  test('summary lists names A first and sums sets; a new block goes after the highest order', () => {
+    const exs = [{ ...newExercise('bench'), name: 'Bench' }, { ...newExercise('row'), name: 'Row' }];
+    const bes = [{ ...be, id: 'y', slot: 1, exerciseId: 'row', sets: 4 }, be, { ...be, id: 'z', blockId: 'other' }];
+    expect(blockSummary('b', bes, exs)).toEqual({ title: 'Bench · Row', sets: 7 });
+    expect(blockSummary('none', bes, exs)).toEqual({ title: '', sets: 0 });
+    const blocks: Block[] = [0, 5, 2].map((o, i) => ({ id: `b${i}`, programId: 'p', sortOrder: o, superset: true }));
+    expect(nextSortOrder(blocks)).toBe(6);
+    expect(nextSortOrder([])).toBe(0);
+  });
+
+  test('name search ignores case and surrounding spaces', () => {
+    const list = [{ name: 'Incline DB Press' }, { name: 'Leg Press' }, { name: 'Row' }];
+    expect(searchByName(list, '  PRESS ').map((x) => x.name)).toEqual(['Incline DB Press', 'Leg Press']);
+    expect(searchByName(list, '')).toHaveLength(3);
   });
 
   test('moving a block swaps sort orders with its neighbour', () => {

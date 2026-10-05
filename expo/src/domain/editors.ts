@@ -1,5 +1,5 @@
 /** Rules behind the program, block and exercise editors (ui/screens/Editors.kt, ProgramsScreen.kt). */
-import { Block, BlockExercise, Defaults, Exercise, Intensity, Kind, splitList } from './types';
+import { Block, BlockExercise, Defaults, Exercise, Intensity, Kind, Modality, splitList } from './types';
 
 /** Twelve preset colors for a modality, ARGB like Kotlin's PRESET_COLORS. */
 export const PRESET_COLORS = [
@@ -71,6 +71,9 @@ export const asCardio = (ex: Exercise, firstModalityId: string | null): Exercise
   fields: ex.fields || 'time,distance,avgHr',
 });
 
+/** Rounds of an interval exercise: 1..30. */
+export const clampRounds = (v: number | null) => clamp(Math.trunc(v ?? 1), 1, 30);
+
 /** Turning intervals on fills an empty structure with 4 x 4 min work, 3 min rest. */
 export const withIntervals = (ex: Exercise, on: boolean): Exercise => ({
   ...ex,
@@ -100,3 +103,22 @@ export function filterLibrary(list: Exercise[], f: LibraryFilter): Exercise[] {
       (q === '' || e.name.toLowerCase().includes(q)),
   );
 }
+
+/** Name search without case, for pickers: an empty query keeps everything. */
+export function searchByName<T extends { name: string }>(list: T[], query: string): T[] {
+  const q = query.trim().toLowerCase();
+  return q ? list.filter((x) => x.name.toLowerCase().includes(q)) : list;
+}
+
+/** A block in the program editor: its exercise names, A first, and its set count. */
+export function blockSummary(blockId: string, blockExercises: BlockExercise[], exercises: Exercise[]): { title: string; sets: number } {
+  const mine = blockExercises.filter((be) => be.blockId === blockId).sort((a, b) => a.slot - b.slot);
+  const names = mine.flatMap((be) => exercises.find((e) => e.id === be.exerciseId)?.name ?? []);
+  return { title: names.join(' · '), sets: mine.reduce((n, be) => n + be.sets, 0) };
+}
+
+/** Sort order for a new block: after the highest one, since deletes leave gaps a count would collide with. */
+export const nextSortOrder = (blocks: Block[]) => blocks.reduce((m, b) => Math.max(m, b.sortOrder + 1), 0);
+
+/** Name of a modality, or empty when it is gone. */
+export const modalityName = (modalityId: string | null, modalities: Modality[]) => modalities.find((m) => m.id === modalityId)?.name ?? '';

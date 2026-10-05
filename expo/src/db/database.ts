@@ -37,8 +37,9 @@ const listeners = new Map<Table, Set<Listener>>();
 
 export function subscribe(tables: readonly Table[], fn: Listener): () => void {
   for (const t of tables) {
-    if (!listeners.has(t)) listeners.set(t, new Set());
-    listeners.get(t)!.add(fn);
+    const set = listeners.get(t) ?? new Set<Listener>();
+    set.add(fn);
+    listeners.set(t, set);
   }
   return () => {
     for (const t of tables) listeners.get(t)?.delete(fn);

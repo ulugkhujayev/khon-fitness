@@ -1,16 +1,15 @@
 import { useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { EditorScreen } from '@/components/EditorScreen';
-import { BarCircleButton, FieldRow, GroupedList, ListRow, Toggle } from '@/components/ui';
+import { EditorScreen } from '@/components/layout';
+import { BarCircleButton, GroupedList, ListRow, ToggleRow } from '@/components/ui';
 import { argbToHex } from '@/domain/types';
-import * as repo from '@/db/repository';
-import { TABLES as T } from '@/db/schema';
-import { useLive } from '@/db/useLive';
+import { useModalities } from '@/db/hooks';
 import { K } from '@/theme';
 
 /** Modalities with their colors (ModalitiesScreen in ProgramsScreen.kt). */
 export default function Modalities() {
-  const { data } = useLive(() => repo.modalities(), [T.modalities]);
+  const { data } = useModalities();
   const [showArchived, setShowArchived] = useState(false);
   const list = (data ?? []).filter((m) => showArchived || !m.archived);
   return (
@@ -29,11 +28,13 @@ export default function Modalities() {
           />
         ))}
       </GroupedList>
-      <GroupedList style={{ marginTop: 16 }}>
-        <FieldRow label="Show archived" divider={false}>
-          <Toggle value={showArchived} onChange={setShowArchived} label="Show archived" />
-        </FieldRow>
+      <GroupedList style={styles.archived}>
+        <ToggleRow label="Show archived" divider={false} value={showArchived} onChange={setShowArchived} />
       </GroupedList>
     </EditorScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  archived: { marginTop: 16 },
+});

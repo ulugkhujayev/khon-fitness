@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView, SymbolViewProps } from 'expo-symbols';
 import type { ComponentProps } from 'react';
 import type { Tabs } from 'expo-router';
-import { Font, K } from '@/theme';
+import { Font, K, Type } from '@/theme';
 
 /** React Navigation ships inside expo-router in this SDK, so take the tab bar props from Tabs itself. */
 type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
@@ -40,7 +40,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                 const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
                 if (!active && !event.defaultPrevented) navigation.navigate(route.name);
               }}
-              style={[styles.item, active && { backgroundColor: K.Surface2 }]}>
+              style={[styles.item, active && styles.active]}>
               <SymbolView name={item.icon} tintColor={color} size={24} />
               <Text style={[styles.label, { color }]}>{item.label}</Text>
             </Pressable>
@@ -59,14 +59,15 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: K.Surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: K.Hairline,
     padding: 4,
-    shadowColor: '#000',
+    shadowColor: K.Shadow,
     shadowOpacity: 0.6,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 12,
   },
   item: { flex: 1, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  label: { fontFamily: Font.medium, fontSize: 11, marginTop: 2 },
+  active: { backgroundColor: K.Surface2 },
+  label: { ...Type.caption2, fontFamily: Font.medium, marginTop: 2 },
 });

@@ -2,8 +2,8 @@
 import { describe, expect, test } from 'bun:test';
 import { parseBackup } from '../src/domain/backup';
 import { addDays } from '../src/domain/dates';
-import { itemFor, PlanData, PlanRules } from '../src/domain/plan';
-import { DayOverride, Defaults, Exercise, ItemType, Kind, Program } from '../src/domain/types';
+import { doneSessionFor, itemFor, PlanData, PlanRules, templateItem } from '../src/domain/plan';
+import { DayOverride, Defaults, Exercise, ItemType, Kind, Program, Session } from '../src/domain/types';
 
 const today = '2026-09-24';
 const ex = (id: string, name: string): Exercise => ({ ...Defaults.exercise, id, name, kind: Kind.CARDIO });
@@ -80,5 +80,24 @@ describe('PlanRules', () => {
     expect(b.overrides[0].auto).toBe(false);
     expect(b.overrides[0].itemId).toBeNull();
     expect(b.overrides[1].auto).toBe(true);
+  });
+});
+
+describe('template and done session', () => {
+  test('templateItem ignores overrides and falls back to rest', () => {
+    const plan = data(o('2026-09-24', ItemType.PROGRAM, 'tpv3'));
+    expect(templateItem(plan, 4).name).toBe('Zone 2 run');
+    expect(templateItem(plan, 4).overridden).toBe(false);
+    expect(templateItem(plan, 1)).toMatchObject({ name: 'Rest', isRest: true });
+    expect(templateItem({ ...plan, plan: [{ weekday: 2, itemType: ItemType.PROGRAM, itemId: 'gone' }] }, 2).isRest).toBe(true);
+  });
+
+  test('doneSessionFor needs a finished session of the same item on the date', () => {
+    const item = itemFor(data(), today);
+    const s = (id: string, p: Partial<Session>): Session => ({
+      ...Defaults.session, id, date: today, startedAt: 0, itemType: ItemType.CARDIO, exerciseId: 'z2run', finishedAt: 1, ...p,
+    });
+    expect(doneSessionFor([s('open', { finishedAt: null }), s('other', { exerciseId: 'z2swim' }), s('ok', {})], item, today)?.id).toBe('ok');
+    expect(doneSessionFor([s('yesterday', { date: addDays(today, -1) })], item, today)).toBeUndefined();
   });
 });

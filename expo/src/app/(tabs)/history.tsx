@@ -1,4 +1,4 @@
-import { TabScreen } from '@/components/Screen';
+import { TabScreen } from '@/components/layout';
 import { Empty, GroupedList, ScreenTitle } from '@/components/ui';
 
 /** Placeholder until stage 3: month calendar, bodyweight chart, exercise progress. */

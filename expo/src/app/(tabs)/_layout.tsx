@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { FloatingTabBar } from '@/components/TabBar';
+import { FloatingTabBar } from '@/components/layout';
 import { K } from '@/theme';
 
 export default function TabLayout() {

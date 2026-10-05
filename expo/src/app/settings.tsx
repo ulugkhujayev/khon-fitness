@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Alert, ScrollView, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { NavBar } from '@/components/NavBar';
+import { Alert, StyleSheet, Text } from 'react-native';
+import { EditorScreen } from '@/components/layout';
 import { GroupedList, ListRow } from '@/components/ui';
 import { BackupError } from '@/domain/backup';
 import { pickBackupText, shareBackup } from '@/db/backupFile';
 import { describeBackupText, importJson, resetToSeed } from '@/db/repository';
-import { K, Space, Type } from '@/theme';
+import { K, Type } from '@/theme';
 
 /** Export, import and reset. Import first says what the file holds, then asks merge or replace. */
 export default function SettingsScreen() {
@@ -49,21 +48,21 @@ export default function SettingsScreen() {
     ]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: K.Bg }} edges={['top', 'bottom']}>
-      <NavBar title="Settings" />
-      <ScrollView contentContainerStyle={{ padding: Space.margin, gap: 24 }}>
-        <GroupedList>
-          <ListRow title="Export backup" color={K.Accent} onPress={onExport} chevron={false} />
-          <ListRow title="Import backup" color={K.Accent} onPress={onImport} chevron={false} last />
-        </GroupedList>
-        <GroupedList>
-          <ListRow title="Reset to built-in data" color={K.Red} onPress={onReset} chevron={false} last />
-        </GroupedList>
-        {status ? (
-          <Text style={[Type.footnote, { color: status.error ? K.Red : K.Muted, paddingHorizontal: 16 }]}>{status.text}</Text>
-        ) : null}
-      </ScrollView>
-    </SafeAreaView>
+    <EditorScreen title="Settings">
+      <GroupedList>
+        <ListRow title="Export backup" color={K.Accent} onPress={onExport} chevron={false} />
+        <ListRow title="Import backup" color={K.Accent} onPress={onImport} chevron={false} last />
+      </GroupedList>
+      <GroupedList style={styles.group}>
+        <ListRow title="Reset to built-in data" color={K.Red} onPress={onReset} chevron={false} last />
+      </GroupedList>
+      {status ? <Text style={[styles.status, status.error && styles.error]}>{status.text}</Text> : null}
+    </EditorScreen>
   );
 }
 
+const styles = StyleSheet.create({
+  group: { marginTop: 24 },
+  status: { ...Type.footnote, color: K.Muted, paddingHorizontal: 16, marginTop: 24 },
+  error: { color: K.Red },
+});

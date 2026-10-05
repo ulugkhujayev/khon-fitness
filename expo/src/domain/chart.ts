@@ -1,5 +1,12 @@
 /** Scale math of the line chart (ui/components/LineChart.kt), kept apart from drawing so it can be tested. */
 
+/** One point of a chart: a day and its value. */
+export interface ChartPoint {
+  /** yyyy-MM-dd */
+  date: string;
+  value: number;
+}
+
 const STEPS = [0.5, 1, 2, 5, 10, 20, 25, 50, 100];
 
 /** Smallest round step that splits the span into about `target` parts. */

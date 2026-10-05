@@ -8,22 +8,13 @@ import { NavBar } from './NavBar';
 /**
  * Full-screen editor (DESIGN.md, Editors): Back at the left, the title centered, the primary action
  * trailing; the content scrolls and keeps the focused field above the keyboard.
+ * Without children it is the empty frame shown while the screen's data loads.
  */
-export function EditorScreen({
-  title,
-  trailing,
-  onBack,
-  children,
-}: {
-  title: string;
-  trailing?: ReactNode;
-  onBack?: () => void;
-  children: ReactNode;
-}) {
+export function EditorScreen({ title = '', trailing, children }: { title?: string; trailing?: ReactNode; children?: ReactNode }) {
   const insets = useSafeAreaInsets();
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <NavBar title={title} trailing={trailing} onBack={onBack} />
+      <NavBar title={title} trailing={trailing} />
       <KeyboardAwareScrollView
         bottomOffset={24}
         keyboardShouldPersistTaps="handled"

@@ -5,10 +5,15 @@
   "dependencies": {
     "expo": "~57.0.26",
     "expo-constants": "~57.0.20",
+    "expo-crypto": "~57.0.3",
+    "expo-document-picker": "~57.0.3",
+    "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
     "expo-linking": "~57.0.11",
     "expo-router": "~57.0.24",
+    "expo-sharing": "~57.0.22",
     "expo-splash-screen": "~57.0.9",
+    "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.3",
     "expo-web-browser": "~57.0.3",
@@ -31,7 +36,8 @@
     "ios": "bunx expo start --ios",
     "typecheck": "bunx tsc --noEmit",
     "doctor": "bunx expo-doctor",
-    "add": "bunx expo install"
+    "add": "bunx expo install",
+    "test": "bun test"
   },
   "private": true,
   "packageManager": "bun@1.4.2"

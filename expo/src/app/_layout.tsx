@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useFonts } from 'expo-font';
 import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
+import { DataProvider } from '@/db/DataProvider';
 import { Font, K } from '@/theme';
 
 export { ErrorBoundary } from 'expo-router';
@@ -40,9 +41,10 @@ export default function RootLayout() {
     if (error) throw error;
   }, [error]);
 
-  useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
-  }, [loaded]);
+  // The splash stays up until fonts are loaded and the database is open and seeded.
+  const hideSplash = useCallback(() => {
+    SplashScreen.hideAsync();
+  }, []);
 
   if (!loaded) return null;
 
@@ -50,9 +52,12 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider value={theme}>
         <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: K.Bg } }}>
-          <Stack.Screen name="(tabs)" />
-        </Stack>
+        <DataProvider onReady={hideSplash}>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: K.Bg } }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="settings" />
+          </Stack>
+        </DataProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

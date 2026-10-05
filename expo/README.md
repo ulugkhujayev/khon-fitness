@@ -15,6 +15,7 @@ Everything goes through Bun. Do not use npm or yarn; `bun.lock` is the lock file
 bun install
 bun run start         # scan the QR code with Expo Go
 bun run typecheck
+bun test              # domain rules and the SQLite schema, no device needed
 bun run add <pkg>     # bunx expo install: SDK-compatible versions
 bun run doctor
 ```
@@ -27,14 +28,26 @@ signed release.
 
 - `src/app/` routes. `(tabs)/` holds Today, History, Programs.
 - `src/theme/` HIG palette, Inter text styles, spacing (mirrors `Theme.kt`).
-- `src/components/` shared UI: floating tab bar, grouped lists, buttons.
-- `src/db/` SQLite schema, seed, repository (stage 1).
+- `src/components/` shared UI: floating tab bar, nav bar, grouped lists, buttons.
+- `src/domain/` pure logic with no Expo imports: entity types, plan rules,
+  set-log building, eating window, backup parsing, seed data.
+- `src/db/` expo-sqlite: the Room v4 schema, a serialized write queue,
+  `useLive` (re-runs a query when its tables change), the repository,
+  backup to and from a file.
+- `tests/` `bun test` suites, ported from the Kotlin unit tests.
+
+## Data
+
+The database is `khon.db` with the same 17 tables and columns as the Kotlin
+app's Room schema v4. A backup exported from the Kotlin app (Settings →
+Export) imports here through Settings → Import backup, and this app's
+export has the same JSON keys, so it goes back the other way too.
 
 ## Stages
 
 0. Base: navigation, theme, shared components. Done.
 1. Data: Room schema on expo-sqlite, seed, repository, JSON import and export
-   compatible with the Kotlin app's backup.
+   compatible with the Kotlin app's backup. Done.
 2. Gym: Today, live session, programs and exercise editors.
 3. History: calendar, bodyweight chart, estimated 1RM per exercise.
 4. Cardio: interval timer, cues, background notifications.

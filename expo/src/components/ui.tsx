@@ -112,13 +112,19 @@ export function ListRow({
   title,
   value,
   dot,
+  dotFilled = true,
   chevron = true,
   last = false,
+  color = K.Text,
   onPress,
 }: {
   title: string;
+  /** Title color; K.Red for destructive rows, K.Accent for plain actions. */
+  color?: string;
   value?: string;
   dot?: string;
+  /** Filled for an active or high-intensity item, a ring otherwise. */
+  dotFilled?: boolean;
   chevron?: boolean;
   last?: boolean;
   onPress?: () => void;
@@ -131,11 +137,11 @@ export function ListRow({
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: K.Surface2 }]}>
       {dot ? (
         <View style={styles.dotCol}>
-          <View style={[styles.dot, { backgroundColor: dot }]} />
+          <View style={[styles.dot, dotFilled ? { backgroundColor: dot } : { borderWidth: 2, borderColor: dot }]} />
         </View>
       ) : null}
       <View style={[styles.rowInner, !last && styles.separator]}>
-        <Text style={[Type.body, { flex: 1 }]}>{title}</Text>
+        <Text style={[Type.body, { flex: 1, color }]}>{title}</Text>
         {value ? <Text style={[Type.body, { color: K.Muted }]}>{value}</Text> : null}
         {chevron && onPress ? (
           <SymbolView

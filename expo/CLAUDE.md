@@ -257,9 +257,15 @@ At the user's request stage 5 was looked at once on the iOS simulator
 (2026-10-06, deep links and seeded rows, no taps): the Today rows (window
 closed, opened early), the player's ready screen with the sprite demo
 playing and its steps advancing, Stretching, the routine editor, the
-library and the stretch editor. Still unverified: anything behind a tap
-(Start, Pause, Skip, Stop, the window sheet), the window notifications,
-sprite memory over a whole routine, and all of stage 5 on Android. Stage 4
+library and the stretch editor. Then on the Android emulator (Pixel 10 Pro,
+with taps): the window sheet (On asks for notification permission and
+schedules 28 notifications, Opens/Closes steppers, Open now, Close now, Off
+cancels them all), and the player (step tab and Change view, Start with
+3-2-1, green Move with reps following the clock, Pause/Resume, ×20 to the
+next ready screen, Skip, the mirrored right side, Stop back to Today with
+the run recorded and shown in History). Still unverified: the window
+notifications actually firing, sprite memory over a whole routine, the
+player's taps on iOS, and a physical phone. Stage 4
 added native modules: rebuild the dev build (`bun run ios` / `bun run android`). Ask the user to check those himself
 when they matter.
 

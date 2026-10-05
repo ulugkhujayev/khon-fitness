@@ -8,16 +8,18 @@ import { Alert } from '@/domain/timer';
 
 export type AlertKind = 'timer' | 'window';
 
-/** Android channels: the timer is loud and on the lock screen; the window is an ordinary reminder (WindowScheduler.kt). */
+/**
+ * Android channels: the timer is loud and on the lock screen; the window is an ordinary reminder (WindowScheduler.kt).
+ * No `sound`: on a channel it names a bundled file, and leaving it out keeps the system default.
+ */
 const CHANNELS: Record<AlertKind, Notifications.NotificationChannelInput> = {
   timer: {
     name: 'Interval timer',
     importance: Notifications.AndroidImportance.HIGH,
-    sound: 'default',
     vibrationPattern: [0, 400],
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   },
-  window: { name: 'Eating window', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
+  window: { name: 'Eating window', importance: Notifications.AndroidImportance.DEFAULT },
 };
 
 let permission: Promise<boolean> | null = null;

@@ -6,7 +6,7 @@ import { Database } from 'bun:sqlite';
 import { describe, expect, test } from 'bun:test';
 import { parseBackup } from '../src/domain/backup';
 import * as S from '../src/domain/seed';
-import { fromRow, toParams, upsertSql } from '../src/db/rows';
+import { fromRow, patchStatement, toParams, upsertSql } from '../src/db/rows';
 import { ALL_TABLES, COLUMNS, CREATE_SQL, INDEX_SQL, Table, TABLES as T } from '../src/db/schema';
 
 function fresh() {
@@ -58,6 +58,20 @@ describe('schema', () => {
     expect(read(db, T.setLogs)).toEqual([{ ...log, weightKg: 62.5, status: 'done' }]);
     put(db, T.intervalLogs, [{ id: 'i', sessionId: 's', index: 2, avgHr: 150, watts: null }]);
     expect(db.query('SELECT * FROM interval_logs ORDER BY `index`').all()).toEqual([{ id: 'i', sessionId: 's', index: 2, avgHr: 150, watts: null }]);
+  });
+
+  test('a patch writes only its own columns, so an older copy of the row cannot undo a newer change', () => {
+    const db = fresh();
+    put(db, T.sessions, [{ id: 's', date: '2026-10-05', startedAt: 1, itemType: 'program', note: '', effort: null }]);
+    const effort = patchStatement(T.sessions, 's', { effort: 7 });
+    db.prepare(effort.sql).run(...effort.params);
+    const note = patchStatement(T.sessions, 's', { note: 'felt good' });
+    db.prepare(note.sql).run(...note.params);
+    expect(read<{ note: string; effort: number }>(db, T.sessions)[0]).toMatchObject({ note: 'felt good', effort: 7 });
+    const order = patchStatement(T.setLogs, 'x', { order: 1, blockSuperset: false });
+    expect(order.sql).toBe('UPDATE `set_logs` SET `order` = ?, `blockSuperset` = ? WHERE id = ?');
+    expect(order.params).toEqual([1, 0, 'x']);
+    expect(() => patchStatement(T.sessions, 's', { nope: 1 })).toThrow();
   });
 });
 

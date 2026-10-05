@@ -1,0 +1,175 @@
+import { Ref, useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
+import { fmt, parseNumberInput } from '@/domain/format';
+import { Font, K } from '@/theme';
+import { FieldRow } from './ui';
+
+/** Below this width the field drops its unit and slims the steppers so the value stays visible. */
+export const COMPACT_WIDTH = 176;
+
+const round = (v: number) => Math.round(v * 10000) / 10000;
+
+/**
+ * Number widget (DESIGN.md): minus, the typed value with its unit, plus. No caption, no native spinner.
+ * Port of NumberField in Components.kt. While focused the field keeps its own text, so a write that
+ * comes back from the database never moves the cursor; steppers set the text themselves.
+ */
+export function NumberField({
+  value,
+  onChange,
+  step,
+  unit,
+  decimals = 1,
+  height = 44,
+  placeholder,
+  label,
+  inputRef,
+  onFocus,
+  compact: forceCompact,
+  style,
+}: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+  step: number;
+  unit: string;
+  decimals?: number;
+  height?: number;
+  placeholder?: string;
+  /** Accessible name, e.g. "A1 weight". The screen shows no caption. */
+  label?: string;
+  inputRef?: Ref<TextInput>;
+  onFocus?: () => void;
+  /** Set when the caller already knows the width, so the unit it shows elsewhere matches. Else measured. */
+  compact?: boolean;
+  style?: ViewStyle;
+}) {
+  const [text, setText] = useState(fmt(value, decimals));
+  const [measured, setMeasured] = useState(false);
+  const compact = forceCompact ?? measured;
+  const focused = useRef(false);
+
+  useEffect(() => {
+    if (!focused.current) setText(fmt(value, decimals));
+  }, [value, decimals]);
+
+  const commit = (v: number | null) => onChange(v == null ? null : Math.max(0, v));
+
+  const stepBy = (sign: 1 | -1) => {
+    // An empty field steps from what its placeholder shows (last time, latest bodyweight), not from zero.
+    const shown = placeholder && /^\d+(\.\d+)?$/.test(placeholder) ? Number(placeholder) : null;
+    const base = parseNumberInput(text).value ?? value ?? shown ?? 0;
+    const next = Math.max(0, round(base + sign * step));
+    setText(fmt(next, decimals));
+    commit(next);
+  };
+
+  const stepLabel = `${fmt(step, decimals)} ${unit}`.trim();
+  const stepWidth = compact ? 36 : 44;
+
+  return (
+    <View
+      style={[styles.box, { height }, style]}
+      // Rounded: a 176-wide field can measure 175.99 on a fractional pixel grid.
+      onLayout={(e) => setMeasured(Math.round(e.nativeEvent.layout.width) < COMPACT_WIDTH)}>
+      <StepButton glyph="−" label={`Decrease by ${stepLabel}`} width={stepWidth} onPress={() => stepBy(-1)} />
+      <View style={styles.divider} />
+      <TextInput
+        ref={inputRef}
+        value={text}
+        onChangeText={(raw) => {
+          const p = parseNumberInput(raw);
+          setText(p.text);
+          commit(p.value);
+        }}
+        onFocus={() => {
+          focused.current = true;
+          onFocus?.();
+        }}
+        onBlur={() => {
+          focused.current = false;
+          const typed = parseNumberInput(text).value;
+          setText(fmt(typed ?? value, decimals));
+        }}
+        selectTextOnFocus
+        keyboardType={decimals > 0 ? 'decimal-pad' : 'number-pad'}
+        keyboardAppearance="dark"
+        selectionColor={K.Accent}
+        placeholder={placeholder}
+        placeholderTextColor={K.Dim}
+        accessibilityLabel={label}
+        style={styles.input}
+      />
+      {compact ? <View style={{ width: 8 }} /> : <Text style={styles.unit}>{unit}</Text>}
+      <View style={styles.divider} />
+      <StepButton glyph="+" label={`Increase by ${stepLabel}`} width={stepWidth} onPress={() => stepBy(1)} />
+    </View>
+  );
+}
+
+function StepButton({ glyph, label, width, onPress }: { glyph: string; label: string; width: number; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [styles.step, { width }, pressed && { backgroundColor: K.Surface3 }]}>
+      <Text style={styles.glyph}>{glyph}</Text>
+    </Pressable>
+  );
+}
+
+/** Editor row with a number widget on the right, 176 wide and 38 tall like NumberRow in Kotlin. */
+export function NumberRow({
+  label,
+  value,
+  unit,
+  step,
+  decimals,
+  divider = true,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  unit: string;
+  step: number;
+  decimals: number;
+  divider?: boolean;
+  placeholder?: string;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <FieldRow label={label} divider={divider}>
+      <NumberField
+        value={value}
+        onChange={onChange}
+        step={step}
+        unit={unit}
+        decimals={decimals}
+        height={38}
+        label={label}
+        placeholder={placeholder}
+        style={{ width: COMPACT_WIDTH }}
+      />
+    </FieldRow>
+  );
+}
+
+const styles = StyleSheet.create({
+  box: { flexDirection: 'row', alignItems: 'stretch', borderRadius: 10, backgroundColor: K.Surface2, overflow: 'hidden' },
+  step: { alignItems: 'center', justifyContent: 'center' },
+  glyph: { fontFamily: Font.medium, fontSize: 22, color: K.Text },
+  divider: { width: 1, backgroundColor: K.Divider },
+  input: {
+    flex: 1,
+    minWidth: 0,
+    paddingLeft: 8,
+    paddingVertical: 0,
+    textAlign: 'right',
+    fontFamily: Font.bold,
+    fontSize: 19,
+    color: K.Text,
+    fontVariant: ['tabular-nums'],
+  },
+  unit: { alignSelf: 'center', fontFamily: Font.medium, fontSize: 13, color: K.Muted, paddingLeft: 4, paddingRight: 8 },
+});

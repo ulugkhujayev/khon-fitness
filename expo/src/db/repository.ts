@@ -4,7 +4,7 @@
  */
 import { today as todayIso } from '@/domain/dates';
 import { Backup, describeBackup, parseBackup } from '@/domain/backup';
-import { itemFor, itemId, PlanData, PlanRules } from '@/domain/plan';
+import { itemFor, itemId, PlanData, PlanItem, PlanRules } from '@/domain/plan';
 import {
   SEED_BLOCK_EXERCISES, SEED_BLOCKS, SEED_EATING_WINDOW, SEED_EXERCISES, SEED_MODALITIES, SEED_PROGRAM,
   SEED_ROUTINE, SEED_ROUTINE_STRETCHES, SEED_STRETCHES, SEED_WEEK_PLAN,
@@ -184,7 +184,8 @@ export const saveBodyweight = (date: string, kg: number) => write((tx) => tx.ups
 
 // ---------------------------------------------------------------- sessions
 
-async function previousLogs(excludeSessionId: string): Promise<Map<string, SetLog>> {
+/** Last done set per exercise and set index, from finished program sessions other than this one. */
+export async function previousLogs(excludeSessionId: string): Promise<Map<string, SetLog>> {
   const finished = await all<Session>(T.sessions, 'finishedAt IS NOT NULL AND itemType = ? AND id != ?', [ItemType.PROGRAM, excludeSessionId]);
   const withLogs = await Promise.all(finished.map(async (s) => ({ startedAt: s.startedAt, logs: await setLogs(s.id) })));
   return previousByKey(withLogs);
@@ -221,8 +222,23 @@ export async function startCardioSession(ex: Exercise, date = todayIso()): Promi
   return s;
 }
 
+/** Starts what a plan item holds. Null for rest, or when the program or exercise is gone. */
+export async function startItem(item: PlanItem): Promise<Session | null> {
+  if (item.program) return startProgramSession(item.program.id);
+  if (item.cardio) return startCardioSession(item.cardio);
+  return null;
+}
+
 export const updateSetLog = (l: SetLog) => write((tx) => tx.upsert(T.setLogs, l));
 export const updateSession = (s: Session) => write((tx) => tx.upsert(T.sessions, s));
+/** Column-level updates: screens send only what changed, so a stale copy never undoes another edit. */
+export const patchSetLog = (id: string, patch: Partial<Omit<SetLog, 'id'>>) => write((tx) => tx.patch(T.setLogs, id, patch));
+export const patchSession = (id: string, patch: Partial<Omit<Session, 'id'>>) => write((tx) => tx.patch(T.sessions, id, patch));
+export const patchExercise = (id: string, patch: Partial<Omit<Exercise, 'id'>>) => write((tx) => tx.patch(T.exercises, id, patch));
+export const patchModality = (id: string, patch: Partial<Omit<Modality, 'id'>>) => write((tx) => tx.patch(T.modalities, id, patch));
+export const patchProgram = (id: string, patch: Partial<Omit<Program, 'id'>>) => write((tx) => tx.patch(T.programs, id, patch));
+export const patchBlock = (id: string, patch: Partial<Omit<Block, 'id'>>) => write((tx) => tx.patch(T.blocks, id, patch));
+export const patchBlockExercise = (id: string, patch: Partial<Omit<BlockExercise, 'id'>>) => write((tx) => tx.patch(T.blockExercises, id, patch));
 export const saveIntervals = (list: IntervalLog[]) => write((tx) => tx.upsert(T.intervalLogs, list));
 
 /** Pending sets become skipped, then the session gets its finish time. */

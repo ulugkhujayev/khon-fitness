@@ -3,6 +3,7 @@ import { useFonts } from 'expo-font';
 import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
@@ -50,15 +51,17 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={theme}>
-        <StatusBar style="light" />
-        <DataProvider onReady={hideSplash}>
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: K.Bg } }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="settings" />
-          </Stack>
-        </DataProvider>
-      </ThemeProvider>
+      <KeyboardProvider>
+        <ThemeProvider value={theme}>
+          <StatusBar style="light" />
+          <DataProvider onReady={hideSplash}>
+            {/* Every pushed screen sits above the tabs, so the tab bar shows on the three tab screens only. */}
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: K.Bg } }}>
+              <Stack.Screen name="(tabs)" />
+            </Stack>
+          </DataProvider>
+        </ThemeProvider>
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }

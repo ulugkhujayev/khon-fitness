@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { fromRow, toParams, upsertSql } from './rows';
+import { fromRow, patchStatement, toParams, upsertSql } from './rows';
 import { CREATE_SQL, INDEX_SQL, SCHEMA_VERSION, Table } from './schema';
 
 type Param = string | number | null;
@@ -76,6 +76,8 @@ export async function count(sql: string, params: Param[] = []): Promise<number> 
 /** Writes inside one transaction. `touched` collects the tables to notify once it commits. */
 export interface Tx {
   upsert(table: Table, rows: object | object[]): Promise<void>;
+  /** Sets only the given columns of the row with this id. */
+  patch(table: Table, id: string, patch: object): Promise<void>;
   run(table: Table, sql: string, params?: Param[]): Promise<void>;
   clear(table: Table): Promise<void>;
 }
@@ -100,6 +102,11 @@ export function write<R>(fn: (tx: Tx) => Promise<R>): Promise<R> {
         } finally {
           await stmt.finalizeAsync();
         }
+        touched.add(table);
+      },
+      async patch(table, id, patch) {
+        const { sql, params } = patchStatement(table, id, patch);
+        await db.runAsync(sql, params);
         touched.add(table);
       },
       async run(table, sql, params = []) {

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView, SymbolViewProps } from 'expo-symbols';
 import type { Tabs } from 'expo-router';
 import { useSlidingCapsule } from '@/components/ui/useSlidingCapsule';
+import { tick } from '@/haptics';
 import { Font, K, Type } from '@/theme';
 
 /** React Navigation ships inside expo-router in this SDK, so take the tab bar props from Tabs itself. */
@@ -27,7 +28,7 @@ const ITEMS: Record<string, Item> = {
 /**
  * Floating capsule tab bar (DESIGN.md): 60 pt tall, 24 pt from the sides, 10 pt above the bottom edge,
  * group surface with a hairline and a soft shadow; the selected item sits on a Surface2 capsule tinted accent,
- * and that capsule slides to the tab tapped instead of jumping there.
+ * and that capsule slides to the tab tapped instead of jumping there, with a light haptic click.
  */
 export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -51,7 +52,9 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                 accessibilityLabel={item.label}
                 onPress={() => {
                   const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-                  if (!active && !event.defaultPrevented) navigation.navigate(route.name);
+                  if (active || event.defaultPrevented) return;
+                  tick(false);
+                  navigation.navigate(route.name);
                 }}
                 style={styles.item}>
                 <SymbolView name={item.icon} tintColor={color} size={24} />

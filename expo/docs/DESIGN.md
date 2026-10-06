@@ -30,8 +30,8 @@ padded cards, per-item buttons, "Updated" lines.
   to 48), over the first 40 pt the title shrinks toward its leading edge
   to about 20 pt, and a hairline fades in once content passes under it.
 - Tab bar (Expo app: the selected capsule slides to the tab tapped on a
-  quick spring, and the screens shift sideways as they swap; segmented
-  controls slide their selection the same way): a floating
+  quick spring with a light haptic click, and the screens shift sideways
+  as they swap; segmented controls slide and click the same way): a floating
   capsule 60 pt tall, 24 pt from the sides, 10 pt above the bottom edge, group surface with a 1 pt hairline and a soft shadow;
   three items with filled symbols and 11 pt labels; the selected item sits
   on a #2C2C2E capsule tinted accent.

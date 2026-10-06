@@ -23,8 +23,6 @@ export function LineChart({
   height = 180,
   decimals = 1,
   format,
-  surface = K.Bg,
-  emptyText = 'No data yet',
   style,
 }: {
   points: ChartPoint[];
@@ -33,9 +31,6 @@ export function LineChart({
   decimals?: number;
   /** Text for a value on the axis and the labels, e.g. a pace as m:ss. Defaults to the number with `decimals`. */
   format?: (v: number) => string;
-  /** The fill under the chart; hollow markers take it so the line does not show through them. */
-  surface?: string;
-  emptyText?: string;
   style?: ViewStyle;
 }) {
   const [width, setWidth] = useState(0);
@@ -43,10 +38,10 @@ export function LineChart({
     <View style={[{ height }, style]} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {points.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>{emptyText}</Text>
+          <Text style={styles.emptyText}>No data yet</Text>
         </View>
       ) : width > 0 ? (
-        <Plot points={points} unit={unit} width={width} height={height} surface={surface} label={(v, d) => format?.(v) ?? fmt(v, d ?? decimals)} />
+        <Plot points={points} unit={unit} width={width} height={height} label={(v, d) => format?.(v) ?? fmt(v, d ?? decimals)} />
       ) : null}
     </View>
   );
@@ -57,14 +52,12 @@ function Plot({
   unit,
   width,
   height,
-  surface,
   label,
 }: {
   points: ChartPoint[];
   unit: string;
   width: number;
   height: number;
-  surface: string;
   /** Value text; the axis passes its own decimals. */
   label: (v: number, decimals?: number) => string;
 }) {
@@ -98,7 +91,7 @@ function Plot({
       {points.map((p, i) => {
         const last = i === n - 1;
         return (
-          <Circle key={`p${p.date}${i}`} cx={xs[i]} cy={ys[i]} r={radius(i)} fill={last ? K.Accent : surface} stroke={K.Accent} strokeWidth={last ? 0 : 2} />
+          <Circle key={`p${p.date}${i}`} cx={xs[i]} cy={ys[i]} r={radius(i)} fill={last ? K.Accent : K.Bg} stroke={K.Accent} strokeWidth={last ? 0 : 2} />
         );
       })}
       {points.map((p, i) => {

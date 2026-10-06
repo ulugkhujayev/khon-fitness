@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { DemoStep } from '@/domain/stretch';
 import { Font, K, Space, tabular, Type } from '@/theme';
 
@@ -51,7 +52,13 @@ export function StepTimeline({
             accessibilityState={{ selected: active }}
             accessibilityLabel={`Step ${i + 1}: ${step.title}`}
             style={({ pressed }) => [styles.step, pressed && styles.pressed]}>
-            <View style={[styles.halo, active && styles.activeHalo]}>
+            <View style={styles.halo}>
+              {/* Drawn as a circle, not a rounded view: Android squared the view when it gained its fill. */}
+              {active ? (
+                <Svg width={HALO} height={HALO} style={StyleSheet.absoluteFill}>
+                  <Circle cx={HALO / 2} cy={HALO / 2} r={HALO / 2} fill={K.AccentSoft} />
+                </Svg>
+              ) : null}
               <View style={[styles.node, reached && styles.reachedNode]}>
                 <Text style={[styles.number, reached && styles.reachedNumber]}>{i + 1}</Text>
               </View>
@@ -73,8 +80,7 @@ const styles = StyleSheet.create({
   fill: { backgroundColor: K.Accent },
   step: { flex: 1, alignItems: 'center', minHeight: Space.tapMin },
   pressed: { opacity: 0.7 },
-  halo: { width: HALO, height: HALO, borderRadius: HALO / 2, alignItems: 'center', justifyContent: 'center' },
-  activeHalo: { backgroundColor: K.AccentSoft },
+  halo: { width: HALO, height: HALO, alignItems: 'center', justifyContent: 'center' },
   node: { width: NODE, height: NODE, borderRadius: NODE / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: K.Surface3 },
   reachedNode: { backgroundColor: K.Accent },
   number: { ...Type.footnote, ...tabular, fontFamily: Font.bold, color: K.Muted },

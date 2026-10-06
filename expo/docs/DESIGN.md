@@ -117,10 +117,8 @@ padded cards, per-item buttons, "Updated" lines.
   Delete in red, the reason as a muted footnote under them.
 - Fields sit in groups with section titles (an exercise: name and kind;
   Muscles; Details), so no label wraps.
-- The bar shows a hairline once content scrolls under it. Lists (Exercises,
-  Stretches, Modalities, Stretching, Week plan, Settings, Import) open with
-  their title in Large Title over the content; it scrolls under the bar
-  and the bar's centered title fades in over the last 16 px (Expo app).
+- The bar keeps its title centered and shows a hairline once content
+  scrolls under it, fading in over the first 16 px (Expo app).
   Expo app, program and block editors: full-width 44 px tinted buttons
   instead, 12 px apart: Add block, Add exercise / Add second exercise in
   accent; Move up and Move down side by side; Delete program / Delete

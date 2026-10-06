@@ -24,14 +24,14 @@ export default function ImportScreen() {
   const [picked, setPicked] = useState<ImportDraft | null>(null);
   const [picking, setPicking] = useState(false);
 
-  if (!data || !health.status) return <EditorScreen title="Import" large />;
+  if (!data || !health.status) return <EditorScreen title="Import" />;
   const exerciseFor = (d: ImportDraft) => defaultExercise(d.modalityId, itemFor(data.plan, draftDate(d)).cardio, data.cardio);
   const drafts = health.workouts ? importDrafts(health.workouts, data.imported) : null;
   const list = drafts?.filter((d) => !d.strength) ?? null;
   const strength = (drafts?.length ?? 0) - (list?.length ?? 0);
 
   return (
-    <EditorScreen title="Import" large>
+    <EditorScreen title="Import">
       {health.status !== 'available' || !health.granted ? (
         <HealthIntro
           name={healthSource.name}

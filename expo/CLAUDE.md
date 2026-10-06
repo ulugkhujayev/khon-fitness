@@ -121,8 +121,8 @@ reads during render and no synchronous `setState` inside effects.
     (a chevron that turns as its section opens), Dot, Check.
     Pick lists use `ChoiceSheet` (`searchable` for a long list); do not build
     another sheet of choice rows.
-  - `layout/`: NavBar (a hairline on scroll, a late title for large ones),
-    BackButton, EditorScreen (`large` for lists; empty = loading frame),
+  - `layout/`: NavBar (a hairline once content scrolls under it), BackButton,
+    EditorScreen (empty = loading frame),
     TabScreen (scrolling content under LargeTitleHeader, a large title that
     folds on scroll with Reanimated), `useScrollY` (a list's offset on the UI
     thread, for folding headers), FloatingTabBar, `useLeaveWhenGone` (leave a screen whose record

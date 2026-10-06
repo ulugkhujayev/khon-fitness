@@ -17,7 +17,6 @@ export default function StretchLibrary() {
   return (
     <EditorScreen
       title="Stretches"
-      large
       trailing={
         <BarCircleButton
           icon={{ ios: 'plus', android: 'add', web: 'add' }}

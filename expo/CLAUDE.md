@@ -118,7 +118,8 @@ reads during render and no synchronous `setState` inside effects.
     ChoiceList, ChoiceRow, SheetGroupTitle, ConfirmSheet), TitleRow,
     LineChart (`format` for m:ss), ProgressBar, SymbolCircle, Disclosure
     (a chevron that turns as its section opens), Dot, Check.
-    Pick lists use `ChoiceSheet`; do not build another sheet of choice rows.
+    Pick lists use `ChoiceSheet` (`searchable` for a long list); do not build
+    another sheet of choice rows.
   - `layout/`: NavBar, BackButton, EditorScreen (empty = loading frame),
     TabScreen (scrolling content under LargeTitleHeader, a large title that
     folds on scroll with Reanimated), `useScrollY` (a list's offset on the UI

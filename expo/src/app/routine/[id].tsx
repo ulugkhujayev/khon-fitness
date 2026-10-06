@@ -79,6 +79,7 @@ export default function RoutineEditor() {
           setPicking(false);
         }}
         onDismiss={() => setPicking(false)}
+        searchable
       />
       <ConfirmSheet
         visible={confirming}

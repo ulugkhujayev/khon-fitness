@@ -95,7 +95,9 @@ padded cards, per-item buttons, "Updated" lines.
 - Full screen, title at top, Back "‹" at left, Done at right.
 - Fields are rows: label on the left in muted 14, value on the right in
   16. Text fields edit inline in the row. Selects open a bottom sheet
-  with a checklist. Multi-select is a checklist too.
+  with a checklist. Multi-select is a checklist too. A long pick list
+  (exercises, stretches) has a search field over it, empty each time the
+  sheet opens (Expo app).
 - Numbers use the number widget: minus button, value with unit suffix,
   plus button. No caption above it. No native spinner. A tap on − or +
   steps once with a light haptic click; held past 350 ms it repeats,

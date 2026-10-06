@@ -113,11 +113,14 @@ export function noResults(query: string): { title: string; hint: string } {
   return q ? { title: `No Results for “${q}”`, hint: 'Check the spelling or try a new search.' } : { title: 'No Results', hint: 'Try another filter.' };
 }
 
-/** Name search without case, for pickers: an empty query keeps everything. */
-export function searchByName<T extends { name: string }>(list: T[], query: string): T[] {
+/** Whether a text matches a search, ignoring case and the spaces around the query; an empty query matches all. */
+export function matchesQuery(text: string, query: string): boolean {
   const q = query.trim().toLowerCase();
-  return q ? list.filter((x) => x.name.toLowerCase().includes(q)) : list;
+  return !q || text.toLowerCase().includes(q);
 }
+
+/** Name search without case, for pickers: an empty query keeps everything. */
+export const searchByName = <T extends { name: string }>(list: T[], query: string): T[] => list.filter((x) => matchesQuery(x.name, query));
 
 /** A block in the program editor: its exercise names, A first, and its set count. */
 export function blockSummary(blockId: string, blockExercises: BlockExercise[], exercises: Exercise[]): { title: string; sets: number } {

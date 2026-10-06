@@ -3,8 +3,8 @@ import { StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { BlockExerciseGroup } from '@/components/editors/BlockExerciseGroup';
 import { EditorScreen } from '@/components/layout';
-import { BottomActions, Capsule, ChoiceSheet, GroupedList, SearchEmpty, SearchField, TextButton, ToggleRow } from '@/components/ui';
-import { freeSlot, moveInOrder, searchByName } from '@/domain/editors';
+import { BottomActions, Capsule, ChoiceSheet, GroupedList, TextButton, ToggleRow } from '@/components/ui';
+import { freeSlot, moveInOrder } from '@/domain/editors';
 import { Defaults, Kind } from '@/domain/types';
 import { useBlock } from '@/db/hooks';
 import { newId } from '@/db/id';
@@ -18,19 +18,17 @@ export default function BlockEditor() {
   // The slot being filled stays set while the picker slides out.
   const [slot, setSlot] = useState(0);
   const [picking, setPicking] = useState(false);
-  const [query, setQuery] = useState('');
 
   const index = data ? data.siblings.findIndex((b) => b.id === blockId) : -1;
   const block = data?.siblings[index];
   if (!data || !block) return <EditorScreen />;
 
   const existing = data.mine.find((be) => be.slot === slot);
-  const strength = searchByName(data.exercises.filter((e) => e.kind === Kind.STRENGTH && !e.archived), query);
+  const strength = data.exercises.filter((e) => e.kind === Kind.STRENGTH && !e.archived);
   const free = freeSlot(data.mine);
 
   const choose = (s: number) => {
     setSlot(s);
-    setQuery('');
     setPicking(true);
   };
 
@@ -77,8 +75,7 @@ export default function BlockEditor() {
         isSelected={(id) => existing?.exerciseId === id}
         onPick={pick}
         onDismiss={() => setPicking(false)}
-        header={<SearchField value={query} onChange={setQuery} elevated />}
-        empty={<SearchEmpty query={query} />}
+        searchable
       />
     </EditorScreen>
   );

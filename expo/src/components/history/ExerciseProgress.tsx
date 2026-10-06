@@ -49,6 +49,7 @@ export function ExerciseProgress({ exercises, logs, sessions }: { exercises: Exe
           setOpen(false);
         }}
         onDismiss={() => setOpen(false)}
+        searchable
       />
     </View>
   );

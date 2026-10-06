@@ -10,6 +10,7 @@ export { ChoiceSheet, type Choice } from './ChoiceSheet';
 export { ConfirmSheet } from './ConfirmSheet';
 export { DateRow } from './DateRow';
 export { Dot } from './Dot';
+export { EffortRow } from './EffortRow';
 export { Empty } from './Empty';
 export { FieldRow } from './FieldRow';
 export { FieldValue } from './FieldValue';

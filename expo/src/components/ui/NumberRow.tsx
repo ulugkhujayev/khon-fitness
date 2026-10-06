@@ -12,6 +12,8 @@ export function NumberRow({
   divider = true,
   placeholder,
   note,
+  min,
+  max,
   onChange,
 }: {
   label: string;
@@ -23,6 +25,8 @@ export function NumberRow({
   placeholder?: string;
   /** A muted line under the label, e.g. "per side". */
   note?: string;
+  min?: number;
+  max?: number;
   onChange: (v: number | null) => void;
 }) {
   return (
@@ -36,6 +40,8 @@ export function NumberRow({
         height={38}
         label={label}
         placeholder={placeholder}
+        min={min}
+        max={max}
         style={styles.field}
       />
     </FieldRow>

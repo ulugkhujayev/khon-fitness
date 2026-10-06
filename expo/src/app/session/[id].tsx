@@ -12,7 +12,7 @@ import { SetRow } from '@/components/session/SetRow';
 import { SummarySheet } from '@/components/session/SummarySheet';
 import { SwapSheet, SwapState } from '@/components/session/SwapSheet';
 import { useFieldFocus } from '@/components/session/useFieldFocus';
-import { Capsule, PrimaryButton, TextButton } from '@/components/ui';
+import { Capsule, PrimaryButton, TintedButton } from '@/components/ui';
 import { setKey } from '@/domain/session';
 import { Kind, SetLog, SetStatus } from '@/domain/types';
 import { blockTitle, doneCount, firstOpenBlock, groupBlocks, isBlockDone, nextPending, Summary, summarize } from '@/domain/workout';
@@ -109,7 +109,7 @@ export default function SessionScreen() {
         <SessionDetails session={s} live={live} onChange={(patch) => repo.patchSession(s.id, patch)} />
         <View style={styles.gap} />
         {!finished ? <PrimaryButton text="Finish workout" onPress={openSummary} /> : null}
-        <TextButton text={finished ? 'Delete session' : 'Discard workout'} color={K.Red} onPress={() => setConfirmDelete(true)} style={styles.delete} />
+        <TintedButton text={finished ? 'Delete session' : 'Discard workout'} color={K.Red} onPress={() => setConfirmDelete(true)} style={styles.delete} />
       </KeyboardAwareScrollView>
 
       <SwapSheet
@@ -151,5 +151,5 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: K.Bg },
   content: { paddingHorizontal: Space.margin },
   gap: { height: 20 },
-  delete: { alignSelf: 'flex-start', marginTop: 20 },
+  delete: { marginTop: 12 },
 });

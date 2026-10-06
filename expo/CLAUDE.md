@@ -110,7 +110,7 @@ reads during render and no synchronous `setState` inside effects.
     (TextButton, PrimaryButton, TintedButton, Capsule, PlusButton,
     BarCircleButton), lists (GroupedList, ListRow, FieldRow, FieldValue,
     ToggleRow, Empty), inputs (NumberField, whose steppers repeat while held
-    through `useRepeatPress`, NumberRow, TimeStepper, InlineTextField,
+    through `useRepeatPress` and stop at `min`/`max`, NumberRow, EffortRow, TimeStepper, InlineTextField,
     SearchField, Segmented, Toggle, DateRow, MonthGrid, MonthSwitcher, FigureField and
     RulerPicker with EdgeFade; `useNumberText` keeps a focused field's
     text), sheets (Sheet, ChoiceSheet,
@@ -300,7 +300,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 168 tests after the session header and steppers; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 169 tests after the session header and steppers; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

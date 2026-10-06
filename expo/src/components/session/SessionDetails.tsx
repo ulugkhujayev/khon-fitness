@@ -1,7 +1,6 @@
 import { StyleSheet, Text } from 'react-native';
-import { DateRow, FieldRow, GroupedList, InlineTextField, NumberRow } from '@/components/ui';
+import { DateRow, EffortRow, FieldRow, GroupedList, InlineTextField } from '@/components/ui';
 import { Session } from '@/domain/types';
-import { clampEffort } from '@/domain/workout';
 import { Type } from '@/theme';
 
 type DetailsPatch = Partial<Pick<Session, 'date' | 'effort' | 'note'>>;
@@ -12,7 +11,7 @@ export function SessionDetails({ session, live, onChange }: { session: Session; 
     return (
       <GroupedList>
         <DateRow date={session.date} divider={false} onChange={(date) => onChange({ date })} />
-        <NumberRow label="Effort" value={session.effort} unit="/10" step={1} decimals={0} placeholder="1–10" onChange={(v) => onChange({ effort: clampEffort(v) })} />
+        <EffortRow value={session.effort} onChange={(effort) => onChange({ effort })} />
         <FieldRow label="Note">
           <InlineTextField value={session.note} onChange={(note) => onChange({ note })} placeholder="Optional" label="Note" />
         </FieldRow>

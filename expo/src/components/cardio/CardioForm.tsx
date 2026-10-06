@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { EditorScreen } from '@/components/layout';
-import { Capsule, ChoiceSheet, ConfirmSheet, DateRow, FieldRow, GroupedList, InlineTextField, NumberRow, SectionTitle, TextButton } from '@/components/ui';
+import { Capsule, ChoiceSheet, ConfirmSheet, DateRow, EffortRow, FieldRow, GroupedList, InlineTextField, SectionTitle, TextButton } from '@/components/ui';
 import { formFields, STROKES } from '@/domain/cardio';
 import { Exercise, IntervalLog, Session } from '@/domain/types';
-import { clampEffort } from '@/domain/workout';
 import { K } from '@/theme';
 import { CardioFieldRows } from './CardioFieldRows';
 import { IntervalRows } from './IntervalRows';
@@ -47,7 +46,7 @@ export function CardioForm({
       ) : null}
       <SectionTitle text="Notes" style={styles.section} />
       <GroupedList>
-        <NumberRow label="Effort" divider={false} value={draft.effort} unit="/10" step={1} decimals={0} placeholder="1–10" onChange={(v) => setDraft({ ...draft, effort: clampEffort(v) })} />
+        <EffortRow divider={false} value={draft.effort} onChange={(effort) => setDraft({ ...draft, effort })} />
         <FieldRow label="Note">
           <InlineTextField value={draft.note} onChange={(note) => setDraft({ ...draft, note })} placeholder="Optional" label="Note" />
         </FieldRow>

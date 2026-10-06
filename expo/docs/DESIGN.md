@@ -106,9 +106,10 @@ padded cards, per-item buttons, "Updated" lines.
   card, Expo app), full width, accent
   fill, dark text. Start, Finish, Done.
 - All other actions are text buttons, 44 px tap height, no fill, no
-  border. Exception (Expo app): Today's bodyweight Add is a 44 px
+  border. Exceptions (Expo app): Today's bodyweight Add is a 44 px
   capsule tinted, accent text on accent at 20 percent, so it reads as a
-  button without competing with Start.
+  button without competing with Start; a session's Discard workout or
+  Delete session is the same capsule in red, full width under Finish.
 - Icon buttons only in the top bar or the set-row check. Never floating
   inside a row.
 

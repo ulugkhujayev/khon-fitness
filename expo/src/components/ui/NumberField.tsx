@@ -1,7 +1,7 @@
 import { Ref, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import { fmt, parseNumberInput } from '@/domain/format';
-import { stepValue } from '@/domain/stepper';
+import { bound, stepValue } from '@/domain/stepper';
 import { tick } from '@/haptics';
 import { Font, K, Type } from '@/theme';
 import { useNumberText } from './useNumberText';
@@ -23,6 +23,8 @@ export function NumberField({
   step,
   unit,
   decimals = 1,
+  min = 0,
+  max = Infinity,
   height = 44,
   placeholder,
   label,
@@ -35,6 +37,9 @@ export function NumberField({
   step: number;
   unit: string;
   decimals?: number;
+  /** Bounds for steps and typing, e.g. effort 1 to 10. Zero and up by default. */
+  min?: number;
+  max?: number;
   height?: number;
   placeholder?: string;
   /** Accessible name, e.g. "A1 weight". The screen shows no caption. */
@@ -48,7 +53,7 @@ export function NumberField({
   const [measured, setMeasured] = useState(false);
   const compact = forceCompact ?? measured;
 
-  const commit = (v: number | null) => onChange(v == null ? null : Math.max(0, v));
+  const commit = (v: number | null) => onChange(v == null ? null : bound(v, min, max));
 
   // While − or + is held the steps only show; the value is saved once on release, not on every step.
   const held = useRef<number | null>(null);
@@ -57,7 +62,7 @@ export function NumberField({
     // An empty field steps from what its placeholder shows (last time, latest bodyweight), not from zero.
     const shown = placeholder && isPlainNumber(placeholder) ? Number(placeholder) : null;
     const base = held.current ?? parseNumberInput(text).value ?? value ?? shown ?? 0;
-    const next = stepValue(base, sign, step);
+    const next = stepValue(base, sign, step, min, max);
     setText(fmt(next, decimals));
     tick(false);
     if (save) commit(next);
@@ -89,7 +94,10 @@ export function NumberField({
         }}
         onFocus={focus}
         // The typed value, not `value`: a database write may not have come back yet.
-        onBlur={() => blur(parseNumberInput(text).value ?? value)}
+        onBlur={() => {
+          const typed = parseNumberInput(text).value;
+          blur(typed == null ? value : bound(typed, min, max));
+        }}
         selectTextOnFocus
         keyboardType={decimals > 0 ? 'decimal-pad' : 'number-pad'}
         keyboardAppearance="dark"

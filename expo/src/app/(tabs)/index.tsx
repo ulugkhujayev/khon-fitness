@@ -12,8 +12,8 @@ import { useNow } from '@/components/today/useNow';
 import { WindowSheet } from '@/components/today/WindowSheet';
 import { BarCircleButton } from '@/components/ui';
 import { today as todayIso } from '@/domain/dates';
-import { pendingLine } from '@/domain/health';
-import { windowSummary } from '@/domain/window';
+import { pendingRow } from '@/domain/health';
+import { windowStatus, windowSummary } from '@/domain/window';
 import { useToday } from '@/db/hooks';
 import * as repo from '@/db/repository';
 import { usePendingImports } from '@/health/usePendingImports';
@@ -86,8 +86,8 @@ export default function TodayScreen() {
           <TodayRows
             update={update.ready ? { onRestart: update.restart } : null}
             routine={data.routine ? { ...data.routine, onOpen: () => data.routine && openStretchPlayer(data.routine.id) } : null}
-            window={{ ...summary, onOpen: () => setWindowOpen(true) }}
-            pending={pending > 0 ? { text: pendingLine(pending), onOpen: () => router.push('/import') } : null}
+            window={{ open: summary.open, text: windowStatus(data.eatingWindow, data.windowDays.find((d) => d.date === today), now), onOpen: () => setWindowOpen(true) }}
+            pending={pending > 0 ? { ...pendingRow(pending), onOpen: () => router.push('/import') } : null}
           />
           <BodyweightSection today={today} bodyweights={data.bodyweights} onAdd={(kg) => repo.saveBodyweight(today, kg)} />
           <DayPlanSheet visible={planOpen} date={planDate} plan={data.plan} modalities={data.modalities} onDismiss={() => setPlanOpen(false)} />

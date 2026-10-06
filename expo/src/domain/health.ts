@@ -243,5 +243,8 @@ export function importAllLabel(ready: number, total: number): string {
   return total === 1 ? 'Import 1 session' : `Import all ${total} sessions`;
 }
 
+/** Today's band row as a title over a line: "2 new sessions", "From the band, ready to import". */
+export const pendingRow = (n: number) => ({ title: n === 1 ? '1 new session' : `${n} new sessions`, line: 'From the band, ready to import' });
+
 /** Today's row: "1 new session from the band", "3 new sessions from the band". */
 export const pendingLine = (n: number) => (n === 1 ? '1 new session from the band' : `${n} new sessions from the band`);

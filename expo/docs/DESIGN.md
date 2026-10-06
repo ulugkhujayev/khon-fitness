@@ -223,11 +223,15 @@ Two lines, 88 px total, hairline between rows.
   (weekday letters stay in a row above): the number over its dots, the
   selected day on Surface3, other months' days with no tile and a dim
   number, the changed-plan mark in the tile's top right corner.
-- Under the item card, one group of rows with icon tiles (Expo app): an
-  update ready (accent), the active stretch routine (green, a green check
-  once stretched today), the eating window (green while open, gray
-  otherwise), and band sessions waiting for import (red heart); a row
-  with nothing to say is left out.
+- Under the item card, one group of 64 px rows sized for the home screen
+  (Expo app): the symbol in a 40 px circle of its color like the item
+  card's, the name 17/600 over a line of state 15 muted (green when it is
+  good news). An update ready (accent, "Restart to use the new version"),
+  the active stretch routine (green; "Done today · 10 min · 9 stretches"
+  in green with a check once stretched), the eating window ("Open ·
+  closes in 3 h 20 m" in green, or "Closed · opens 12:00", gray), and band
+  sessions waiting ("2 new sessions", "From the band, ready to import",
+  red heart); a row with nothing to say is left out.
 - 16 px gap. The item on a group-surface card (14 px padding top and
   bottom): a 40 px circle with the
   kind's symbol in its color on that color at 20 percent (dumbbell in

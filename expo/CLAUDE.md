@@ -130,7 +130,7 @@ reads during render and no synchronous `setState` inside effects.
     thread, for folding headers), FloatingTabBar, `useLeaveWhenGone` (leave a screen whose record
     is gone).
   - Feature folders: `plan/` (WeekStrip, PlanItemSheet, DayPlanSheet for
-    one date, `colors.ts`, `icons.ts` with a plan item's symbol), `today/` (TodayCard, TodayRows, BodyweightSection,
+    one date, `colors.ts`, `icons.ts` with a plan item's symbol), `today/` (TodayCard, TodayRows with HomeRow, BodyweightSection,
     BodyweightEntry, WindowSheet with WindowDayBar, `useNow` minute clock), `session/` (BlockCard, SessionFooter, SetRow,
     SwapSheet, … and the hooks `useFieldFocus`, `useLeaveWhenGone`,
     `useBlockFlow` (open block, what a check does), `useBlockReveal`

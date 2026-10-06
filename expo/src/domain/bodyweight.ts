@@ -24,8 +24,12 @@ export function changeSince(bodyweights: Bodyweight[], today: string, kg: number
   return `${diff > 0 ? '+' : '−'}${fmt(Math.abs(diff))} kg since ${monthDay(before.date)}`;
 }
 
-/** Add for a new day, Update when today has an entry (a save replaces it). Off when nothing would change. */
-export function entryAction(bodyweights: Bodyweight[], today: string, kg: number): { text: 'Add' | 'Update'; enabled: boolean } {
+/**
+ * Add for a new day, Update when today has another value (a save replaces it), Saved (off) when the
+ * picked value is today's entry already.
+ */
+export function entryAction(bodyweights: Bodyweight[], today: string, kg: number): { text: 'Add' | 'Update' | 'Saved'; enabled: boolean } {
   const todays = bodyweights.find((b) => b.date === today);
-  return { text: todays ? 'Update' : 'Add', enabled: kg > 0 && todays?.kg !== kg };
+  if (todays?.kg === kg) return { text: 'Saved', enabled: false };
+  return { text: todays ? 'Update' : 'Add', enabled: kg > 0 };
 }

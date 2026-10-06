@@ -80,10 +80,10 @@ describe('bodyweight entry', () => {
     expect(changeSince(withToday, today, 80.1)).toBe('−0.3 kg since Oct 5');
   });
 
-  test('Add for a new day, Update for today, off when nothing changes', () => {
+  test("Add for a new day, Update for another value today, Saved when it is today's entry", () => {
     expect(entryAction(weights, today, 80.4)).toEqual({ text: 'Add', enabled: true });
     const withToday = [...weights, { date: today, kg: 80.1 }];
-    expect(entryAction(withToday, today, 80.1)).toEqual({ text: 'Update', enabled: false });
+    expect(entryAction(withToday, today, 80.1)).toEqual({ text: 'Saved', enabled: false });
     expect(entryAction(withToday, today, 80.2)).toEqual({ text: 'Update', enabled: true });
     expect(entryAction(weights, today, 0)).toEqual({ text: 'Add', enabled: false });
   });

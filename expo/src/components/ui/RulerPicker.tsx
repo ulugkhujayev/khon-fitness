@@ -23,6 +23,7 @@ export function RulerPicker({
   onChange,
   label,
   unit,
+  surface = K.Bg,
   style,
 }: {
   ruler: Ruler;
@@ -31,6 +32,8 @@ export function RulerPicker({
   /** Accessible name, e.g. "Bodyweight ruler". */
   label: string;
   unit: string;
+  /** The fill under the ruler, which its edges fade into. */
+  surface?: string;
   style?: ViewStyle;
 }) {
   const list = useRef<FlatList<RulerSegment>>(null);
@@ -100,7 +103,7 @@ export function RulerPicker({
         }}
       />
       <View style={[styles.line, { left: width / 2 - LINE.width / 2 }]} />
-      <EdgeFade width={width} height={HEIGHT} />
+      <EdgeFade width={width} height={HEIGHT} color={surface} />
     </View>
   );
 }

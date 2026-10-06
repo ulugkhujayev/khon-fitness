@@ -17,7 +17,7 @@ export function BodyweightSection({ today, bodyweights, onAdd }: { today: string
   return (
     <View>
       <TitleRow title="Bodyweight" value={latest ? `${fmt(latest.kg)} kg` : '—'} valueLabel={latest ? undefined : 'No entry yet'} large style={styles.header} />
-      {recent.length > 0 ? <LineChart points={recent.map((b) => ({ date: b.date, value: b.kg }))} unit="kg" height={130} style={styles.chart} /> : null}
+      {recent.length > 0 ? <LineChart points={recent.map((b) => ({ date: b.date, value: b.kg }))} unit="kg" height={190} style={styles.chart} /> : null}
       <BodyweightEntry today={today} bodyweights={bodyweights} onSave={onAdd} />
     </View>
   );

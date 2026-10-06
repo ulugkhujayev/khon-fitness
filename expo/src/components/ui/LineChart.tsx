@@ -8,7 +8,8 @@ import { Font, K, Type } from '@/theme';
 
 /** Plot insets: room for the value axis on the left, labels above points and dates below (LineChart.kt). */
 const PAD = { l: 40, r: 14, t: 22, b: 24 };
-const TICK = { fill: K.Dim, fontSize: Type.caption2.fontSize, fontFamily: Font.medium };
+// Axis and date labels in secondary label at 12: tertiary at 11 was too faint to read on black.
+const TICK = { fill: K.Muted, fontSize: Type.caption1.fontSize, fontFamily: Font.medium };
 
 type Anchor = 'start' | 'middle' | 'end';
 
@@ -104,7 +105,7 @@ function Plot({
             y={ys[i] - radius(i) - 5}
             textAnchor={anchor(i)}
             fill={last ? K.Text : K.Muted}
-            fontSize={last ? Type.caption1.fontSize : Type.caption2.fontSize}
+            fontSize={last ? Type.footnote.fontSize : Type.caption1.fontSize}
             fontFamily={last ? Font.bold : Font.medium}>
             {label(p.value) + (last && unit ? ` ${unit}` : '')}
           </SvgText>

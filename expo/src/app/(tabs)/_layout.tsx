@@ -6,7 +6,8 @@ export default function TabLayout() {
   return (
     <Tabs
       tabBar={(props) => <FloatingTabBar {...props} />}
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: K.Bg } }}>
+      // Screens shift sideways as the selected capsule slides along the bar.
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: K.Bg }, animation: 'shift' }}>
       <Tabs.Screen name="index" options={{ title: 'Today' }} />
       <Tabs.Screen name="history" options={{ title: 'History' }} />
       <Tabs.Screen name="programs" options={{ title: 'Programs' }} />

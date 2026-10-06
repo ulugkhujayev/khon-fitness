@@ -29,8 +29,9 @@ padded cards, per-item buttons, "Updated" lines.
   over the first 12 pt the bar's bottom edge rises with the content (60 pt
   to 48), over the first 40 pt the title shrinks toward its leading edge
   to about 20 pt, and a hairline fades in once content passes under it.
-- Tab bar: a floating capsule 60 pt tall, 24 pt from the sides, 10 pt above
-  the bottom edge, group surface with a 1 pt hairline and a soft shadow;
+- Tab bar (Expo app: the selected capsule slides to the tab tapped on a
+  quick spring, and the screens shift sideways as they swap): a floating
+  capsule 60 pt tall, 24 pt from the sides, 10 pt above the bottom edge, group surface with a 1 pt hairline and a soft shadow;
   three items with filled symbols and 11 pt labels; the selected item sits
   on a #2C2C2E capsule tinted accent.
 - Inset grouped lists: radius 20 pt, rows 48 pt minimum with 17 pt Body,

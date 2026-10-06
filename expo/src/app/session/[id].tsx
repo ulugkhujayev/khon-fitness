@@ -33,7 +33,7 @@ export default function SessionScreen() {
   const previous = usePreviousLogs(id);
   const fields = useFieldFocus();
   const logs = data?.logs ?? [];
-  const { blocks, expanded, openBlock, toggleSet, scrollRef, onHeaderLayout, onBodyLayout } = useBlockFlow(logs, fields.focus);
+  const { blocks, open, toggleBlock, toggleSet, scrollRef, onHeaderLayout, onBodyLayout } = useBlockFlow(logs, fields.focus);
   const [editing, setEditing] = useState(false);
   const [swap, setSwap] = useState<SwapState | null>(null);
   const [swapOpen, setSwapOpen] = useState(false);
@@ -66,10 +66,9 @@ export default function SessionScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         // Headers and the open block's sets are separate children, so a header can stick while its sets scroll.
-        stickyHeaderIndices={headerIndices(blocks.length, expanded)}
+        stickyHeaderIndices={headerIndices(open)}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
         {blocks.flatMap((blockLogs, bi) => {
-          const open = expanded === bi;
           const header = (
             <BlockHeader
               key={`h${blockLogs[0].blockIndex}`}
@@ -78,12 +77,12 @@ export default function SessionScreen() {
               doneSets={doneCount(blockLogs)}
               setCount={blockLogs.length}
               done={isBlockDone(blockLogs)}
-              open={open}
-              onToggle={() => openBlock(open ? null : bi)}
+              open={open[bi]}
+              onToggle={() => toggleBlock(bi)}
               onLayout={(e) => onHeaderLayout(bi, e)}
             />
           );
-          if (!open) return [header];
+          if (!open[bi]) return [header];
           return [
             header,
             <BlockBody key={`b${blockLogs[0].blockIndex}`} onLayout={(e) => onBodyLayout(bi, e)}>

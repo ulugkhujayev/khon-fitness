@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { fmt, parseNumberInput, sets } from '../src/domain/format';
 import { Defaults, hexAlpha, ItemType, Session, SetLog, SetStatus } from '../src/domain/types';
 import {
-  blockTitle, clampEffort, doneCount, doneLine, progressLine, firstOpenBlock, gain, groupBlocks, isBlockDone, kgDecimals, afterCheck, headerIndices, setTag, summarize,
+  blockTitle, clampEffort, doneCount, doneLine, progressLine, openBlocks, gain, groupBlocks, isBlockDone, kgDecimals, afterCheck, headerIndices, setTag, summarize,
 } from '../src/domain/workout';
 
 const log = (p: Partial<SetLog> & Pick<SetLog, 'id' | 'order'>): SetLog => ({
@@ -62,9 +62,10 @@ describe('session flow', () => {
     expect(groupBlocks(logs).map((b) => b.map((l) => l.id))).toEqual([['a1', 'b1', 'a2'], ['c1', 'c2']]);
   });
 
-  test('opens the first block with a pending set', () => {
-    expect(firstOpenBlock(groupBlocks(logs))).toBe(1);
-    expect(firstOpenBlock([[logs[0]]])).toBe(0);
+  test('blocks with work left are open, finished ones closed, unless the user chose', () => {
+    const blocks = groupBlocks(logs);
+    expect(openBlocks(blocks, {})).toEqual([false, true]);
+    expect(openBlocks(blocks, { 0: true, 1: false })).toEqual([true, false]);
   });
 
   test('a check keeps its block open while it has a pending set, focus on the next one', () => {
@@ -86,11 +87,11 @@ describe('session flow', () => {
     expect(afterCheck(blocks, three[3])).toEqual({ open: 0, focus: three[0] });
   });
 
-  test('block headers among the list children, the open block adding its sets', () => {
-    expect(headerIndices(3, null)).toEqual([0, 1, 2]);
-    expect(headerIndices(3, 0)).toEqual([0, 2, 3]);
-    expect(headerIndices(3, 2)).toEqual([0, 1, 2]);
-    expect(headerIndices(0, null)).toEqual([]);
+  test('block headers among the list children, each open block adding its sets', () => {
+    expect(headerIndices([false, false, false])).toEqual([0, 1, 2]);
+    expect(headerIndices([true, false, false])).toEqual([0, 2, 3]);
+    expect(headerIndices([true, true, false])).toEqual([0, 2, 4]);
+    expect(headerIndices([])).toEqual([]);
   });
 
   test('the last pending set closes every block', () => {

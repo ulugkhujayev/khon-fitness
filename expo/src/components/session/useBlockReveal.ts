@@ -4,33 +4,45 @@ import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controlle
 
 /** How long a block takes to open or close (ms). */
 const DURATION = 220;
+/** How long to wait for a block's new frame before scrolling to the one it has (ms). */
+const SETTLE = 80;
 
 /**
- * Opens and closes a session's blocks smoothly: the change animates (LayoutAnimation, every frame that
- * moves), and a block that opens scrolls up until its header is at the top, so its sets are in view.
- * The sets' frame is the one to watch: they mount as the block opens. Headers are sticky, so their own
- * frames are measured inside their sticky wrapper; only their heights are kept.
+ * Animates a session's blocks opening and closing (LayoutAnimation, every frame that moves) and scrolls a
+ * block up until its header is at the top. A block's sets report where they are: as they mount when it
+ * opens, and whenever a block above opens or closes. Headers are sticky, so their own frames are measured
+ * inside their sticky wrapper; only their heights are kept.
  */
 export function useBlockReveal() {
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
   const wanted = useRef<number | null>(null);
   const headerHeights = useRef(new Map<number, number>());
+  const bodyTops = useRef(new Map<number, number>());
+
+  const scrollTo = (index: number) => {
+    const y = bodyTops.current.get(index);
+    if (y == null) return;
+    wanted.current = null;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - (headerHeights.current.get(index) ?? 0)), animated: true });
+  };
 
   return {
     scrollRef,
-    /** Call just before the open block changes, with the block that will be open (null: none). */
-    reveal: (open: number | null) => {
-      LayoutAnimation.configureNext(LayoutAnimation.create(DURATION, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity));
-      wanted.current = open;
+    /** Animates the next change of the blocks' layout. */
+    animate: () => LayoutAnimation.configureNext(LayoutAnimation.create(DURATION, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity)),
+    /** Brings a block to the top: at its sets' next layout, or where they are if nothing moves them. */
+    reveal: (index: number) => {
+      wanted.current = index;
+      setTimeout(() => {
+        if (wanted.current === index) scrollTo(index);
+      }, SETTLE);
     },
     onHeaderLayout: (index: number, e: LayoutChangeEvent) => {
       headerHeights.current.set(index, e.nativeEvent.layout.height);
     },
     onBodyLayout: (index: number, e: LayoutChangeEvent) => {
-      if (wanted.current !== index) return;
-      wanted.current = null;
-      const top = e.nativeEvent.layout.y - (headerHeights.current.get(index) ?? 0);
-      scrollRef.current?.scrollTo({ y: Math.max(0, top), animated: true });
+      bodyTops.current.set(index, e.nativeEvent.layout.y);
+      if (wanted.current === index) scrollTo(index);
     },
   };
 }

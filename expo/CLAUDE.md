@@ -126,7 +126,7 @@ reads during render and no synchronous `setState` inside effects.
     BodyweightEntry, WindowSheet, `useNow` minute clock), `session/`
     (BlockHeader, sticky in the list, and BlockBody, SetRow,
     SwapSheet, … and the hooks `useFieldFocus`, `useLeaveWhenGone`,
-    `useBlockFlow` (open block, what a check does), `useBlockReveal`
+    `useBlockFlow` (open blocks, what a check does), `useBlockReveal`
     (animated open and close, scroll the opened block to the top)),
     `editors/` (ExerciseForm with a table-driven select config, ModalityForm,
     ColorSheet, BlockExerciseGroup), `history/` (CalendarGrid with the

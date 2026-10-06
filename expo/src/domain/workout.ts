@@ -41,18 +41,19 @@ export function groupBlocks(logs: SetLog[]): SetLog[][] {
   return [...map.entries()].sort((a, b) => a[0] - b[0]).map(([, block]) => block);
 }
 
-/** The block to open first: the first one with a pending set, else the first. */
-export function firstOpenBlock(blocks: SetLog[][]): number {
-  const i = blocks.findIndex((b) => b.some((l) => l.status === SetStatus.PENDING));
-  return i >= 0 ? i : 0;
-}
+/**
+ * Which blocks are open: a block with work left is, a finished one is not, unless the user opened or
+ * closed it (`chosen`, by block position).
+ */
+export const openBlocks = (blocks: SetLog[][], chosen: Record<number, boolean>): boolean[] =>
+  blocks.map((b, i) => chosen[i] ?? b.some((l) => l.status === SetStatus.PENDING));
 
 /**
- * Where a session goes after a set is checked. Its block stays open while it has a pending set, and focus
- * goes to the next one (later in the order, else one left behind). A finished block hands over to the next
- * block with a pending set, wrapping to an earlier one, with focus on its first pending set; with nothing
- * left, every block closes. `blocks` come from groupBlocks before the check lands, so `checked` is still
- * pending in them.
+ * Where a session goes after a set is checked: `open` is the block to work on next and `focus` its set.
+ * While the checked set's block has a pending set, that is the same block, focus on the next one (later
+ * in the order, else one left behind). A finished block hands over to the next block with a pending set,
+ * wrapping to an earlier one, focus on its first pending set; with nothing left, `open` is null. `blocks`
+ * come from groupBlocks before the check lands, so `checked` is still pending in them.
  */
 export function afterCheck(blocks: SetLog[][], checked: SetLog): { open: number | null; focus: SetLog | undefined } {
   const pending = (block: SetLog[]) => block.filter((l) => l.id !== checked.id && l.status === SetStatus.PENDING);
@@ -67,10 +68,16 @@ export function afterCheck(blocks: SetLog[][], checked: SetLog): { open: number 
 
 /**
  * Where the block headers sit among a session list's children, for sticky headers: every block adds its
- * header, and the open one its sets right after it.
+ * header, and an open one its sets right after it.
  */
-export const headerIndices = (count: number, open: number | null): number[] =>
-  Array.from({ length: count }, (_, i) => (open != null && i > open ? i + 1 : i));
+export function headerIndices(open: boolean[]): number[] {
+  let at = 0;
+  return open.map((isOpen) => {
+    const header = at;
+    at += isOpen ? 2 : 1;
+    return header;
+  });
+}
 
 /** Exercise names of a block, A first, joined: "Bench Press · Leg Press". */
 export function blockTitle(logs: SetLog[]): string {

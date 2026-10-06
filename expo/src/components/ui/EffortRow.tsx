@@ -2,7 +2,18 @@ import { clampEffort } from '@/domain/workout';
 import { NumberRow } from './NumberRow';
 
 /** Effort as an editor row: a dash until set, "/10" after the value, steps and typing kept within 1 to 10. */
-export function EffortRow({ value, divider, onChange }: { value: number | null; divider?: boolean; onChange: (effort: number | null) => void }) {
+export function EffortRow({
+  value,
+  divider,
+  elevated,
+  onChange,
+}: {
+  value: number | null;
+  divider?: boolean;
+  /** Inside a sheet's elevated group. */
+  elevated?: boolean;
+  onChange: (effort: number | null) => void;
+}) {
   return (
     <NumberRow
       label="Effort"
@@ -14,6 +25,7 @@ export function EffortRow({ value, divider, onChange }: { value: number | null; 
       max={10}
       placeholder="—"
       divider={divider}
+      elevated={elevated}
       onChange={(v) => onChange(clampEffort(v))}
     />
   );

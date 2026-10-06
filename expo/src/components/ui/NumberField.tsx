@@ -30,6 +30,7 @@ export function NumberField({
   label,
   inputRef,
   compact: forceCompact,
+  elevated = false,
   style,
 }: {
   value: number | null;
@@ -47,6 +48,8 @@ export function NumberField({
   inputRef?: Ref<TextInput>;
   /** Set when the caller already knows the width, so the unit it shows elsewhere matches. Else measured. */
   compact?: boolean;
+  /** On a group that already has the widget's fill (inside a sheet): one step lighter. */
+  elevated?: boolean;
   style?: ViewStyle;
 }) {
   const { text, setText, focus, blur } = useNumberText(value, decimals);
@@ -79,10 +82,10 @@ export function NumberField({
 
   return (
     <View
-      style={[styles.box, { height }, style]}
+      style={[styles.box, elevated && styles.elevatedBox, { height }, style]}
       // Rounded: a 176-wide field can measure 175.99 on a fractional pixel grid.
       onLayout={(e) => setMeasured(Math.round(e.nativeEvent.layout.width) < COMPACT_WIDTH)}>
-      <StepButton glyph="−" label={`Decrease by ${stepLabel}`} width={stepWidth} onStep={(save) => stepBy(-1, save)} onRelease={release} />
+      <StepButton glyph="−" label={`Decrease by ${stepLabel}`} width={stepWidth} elevated={elevated} onStep={(save) => stepBy(-1, save)} onRelease={release} />
       <View style={styles.divider} />
       <TextInput
         ref={inputRef}
@@ -109,7 +112,7 @@ export function NumberField({
       />
       {compact ? <View style={styles.compactGap} /> : <Text style={styles.unit}>{unit}</Text>}
       <View style={styles.divider} />
-      <StepButton glyph="+" label={`Increase by ${stepLabel}`} width={stepWidth} onStep={(save) => stepBy(1, save)} onRelease={release} />
+      <StepButton glyph="+" label={`Increase by ${stepLabel}`} width={stepWidth} elevated={elevated} onStep={(save) => stepBy(1, save)} onRelease={release} />
     </View>
   );
 }
@@ -119,12 +122,14 @@ function StepButton({
   glyph,
   label,
   width,
+  elevated,
   onStep,
   onRelease,
 }: {
   glyph: string;
   label: string;
   width: number;
+  elevated: boolean;
   /** `save` is false while held: the caller saves once on release. */
   onStep: (save: boolean) => void;
   onRelease: () => void;
@@ -135,7 +140,7 @@ function StepButton({
     onRelease,
   );
   return (
-    <Pressable {...press} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.step, { width }, pressed && styles.stepPressed]}>
+    <Pressable {...press} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.step, { width }, pressed && (elevated ? styles.stepPressedElevated : styles.stepPressed)]}>
       <Text style={Type.stepGlyph}>{glyph}</Text>
     </Pressable>
   );
@@ -144,7 +149,10 @@ function StepButton({
 const styles = StyleSheet.create({
   box: { flexDirection: 'row', alignItems: 'stretch', borderRadius: 10, backgroundColor: K.Surface2, overflow: 'hidden' },
   step: { alignItems: 'center', justifyContent: 'center' },
+  elevatedBox: { backgroundColor: K.Surface3 },
   stepPressed: { backgroundColor: K.Surface3 },
+  // The elevated box is Surface3 already: a press dims the button instead.
+  stepPressedElevated: { opacity: 0.6 },
   divider: { width: 1, backgroundColor: K.Divider },
   input: { ...Type.value, flex: 1, minWidth: 0, paddingLeft: 8, paddingVertical: 0, textAlign: 'right' },
   compactGap: { width: 8 },

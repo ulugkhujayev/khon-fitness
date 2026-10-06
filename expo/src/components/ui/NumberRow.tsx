@@ -14,6 +14,7 @@ export function NumberRow({
   note,
   min,
   max,
+  elevated,
   onChange,
 }: {
   label: string;
@@ -27,6 +28,8 @@ export function NumberRow({
   note?: string;
   min?: number;
   max?: number;
+  /** Inside a sheet's elevated group (NumberField). */
+  elevated?: boolean;
   onChange: (v: number | null) => void;
 }) {
   return (
@@ -42,6 +45,7 @@ export function NumberRow({
         placeholder={placeholder}
         min={min}
         max={max}
+        elevated={elevated}
         style={styles.field}
       />
     </FieldRow>

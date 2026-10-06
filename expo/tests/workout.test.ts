@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { fmt, parseNumberInput, sets } from '../src/domain/format';
 import { Defaults, hexAlpha, ItemType, Session, SetLog, SetStatus } from '../src/domain/types';
 import {
-  blockTitle, clampEffort, doneCount, doneLine, progressLine, firstOpenBlock, gain, groupBlocks, isBlockDone, kgDecimals, afterCheck, setTag, summarize,
+  blockTitle, clampEffort, doneCount, doneLine, progressLine, workoutTime, firstOpenBlock, gain, groupBlocks, isBlockDone, kgDecimals, afterCheck, setTag, summarize,
 } from '../src/domain/workout';
 
 const log = (p: Partial<SetLog> & Pick<SetLog, 'id' | 'order'>): SetLog => ({
@@ -174,6 +174,12 @@ describe('Today card', () => {
     expect(progressLine(start, at(34))).toBe('In progress · 34 min');
     expect(progressLine(start, at(65))).toBe('In progress · 1 h 5 min');
     expect(progressLine(start, at(-2))).toBe('In progress');
+  });
+
+  test('the time a workout took, for the finish sheet', () => {
+    expect(workoutTime(start, at(0.5))).toBe('0 min');
+    expect(workoutTime(start, at(52))).toBe('52 min');
+    expect(workoutTime(start, at(125))).toBe('2 h 5 min');
   });
 
   test('a hex color with alpha', () => {

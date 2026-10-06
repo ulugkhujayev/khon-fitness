@@ -1,12 +1,10 @@
 import { StyleSheet, Text } from 'react-native';
 import { DateRow, EffortRow, FieldRow, GroupedList, InlineTextField } from '@/components/ui';
-import { Session } from '@/domain/types';
+import { Session, SessionDetailsPatch } from '@/domain/types';
 import { Type } from '@/theme';
 
-type DetailsPatch = Partial<Pick<Session, 'date' | 'effort' | 'note'>>;
-
 /** Date, effort 1-10 and note of a session: editable while live, else only what was filled in. */
-export function SessionDetails({ session, live, onChange }: { session: Session; live: boolean; onChange: (patch: DetailsPatch) => void }) {
+export function SessionDetails({ session, live, onChange }: { session: Session; live: boolean; onChange: (patch: SessionDetailsPatch) => void }) {
   if (live) {
     return (
       <GroupedList>

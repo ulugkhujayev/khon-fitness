@@ -101,6 +101,9 @@ export interface Session {
   sourceId: string | null;
 }
 
+/** What a session's date, effort and note fields change, on the page and in the finish sheet. */
+export type SessionDetailsPatch = Partial<Pick<Session, 'date' | 'effort' | 'note'>>;
+
 /** One set inside a program session. Carries a snapshot of names so history never changes. */
 export interface SetLog {
   id: string;

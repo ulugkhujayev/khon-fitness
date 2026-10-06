@@ -109,7 +109,8 @@ padded cards, per-item buttons, "Updated" lines.
   border. Exceptions (Expo app): Today's bodyweight Add is a 44 px
   capsule tinted, accent text on accent at 20 percent, so it reads as a
   button without competing with Start; a session's Discard workout or
-  Delete session is the same capsule in red, full width under Finish.
+  Delete session is the same capsule in red, full width at the end of
+  the page.
 - Icon buttons only in the top bar or the set-row check. Never floating
   inside a row.
 
@@ -118,7 +119,10 @@ padded cards, per-item buttons, "Updated" lines.
 - Header (Expo app; the Kotlin screen has a large title and the date):
   the 56 px navigation bar, Back, the program name in Headline, Finish as
   the trailing capsule; under it the green progress bar with "12 / 42"
-  in muted 13. It stays put while the sets scroll.
+  in muted 13. It stays put while the sets scroll. Finish is the only
+  way to finish (no Finish workout at the bottom): it opens the "Workout
+  done" sheet with time, sets done, volume and new bests, then effort
+  and note (the page's own fields too), then Save.
 
 Two lines, 88 px total, hairline between rows.
 - Line 1 (40 px): 32 px check circle, then the set tag "A1" in accent

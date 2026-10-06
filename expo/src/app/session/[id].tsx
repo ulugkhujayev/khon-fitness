@@ -9,14 +9,14 @@ import { DeleteSessionSheet } from '@/components/session/DeleteSessionSheet';
 import { SessionFooter } from '@/components/session/SessionFooter';
 import { SessionHeader } from '@/components/session/SessionHeader';
 import { SetRow } from '@/components/session/SetRow';
-import { SummarySheet } from '@/components/session/SummarySheet';
+import { FinishSummary, SummarySheet } from '@/components/session/SummarySheet';
 import { SwapSheet, SwapState } from '@/components/session/SwapSheet';
 import { useBlockFlow } from '@/components/session/useBlockFlow';
 import { useFieldFocus } from '@/components/session/useFieldFocus';
 import { Capsule } from '@/components/ui';
 import { setKey } from '@/domain/session';
-import { Kind } from '@/domain/types';
-import { blockTitle, doneCount, isBlockDone, Summary, summarize } from '@/domain/workout';
+import { Kind, SessionDetailsPatch } from '@/domain/types';
+import { blockTitle, doneCount, isBlockDone, summarize, workoutTime } from '@/domain/workout';
 import { usePreviousLogs, useSession } from '@/db/hooks';
 import * as repo from '@/db/repository';
 import { K, Space } from '@/theme';
@@ -36,7 +36,7 @@ export default function SessionScreen() {
   const [editing, setEditing] = useState(false);
   const [swap, setSwap] = useState<SwapState | null>(null);
   const [swapOpen, setSwapOpen] = useState(false);
-  const [summary, setSummary] = useState<Summary | null>(null);
+  const [summary, setSummary] = useState<FinishSummary | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const leave = useLeaveWhenGone(data != null && data.session == null);
@@ -46,8 +46,10 @@ export default function SessionScreen() {
   const finished = s.finishedAt != null;
   const live = !finished || editing;
 
+  const patchDetails = (patch: SessionDetailsPatch) => repo.patchSession(s.id, patch);
+
   const openSummary = async () => {
-    setSummary(summarize(logs, await repo.allSetLogs(), s.id));
+    setSummary({ stats: summarize(logs, await repo.allSetLogs(), s.id), time: workoutTime(s.startedAt, Date.now()) });
     setSummaryOpen(true);
   };
 
@@ -94,7 +96,7 @@ export default function SessionScreen() {
             ))}
           </BlockCard>
         ))}
-        <SessionFooter session={s} live={live} onChange={(patch) => repo.patchSession(s.id, patch)} onFinish={openSummary} onDelete={() => setConfirmDelete(true)} />
+        <SessionFooter session={s} live={live} onChange={patchDetails} onDelete={() => setConfirmDelete(true)} />
       </KeyboardAwareScrollView>
 
       <SwapSheet
@@ -121,6 +123,8 @@ export default function SessionScreen() {
       <SummarySheet
         visible={summaryOpen}
         summary={summary}
+        session={s}
+        onChange={patchDetails}
         onDismiss={() => setSummaryOpen(false)}
         onSave={async () => {
           setSummaryOpen(false);

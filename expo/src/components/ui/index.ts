@@ -9,6 +9,7 @@ export { ChoiceRow } from './ChoiceRow';
 export { ChoiceSheet, type Choice } from './ChoiceSheet';
 export { ConfirmSheet } from './ConfirmSheet';
 export { DateRow } from './DateRow';
+export { Disclosure } from './Disclosure';
 export { Dot } from './Dot';
 export { EffortRow } from './EffortRow';
 export { Empty } from './Empty';

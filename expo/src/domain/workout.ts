@@ -41,21 +41,18 @@ export function groupBlocks(logs: SetLog[]): SetLog[][] {
   return [...map.entries()].sort((a, b) => a[0] - b[0]).map(([, block]) => block);
 }
 
-/**
- * Which blocks are open: the first one with work left, unless the user or a finished block opened or
- * closed others (`chosen`, by block position).
- */
-export function openBlocks(blocks: SetLog[][], chosen: Record<number, boolean>): boolean[] {
-  const first = blocks.findIndex((b) => b.some((l) => l.status === SetStatus.PENDING));
-  return blocks.map((_, i) => chosen[i] ?? i === first);
+/** The block to open first: the first one with a pending set, else the first. */
+export function firstOpenBlock(blocks: SetLog[][]): number {
+  const i = blocks.findIndex((b) => b.some((l) => l.status === SetStatus.PENDING));
+  return i >= 0 ? i : 0;
 }
 
 /**
- * Where a session goes after a set is checked: `open` is the block to work on next and `focus` its set.
- * While the checked set's block has a pending set, that is the same block, focus on the next one (later
- * in the order, else one left behind). A finished block hands over to the next block with a pending set,
- * wrapping to an earlier one, focus on its first pending set; with nothing left, `open` is null. `blocks`
- * come from groupBlocks before the check lands, so `checked` is still pending in them.
+ * Where a session goes after a set is checked. Its block stays open while it has a pending set, and focus
+ * goes to the next one (later in the order, else one left behind). A finished block hands over to the next
+ * block with a pending set, wrapping to an earlier one, with focus on its first pending set; with nothing
+ * left, every block closes. `blocks` come from groupBlocks before the check lands, so `checked` is still
+ * pending in them.
  */
 export function afterCheck(blocks: SetLog[][], checked: SetLog): { open: number | null; focus: SetLog | undefined } {
   const pending = (block: SetLog[]) => block.filter((l) => l.id !== checked.id && l.status === SetStatus.PENDING);
@@ -66,44 +63,6 @@ export function afterCheck(blocks: SetLog[][], checked: SetLog): { open: number 
   const before = blocks.map((_, i) => i).filter((i) => i < here);
   const next = [...after, ...before].find((i) => pending(blocks[i]).length > 0);
   return next == null ? { open: null, focus: undefined } : { open: next, focus: pending(blocks[next])[0] };
-}
-
-/** Where a view sits in a scrolling list: its top in the list's content and its height. */
-export interface Frame {
-  y: number;
-  height: number;
-}
-
-/** An open block in the session list: its header's top and height, and where its sets end. */
-export interface BlockSpan {
-  index: number;
-  top: number;
-  height: number;
-  end: number;
-}
-
-/** The open blocks whose header and sets have both been laid out, in list order. */
-export function blockSpans(open: boolean[], headers: Map<number, Frame>, bodies: Map<number, Frame>): BlockSpan[] {
-  const spans: BlockSpan[] = [];
-  open.forEach((isOpen, index) => {
-    const header = headers.get(index);
-    const body = bodies.get(index);
-    if (isOpen && header && body) spans.push({ index, top: header.y, height: header.height, end: body.y + body.height });
-  });
-  return spans;
-}
-
-/**
- * The open block whose header has scrolled under the top of the list while its sets still show, and how
- * far a pinned copy of that header moves up (0 or less) so the card's end pushes it off. Null when no
- * header needs pinning. Runs on the UI thread for every scroll frame.
- */
-export function pinnedHeader(spans: BlockSpan[], scrollY: number): { index: number; shift: number } | null {
-  'worklet';
-  for (const s of spans) {
-    if (scrollY > s.top && scrollY < s.end) return { index: s.index, shift: Math.min(0, s.end - scrollY - s.height) };
-  }
-  return null;
 }
 
 /** Exercise names of a block, A first, joined: "Bench Press · Leg Press". */

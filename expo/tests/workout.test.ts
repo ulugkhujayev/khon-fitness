@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { fmt, parseNumberInput, sets } from '../src/domain/format';
 import { Defaults, hexAlpha, ItemType, Session, SetLog, SetStatus } from '../src/domain/types';
 import {
-  blockTitle, clampEffort, doneCount, doneLine, progressLine, openBlocks, gain, groupBlocks, isBlockDone, kgDecimals, afterCheck, blockSpans, pinnedHeader, setTag, summarize,
+  blockTitle, clampEffort, doneCount, doneLine, progressLine, firstOpenBlock, gain, groupBlocks, isBlockDone, kgDecimals, afterCheck, setTag, summarize,
 } from '../src/domain/workout';
 
 const log = (p: Partial<SetLog> & Pick<SetLog, 'id' | 'order'>): SetLog => ({
@@ -62,11 +62,9 @@ describe('session flow', () => {
     expect(groupBlocks(logs).map((b) => b.map((l) => l.id))).toEqual([['a1', 'b1', 'a2'], ['c1', 'c2']]);
   });
 
-  test('only the first block with work left is open, unless the user chose', () => {
-    const three = groupBlocks([...logs, log({ id: 'd1', order: 5, blockIndex: 2, status: SetStatus.PENDING })]);
-    expect(openBlocks(three, {})).toEqual([false, true, false]);
-    expect(openBlocks(three, { 0: true, 1: false })).toEqual([true, false, false]);
-    expect(openBlocks(three, { 2: true })).toEqual([false, true, true]);
+  test('opens the first block with a pending set', () => {
+    expect(firstOpenBlock(groupBlocks(logs))).toBe(1);
+    expect(firstOpenBlock([[logs[0]]])).toBe(0);
   });
 
   test('a check keeps its block open while it has a pending set, focus on the next one', () => {
@@ -86,23 +84,6 @@ describe('session flow', () => {
     const blocks = groupBlocks(three);
     expect(afterCheck(blocks, three[1])).toEqual({ open: 2, focus: three[3] });
     expect(afterCheck(blocks, three[3])).toEqual({ open: 0, focus: three[0] });
-  });
-
-  test('spans cover the open blocks that have been laid out', () => {
-    const headers = new Map([[0, { y: 0, height: 62 }], [1, { y: 400, height: 66 }], [2, { y: 476, height: 66 }]]);
-    const bodies = new Map([[0, { y: 62, height: 300 }], [1, { y: 466, height: 500 }]]);
-    expect(blockSpans([true, false, true], headers, bodies)).toEqual([{ index: 0, top: 0, height: 62, end: 362 }]);
-    expect(blockSpans([false, true, false], headers, bodies)).toEqual([{ index: 1, top: 400, height: 66, end: 966 }]);
-  });
-
-  test("an open block's header pins while its sets show, then its card's end pushes it off", () => {
-    const spans = [{ index: 1, top: 400, height: 66, end: 966 }];
-    expect(pinnedHeader(spans, 400)).toBeNull();
-    expect(pinnedHeader(spans, 401)).toEqual({ index: 1, shift: 0 });
-    expect(pinnedHeader(spans, 900)).toEqual({ index: 1, shift: 0 });
-    expect(pinnedHeader(spans, 920)).toEqual({ index: 1, shift: -20 });
-    expect(pinnedHeader(spans, 966)).toBeNull();
-    expect(pinnedHeader([], 500)).toBeNull();
   });
 
   test('the last pending set closes every block', () => {

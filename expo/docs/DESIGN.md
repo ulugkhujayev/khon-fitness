@@ -128,17 +128,15 @@ Two lines, 88 px total, hairline between rows.
   [ − 60 kg + ] [ − 8 reps + ]. Value 18/600 tabular, inputs at least
   64 px wide so "100" and "12.5" fit. Delta in green 12 under the widget.
 - Blocks: header row 52 px (index in accent, names, sets done of total
-  "2 / 6", chevron or a green check), sets under it (Expo app from here
-  on). On entry only the first block with work left is open. While a
-  block's sets scroll, its header stays pinned at the top on a strip of
-  the background until its card's end pushes it off. A tap on a header
-  opens or closes that block, the others stay as they are (closing a
-  block the list is inside brings its header back to the top); opening
-  and closing animate (220 ms ease) and an opened block scrolls to the
-  top. A check
-  keeps focus in its block while it has a pending set (the next one, else
-  one left behind); its last set closes the block and opens the next
-  block with work at the top, wrapping to an earlier one.
+  "2 / 6", a chevron or a green check), sets under it. One block is open
+  at a time, nothing sticks. Opening and closing animate over 250 ms
+  (ease in and out): the card grows or shrinks with its sets revealed from
+  the top, they fade in or out, the chevron turns from right to down, and
+  an opened block scrolls to the top of the list. A check keeps its block
+  open while it
+  has a pending set (focus to the next one, else one left behind); after
+  its last set the next block with work opens, wrapping to an earlier
+  one, and with nothing left every block closes (Expo app).
 
 ## Today
 

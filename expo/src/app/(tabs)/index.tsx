@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { rescheduleWindow } from '@/alerts/windowReminders';
 import { clearWindowRequest, useWindowRequest } from '@/alerts/windowRequest';
@@ -8,9 +7,10 @@ import { DayPlanSheet } from '@/components/plan/DayPlanSheet';
 import { WeekStrip } from '@/components/plan/WeekStrip';
 import { BodyweightSection } from '@/components/today/BodyweightSection';
 import { TodayCard } from '@/components/today/TodayCard';
+import { TodayRows } from '@/components/today/TodayRows';
 import { useNow } from '@/components/today/useNow';
 import { WindowSheet } from '@/components/today/WindowSheet';
-import { BarCircleButton, GroupedList, ListRow } from '@/components/ui';
+import { BarCircleButton } from '@/components/ui';
 import { today as todayIso } from '@/domain/dates';
 import { pendingLine } from '@/domain/health';
 import { windowSummary } from '@/domain/window';
@@ -19,7 +19,6 @@ import * as repo from '@/db/repository';
 import { usePendingImports } from '@/health/usePendingImports';
 import { useAppUpdate } from '@/updates/useAppUpdate';
 import { openStretchPlayer, resumeSession, startItem } from '@/navigation';
-import { K } from '@/theme';
 
 /**
  * Today (TodayScreen.kt): the week strip, today's item with Start or Resume, the stretch routine, the eating window,
@@ -84,38 +83,12 @@ export default function TodayScreen() {
             onStart={start}
             onResume={(s) => resumeSession(s)}
           />
-          {update.ready ? (
-            <GroupedList style={styles.row}>
-              <ListRow title="Update ready" value="Restart" dot={K.Accent} last onPress={update.restart} />
-            </GroupedList>
-          ) : null}
-          {data.routine ? (
-            <GroupedList style={styles.row}>
-              <ListRow
-                title={data.routine.name}
-                value={data.routine.line}
-                dot={K.Green}
-                dotFilled={data.routine.doneToday}
-                last
-                onPress={() => data.routine && openStretchPlayer(data.routine.id)}
-              />
-            </GroupedList>
-          ) : null}
-          <GroupedList style={styles.row}>
-            <ListRow
-              title="Eating window"
-              value={summary.text}
-              dot={summary.open ? K.Green : K.Muted}
-              dotFilled={summary.open}
-              last
-              onPress={() => setWindowOpen(true)}
-            />
-          </GroupedList>
-          {pending > 0 ? (
-            <GroupedList style={styles.row}>
-              <ListRow title={pendingLine(pending)} dot={K.Green} last onPress={() => router.push('/import')} />
-            </GroupedList>
-          ) : null}
+          <TodayRows
+            update={update.ready ? { onRestart: update.restart } : null}
+            routine={data.routine ? { ...data.routine, onOpen: () => data.routine && openStretchPlayer(data.routine.id) } : null}
+            window={{ ...summary, onOpen: () => setWindowOpen(true) }}
+            pending={pending > 0 ? { text: pendingLine(pending), onOpen: () => router.push('/import') } : null}
+          />
           <BodyweightSection today={today} bodyweights={data.bodyweights} onAdd={(kg) => repo.saveBodyweight(today, kg)} />
           <DayPlanSheet visible={planOpen} date={planDate} plan={data.plan} modalities={data.modalities} onDismiss={() => setPlanOpen(false)} />
           <WindowSheet
@@ -137,7 +110,3 @@ export default function TodayScreen() {
     </TabScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  row: { marginTop: 16 },
-});

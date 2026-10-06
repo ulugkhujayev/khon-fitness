@@ -108,3 +108,9 @@ export const Space = {
   tapMin: 44,
   buttonHeight: 50,
 } as const;
+
+/** Motion shared across the app. */
+export const Motion = {
+  /** A selection sliding to its new place (the tab bar's capsule, a segmented control): quick, no wobble. */
+  slide: { damping: 20, stiffness: 240, mass: 0.8 },
+} as const;

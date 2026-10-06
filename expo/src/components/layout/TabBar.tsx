@@ -1,9 +1,10 @@
-import { ComponentProps, useEffect, useRef, useState } from 'react';
+import { ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView, SymbolViewProps } from 'expo-symbols';
 import type { Tabs } from 'expo-router';
+import { useSlidingCapsule } from '@/components/ui/useSlidingCapsule';
 import { Font, K, Type } from '@/theme';
 
 /** React Navigation ships inside expo-router in this SDK, so take the tab bar props from Tabs itself. */
@@ -23,9 +24,6 @@ const ITEMS: Record<string, Item> = {
   programs: { label: 'Programs', icon: { ios: 'list.bullet', android: 'fitness_center', web: 'fitness_center' } },
 };
 
-/** How the selected capsule moves to a new tab: a quick spring that settles without a wobble. */
-const SLIDE = { damping: 20, stiffness: 240, mass: 0.8 } as const;
-
 /**
  * Floating capsule tab bar (DESIGN.md): 60 pt tall, 24 pt from the sides, 10 pt above the bottom edge,
  * group surface with a hairline and a soft shadow; the selected item sits on a Surface2 capsule tinted accent,
@@ -33,26 +31,13 @@ const SLIDE = { damping: 20, stiffness: 240, mass: 0.8 } as const;
  */
 export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const [width, setWidth] = useState(0);
-  const slot = width > 0 ? width / state.routes.length : 0;
-  const x = useSharedValue(0);
-  // The first place is set at once; only later changes slide.
-  const placed = useRef(false);
-
-  useEffect(() => {
-    if (slot === 0) return;
-    const target = state.index * slot;
-    x.set(placed.current ? withSpring(target, SLIDE) : target);
-    placed.current = true;
-  }, [state.index, slot, x]);
-
-  const capsule = useAnimatedStyle(() => ({ transform: [{ translateX: x.get() }] }));
+  const capsule = useSlidingCapsule(state.index, state.routes.length);
 
   return (
     <View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: insets.bottom + BAR.gap }]}>
       <View style={styles.bar}>
-        <View style={styles.items} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-          {slot > 0 ? <Animated.View style={[styles.capsule, { width: slot }, capsule]} /> : null}
+        <View style={styles.items} onLayout={capsule.onLayout}>
+          {capsule.slot > 0 ? <Animated.View style={[styles.capsule, { width: capsule.slot }, capsule.style]} /> : null}
           {state.routes.map((route, i) => {
             const item = ITEMS[route.name];
             if (!item) return null;

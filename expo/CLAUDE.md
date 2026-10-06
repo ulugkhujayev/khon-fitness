@@ -103,13 +103,14 @@ reads during render and no synchronous `setState` inside effects.
 
 ## Code map and conventions
 
-- `src/theme/index.ts`: `K` colors, `Type` text styles, `Space`; same names
+- `src/theme/index.ts`: `K` colors, `Type` text styles, `Space`, `Motion`; same names
   and values as `Theme.kt`. Fonts load in `src/app/_layout.tsx`.
 - `src/components/` (one exported component per file):
   - `ui/`: design-system primitives with a barrel `index.ts`: buttons
     (TextButton, PrimaryButton, TintedButton, Capsule, PlusButton,
     BarCircleButton), lists (GroupedList, ListRow, FieldRow, FieldValue,
-    ToggleRow, Empty, ContentEmpty and SearchEmpty for nothing to show, GroupFooter,
+    ToggleRow, Empty, ContentEmpty and SearchEmpty for nothing to show,
+    `useSlidingCapsule` (the tab bar's and Segmented's sliding selection), GroupFooter,
     IndexBadge, IconTile, IconButton, ActionRow with ACTION_ICONS for
     BottomActions;
     ListRow takes a `leading` view), inputs

@@ -119,7 +119,9 @@ padded cards, per-item buttons, "Updated" lines.
   of its own, both dim when off, the reason as a muted footnote under the
   groups, 32 px below the fields, groups 20 px apart.
 - Fields sit in groups with section titles (an exercise: name and kind;
-  Muscles; Details), so no label wraps.
+  Muscles; Details), so no label wraps. A select that cannot change shows
+  its value muted with a small lock instead of the chevron, and a muted
+  footnote under its group says why (an exercise's kind once it is used).
 - The bar keeps its title centered and shows a hairline once content
   scrolls under it, fading in over the first 16 px (Expo app).
   Expo app, program and block editors: Add block and Add exercise / Add

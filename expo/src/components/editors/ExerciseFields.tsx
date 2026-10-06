@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { FieldRow, FieldValue, GroupedList, InlineTextField, NumberRow, SectionTitle, ToggleRow } from '@/components/ui';
+import { FieldRow, FieldValue, GroupedList, GroupFooter, InlineTextField, NumberRow, SectionTitle, ToggleRow } from '@/components/ui';
 import { cap, clampRounds, fieldLabel, modalityName, withIntervals } from '@/domain/editors';
 import { Exercise, Intensity, Kind, Modality, splitList } from '@/domain/types';
 import { ExerciseSelect } from './exerciseChoices';
@@ -35,9 +35,10 @@ export function ExerciseFields({
           <InlineTextField value={draft.name} onChange={(name) => set({ name })} placeholder="Exercise name" label="Name" />
         </FieldRow>
         <FieldRow label="Kind" onPress={kindLocked ? undefined : () => onOpen('kind')}>
-          <FieldValue text={cap(draft.kind)} muted={kindLocked} />
+          <FieldValue text={cap(draft.kind)} locked={kindLocked} />
         </FieldRow>
       </GroupedList>
+      {kindLocked ? <GroupFooter text="The kind is fixed: sessions, programs or the plan already use this exercise as it is." /> : null}
       {draft.kind === Kind.STRENGTH ? (
         <>
           <SectionTitle text="Muscles" style={styles.section} />

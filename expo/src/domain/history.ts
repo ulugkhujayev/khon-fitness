@@ -165,6 +165,19 @@ export function muscleVolume(logs: SetLog[], sessions: Session[], exercises: Exe
     .sort((a, b) => Math.max(b.thisWeek, b.lastWeek) - Math.max(a.thisWeek, a.lastWeek) || a.muscle.localeCompare(b.muscle));
 }
 
+/** A bar above zero never shrinks below this share of the track, so a small count still shows. */
+const MIN_SHARE = 0.02;
+
+/**
+ * Where the sets-per-muscle bars end, as shares of the biggest count of either week: this week's fill and
+ * the mark for last week. Zero stays zero, so nothing shows for a week without sets.
+ */
+export function volumeShares(volume: MuscleVolume[]): { now: number; last: number }[] {
+  const max = Math.max(1, ...volume.map((m) => Math.max(m.thisWeek, m.lastWeek)));
+  const share = (v: number) => (v <= 0 ? 0 : Math.max(MIN_SHARE, v / max));
+  return volume.map((m) => ({ now: share(m.thisWeek), last: share(m.lastWeek) }));
+}
+
 // ---------------------------------------------------------------- cardio trends
 
 export interface CardioTrends {

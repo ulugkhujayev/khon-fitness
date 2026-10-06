@@ -2,7 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import { monthWeeks, sameMonth } from '../src/domain/dates';
 import {
-  cardioTrends, cellAt, dayCount, dayDots, dayLabel, defaultCardioId, defaultExerciseId, dropAction, formatPace, muscleVolume, progressFor,
+  cardioTrends, cellAt, dayCount, dayDots, dayLabel, defaultCardioId, defaultExerciseId, dropAction, formatPace, muscleVolume, progressFor, volumeShares,
   sessionLine, stretchLine, stretchMonth, swapNeighbours,
 } from '../src/domain/history';
 import { PlanItem } from '../src/domain/plan';
@@ -144,6 +144,20 @@ describe('weekly volume', () => {
       { muscle: 'shoulders', thisWeek: 1, lastWeek: 0 },
       { muscle: 'triceps', thisWeek: 1, lastWeek: 0 },
     ]);
+  });
+
+  test('bar shares against the biggest count of either week, zero stays empty', () => {
+    const volume = [
+      { muscle: 'chest', thisWeek: 4, lastWeek: 8 },
+      { muscle: 'biceps', thisWeek: 0, lastWeek: 0.1 },
+      { muscle: 'quads', thisWeek: 2, lastWeek: 0 },
+    ];
+    expect(volumeShares(volume)).toEqual([
+      { now: 0.5, last: 1 },
+      { now: 0, last: 0.02 },
+      { now: 0.25, last: 0 },
+    ]);
+    expect(volumeShares([{ muscle: 'calves', thisWeek: 0.5, lastWeek: 0 }])).toEqual([{ now: 0.5, last: 0 }]);
   });
 });
 

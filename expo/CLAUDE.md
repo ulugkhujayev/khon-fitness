@@ -191,7 +191,7 @@ reads during render and no synchronous `setState` inside effects.
   `session.ts` (`buildSetLogs`, `previousByKey`, `epley`), `workout.ts`
   (summary, block grouping and title, `afterCheck` (where a check moves on), gains, effort,
   Today's done line), `history.ts` (day dots, day labels, calendar hit test
-  and drop rule, session lines, e1RM progress, weekly sets per muscle, cardio
+  and drop rule, session lines, e1RM progress, weekly sets per muscle and their bar shares, cardio
   trends), `timer.ts` (TimerState, snapshot, CueGate, cue and alert rules,
   timer screen text), `cardio.ts` (form fields, values, pace, save patch),
   `editors.ts` (block/exercise editor rules, library filter, preset colors),
@@ -306,7 +306,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 173 tests after the search empty state; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 174 tests after the muscle bars; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

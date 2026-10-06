@@ -46,7 +46,8 @@ export function CalendarGrid({
 }) {
   const { fontScale } = useWindowDimensions();
   const large = fontScale >= 1.5;
-  const rowHeight = large ? 56 : 46;
+  // A tile with the number and its dots, 3 pt above and below.
+  const rowHeight = large ? 64 : 52;
   const { drag, offset, begin, gridProps } = useDayDrag({ dates: weeks.flat(), rows: weeks.length, rowHeight, today, onPlan, onSwap, onActive: onDragActive });
 
   return (
@@ -97,7 +98,6 @@ export function CalendarGrid({
                     planned={planned}
                     lifted={drag?.from === date}
                     target={drag != null && drag.over === date && dropAction(drag.from, date, today) === 'swap'}
-                    numberSize={large ? 34 : 26}
                     offset={offset}
                   />
                 </Pressable>
@@ -112,7 +112,7 @@ export function CalendarGrid({
 
 const styles = StyleSheet.create({
   week: { flexDirection: 'row' },
-  letter: { ...Type.caption1, fontFamily: Font.medium, flex: 1, textAlign: 'center', color: K.Dim, paddingBottom: 4 },
+  letter: { ...Type.caption1, fontFamily: Font.medium, flex: 1, textAlign: 'center', color: K.Muted, paddingBottom: 4 },
   cell: { flex: 1 },
   // The lifted day draws over its neighbours and the rows below.
   liftedRow: { zIndex: 1 },

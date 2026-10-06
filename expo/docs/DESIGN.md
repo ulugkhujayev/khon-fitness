@@ -161,7 +161,10 @@ Two lines, 88 px total, hairline between rows.
   (accent for strength), filled for high intensity, ring for low or
   moderate, none for rest. Past days: number muted, dot at 50 percent.
   Today's tile is filled in accent, letter, number and dot in white, the
-  number bold.
+  number bold. History's month calendar draws its days as the same tiles
+  (weekday letters stay in a row above): the number over its dots, the
+  selected day on Surface3, other months' days with no tile and a dim
+  number, the changed-plan mark in the tile's top right corner.
 - 16 px gap. The item on a group-surface card (14 px padding top and
   bottom): a 40 px circle with the
   kind's symbol in its color on that color at 20 percent (dumbbell in

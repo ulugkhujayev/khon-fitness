@@ -10,6 +10,12 @@ type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tab
 
 type Item = { label: string; icon: SymbolViewProps['name'] };
 
+/** The capsule's height and its gap to the bottom edge, which sits above the home indicator. */
+const BAR = { height: 60, gap: 10 } as const;
+
+/** What the bar covers above the bottom safe-area inset: scrolling content behind it has to clear this. */
+export const TAB_BAR_HEIGHT = BAR.height + BAR.gap;
+
 const ITEMS: Record<string, Item> = {
   index: { label: 'Today', icon: { ios: 'calendar', android: 'today', web: 'today' } },
   history: { label: 'History', icon: { ios: 'clock.fill', android: 'history', web: 'history' } },
@@ -23,7 +29,7 @@ const ITEMS: Record<string, Item> = {
 export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: insets.bottom + 10 }]}>
+    <View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: insets.bottom + BAR.gap }]}>
       <View style={styles.bar}>
         {state.routes.map((route, i) => {
           const item = ITEMS[route.name];
@@ -55,8 +61,8 @@ const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 24, paddingTop: 6 },
   bar: {
     flexDirection: 'row',
-    height: 60,
-    borderRadius: 30,
+    height: BAR.height,
+    borderRadius: BAR.height / 2,
     backgroundColor: K.Surface,
     borderWidth: 1,
     borderColor: K.Hairline,

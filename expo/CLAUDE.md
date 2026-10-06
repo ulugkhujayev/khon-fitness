@@ -121,7 +121,8 @@ reads during render and no synchronous `setState` inside effects.
     Pick lists use `ChoiceSheet`; do not build another sheet of choice rows.
   - `layout/`: NavBar, BackButton, EditorScreen (empty = loading frame),
     TabScreen (scrolling content under LargeTitleHeader, a large title that
-    folds on scroll with Reanimated), FloatingTabBar, `useLeaveWhenGone` (leave a screen whose record
+    folds on scroll with Reanimated), `useScrollY` (a list's offset on the UI
+    thread, for folding headers), FloatingTabBar, `useLeaveWhenGone` (leave a screen whose record
     is gone).
   - Feature folders: `plan/` (WeekStrip, PlanItemSheet, DayPlanSheet for
     one date, `colors.ts`), `today/` (TodayCard, BodyweightSection,

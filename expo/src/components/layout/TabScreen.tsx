@@ -1,11 +1,11 @@
 import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { K, Space } from '@/theme';
 import { LARGE_TITLE_HEIGHT, LargeTitleHeader } from './LargeTitleHeader';
 import { TAB_BAR_HEIGHT } from './TabBar';
+import { useScrollY } from './useScrollY';
 
 /** Room between the end of the content and the floating tab bar, so the last row scrolls clear of it. */
 const BAR_CLEARANCE = 32;
@@ -27,10 +27,7 @@ export function TabScreen({
   scrollEnabled?: boolean;
 }) {
   const insets = useSafeAreaInsets();
-  const scrollY = useSharedValue(0);
-  const onScroll = useAnimatedScrollHandler((e) => {
-    scrollY.set(e.contentOffset.y);
-  });
+  const { scrollY, onScroll } = useScrollY();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

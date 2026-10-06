@@ -3,11 +3,11 @@ import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NavBar, useLeaveWhenGone } from '@/components/layout';
+import { NavBar, useLeaveWhenGone, useScrollY } from '@/components/layout';
 import { BlockCard } from '@/components/session/BlockCard';
 import { DeleteSessionSheet } from '@/components/session/DeleteSessionSheet';
 import { SessionFooter } from '@/components/session/SessionFooter';
-import { SessionHeader } from '@/components/session/SessionHeader';
+import { SESSION_HEADER_FOLDED, SESSION_HEADER_HEIGHT, SessionHeader } from '@/components/session/SessionHeader';
 import { SetRow } from '@/components/session/SetRow';
 import { FinishSummary, SummarySheet } from '@/components/session/SummarySheet';
 import { SwapSheet, SwapState } from '@/components/session/SwapSheet';
@@ -32,7 +32,10 @@ export default function SessionScreen() {
   const previous = usePreviousLogs(id);
   const fields = useFieldFocus();
   const logs = data?.logs ?? [];
-  const { blocks, expanded, openBlock, toggleSet, scrollRef, onBlockLayout } = useBlockFlow(logs, fields.focus);
+  // A running session's header sits over the list; folded, it still hides the bar's height.
+  const running = data?.session != null && data.session.finishedAt == null;
+  const { blocks, expanded, openBlock, toggleSet, scrollRef, onBlockLayout } = useBlockFlow(logs, fields.focus, running ? SESSION_HEADER_FOLDED : 0);
+  const { scrollY, onScroll } = useScrollY();
   const [editing, setEditing] = useState(false);
   const [swap, setSwap] = useState<SwapState | null>(null);
   const [swapOpen, setSwapOpen] = useState(false);
@@ -55,49 +58,51 @@ export default function SessionScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* The header stays put while the sets scroll: Finish and the progress are always in reach. */}
       {finished ? (
         <NavBar title={s.programName ?? 'Session'} trailing={<Capsule text={editing ? 'Done' : 'Edit'} onPress={() => setEditing((e) => !e)} />} />
-      ) : (
-        <SessionHeader title={s.programName ?? 'Session'} done={doneCount(logs)} total={logs.length} onFinish={openSummary} />
-      )}
-      <KeyboardAwareScrollView
-        ref={scrollRef}
-        bottomOffset={24}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
-        {blocks.map((blockLogs, bi) => (
-          <BlockCard
-            key={blockLogs[0].blockIndex}
-            index={bi}
-            title={blockTitle(blockLogs)}
-            doneSets={doneCount(blockLogs)}
-            setCount={blockLogs.length}
-            done={isBlockDone(blockLogs)}
-            open={expanded === bi}
-            onToggle={() => openBlock(expanded === bi ? null : bi)}
-            onLayout={(e) => onBlockLayout(bi, e)}>
-            {blockLogs.map((log) => (
-              <SetRow
-                key={log.id}
-                log={log}
-                prev={previous.get(setKey(log))}
-                live={live}
-                inputRef={fields.register(log.id)}
-                onToggle={() => toggleSet(log)}
-                onWeight={(weightKg) => repo.patchSetLog(log.id, { weightKg })}
-                onReps={(r) => repo.patchSetLog(log.id, { reps: r == null ? null : Math.trunc(r) })}
-                onSwap={() => {
-                  setSwap({ log, query: '', to: null });
-                  setSwapOpen(true);
-                }}
-              />
-            ))}
-          </BlockCard>
-        ))}
-        <SessionFooter session={s} live={live} onChange={patchDetails} onDelete={() => setConfirmDelete(true)} />
-      </KeyboardAwareScrollView>
+      ) : null}
+      <View style={styles.list}>
+        <KeyboardAwareScrollView
+          ref={scrollRef}
+          bottomOffset={24}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          contentContainerStyle={[styles.content, { paddingTop: finished ? 0 : SESSION_HEADER_HEIGHT, paddingBottom: insets.bottom + 24 }]}>
+          {blocks.map((blockLogs, bi) => (
+            <BlockCard
+              key={blockLogs[0].blockIndex}
+              index={bi}
+              title={blockTitle(blockLogs)}
+              doneSets={doneCount(blockLogs)}
+              setCount={blockLogs.length}
+              done={isBlockDone(blockLogs)}
+              open={expanded === bi}
+              onToggle={() => openBlock(expanded === bi ? null : bi)}
+              onLayout={(e) => onBlockLayout(bi, e)}>
+              {blockLogs.map((log) => (
+                <SetRow
+                  key={log.id}
+                  log={log}
+                  prev={previous.get(setKey(log))}
+                  live={live}
+                  inputRef={fields.register(log.id)}
+                  onToggle={() => toggleSet(log)}
+                  onWeight={(weightKg) => repo.patchSetLog(log.id, { weightKg })}
+                  onReps={(r) => repo.patchSetLog(log.id, { reps: r == null ? null : Math.trunc(r) })}
+                  onSwap={() => {
+                    setSwap({ log, query: '', to: null });
+                    setSwapOpen(true);
+                  }}
+                />
+              ))}
+            </BlockCard>
+          ))}
+          <SessionFooter session={s} live={live} onChange={patchDetails} onDelete={() => setConfirmDelete(true)} />
+        </KeyboardAwareScrollView>
+        {/* Over the list: Finish and the progress stay in reach while the sets scroll, and it folds as they do. */}
+        {!finished ? <SessionHeader title={s.programName ?? 'Session'} done={doneCount(logs)} total={logs.length} onFinish={openSummary} scrollY={scrollY} /> : null}
+      </View>
 
       <SwapSheet
         visible={swapOpen}
@@ -138,5 +143,6 @@ export default function SessionScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: K.Bg },
+  list: { flex: 1 },
   content: { paddingHorizontal: Space.margin },
 });

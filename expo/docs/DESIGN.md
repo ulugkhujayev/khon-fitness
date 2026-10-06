@@ -123,7 +123,10 @@ padded cards, per-item buttons, "Updated" lines.
 - Header (Expo app; the Kotlin screen has a large title and the date):
   the 56 px navigation bar, Back, the program name in Headline, Finish as
   the trailing capsule; under it the green progress bar with "12 / 42"
-  in muted 13. It stays put while the sets scroll. Finish is the only
+  in muted 13. It sits over the list and folds as the sets scroll: over
+  the first 28 pt the progress row slides up under the bar with them and
+  fades, and a 2 px green progress line fades in on the bar's bottom
+  edge, so Back, Finish and the progress stay in view. Finish is the only
   way to finish (no Finish workout at the bottom): it opens the "Workout
   done" sheet with time, sets done, volume and new bests, then effort
   and note (the page's own fields too), then Save.

@@ -10,9 +10,9 @@ const DURATION = 250;
 /**
  * Opens and closes a session's blocks smoothly: the change animates (LayoutAnimation, every frame that
  * moves), and a block that opens scrolls to the top of the list once its new frame is known, so its sets
- * are in view without hunting for them.
+ * are in view without hunting for them. `cover` is how much of the list's top a header over it hides.
  */
-export function useBlockReveal() {
+export function useBlockReveal(cover: number) {
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
   const wanted = useRef<number | null>(null);
 
@@ -27,7 +27,7 @@ export function useBlockReveal() {
     onBlockLayout: (index: number, e: LayoutChangeEvent) => {
       if (wanted.current !== index) return;
       wanted.current = null;
-      scrollRef.current?.scrollTo({ y: Math.max(0, e.nativeEvent.layout.y - ABOVE), animated: true });
+      scrollRef.current?.scrollTo({ y: Math.max(0, e.nativeEvent.layout.y - cover - ABOVE), animated: true });
     },
   };
 }

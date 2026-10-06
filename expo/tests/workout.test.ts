@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { fmt, parseNumberInput, sets } from '../src/domain/format';
-import { blend, Defaults, hexAlpha, ItemType, Session, SetLog, SetStatus } from '../src/domain/types';
+import { Defaults, hexAlpha, ItemType, Session, SetLog, SetStatus } from '../src/domain/types';
 import {
   blockTitle, clampEffort, doneCount, doneLine, progressLine, firstOpenBlock, gain, groupBlocks, isBlockDone, kgDecimals, nextPending, setTag, summarize,
 } from '../src/domain/workout';
@@ -160,11 +160,5 @@ describe('Today card', () => {
   test('a hex color with alpha', () => {
     expect(hexAlpha('#FF9F0A', 0.2)).toBe('rgba(255,159,10,0.2)');
     expect(hexAlpha('#30D158', 1)).toBe('rgba(48,209,88,1)');
-  });
-
-  test('a tint blended onto a card color', () => {
-    expect(blend('#1C1C1E', '#FF9F0A', 0)).toBe('#1C1C1E');
-    expect(blend('#1C1C1E', '#FF9F0A', 1)).toBe('#FF9F0A');
-    expect(blend('#000000', '#FFFFFF', 0.2)).toBe('#333333');
   });
 });

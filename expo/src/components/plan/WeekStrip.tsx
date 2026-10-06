@@ -1,15 +1,15 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { longDate, parseIso, weekdayName, weekOf } from '@/domain/dates';
 import { itemFor, PlanData } from '@/domain/plan';
-import { blend, hexAlpha, Modality } from '@/domain/types';
+import { hexAlpha, Modality } from '@/domain/types';
+import { Dot } from '@/components/ui';
 import { Font, K, tabular, Type } from '@/theme';
 import { itemColor } from './colors';
 
 /**
  * Monday to Sunday of this week (DESIGN.md, Today): each day a rounded tile on the group surface with the
- * weekday letter over the number, its border in the planned item's color (tinted inside for high
- * intensity, none for rest), past days muted, today filled in accent. Tap a day to see or change it.
- * Port of WeekStrip in TodayScreen.kt, with the dot moved onto the tile's border.
+ * weekday letter, the number and a dot for the planned item, past days muted, today filled in accent with
+ * a white dot. Tap a day to see or change it. Port of WeekStrip in TodayScreen.kt, the cells as tiles.
  */
 export function WeekStrip({
   today,
@@ -36,14 +36,12 @@ export function WeekStrip({
             accessibilityRole="button"
             accessibilityLabel={`${longDate(date)}, ${item.name}${isToday ? ', today' : ''}`}
             accessibilityHint="Change plan"
-            style={({ pressed }) => [
-              styles.tile,
-              c && { borderColor: past ? hexAlpha(c.color, 0.5) : c.color, backgroundColor: c.filled ? blend(K.Surface, c.color, 0.2) : K.Surface },
-              isToday && styles.today,
-              pressed && styles.pressed,
-            ]}>
+            style={({ pressed }) => [styles.tile, isToday && styles.today, pressed && styles.pressed]}>
             <Text style={[styles.letter, isToday && styles.todayText]}>{weekdayName(i + 1)[0]}</Text>
             <Text style={[styles.number, past && styles.past, isToday && styles.todayText, isToday && styles.todayNumber]}>{parseIso(date).getDate()}</Text>
+            <View style={styles.dot}>
+              {c ? <Dot color={isToday ? K.AccentInk : past ? hexAlpha(c.color, 0.5) : c.color} filled={c.filled} size={7} /> : null}
+            </View>
           </Pressable>
         );
       })}
@@ -53,17 +51,8 @@ export function WeekStrip({
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 6 },
-  // Not in Theme.kt: a tile with continuous corners (a squircle on iOS) and a 2 pt border in the plan's color.
-  tile: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-    borderWidth: 2,
-    borderColor: 'transparent',
-    backgroundColor: K.Surface,
-  },
+  // Not in Theme.kt: a tile on the group surface with continuous corners (a squircle on iOS).
+  tile: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, borderCurve: 'continuous', backgroundColor: K.Surface },
   today: { backgroundColor: K.Accent },
   pressed: { opacity: 0.6 },
   letter: { ...Type.caption1, fontFamily: Font.medium, color: K.Muted },
@@ -71,4 +60,5 @@ const styles = StyleSheet.create({
   past: { color: K.Muted },
   todayText: { color: K.AccentInk },
   todayNumber: { fontFamily: Font.bold },
+  dot: { marginTop: 4, height: 8, justifyContent: 'center' },
 });

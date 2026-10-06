@@ -124,15 +124,14 @@ Two lines, 88 px total, hairline between rows.
 ## Today
 
 - No app bar. The screen title is the first thing.
-- Week strip (Expo app; the Kotlin strip is plain cells with a dot under
-  the number): 7 equal tiles, 6 px apart, each on the group surface with
-  the weekday letter 12 muted over the day number 17, rounded (radius 12,
-  continuous corners), with a 2 px border in the planned item's color
-  (accent for strength, the modality color for cardio): that color
-  blended in at 20 percent for high intensity, border only for low or
-  moderate, no border for rest. Past days: number muted, border at 50
-  percent. Today's tile is filled in accent, letter and number in white,
-  the number bold.
+- Week strip (Expo app; the Kotlin strip is plain cells on the
+  background): 7 equal tiles, 6 px apart, each on the group surface,
+  rounded (radius 12, continuous corners): the weekday letter 12 muted,
+  the day number 17, and a 7 px dot for the planned item: modality color
+  (accent for strength), filled for high intensity, ring for low or
+  moderate, none for rest. Past days: number muted, dot at 50 percent.
+  Today's tile is filled in accent, letter, number and dot in white, the
+  number bold.
 - 16 px gap. The item on a group-surface card (14 px padding top and
   bottom): a 40 px circle with the
   kind's symbol in its color on that color at 20 percent (dumbbell in

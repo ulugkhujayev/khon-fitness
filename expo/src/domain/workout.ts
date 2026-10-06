@@ -42,11 +42,13 @@ export function groupBlocks(logs: SetLog[]): SetLog[][] {
 }
 
 /**
- * Which blocks are open: a block with work left is, a finished one is not, unless the user opened or
- * closed it (`chosen`, by block position).
+ * Which blocks are open: the first one with work left, unless the user or a finished block opened or
+ * closed others (`chosen`, by block position).
  */
-export const openBlocks = (blocks: SetLog[][], chosen: Record<number, boolean>): boolean[] =>
-  blocks.map((b, i) => chosen[i] ?? b.some((l) => l.status === SetStatus.PENDING));
+export function openBlocks(blocks: SetLog[][], chosen: Record<number, boolean>): boolean[] {
+  const first = blocks.findIndex((b) => b.some((l) => l.status === SetStatus.PENDING));
+  return blocks.map((_, i) => chosen[i] ?? i === first);
+}
 
 /**
  * Where a session goes after a set is checked: `open` is the block to work on next and `focus` its set.

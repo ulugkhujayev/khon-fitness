@@ -129,14 +129,14 @@ Two lines, 88 px total, hairline between rows.
   64 px wide so "100" and "12.5" fit. Delta in green 12 under the widget.
 - Blocks: header row 52 px (index in accent, names, sets done of total
   "2 / 6", chevron or a green check), sets under it (Expo app from here
-  on). Blocks with work left are open, finished ones closed, so the list
-  runs from block to block: while a block's sets scroll, its header sticks
-  to the top on a strip of the background until the next header pushes it
-  off. A tap on a header opens or closes that block; opening and closing
+  on). On entry only the first block with work left is open. While a
+  block's sets scroll, its header sticks to the top on a strip of the
+  background until the next header pushes it off. A tap on a header opens
+  or closes that block, the others stay as they are; opening and closing
   animate (220 ms ease) and an opened block scrolls to the top. A check
   keeps focus in its block while it has a pending set (the next one, else
-  one left behind); its last set closes the block and brings the next
-  block with work to the top, wrapping to an earlier one.
+  one left behind); its last set closes the block and opens the next
+  block with work at the top, wrapping to an earlier one.
 
 ## Today
 

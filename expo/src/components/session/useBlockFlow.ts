@@ -5,10 +5,10 @@ import { afterCheck, groupBlocks, openBlocks } from '@/domain/workout';
 import { useBlockReveal } from './useBlockReveal';
 
 /**
- * Which blocks of a session are open and what a tap on a set's circle does. Blocks with work left are
- * open and finished ones closed, so scrolling runs from one block to the next; a tap on a header opens or
- * closes that block. A check saves the set and focus moves to the set afterCheck names; a block's last
- * set closes it and brings the next block with work to the top. Changes animate (useBlockReveal).
+ * Which blocks of a session are open and what a tap on a set's circle does. The first block with work
+ * left is open; a tap on a header opens or closes that block, leaving the others as they are. A check
+ * saves the set and focus moves to the set afterCheck names; a block's last set closes it and opens the
+ * next block with work at the top. Changes animate (useBlockReveal).
  */
 export function useBlockFlow(logs: SetLog[], focusField: (id: string) => void) {
   // Blocks the user or a finished block opened or closed, by position; the rest follow openBlocks.

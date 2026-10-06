@@ -62,10 +62,11 @@ describe('session flow', () => {
     expect(groupBlocks(logs).map((b) => b.map((l) => l.id))).toEqual([['a1', 'b1', 'a2'], ['c1', 'c2']]);
   });
 
-  test('blocks with work left are open, finished ones closed, unless the user chose', () => {
-    const blocks = groupBlocks(logs);
-    expect(openBlocks(blocks, {})).toEqual([false, true]);
-    expect(openBlocks(blocks, { 0: true, 1: false })).toEqual([true, false]);
+  test('only the first block with work left is open, unless the user chose', () => {
+    const three = groupBlocks([...logs, log({ id: 'd1', order: 5, blockIndex: 2, status: SetStatus.PENDING })]);
+    expect(openBlocks(three, {})).toEqual([false, true, false]);
+    expect(openBlocks(three, { 0: true, 1: false })).toEqual([true, false, false]);
+    expect(openBlocks(three, { 2: true })).toEqual([false, true, true]);
   });
 
   test('a check keeps its block open while it has a pending set, focus on the next one', () => {

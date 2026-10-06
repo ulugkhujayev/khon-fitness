@@ -3,15 +3,16 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { Check } from '@/components/ui';
 import { sets } from '@/domain/format';
-import { Font, K, Space, Type } from '@/theme';
+import { Font, K, Space, tabular, Type } from '@/theme';
 
 /**
  * One block of a session (DESIGN.md, Set row, "Blocks"): a 56 pt header with the block number, the
- * exercise names, the set count and its state; the set rows under it while open.
+ * exercise names, its sets done of total and its state; the set rows under it while open.
  */
 export function BlockCard({
   index,
   title,
+  doneSets,
   setCount,
   done,
   open,
@@ -21,7 +22,9 @@ export function BlockCard({
   /** Zero-based; shown as 1, 2, 3. */
   index: number;
   title: string;
+  doneSets: number;
   setCount: number;
+  /** Every set logged or skipped. */
   done: boolean;
   open: boolean;
   onToggle: () => void;
@@ -34,13 +37,13 @@ export function BlockCard({
         onPress={onToggle}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        accessibilityLabel={`Block ${index + 1}, ${title}, ${sets(setCount)}${done ? ', done' : ''}`}
+        accessibilityLabel={`Block ${index + 1}, ${title}, ${doneSets} of ${sets(setCount)} done${done ? ', block done' : ''}`}
         style={({ pressed }) => [styles.header, pressed && styles.pressed]}>
         <View style={styles.number}>
           <Text style={styles.numberText}>{index + 1}</Text>
         </View>
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.count}>{sets(setCount)}</Text>
+        <Text style={styles.count}>{`${doneSets} / ${setCount}`}</Text>
         <View style={styles.state}>
           {done ? (
             <Check color={K.Green} />
@@ -66,6 +69,6 @@ const styles = StyleSheet.create({
   number: { width: 24, height: 24, borderRadius: 12, backgroundColor: K.AccentSoft, alignItems: 'center', justifyContent: 'center' },
   numberText: { ...Type.footnote, fontFamily: Font.bold, color: K.Accent },
   title: { ...Type.body, fontFamily: Font.semibold, flex: 1, paddingHorizontal: 10, paddingVertical: 12 },
-  count: { ...Type.subheadline, color: K.Muted },
+  count: { ...Type.subheadline, ...tabular, color: K.Muted },
   state: { marginLeft: 10, minWidth: 18, alignItems: 'center' },
 });

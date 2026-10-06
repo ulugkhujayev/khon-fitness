@@ -70,7 +70,7 @@ export default function SessionScreen() {
       {finished ? (
         <NavBar title={s.programName ?? 'Session'} trailing={<Capsule text={editing ? 'Done' : 'Edit'} onPress={() => setEditing((e) => !e)} />} />
       ) : (
-        <SessionHeader title={s.programName ?? 'Session'} date={s.date} done={doneCount(logs)} total={logs.length} onFinish={openSummary} />
+        <SessionHeader title={s.programName ?? 'Session'} done={doneCount(logs)} total={logs.length} onFinish={openSummary} />
       )}
       <KeyboardAwareScrollView
         bottomOffset={24}
@@ -82,6 +82,7 @@ export default function SessionScreen() {
             key={blockLogs[0].blockIndex}
             index={bi}
             title={blockTitle(blockLogs)}
+            doneSets={doneCount(blockLogs)}
             setCount={blockLogs.length}
             done={isBlockDone(blockLogs)}
             open={expanded === bi}

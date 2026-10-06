@@ -107,10 +107,11 @@ reads during render and no synchronous `setState` inside effects.
   and values as `Theme.kt`. Fonts load in `src/app/_layout.tsx`.
 - `src/components/` (one exported component per file):
   - `ui/`: design-system primitives with a barrel `index.ts`: buttons
-    (TextButton, PrimaryButton, TintedButton, Capsule, PlusButton, BarCircleButton), lists
-    (GroupedList, ListRow, FieldRow, FieldValue, ToggleRow, Empty), inputs
-    (NumberField, NumberRow, TimeStepper, InlineTextField, SearchField,
-    Segmented, Toggle, DateRow, MonthGrid, MonthSwitcher, FigureField and
+    (TextButton, PrimaryButton, TintedButton, Capsule, PlusButton,
+    BarCircleButton), lists (GroupedList, ListRow, FieldRow, FieldValue,
+    ToggleRow, Empty), inputs (NumberField, whose steppers repeat while held
+    through `useRepeatPress`, NumberRow, TimeStepper, InlineTextField,
+    SearchField, Segmented, Toggle, DateRow, MonthGrid, MonthSwitcher, FigureField and
     RulerPicker with EdgeFade; `useNumberText` keeps a focused field's
     text), sheets (Sheet, ChoiceSheet,
     ChoiceList, ChoiceRow, SheetGroupTitle, ConfirmSheet), TitleRow,
@@ -188,7 +189,9 @@ reads during render and no synchronous `setState` inside effects.
   trends), `timer.ts` (TimerState, snapshot, CueGate, cue and alert rules,
   timer screen text), `cardio.ts` (form fields, values, pace, save patch),
   `editors.ts` (block/exercise editor rules, library filter, preset colors),
-  `chart.ts` (chart scale, label picks and the value axis width), `stretch.ts` (the guides in
+  `chart.ts` (chart scale, label picks and the value axis width),
+  `stepper.ts` (a number widget step, the pace of a held − or +),
+  `stretch.ts` (the guides in
   `stretchGuides.json`, preview and exercise frames, `DemoClock`, routine
   steps and summary, player text, when a run counts, editor limits),
   `window.ts` (`EatingWindowRules`, the Today summary, the 28-day strip, hour
@@ -297,7 +300,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 166 tests after the week strip tiles; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 168 tests after the session header and steppers; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

@@ -93,7 +93,10 @@ padded cards, per-item buttons, "Updated" lines.
   16. Text fields edit inline in the row. Selects open a bottom sheet
   with a checklist. Multi-select is a checklist too.
 - Numbers use the number widget: minus button, value with unit suffix,
-  plus button. No caption above it. No native spinner.
+  plus button. No caption above it. No native spinner. A tap on − or +
+  steps once with a light haptic click; held past 350 ms it repeats,
+  160 ms apart and 15 ms faster each step down to 50, and saves once on
+  release (Expo app).
 - Bottom of the editor: Archive, Merge into…, Delete as text buttons,
   Delete in red, disabled with a one-line reason when not allowed.
 
@@ -111,6 +114,11 @@ padded cards, per-item buttons, "Updated" lines.
 
 ## Set row (live session)
 
+- Header (Expo app; the Kotlin screen has a large title and the date):
+  the 56 px navigation bar, Back, the program name in Headline, Finish as
+  the trailing capsule; under it the green progress bar with "12 / 42"
+  in muted 13. It stays put while the sets scroll.
+
 Two lines, 88 px total, hairline between rows.
 - Line 1 (40 px): 32 px check circle, then the set tag "A1" in accent
   12/600, then the full exercise name 17, never truncated (wrap to two
@@ -118,8 +126,8 @@ Two lines, 88 px total, hairline between rows.
 - Line 2 (40 px): two number widgets side by side, each half the width:
   [ − 60 kg + ] [ − 8 reps + ]. Value 18/600 tabular, inputs at least
   64 px wide so "100" and "12.5" fit. Delta in green 12 under the widget.
-- Blocks: header row 52 px (index in accent, names, sets count,
-  chevron), sets under it.
+- Blocks: header row 52 px (index in accent, names, sets done of total
+  "2 / 6", chevron or a green check), sets under it.
 
 ## Today
 

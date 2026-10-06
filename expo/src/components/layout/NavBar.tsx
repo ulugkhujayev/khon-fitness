@@ -4,11 +4,22 @@ import { Type } from '@/theme';
 import { BackButton } from './BackButton';
 
 /** Navigation bar (DESIGN.md): 56 pt, the round Back button, the title centered in Headline, the action trailing. */
-export function NavBar({ title, trailing, onBack }: { title: string; trailing?: ReactNode; onBack?: () => void }) {
+export function NavBar({
+  title,
+  trailing,
+  onBack,
+  backLabel,
+}: {
+  title: string;
+  trailing?: ReactNode;
+  onBack?: () => void;
+  /** Spoken name of Back when it leads somewhere specific, e.g. "Today". */
+  backLabel?: string;
+}) {
   return (
     <View style={styles.bar}>
       <View style={styles.side}>
-        <BackButton onPress={onBack} />
+        <BackButton onPress={onBack} label={backLabel} />
       </View>
       <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
         {title}

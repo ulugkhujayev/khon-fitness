@@ -4,14 +4,17 @@ import { PrimaryButton, TextButton } from '@/components/ui';
 import { playerAction, playerProgress, playerStatus, repMotion, sideLine } from '@/domain/stretch';
 import { countdownText, currentPhase, isActive, isDone, TimerState } from '@/domain/timer';
 import { K, Space, Type } from '@/theme';
+import { PlayerButton } from './PlayerButton';
+import { RoutineProgress } from './RoutineProgress';
 import { StretchDemonstration } from './StretchDemonstration';
 
 /** Under this height the demonstration and the countdown shrink (StretchScreen.kt: 680 dp). */
 const SHORT_SCREEN = 680;
 
 /**
- * Full-screen stretch player (StretchScreen.kt, DESIGN.md Stretch player): Stop and Skip on top, the stretch,
- * its demonstration, the state and countdown in a scroll, one white button fixed at the bottom.
+ * Full-screen stretch player (StretchScreen.kt, DESIGN.md Stretch player): round Stop and Skip on top, the run's
+ * progress under them, the stretch, its demonstration, the state and countdown in a scroll, one white button
+ * fixed at the bottom.
  * Black while ready, preparing or paused; green while stretching.
  */
 export function StretchPlayerView({
@@ -46,12 +49,17 @@ export function StretchPlayerView({
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: state && isActive(state) ? K.PhaseWork : K.Bg }]} edges={['top', 'bottom']}>
       <View style={styles.bar}>
-        <TextButton text="Stop" color={K.White} onPress={onStop} style={styles.side} />
+        <View style={styles.side}>
+          <PlayerButton icon={{ ios: 'xmark', android: 'close', web: 'close' }} label="Stop" onPress={onStop} />
+        </View>
         <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
           {title}
         </Text>
-        <TextButton text="Skip" color={K.White} enabled={p != null} onPress={onSkip} style={styles.side} />
+        <View style={[styles.side, styles.trailing]}>
+          <PlayerButton icon={{ ios: 'forward.end.fill', android: 'skip_next', web: 'skip_next' }} label="Skip" enabled={p != null} onPress={onSkip} />
+        </View>
       </View>
+      {state && p ? <RoutineProgress count={state.phases.length} index={state.index} text={playerProgress(state)} /> : null}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.middle} showsVerticalScrollIndicator={false}>
         {state && p ? (
           <>
@@ -75,7 +83,6 @@ export function StretchPlayerView({
                 {countdownText(state)}
               </Text>
             ) : null}
-            <Text style={styles.progress}>{playerProgress(state)}</Text>
           </>
         ) : (
           <Text style={styles.empty}>{emptyText}</Text>
@@ -96,7 +103,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, paddingHorizontal: Space.margin },
   bar: { flexDirection: 'row', alignItems: 'center', minHeight: 56 },
   // Equal 64 pt sides keep the title centered (DESIGN.md, Stretch player).
-  side: { width: 64, alignItems: 'center' },
+  side: { width: 64, alignItems: 'flex-start' },
+  trailing: { alignItems: 'flex-end' },
   title: { ...Type.headline, flex: 1, textAlign: 'center' },
   scroll: { flex: 1 },
   middle: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 16 },
@@ -104,7 +112,6 @@ const styles = StyleSheet.create({
   line: { ...Type.body, color: K.OnPhaseMuted, marginTop: 8 },
   demo: { alignSelf: 'stretch', marginTop: 12 },
   countdown: { textAlign: 'center', alignSelf: 'stretch', marginVertical: 8 },
-  progress: { ...Type.subheadline, color: K.OnPhaseDim, textAlign: 'center', alignSelf: 'stretch' },
   empty: { ...Type.body, textAlign: 'center' },
   // 56 pt with 16 pt corners (DESIGN.md: a 56 dp full-width Start button).
   action: { height: 56, borderRadius: 16 },

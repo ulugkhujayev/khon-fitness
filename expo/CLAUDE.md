@@ -144,7 +144,7 @@ reads during render and no synchronous `setState` inside effects.
     `stretch/` (StretchDemonstration with StepTimeline and DemoControl: the lesson before Start and the
     clock-driven pose during it; DemoFrame shifts a whole sprite sheet inside a
     one-frame clip, so a new frame never decodes again; DemoPoster;
-    `demoAssets.ts` with the literal requires; StretchPlayerView; StretchForm;
+    `demoAssets.ts` with the literal requires; StretchPlayerView with PlayerButton and RoutineProgress; StretchForm;
     RoutineStretches with RoutineOrderList), `import/` (HealthIntro, DraftList, DraftSheet).
 - `src/health/`: the platform's health store behind one `HealthSource`
   (`source.android.ts` Health Connect, `source.ios.ts` HealthKit, `source.ts`

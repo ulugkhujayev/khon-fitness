@@ -37,6 +37,8 @@ export const K = {
   PhaseRest: '#1E3A5F',
   OnPhaseMuted: 'rgba(255,255,255,0.75)',
   OnPhaseDim: 'rgba(255,255,255,0.6)',
+  /** A control's fill and an empty track on the player, black or green behind: white at 18 percent. */
+  OnPhaseSoft: 'rgba(255,255,255,0.18)',
   /** The step instruction in the stretch player and editor (white at 90 percent). */
   OnPhaseText: 'rgba(255,255,255,0.9)',
   /** A control floating on the light demonstration image: black at 45 percent under a white symbol. */

@@ -246,3 +246,9 @@ export const splitList = (s: string): string[] => s.split(',').map((x) => x.trim
 export function argbToHex(argb: number): string {
   return '#' + (argb >>> 0).toString(16).padStart(8, '0').slice(2).toUpperCase();
 }
+
+/** "#FF9F0A" at 0.2 -> "rgba(255,159,10,0.2)": a soft fill in a modality's color. */
+export function hexAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1, 7), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}

@@ -7,30 +7,33 @@ import { preview } from '@/domain/format';
 import { importedIds } from '@/domain/health';
 import { doneSessionFor, itemFor } from '@/domain/plan';
 import { activeRoutine, routineSummary } from '@/domain/stretch';
-import { Kind, SetLog } from '@/domain/types';
-import { doneLine } from '@/domain/workout';
+import { ItemType, Kind, SetLog } from '@/domain/types';
+import { doneCount, doneLine } from '@/domain/workout';
 import * as repo from './repository';
 import { TABLES as T } from './schema';
 import { useLive } from './useLive';
 
 /**
- * Today: the plan around the date, its resolved item, a running session, the done line, bodyweights,
+ * Today: the plan around the date, its resolved item, a running session with its sets done of total (a
+ * program) and the library for its color, the done line, bodyweights,
  * the active stretch routine (green once stretched today), the eating window with its days, and the
  * health record ids already imported (for the band row).
  */
 export function useToday(date: string) {
   return useLive(
     async () => {
-      const [plan, modalities, blocks, blockExercises, bodyweights, unfinished, sessions, routines, routineStretches, stretches, stretchSessions, eatingWindow, windowDays] =
+      const [plan, modalities, blocks, blockExercises, bodyweights, unfinished, sessions, routines, routineStretches, stretches, stretchSessions, eatingWindow, windowDays, exercises] =
         await Promise.all([
           repo.planData(), repo.modalities(), repo.blocks(), repo.blockExercises(), repo.bodyweights(), repo.unfinishedSession(), repo.sessions(),
-          repo.stretchRoutines(), repo.routineStretches(), repo.stretches(), repo.stretchSessions(), repo.eatingWindow(), repo.windowDays(),
+          repo.stretchRoutines(), repo.routineStretches(), repo.stretches(), repo.stretchSessions(), repo.eatingWindow(), repo.windowDays(), repo.exercises(),
         ]);
+      const running = unfinished?.itemType === ItemType.PROGRAM ? await repo.setLogs(unfinished.id) : null;
       const item = itemFor(plan, date);
       const done = doneSessionFor(sessions, item, date);
       const routine = activeRoutine(routines);
       return {
-        plan, modalities, bodyweights, unfinished, item, eatingWindow, windowDays,
+        plan, modalities, exercises, bodyweights, unfinished, item, eatingWindow, windowDays,
+        progress: running && { done: doneCount(running), total: running.length },
         imported: importedIds(sessions),
         line: preview(item, blocks, blockExercises, modalities),
         doneText: done ? doneLine(done, await repo.setLogs(done.id)) : null,

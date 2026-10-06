@@ -124,7 +124,13 @@ Two lines, 88 px total, hairline between rows.
   with dark text. One 8 px dot under each number: modality color
   (accent for strength), filled for high intensity, ring for low or
   moderate, none for rest.
-- 24 px gap. Item name 30/700, preview 15 muted, Start 56 px.
+- 24 px gap. The item on a group-surface card: a 44 px circle with the
+  kind's symbol in its color on that color at 20 percent (dumbbell in
+  accent, a runner in the modality color, a moon for rest, a green check
+  once done), then the name 22/700 over its line in muted 15. While a
+  session runs the line is green "In progress · 34 min" and a program
+  adds the green progress bar with "12 / 42"; Resume or Start under it.
+  Expo app; the Kotlin card has no symbol or progress.
 - 24 px gap. "Bodyweight" 18 with the latest value 22/600 on the right,
   a 72 px sparkline with a soft area fill (accent at 20 percent), then
   24 px gap and the entry on its own group-surface card (radius 20, 16

@@ -74,7 +74,18 @@ export default function TodayScreen() {
               setPlanOpen(true);
             }}
           />
-          <TodayCard item={data.item} line={data.line} unfinished={data.unfinished} doneText={data.doneText} onStart={start} onResume={(s) => resumeSession(s)} />
+          <TodayCard
+            item={data.item}
+            line={data.line}
+            unfinished={data.unfinished}
+            progress={data.progress}
+            doneText={data.doneText}
+            modalities={data.modalities}
+            exercises={data.exercises}
+            now={now}
+            onStart={start}
+            onResume={(s) => resumeSession(s)}
+          />
           {update.ready ? (
             <GroupedList style={styles.row}>
               <ListRow title="Update ready" value="Restart" dot={K.Accent} last onPress={update.restart} />

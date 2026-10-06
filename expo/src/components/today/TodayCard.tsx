@@ -1,18 +1,35 @@
+import { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { PrimaryButton, TextButton } from '@/components/ui';
+import { SymbolViewProps } from 'expo-symbols';
+import { itemColor, sessionColor } from '@/components/plan/colors';
+import { PrimaryButton, ProgressBar, SymbolCircle, TextButton } from '@/components/ui';
 import { PlanItem } from '@/domain/plan';
-import { Session } from '@/domain/types';
-import { K, Space, Type } from '@/theme';
+import { Exercise, ItemType, Modality, Session } from '@/domain/types';
+import { progressLine } from '@/domain/workout';
+import { K, Space, tabular, Type } from '@/theme';
+
+/** The leading symbol by what the card shows. */
+const ICONS = {
+  program: { ios: 'dumbbell.fill', android: 'fitness_center', web: 'fitness_center' },
+  cardio: { ios: 'figure.run', android: 'directions_run', web: 'directions_run' },
+  rest: { ios: 'moon.zzz.fill', android: 'bedtime', web: 'bedtime' },
+  done: { ios: 'checkmark', android: 'check', web: 'check' },
+} satisfies Record<string, SymbolViewProps['name']>;
 
 /**
- * Today's item (TodayScreen.kt): a running session with Resume; else the item with Start, or its done line
- * with Start again once today's session is saved. Rest shows its line only.
+ * Today's item (TodayScreen.kt) with its kind as a symbol in its color: a running session with the time
+ * since its start, its sets done (a program) and Resume; else the item with Start, or its done line with
+ * Start again once today's session is saved. Rest shows its line only.
  */
 export function TodayCard({
   item,
   line,
   unfinished,
+  progress,
   doneText,
+  modalities,
+  exercises,
+  now,
   onStart,
   onResume,
 }: {
@@ -20,43 +37,95 @@ export function TodayCard({
   /** Preview: "7 blocks · 42 sets", "Steady on swim", "Rest day". */
   line: string;
   unfinished: Session | null;
+  /** Sets done of total while a program session runs. */
+  progress: { done: number; total: number } | null;
   /** "Done · 12 sets · 3.4 t" when today's item is already done. */
   doneText: string | null;
+  modalities: Modality[];
+  exercises: Exercise[];
+  now: Date;
   onStart: () => void;
   onResume: (session: Session) => void;
 }) {
   if (unfinished) {
     return (
       <View style={styles.card}>
-        <Text style={Type.title2}>{unfinished.programName ?? unfinished.exerciseName ?? 'Session'}</Text>
-        <Text style={[styles.line, styles.green]}>In progress</Text>
-        <PrimaryButton text="Resume" onPress={() => onResume(unfinished)} />
+        <Head
+          icon={unfinished.itemType === ItemType.PROGRAM ? ICONS.program : ICONS.cardio}
+          color={sessionColor(unfinished, exercises, modalities).color}
+          title={unfinished.programName ?? unfinished.exerciseName ?? 'Session'}
+          line={progressLine(unfinished.startedAt, now.getTime())}
+          green
+        />
+        {progress ? (
+          <View style={styles.progress}>
+            <View style={styles.bar}>
+              <ProgressBar done={progress.done} total={progress.total} label={`${progress.done} of ${progress.total} sets done`} />
+            </View>
+            <Text style={styles.count} importantForAccessibility="no" accessibilityElementsHidden>{`${progress.done} / ${progress.total}`}</Text>
+          </View>
+        ) : null}
+        <PrimaryButton text="Resume" onPress={() => onResume(unfinished)} style={styles.button} />
       </View>
     );
   }
   if (doneText) {
     return (
       <View style={styles.card}>
-        <Text style={Type.title2}>{item.name}</Text>
-        <Text style={[styles.line, styles.green, styles.doneLine]}>{doneText}</Text>
-        <TextButton text="Start again" onPress={onStart} style={styles.again} />
+        <Head icon={ICONS.done} color={K.Green} title={item.name} line={doneText} green>
+          <TextButton text="Start again" onPress={onStart} style={styles.again} />
+        </Head>
       </View>
     );
   }
+  const kind = itemColor(item, modalities);
   return (
     <View style={styles.card}>
-      <Text style={Type.title2}>{item.name}</Text>
-      <Text style={[styles.line, item.isRest && styles.lastLine]}>{line}</Text>
-      {item.isRest ? null : <PrimaryButton text="Start" onPress={onStart} />}
+      <Head icon={item.isRest ? ICONS.rest : item.itemType === ItemType.PROGRAM ? ICONS.program : ICONS.cardio} color={kind?.color ?? K.Muted} title={item.name} line={line} />
+      {item.isRest ? null : <PrimaryButton text="Start" onPress={onStart} style={styles.button} />}
+    </View>
+  );
+}
+
+/** The symbol, then the name over its line and anything that belongs under them. */
+function Head({
+  icon,
+  color,
+  title,
+  line,
+  green = false,
+  children,
+}: {
+  icon: SymbolViewProps['name'];
+  color: string;
+  title: string;
+  line: string;
+  green?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <View style={styles.head}>
+      <SymbolCircle icon={icon} color={color} />
+      <View style={styles.text}>
+        <Text style={Type.title2} numberOfLines={2}>
+          {title}
+        </Text>
+        <Text style={[styles.line, green && styles.green]}>{line}</Text>
+        {children}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { marginTop: 24, backgroundColor: K.Surface, borderRadius: Space.groupRadius, paddingHorizontal: 20, paddingVertical: 18 },
-  line: { ...Type.subheadline, color: K.Muted, marginTop: 6, marginBottom: 18 },
-  lastLine: { marginBottom: 0 },
+  card: { marginTop: 24, backgroundColor: K.Surface, borderRadius: Space.groupRadius, paddingHorizontal: Space.margin, paddingVertical: 18 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  text: { flex: 1 },
+  line: { ...Type.subheadline, color: K.Muted, marginTop: 2 },
   green: { color: K.Green },
-  doneLine: { marginBottom: 10 },
-  again: { alignSelf: 'flex-start' },
+  progress: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 },
+  bar: { flex: 1 },
+  count: { ...Type.footnote, ...tabular, color: K.Muted },
+  button: { marginTop: 18 },
+  again: { alignSelf: 'flex-start', marginTop: 2 },
 });

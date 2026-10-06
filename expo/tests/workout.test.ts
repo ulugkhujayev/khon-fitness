@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { fmt, parseNumberInput, sets } from '../src/domain/format';
-import { Defaults, ItemType, Session, SetLog, SetStatus } from '../src/domain/types';
+import { Defaults, hexAlpha, ItemType, Session, SetLog, SetStatus } from '../src/domain/types';
 import {
-  blockTitle, clampEffort, doneCount, doneLine, firstOpenBlock, gain, groupBlocks, isBlockDone, kgDecimals, nextPending, setTag, summarize,
+  blockTitle, clampEffort, doneCount, doneLine, progressLine, firstOpenBlock, gain, groupBlocks, isBlockDone, kgDecimals, nextPending, setTag, summarize,
 } from '../src/domain/workout';
 
 const log = (p: Partial<SetLog> & Pick<SetLog, 'id' | 'order'>): SetLog => ({
@@ -143,5 +143,22 @@ describe('block helpers', () => {
     expect(clampEffort(0)).toBe(1);
     expect(clampEffort(7.6)).toBe(7);
     expect(clampEffort(null)).toBeNull();
+  });
+});
+
+describe('Today card', () => {
+  const start = new Date(2026, 9, 6, 18, 0).getTime();
+  const at = (min: number) => start + min * 60000;
+
+  test('the running line counts whole minutes since the start', () => {
+    expect(progressLine(start, at(0.5))).toBe('In progress');
+    expect(progressLine(start, at(34))).toBe('In progress · 34 min');
+    expect(progressLine(start, at(65))).toBe('In progress · 1 h 5 min');
+    expect(progressLine(start, at(-2))).toBe('In progress');
+  });
+
+  test('a hex color with alpha', () => {
+    expect(hexAlpha('#FF9F0A', 0.2)).toBe('rgba(255,159,10,0.2)');
+    expect(hexAlpha('#30D158', 1)).toBe('rgba(48,209,88,1)');
   });
 });

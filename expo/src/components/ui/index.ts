@@ -32,6 +32,7 @@ export { SectionTitle } from './SectionTitle';
 export { Segmented } from './Segmented';
 export { Sheet } from './Sheet';
 export { SheetGroupTitle } from './SheetGroupTitle';
+export { SymbolCircle } from './SymbolCircle';
 export { TextButton } from './TextButton';
 export { TintedButton } from './TintedButton';
 export { TimeStepper } from './TimeStepper';

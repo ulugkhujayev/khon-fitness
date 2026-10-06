@@ -83,6 +83,13 @@ export function gain(prev: number | null | undefined, now: number | null | undef
   return `+${fmt(now - prev, decimals)} ${unit}`;
 }
 
+/** Green line on Today while a session runs: "In progress · 34 min", "In progress · 1 h 5 min", no time in its first minute. */
+export function progressLine(startedAt: number, now: number): string {
+  const m = Math.max(0, Math.floor((now - startedAt) / 60000));
+  if (m === 0) return 'In progress';
+  return `In progress · ${m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`}`;
+}
+
 /** Green line on Today once today's item is done: "Done · 12 sets · 3.4 t" or "Done · 30 min · 5 km". */
 export function doneLine(s: Session, logs: SetLog[]): string {
   if (s.itemType === ItemType.PROGRAM) {

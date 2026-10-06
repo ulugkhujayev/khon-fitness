@@ -114,7 +114,7 @@ reads during render and no synchronous `setState` inside effects.
     RulerPicker with EdgeFade; `useNumberText` keeps a focused field's
     text), sheets (Sheet, ChoiceSheet,
     ChoiceList, ChoiceRow, SheetGroupTitle, ConfirmSheet), TitleRow,
-    LineChart (`format` for m:ss), ProgressBar, Dot, Check.
+    LineChart (`format` for m:ss), ProgressBar, SymbolCircle, Dot, Check.
     Pick lists use `ChoiceSheet`; do not build another sheet of choice rows.
   - `layout/`: NavBar, BackButton, EditorScreen (empty = loading frame),
     TabScreen, FloatingTabBar, `useLeaveWhenGone` (leave a screen whose record
@@ -172,7 +172,7 @@ reads during render and no synchronous `setState` inside effects.
   `resumeSession` and `startItem` (Today and the widget's Start);
   `openStretchPlayer`.
 - `src/db/hooks.ts`: the named reads screens use (`useToday` with the active
-  routine and the eating window, `useSession`, `usePreviousLogs`,
+  routine, the eating window and a running program's sets done, `useSession`, `usePreviousLogs`,
   `usePrograms`, `useProgram`, `useBlock`, `useLibrary`, `useModalities`,
   `usePlan`, `useExerciseUsage`, `useHistory`, `useCardioSession`,
   `useStretching`, `useStretchUseCount`, `useImportData`).
@@ -296,7 +296,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 162 tests after the bodyweight ruler; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 164 tests after the Today card; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

@@ -156,11 +156,12 @@ describe('player', () => {
   test('words for each state', () => {
     const s = run();
     const p = s.phases[0];
-    expect([sideLine(p), playerStatus(s, p), playerAction(s, p), playerProgress(s)]).toEqual(['Left · Hold', 'Ready · 0:40', 'Start left side', '1 of 2 · 1:20 remaining']);
+    expect([sideLine(p), playerStatus(s, p), playerAction(s, p), playerProgress(s)]).toEqual(['Left · Hold · 0:40', null, 'Start left side', '1 of 2 · 1:20 remaining']);
     const going = tick(begin(s), 4);
     expect([playerStatus(going, p), playerAction(going, p)]).toEqual(['Hold', 'Pause']);
     const next = tick(begin(s), 3 + 40);
-    expect([playerStatus(next, next.phases[1]), playerAction(next, next.phases[1])]).toEqual(['Next stretch · 0:40', 'Start right side']);
+    expect([playerStatus(next, next.phases[1]), playerAction(next, next.phases[1])]).toEqual([null, 'Start right side']);
+    expect(playerStatus({ ...going, paused: true }, p)).toBe('Paused');
   });
 
   test('rep motion goes there and back once per rep', () => {

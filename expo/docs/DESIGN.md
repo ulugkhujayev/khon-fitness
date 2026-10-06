@@ -249,9 +249,12 @@ Two lines, 88 px total, hairline between rows.
   widths and at least 48 dp tap targets. The routine title is centered.
   Expo app: Stop (an X) and Skip (forward-end) are 40 px round controls,
   a white symbol on white at 18 percent, readable on black and on green.
-  Under the bar, the run's progress: one 3 px segment per stretch and side
-  (done white at 60 percent, the current one white, the rest white at 18
-  percent) and "3 of 12 · 6:30 remaining" under it.
+  10 px under the bar, the run's progress: one 3 px segment per stretch
+  and side (done white at 60 percent, the current one white, the rest
+  white at 18 percent) and "3 of 12 · 6:30 remaining" under it. The line
+  under the stretch's name carries its length ("Left · Hold · 0:40"); a
+  ready screen shows no status line of its own. In development builds a
+  long press on the progress runs the routine at ×20 (marked in its line).
 - One primary action stays at the bottom: Start, Pause, or Resume. Content
   scrolls above it on short screens or with large text. Controls never overlap.
 - The stretch name and side appear above an offline 3D human demonstration.

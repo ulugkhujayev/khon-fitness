@@ -160,13 +160,16 @@ export function repMotion(p: Phase, remaining: number): number {
   return cycle < 0.5 ? cycle * 2 : (1 - cycle) * 2;
 }
 
-/** "Left · Hold", "10 reps", "Hold". */
-export const sideLine = (p: Phase) => [p.side || null, p.reps > 0 ? `${p.reps} reps` : 'Hold'].filter(Boolean).join(' · ');
+/** "Left · Hold · 0:40", "10 reps · 1:00", "Hold · 0:45": the side, hold or reps, and how long. */
+export const sideLine = (p: Phase) => [p.side || null, p.reps > 0 ? `${p.reps} reps` : 'Hold', mmss(p.seconds)].filter(Boolean).join(' · ');
 
-/** The line under the demonstration. */
-export function playerStatus(s: TimerState, p: Phase): string {
+/**
+ * The line under the demonstration while a stretch runs. None on a ready screen: its length is in the line
+ * under the name, and the button says what comes (Expo app; the Kotlin screen showed "Ready · 0:40" here).
+ */
+export function playerStatus(s: TimerState, p: Phase): string | null {
+  if (s.awaitingStart) return null;
   if (s.paused) return 'Paused';
-  if (s.awaitingStart) return `${s.index === 0 ? 'Ready' : 'Next stretch'} · ${mmss(s.remaining)}`;
   if (isPreparing(s)) return 'Get ready';
   return p.reps > 0 ? 'Move' : 'Hold';
 }

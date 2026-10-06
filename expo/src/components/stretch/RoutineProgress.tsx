@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { K, tabular, Type } from '@/theme';
 
 // Not in DESIGN.md before the Expo app: 3 pt segments 3 pt apart, like story progress.
@@ -6,18 +6,38 @@ const SEGMENT = 3;
 
 /**
  * Where a routine run is, under the player's bar: one segment per stretch and side (done ones white, the
- * current one white, the rest soft), and the line "3 of 12 · 6:30 remaining" under them.
+ * current one white, the rest soft), and the line "3 of 12 · 6:30 remaining" under them. `onLongPress`
+ * carries the development builds' test speed, out of sight of the real controls.
  */
-export function RoutineProgress({ count, index, text }: { count: number; index: number; text: string }) {
+export function RoutineProgress({
+  count,
+  index,
+  text,
+  onLongPress,
+  style,
+}: {
+  count: number;
+  index: number;
+  text: string;
+  onLongPress?: () => void;
+  style?: ViewStyle;
+}) {
   return (
-    <View accessible accessibilityRole="progressbar" accessibilityLabel={text} accessibilityValue={{ min: 1, max: count, now: index + 1 }}>
+    <Pressable
+      onLongPress={onLongPress}
+      disabled={!onLongPress}
+      style={style}
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={text}
+      accessibilityValue={{ min: 1, max: count, now: index + 1 }}>
       <View style={styles.segments}>
         {Array.from({ length: count }, (_, i) => (
           <View key={i} style={[styles.segment, i < index && styles.done, i === index && styles.current]} />
         ))}
       </View>
       <Text style={styles.text}>{text}</Text>
-    </View>
+    </Pressable>
   );
 }
 

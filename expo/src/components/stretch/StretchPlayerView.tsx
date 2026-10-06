@@ -1,6 +1,6 @@
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PrimaryButton, TextButton } from '@/components/ui';
+import { PrimaryButton } from '@/components/ui';
 import { playerAction, playerProgress, playerStatus, repMotion, sideLine } from '@/domain/stretch';
 import { countdownText, currentPhase, isActive, isDone, TimerState } from '@/domain/timer';
 import { K, Space, Type } from '@/theme';
@@ -59,7 +59,16 @@ export function StretchPlayerView({
           <PlayerButton icon={{ ios: 'forward.end.fill', android: 'skip_next', web: 'skip_next' }} label="Skip" enabled={p != null} onPress={onSkip} />
         </View>
       </View>
-      {state && p ? <RoutineProgress count={state.phases.length} index={state.index} text={playerProgress(state)} /> : null}
+      {state && p ? (
+        <RoutineProgress
+          count={state.phases.length}
+          index={state.index}
+          text={`${playerProgress(state)}${state.speed > 1 ? ' · ×20 test' : ''}`}
+          // Development builds only: a long press runs the routine twenty times faster, to test it quickly.
+          onLongPress={__DEV__ && onSpeed ? () => onSpeed(state.speed > 1 ? 1 : 20) : undefined}
+          style={styles.progress}
+        />
+      ) : null}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.middle} showsVerticalScrollIndicator={false}>
         {state && p ? (
           <>
@@ -75,9 +84,11 @@ export function StretchPlayerView({
               compact={compact}
               style={styles.demo}
             />
-            <Text style={styles.line} accessibilityLiveRegion="polite">
-              {playerStatus(state, p)}
-            </Text>
+            {playerStatus(state, p) ? (
+              <Text style={styles.line} accessibilityLiveRegion="polite">
+                {playerStatus(state, p)}
+              </Text>
+            ) : null}
             {!state.awaitingStart ? (
               <Text style={[compact ? Type.stretchCountdownCompact : Type.stretchCountdown, styles.countdown]} accessibilityRole="timer">
                 {countdownText(state)}
@@ -91,9 +102,6 @@ export function StretchPlayerView({
       {state && p && action ? (
         <PrimaryButton text={playerAction(state, p)} onPress={action} color={K.White} textColor={K.Black} style={styles.action} />
       ) : null}
-      {__DEV__ && onSpeed && p && state ? (
-        <TextButton text={state.speed > 1 ? '×20 on' : '×20'} color={K.White} onPress={() => onSpeed(state.speed > 1 ? 1 : 20)} style={styles.speed} />
-      ) : null}
       <View style={styles.bottom} />
     </SafeAreaView>
   );
@@ -102,6 +110,7 @@ export function StretchPlayerView({
 const styles = StyleSheet.create({
   screen: { flex: 1, paddingHorizontal: Space.margin },
   bar: { flexDirection: 'row', alignItems: 'center', minHeight: 56 },
+  progress: { marginTop: 10 },
   // Equal 64 pt sides keep the title centered (DESIGN.md, Stretch player).
   side: { width: 64, alignItems: 'flex-start' },
   trailing: { alignItems: 'flex-end' },
@@ -115,6 +124,5 @@ const styles = StyleSheet.create({
   empty: { ...Type.body, textAlign: 'center' },
   // 56 pt with 16 pt corners (DESIGN.md: a 56 dp full-width Start button).
   action: { height: 56, borderRadius: 16 },
-  speed: { alignSelf: 'center' },
   bottom: { height: 16 },
 });

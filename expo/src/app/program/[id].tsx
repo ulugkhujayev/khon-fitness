@@ -2,45 +2,68 @@ import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { EditorScreen } from '@/components/layout';
-import { Capsule, ConfirmSheet, Empty, FieldRow, GroupedList, IndexBadge, InlineTextField, ListRow, SectionTitle, TintedButton, ToggleRow } from '@/components/ui';
-import { blockSummary, nextSortOrder } from '@/domain/editors';
+import {
+  Capsule, ConfirmSheet, Empty, FieldRow, GroupedList, GroupFooter, IndexBadge, InlineTextField, ListRow, SectionTitle, TintedButton, ToggleRow,
+} from '@/components/ui';
+import { blockSummary, newProgram } from '@/domain/editors';
 import { sets } from '@/domain/format';
 import { useProgram } from '@/db/hooks';
 import { newId } from '@/db/id';
 import * as repo from '@/db/repository';
 import { K } from '@/theme';
 
-/** Program editor (ProgramEditorScreen in Editors.kt): name, active, the numbered blocks in order with Add block, Delete. */
+/**
+ * Program editor (ProgramEditorScreen in Editors.kt): name, active, the numbered blocks in order with Add
+ * block, Delete. A new program (`new`) is a draft: nothing is saved until Done, or Add block, which saves
+ * it first so the block has a program to belong to.
+ */
 export default function ProgramEditor() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const isNew = id === 'new';
   const { data } = useProgram(id);
-  // Null until the name is edited; Done saves only a changed name.
+  // Null until edited: Done saves only a changed name; a draft keeps its active choice here.
   const [name, setName] = useState<string | null>(null);
+  const [draftActive, setDraftActive] = useState<boolean | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const program = data?.program;
+  const program = data ? (isNew ? newProgram(id, data.programCount) : data.program) : null;
   if (!data || !program) return <EditorScreen />;
+  const active = draftActive ?? program.active;
 
-  const addBlock = async () => {
-    const blockId = newId();
-    await repo.saveBlock({ id: blockId, programId: id, sortOrder: nextSortOrder(data.blocks), superset: true });
-    router.push(`/block/${id}/${blockId}`);
+  const create = async () => {
+    const programId = newId();
+    await repo.createProgram({ ...program, id: programId, name: name?.trim() || program.name, active });
+    return programId;
   };
 
-  const done = () => {
+  const addBlock = async () => {
+    if (!isNew) return router.push(`/block/${id}/new`);
+    const programId = await create();
+    router.replace(`/program/${programId}`);
+    router.push(`/block/${programId}/new`);
+  };
+
+  const done = async () => {
     const n = name?.trim();
-    if (n && n !== program.name) repo.patchProgram(id, { name: n });
+    if (isNew) await create();
+    else if (n && n !== program.name) repo.patchProgram(id, { name: n });
     router.back();
   };
 
   return (
-    <EditorScreen title={program.name} trailing={<Capsule text="Done" onPress={done} />}>
+    <EditorScreen title={isNew ? 'New program' : program.name} trailing={<Capsule text="Done" onPress={done} />}>
       <GroupedList>
         <FieldRow label="Name" divider={false}>
           <InlineTextField value={name ?? program.name} onChange={setName} placeholder="Program name" label="Name" />
         </FieldRow>
-        {/* One program is always active: turning it on moves the mark here, turning it off does nothing. */}
-        <ToggleRow label="Active" value={program.active} onChange={(on) => on && repo.setActiveProgram(id)} />
+        {/* A saved active program stays on: turning another one on is what moves the mark. */}
+        <ToggleRow
+          label="Active"
+          value={active}
+          disabled={!isNew && program.active}
+          onChange={(on) => (isNew ? setDraftActive(on) : on && repo.setActiveProgram(id))}
+        />
       </GroupedList>
+      <GroupFooter text="One program is active: the one you train now. Turning another one on moves it there." />
 
       <SectionTitle text="Blocks" style={styles.blocks} />
       <GroupedList>
@@ -59,10 +82,12 @@ export default function ProgramEditor() {
         })}
         {data.blocks.length === 0 ? <Empty text="No blocks yet" /> : null}
       </GroupedList>
-      <TintedButton text="Add block" onPress={addBlock} style={styles.add} />
+      <TintedButton text="Add block" onPress={addBlock} style={styles.action} />
 
-      {/* The last program cannot go: Today always has one to plan from. */}
-      {data.programCount > 1 ? <TintedButton text="Delete program" color={K.Red} onPress={() => setConfirmDelete(true)} style={styles.delete} /> : null}
+      {/* Nothing to delete before the first save; the last program cannot go, Today always plans from one. */}
+      {!isNew && data.programCount > 1 ? (
+        <TintedButton text="Delete program" color={K.Red} onPress={() => setConfirmDelete(true)} style={styles.action} />
+      ) : null}
 
       <ConfirmSheet
         visible={confirmDelete}
@@ -82,6 +107,5 @@ export default function ProgramEditor() {
 
 const styles = StyleSheet.create({
   blocks: { marginTop: 24 },
-  add: { marginTop: 12 },
-  delete: { marginTop: 32 },
+  action: { marginTop: 12 },
 });

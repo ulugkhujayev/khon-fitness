@@ -109,10 +109,14 @@ padded cards, per-item buttons, "Updated" lines.
 - Bottom of the editor: Archive, Merge into…, Delete as text buttons,
   Delete in red, disabled with a one-line reason when not allowed.
   Expo app, program and block editors: full-width 44 px tinted buttons
-  instead: Add block, Add exercise / Add second exercise in accent; Move
-  up and Move down side by side; Delete program / Delete block in red,
-  each asking first. The block's Superset toggle has a muted footnote
-  under its group saying what it does.
+  instead, 12 px apart: Add block, Add exercise / Add second exercise in
+  accent; Move up and Move down side by side; Delete program / Delete
+  block in red, each asking first. The block's Superset toggle and the
+  program's Active toggle have a muted footnote under their group saying
+  what they do; the active program's toggle is fixed on (turning another
+  program on moves it). A new program or block is a draft: nothing is
+  saved, and there is no Delete, until Done or Add block saves the
+  program, or the first exercise saves the block.
 
 ## Buttons
 

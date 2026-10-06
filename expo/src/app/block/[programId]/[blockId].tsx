@@ -4,24 +4,30 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { BlockExerciseGroup } from '@/components/editors/BlockExerciseGroup';
 import { EditorScreen } from '@/components/layout';
 import { Capsule, ChoiceSheet, ConfirmSheet, GroupedList, GroupFooter, TintedButton, ToggleRow } from '@/components/ui';
-import { freeSlot, moveInOrder } from '@/domain/editors';
+import { freeSlot, moveInOrder, nextSortOrder } from '@/domain/editors';
 import { Defaults, Kind } from '@/domain/types';
 import { useBlock } from '@/db/hooks';
 import { newId } from '@/db/id';
 import * as repo from '@/db/repository';
 import { K } from '@/theme';
 
-/** Block editor (BlockEditorScreen in Editors.kt): superset and what it does, one or two exercises with sets and rep range, order, delete. */
+/**
+ * Block editor (BlockEditorScreen in Editors.kt): superset and what it does, one or two exercises with sets
+ * and rep range, order, delete. A new block (`new`) is a draft until its first exercise is picked, which
+ * saves the two together, so backing out of it leaves no empty block behind.
+ */
 export default function BlockEditor() {
   const { programId, blockId } = useLocalSearchParams<{ programId: string; blockId: string }>();
+  const isNew = blockId === 'new';
   const { data } = useBlock(programId, blockId);
   // The slot being filled stays set while the picker slides out.
   const [slot, setSlot] = useState(0);
   const [picking, setPicking] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [draftSuperset, setDraftSuperset] = useState<boolean>(Defaults.block.superset);
 
-  const index = data ? data.siblings.findIndex((b) => b.id === blockId) : -1;
-  const block = data?.siblings[index];
+  const index = data ? (isNew ? data.siblings.length : data.siblings.findIndex((b) => b.id === blockId)) : -1;
+  const block = data ? (isNew ? { id: blockId, programId, sortOrder: nextSortOrder(data.siblings), superset: draftSuperset } : data.siblings[index]) : undefined;
   if (!data || !block) return <EditorScreen />;
 
   const existing = data.mine.find((be) => be.slot === slot);
@@ -34,15 +40,26 @@ export default function BlockEditor() {
   };
 
   const pick = (exerciseId: string) => {
+    setPicking(false);
+    if (isNew) {
+      const savedId = newId();
+      repo.createBlock({ ...block, id: savedId }, { ...Defaults.blockExercise, id: newId(), blockId: savedId, slot, exerciseId });
+      router.replace(`/block/${programId}/${savedId}`);
+      return;
+    }
     if (existing) repo.patchBlockExercise(existing.id, { exerciseId });
     else repo.saveBlockExercise({ ...Defaults.blockExercise, id: newId(), blockId, slot, exerciseId });
-    setPicking(false);
   };
 
   return (
     <EditorScreen title={`Block ${index + 1}`} trailing={<Capsule text="Done" onPress={() => router.back()} />}>
       <GroupedList>
-        <ToggleRow label="Superset" divider={false} value={block.superset} onChange={(superset) => repo.patchBlock(blockId, { superset })} />
+        <ToggleRow
+          label="Superset"
+          divider={false}
+          value={block.superset}
+          onChange={(superset) => (isNew ? setDraftSuperset(superset) : repo.patchBlock(blockId, { superset }))}
+        />
       </GroupedList>
       <GroupFooter text={block.superset ? 'A and B alternate, set by set: A1, B1, A2, B2…' : 'All sets of A, then all sets of B.'} />
       {data.mine.map((be) => (
@@ -56,9 +73,10 @@ export default function BlockEditor() {
         />
       ))}
       {free != null ? (
-        <TintedButton text={data.mine.length === 0 ? 'Add exercise' : 'Add second exercise'} onPress={() => choose(free)} style={styles.add} />
+        <TintedButton text={data.mine.length === 0 ? 'Add exercise' : 'Add second exercise'} onPress={() => choose(free)} style={styles.action} />
       ) : null}
-      {data.siblings.length > 1 ? (
+      {/* Order and delete come once the block is saved. */}
+      {!isNew && data.siblings.length > 1 ? (
         <View style={styles.move}>
           {index > 0 ? <TintedButton text="Move up" onPress={() => repo.saveBlocks(moveInOrder(data.siblings, index, -1))} style={styles.moveButton} /> : null}
           {index < data.siblings.length - 1 ? (
@@ -66,7 +84,7 @@ export default function BlockEditor() {
           ) : null}
         </View>
       ) : null}
-      <TintedButton text="Delete block" color={K.Red} onPress={() => setConfirmDelete(true)} style={styles.delete} />
+      {!isNew ? <TintedButton text="Delete block" color={K.Red} onPress={() => setConfirmDelete(true)} style={styles.action} /> : null}
       <ChoiceSheet
         visible={picking}
         title="Exercise"
@@ -93,8 +111,7 @@ export default function BlockEditor() {
 }
 
 const styles = StyleSheet.create({
-  add: { marginTop: 20 },
-  move: { flexDirection: 'row', gap: 12, marginTop: 32 },
+  action: { marginTop: 12 },
+  move: { flexDirection: 'row', gap: 12, marginTop: 12 },
   moveButton: { flex: 1 },
-  delete: { marginTop: 12 },
 });

@@ -1,5 +1,5 @@
 /** Rules behind the program, block and exercise editors (ui/screens/Editors.kt, ProgramsScreen.kt). */
-import { BlockExercise, Defaults, Exercise, Intensity, Kind, Modality, splitList } from './types';
+import { BlockExercise, Defaults, Exercise, Intensity, Kind, Modality, Program, splitList } from './types';
 
 /** Twelve preset colors for a modality, ARGB like Kotlin's PRESET_COLORS. */
 export const PRESET_COLORS = [
@@ -58,6 +58,9 @@ export function moveInOrder<T extends { sortOrder: number }>(list: T[], index: n
 }
 
 // ---------------------------------------------------------------- exercises
+
+/** A program not saved yet: "New program", after the others, active only when it is the first. */
+export const newProgram = (id: string, count: number): Program => ({ ...Defaults.program, id, name: 'New program', active: count === 0, sortOrder: count });
 
 export const newExercise = (id: string): Exercise => ({ ...Defaults.exercise, id, name: '', kind: Kind.STRENGTH, primaryMuscle: 'chest' });
 

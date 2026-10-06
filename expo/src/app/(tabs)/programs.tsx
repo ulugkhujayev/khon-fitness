@@ -3,20 +3,14 @@ import { router } from 'expo-router';
 import { TabScreen } from '@/components/layout';
 import { BarCircleButton, Empty, GroupedList, ListRow } from '@/components/ui';
 import { usePrograms } from '@/db/hooks';
-import { newId } from '@/db/id';
-import * as repo from '@/db/repository';
 import { K } from '@/theme';
 
 /** Programs tab (ProgramsScreen.kt): the programs (the active one filled), then the library, stretching, modalities, week plan and settings. */
 export default function ProgramsScreen() {
   const { data } = usePrograms();
 
-  const addProgram = async () => {
-    const count = data?.programs.length ?? 0;
-    const id = newId();
-    await repo.saveProgram({ id, name: 'New program', active: count === 0, sortOrder: count });
-    router.push(`/program/${id}`);
-  };
+  // A new program is only a draft in its editor until Done or its first block saves it.
+  const addProgram = () => router.push('/program/new');
 
   return (
     <TabScreen title="Programs" trailing={<BarCircleButton icon={{ ios: 'plus', android: 'add', web: 'add' }} label="New program" onPress={addProgram} />}>

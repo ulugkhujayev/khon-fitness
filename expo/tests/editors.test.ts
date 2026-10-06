@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { axisWidth, dateLabelIndices, niceStep, scaleFor, valueLabelIndices } from '../src/domain/chart';
 import { longDate, monthDay, monthGrid, monthStart, monthTitle, shortDate, weekdayName, weekOf } from '../src/domain/dates';
 import {
-  asCardio, asStrength, blockSummary, filterLibrary, freeSlot, moveInOrder, newExercise, matchesQuery, nextSortOrder, noResults, searchByName, toggleIn, withIntervals,
+  asCardio, asStrength, blockSummary, filterLibrary, freeSlot, moveInOrder, newExercise, matchesQuery, newProgram, nextSortOrder, noResults, searchByName, toggleIn, withIntervals,
   withMaxReps, withMinReps, withSets,
 } from '../src/domain/editors';
 import { SEED_EXERCISES } from '../src/domain/seed';
@@ -46,6 +46,11 @@ describe('block editor', () => {
     expect(searchByName(list, '')).toHaveLength(3);
     expect(matchesQuery('Cable Seated Row', ' ROW ')).toBe(true);
     expect(matchesQuery('Cable Seated Row', 'squat')).toBe(false);
+  });
+
+  test('a new program goes after the others and is active only as the first', () => {
+    expect(newProgram('p', 0)).toEqual({ id: 'p', name: 'New program', active: true, sortOrder: 0 });
+    expect(newProgram('p', 3)).toEqual({ id: 'p', name: 'New program', active: false, sortOrder: 3 });
   });
 
   test('a search that finds nothing names the query and what to try', () => {

@@ -116,7 +116,12 @@ export const mergeExercise = (from: string, into: string) =>
 
 // ---------------------------------------------------------------- programs and blocks
 
-export const saveProgram = (p: Program) => write((tx) => tx.upsert(T.programs, p));
+/** A new program, made active (and every other one not) when it is. */
+export const createProgram = (p: Program) =>
+  write(async (tx) => {
+    await tx.upsert(T.programs, p);
+    if (p.active) await tx.run(T.programs, 'UPDATE programs SET active = (id = ?)', [p.id]);
+  });
 export const setActiveProgram = (id: string) =>
   write((tx) => tx.run(T.programs, 'UPDATE programs SET active = (id = ?)', [id]));
 
@@ -127,7 +132,6 @@ export const deleteProgram = (id: string) =>
     await tx.run(T.programs, 'DELETE FROM programs WHERE id = ?', [id]);
   });
 
-export const saveBlock = (b: Block) => write((tx) => tx.upsert(T.blocks, b));
 export const saveBlocks = (list: Block[]) => write((tx) => tx.upsert(T.blocks, list));
 export const deleteBlock = (id: string) =>
   write(async (tx) => {
@@ -135,6 +139,12 @@ export const deleteBlock = (id: string) =>
     await tx.run(T.blocks, 'DELETE FROM blocks WHERE id = ?', [id]);
   });
 export const saveBlockExercise = (be: BlockExercise) => write((tx) => tx.upsert(T.blockExercises, be));
+/** A new block together with its first exercise, so no block is ever saved empty. */
+export const createBlock = (b: Block, first: BlockExercise) =>
+  write(async (tx) => {
+    await tx.upsert(T.blocks, b);
+    await tx.upsert(T.blockExercises, first);
+  });
 export const deleteBlockExercise = (id: string) =>
   write((tx) => tx.run(T.blockExercises, 'DELETE FROM block_exercises WHERE id = ?', [id]));
 

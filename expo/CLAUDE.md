@@ -107,7 +107,7 @@ reads during render and no synchronous `setState` inside effects.
   and values as `Theme.kt`. Fonts load in `src/app/_layout.tsx`.
 - `src/components/` (one exported component per file):
   - `ui/`: design-system primitives with a barrel `index.ts`: buttons
-    (TextButton, PrimaryButton, Capsule, PlusButton, BarCircleButton), lists
+    (TextButton, PrimaryButton, TintedButton, Capsule, PlusButton, BarCircleButton), lists
     (GroupedList, ListRow, FieldRow, FieldValue, ToggleRow, Empty), inputs
     (NumberField, NumberRow, TimeStepper, InlineTextField, SearchField,
     Segmented, Toggle, DateRow, MonthGrid, MonthSwitcher, FigureField and

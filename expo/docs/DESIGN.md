@@ -98,7 +98,9 @@ padded cards, per-item buttons, "Updated" lines.
 - One primary button per screen at most: 52 px tall, full width, accent
   fill, dark text. Start, Finish, Done.
 - All other actions are text buttons, 44 px tap height, no fill, no
-  border.
+  border. Exception (Expo app): Today's bodyweight Add is the primary
+  capsule tinted, accent text on accent at 20 percent, so it reads as a
+  button without competing with Start.
 - Icon buttons only in the top bar or the set-row check. Never floating
   inside a row.
 
@@ -130,7 +132,8 @@ Two lines, 88 px total, hairline between rows.
   change since the last day weighed in muted 15 ("+0.2 kg since Oct 5"),
   a ruler picker (0.1 kg ticks 10 px apart, a label every kg, an accent
   center line, faded edges, a haptic click per tick, firmer on a whole
-  kg), and an "Add" text button, "Update" when today has an entry.
+  kg), and a tinted "Add" button (see Buttons), "Update" when today has
+  an entry.
 
 ## Stretch player
 

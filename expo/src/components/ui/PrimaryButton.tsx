@@ -9,6 +9,7 @@ export function PrimaryButton({
   style,
   color = K.Accent,
   textColor = K.AccentInk,
+  label,
 }: {
   text: string;
   enabled?: boolean;
@@ -17,12 +18,15 @@ export function PrimaryButton({
   /** K.Red for a destructive confirm, K.White in the stretch player. */
   color?: string;
   textColor?: string;
+  /** Spoken name when the visible text is not enough, e.g. "Add bodyweight". */
+  label?: string;
 }) {
   return (
     <Pressable
       onPress={onPress}
       disabled={!enabled}
       accessibilityRole="button"
+      accessibilityLabel={label ?? text}
       accessibilityState={{ disabled: !enabled }}
       style={({ pressed }) => [styles.button, { backgroundColor: enabled ? color : K.Surface2 }, pressed && styles.pressed, style]}>
       <Text style={[Type.headline, { color: enabled ? textColor : K.Muted }]}>{text}</Text>

@@ -1,14 +1,13 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { longDate, parseIso, weekdayName, weekOf } from '@/domain/dates';
 import { itemFor, PlanData } from '@/domain/plan';
-import { hexAlpha, Modality } from '@/domain/types';
-import { Font, K, Space, tabular, Type } from '@/theme';
-import { GroupedList } from '@/components/ui';
+import { blend, hexAlpha, Modality } from '@/domain/types';
+import { Font, K, tabular, Type } from '@/theme';
 import { itemColor } from './colors';
 
 /**
- * Monday to Sunday of this week on a group-surface card (DESIGN.md, Today): each day a rounded tile with
- * the weekday letter over the number, its border in the planned item's color (tinted inside for high
+ * Monday to Sunday of this week (DESIGN.md, Today): each day a rounded tile on the group surface with the
+ * weekday letter over the number, its border in the planned item's color (tinted inside for high
  * intensity, none for rest), past days muted, today filled in accent. Tap a day to see or change it.
  * Port of WeekStrip in TodayScreen.kt, with the dot moved onto the tile's border.
  */
@@ -24,7 +23,7 @@ export function WeekStrip({
   onPress: (date: string) => void;
 }) {
   return (
-    <GroupedList style={styles.row}>
+    <View style={styles.row}>
       {weekOf(today).map((date, i) => {
         const item = itemFor(plan, date);
         const c = itemColor(item, modalities);
@@ -39,7 +38,7 @@ export function WeekStrip({
             accessibilityHint="Change plan"
             style={({ pressed }) => [
               styles.tile,
-              c && { borderColor: past ? hexAlpha(c.color, 0.5) : c.color, backgroundColor: c.filled ? hexAlpha(c.color, 0.2) : 'transparent' },
+              c && { borderColor: past ? hexAlpha(c.color, 0.5) : c.color, backgroundColor: c.filled ? blend(K.Surface, c.color, 0.2) : K.Surface },
               isToday && styles.today,
               pressed && styles.pressed,
             ]}>
@@ -48,12 +47,12 @@ export function WeekStrip({
           </Pressable>
         );
       })}
-    </GroupedList>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 6, padding: 8, borderRadius: Space.groupRadius },
+  row: { flexDirection: 'row', gap: 6 },
   // Not in Theme.kt: a tile with continuous corners (a squircle on iOS) and a 2 pt border in the plan's color.
   tile: {
     flex: 1,
@@ -63,6 +62,7 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderWidth: 2,
     borderColor: 'transparent',
+    backgroundColor: K.Surface,
   },
   today: { backgroundColor: K.Accent },
   pressed: { opacity: 0.6 },

@@ -1,7 +1,8 @@
-import { Ref, useEffect, useRef, useState } from 'react';
+import { Ref, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import { fmt, parseNumberInput } from '@/domain/format';
 import { Font, K, Type } from '@/theme';
+import { useNumberText } from './useNumberText';
 
 /** Below this width the field drops its unit and slims the steppers so the value stays visible (Components.kt: 176 dp). */
 export const COMPACT_WIDTH = 176;
@@ -11,8 +12,7 @@ const isPlainNumber = (s: string) => /^\d+(\.\d+)?$/.test(s);
 
 /**
  * Number widget (DESIGN.md): minus, the typed value with its unit, plus. No caption, no native spinner.
- * Port of NumberField in Components.kt. While focused the field keeps its own text, so a write that
- * comes back from the database never moves the cursor; steppers set the text themselves.
+ * Port of NumberField in Components.kt. The text follows useNumberText; steppers set it themselves.
  */
 export function NumberField({
   value,
@@ -41,14 +41,9 @@ export function NumberField({
   compact?: boolean;
   style?: ViewStyle;
 }) {
-  const [text, setText] = useState(fmt(value, decimals));
+  const { text, setText, focus, blur } = useNumberText(value, decimals);
   const [measured, setMeasured] = useState(false);
   const compact = forceCompact ?? measured;
-  const focused = useRef(false);
-
-  useEffect(() => {
-    if (!focused.current) setText(fmt(value, decimals));
-  }, [value, decimals]);
 
   const commit = (v: number | null) => onChange(v == null ? null : Math.max(0, v));
 
@@ -79,11 +74,9 @@ export function NumberField({
           setText(p.text);
           commit(p.value);
         }}
-        onFocus={() => (focused.current = true)}
-        onBlur={() => {
-          focused.current = false;
-          setText(fmt(parseNumberInput(text).value ?? value, decimals));
-        }}
+        onFocus={focus}
+        // The typed value, not `value`: a database write may not have come back yet.
+        onBlur={() => blur(parseNumberInput(text).value ?? value)}
         selectTextOnFocus
         keyboardType={decimals > 0 ? 'decimal-pad' : 'number-pad'}
         keyboardAppearance="dark"

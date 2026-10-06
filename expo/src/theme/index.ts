@@ -82,6 +82,11 @@ export const Type = {
    * No line height: it sits in a TextInput, where one shifts the text off center.
    */
   value: { fontFamily: Font.bold, fontSize: 19, color: K.Text, ...tabular },
+  /**
+   * The big figure above a ruler picker (Today's bodyweight, DESIGN.md: 48/700). New to the Expo app.
+   * No line height for the same reason as `value`.
+   */
+  figure: { fontFamily: Font.bold, fontSize: 48, color: K.Text, letterSpacing: -1, ...tabular },
   /** The − and + glyphs of the number widget (StepButton in Components.kt, 22 sp medium). */
   stepGlyph: t(22, Font.medium, 28),
   /** The countdown of the interval timer (TimerScreen.kt: 96 sp bold, tight tracking). */

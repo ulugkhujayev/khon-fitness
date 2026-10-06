@@ -77,7 +77,8 @@ expo-system-ui, react-native-svg (charts), react-native-keyboard-controller
 (`KeyboardProvider` in the root layout; screens scroll with
 `KeyboardAwareScrollView` so a focused field stays above the keyboard),
 expo-audio (timer beeps from `assets/sounds`, made by `bun scripts/beeps.ts`),
-expo-speech (spoken cues), expo-keep-awake (timer and stretch player),
+expo-speech (spoken cues), expo-haptics (the ruler picker's clicks,
+`src/haptics.ts`), expo-keep-awake (timer and stretch player),
 expo-notifications (timer alerts while the app sleeps, eating-window
 reminders), `expo-sqlite/kv-store` (the running timer's snapshot). The stretch
 demonstrations are pre-rendered WebP sprite sheets in `assets/stretch_demos`
@@ -109,7 +110,9 @@ reads during render and no synchronous `setState` inside effects.
     (TextButton, PrimaryButton, Capsule, PlusButton, BarCircleButton), lists
     (GroupedList, ListRow, FieldRow, FieldValue, ToggleRow, Empty), inputs
     (NumberField, NumberRow, TimeStepper, InlineTextField, SearchField,
-    Segmented, Toggle, DateRow, MonthGrid, MonthSwitcher), sheets (Sheet, ChoiceSheet,
+    Segmented, Toggle, DateRow, MonthGrid, MonthSwitcher, FigureField and
+    RulerPicker with EdgeFade; `useNumberText` keeps a focused field's
+    text), sheets (Sheet, ChoiceSheet,
     ChoiceList, ChoiceRow, SheetGroupTitle, ConfirmSheet), TitleRow,
     LineChart (`format` for m:ss), ProgressBar, Dot, Check.
     Pick lists use `ChoiceSheet`; do not build another sheet of choice rows.
@@ -118,7 +121,7 @@ reads during render and no synchronous `setState` inside effects.
     is gone).
   - Feature folders: `plan/` (WeekStrip, PlanItemSheet, DayPlanSheet for
     one date, `colors.ts`), `today/` (TodayCard, BodyweightSection,
-    WindowSheet, `useNow` minute clock), `session/` (BlockCard, SetRow,
+    BodyweightEntry, WindowSheet, `useNow` minute clock), `session/` (BlockCard, SetRow,
     SwapSheet, … and the hooks `useFieldFocus`, `useLeaveWhenGone`),
     `editors/` (ExerciseForm with a table-driven select config, ModalityForm,
     ColorSheet, BlockExerciseGroup), `history/` (CalendarGrid with the
@@ -191,8 +194,9 @@ reads during render and no synchronous `setState` inside effects.
   limits, `windowAlerts`), `health.ts` (workout kinds, drafts, merging band
   and watch copies, default exercise, interval heart rate, the imported
   session), `widgets.ts` (the Today and window widget cards, the window
-  timeline), `format.ts` (`fmt`, `parseNumberInput`, `dur`,
-  `preview`), `backup.ts` (`parseBackup`, `describeBackup`), `seed.ts`.
+  timeline), `ruler.ts` (ruler picker ticks, offsets and segments),
+  `bodyweight.ts` (Today's ruler, start value, change line, Add/Update),
+  `format.ts` (`fmt`, `parseNumberInput`, `dur`, `preview`), `backup.ts` (`parseBackup`, `describeBackup`), `seed.ts`.
 - `src/db/`: `schema.ts` (Room v4 DDL verbatim, 17 tables, `COLUMNS`,
   `BOOL_COLUMNS`), `rows.ts` (bool 0/1 conversion, upsert SQL),
   `database.ts` (`getDb` with `PRAGMA user_version` migrations, `all`/`first`/
@@ -292,7 +296,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 151 tests at the end of stage 6; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 162 tests after the bodyweight ruler; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

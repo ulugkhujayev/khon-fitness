@@ -124,8 +124,13 @@ Two lines, 88 px total, hairline between rows.
   moderate, none for rest.
 - 24 px gap. Item name 30/700, preview 15 muted, Start 56 px.
 - 24 px gap. "Bodyweight" 18 with the latest value 22/600 on the right,
-  a 72 px sparkline with a soft area fill (accent at 20 percent), and
-  one row: number widget + "Add" text button, all centered on one line.
+  a 72 px sparkline with a soft area fill (accent at 20 percent), then
+  the entry (Expo app; the Kotlin app has number widget + "Add" on one
+  line): the picked value 48/700 with "kg" in muted 17 (tap to type), its
+  change since the last day weighed in muted 15 ("+0.2 kg since Oct 5"),
+  a ruler picker (0.1 kg ticks 10 px apart, a label every kg, an accent
+  center line, faded edges, a haptic click per tick, firmer on a whole
+  kg), and an "Add" text button, "Update" when today has an entry.
 
 ## Stretch player
 

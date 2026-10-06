@@ -1,4 +1,5 @@
 /** Design-system primitives (DESIGN.md). Screens and feature components build from these. */
+export { ACTION_ICONS, ActionRow } from './ActionRow';
 export { BarCircleButton } from './BarCircleButton';
 export { BottomActions } from './BottomActions';
 export { Capsule } from './Capsule';

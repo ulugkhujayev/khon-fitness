@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Linking, StyleSheet } from 'react-native';
 import { EditorScreen } from '@/components/layout';
 import {
-  BottomActions, Capsule, ChoiceSheet, ConfirmSheet, FieldRow, FieldValue, GroupedList, InlineTextField, ListRow, NumberRow, TintedButton,
+  ACTION_ICONS, ActionRow, BottomActions, Capsule, ChoiceSheet, ConfirmSheet, FieldRow, FieldValue, GroupedList, InlineTextField, ListRow, NumberRow,
   ToggleRow,
 } from '@/components/ui';
 import { clampReps, clampStretchSeconds, figureName, FIGURES, newStretch, withRepsMode } from '@/domain/stretch';
@@ -68,7 +68,16 @@ export function StretchForm({
       ) : null}
       {original ? (
         <BottomActions note={original.builtin ? 'Built-in stretches cannot be deleted.' : useCount > 0 ? `In use by ${useCount} routine rows.` : undefined}>
-          <TintedButton text="Delete stretch" color={K.Red} enabled={!original.builtin && useCount === 0} onPress={() => setConfirming(true)} />
+          <GroupedList>
+            <ActionRow
+              icon={ACTION_ICONS.delete}
+              title="Delete stretch"
+              color={K.Red}
+              enabled={!original.builtin && useCount === 0}
+              last
+              onPress={() => setConfirming(true)}
+            />
+          </GroupedList>
         </BottomActions>
       ) : null}
       <ChoiceSheet

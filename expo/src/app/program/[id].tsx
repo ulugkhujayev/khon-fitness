@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useDropOnLeave } from '@/components/editors/useDropOnLeave';
 import { EditorScreen } from '@/components/layout';
 import {
-  Capsule, ConfirmSheet, Empty, FieldRow, GroupedList, GroupFooter, IndexBadge, InlineTextField, ListRow, SectionTitle, TintedButton, ToggleRow,
+  ACTION_ICONS, ActionRow, BottomActions, Capsule, ConfirmSheet, Empty, FieldRow, GroupedList, GroupFooter, IndexBadge, InlineTextField, ListRow, SectionTitle, TintedButton, ToggleRow,
 } from '@/components/ui';
 import { blockSummary, newProgram } from '@/domain/editors';
 import { sets } from '@/domain/format';
@@ -98,7 +98,11 @@ export default function ProgramEditor() {
 
       {/* Nothing to delete before Done; the last program cannot go, Today always plans from one. */}
       {!isNew && !provisional && data.programCount > 1 ? (
-        <TintedButton text="Delete program" color={K.Red} onPress={() => setConfirmDelete(true)} style={styles.action} />
+        <BottomActions>
+          <GroupedList>
+            <ActionRow icon={ACTION_ICONS.delete} title="Delete program" color={K.Red} last onPress={() => setConfirmDelete(true)} />
+          </GroupedList>
+        </BottomActions>
       ) : null}
 
       <ConfirmSheet

@@ -113,16 +113,19 @@ padded cards, per-item buttons, "Updated" lines.
   release (Expo app).
 - Bottom of the editor: Archive, Merge into…, Delete as text buttons,
   Delete in red, disabled with a one-line reason when not allowed. Expo
-  app: these are full-width 44 px tinted buttons stacked 12 px apart,
-  Delete in red, the reason as a muted footnote under them.
+  app: they are action rows in grouped lists, like the actions at the end
+  of an iOS contact: a 20 px symbol and the name in accent (Archive,
+  Merge into…, Move up, Move down), the destructive one in red in a group
+  of its own, both dim when off, the reason as a muted footnote under the
+  groups, 32 px below the fields, groups 20 px apart.
 - Fields sit in groups with section titles (an exercise: name and kind;
   Muscles; Details), so no label wraps.
 - The bar keeps its title centered and shows a hairline once content
   scrolls under it, fading in over the first 16 px (Expo app).
-  Expo app, program and block editors: full-width 44 px tinted buttons
-  instead, 12 px apart: Add block, Add exercise / Add second exercise in
-  accent; Move up and Move down side by side; Delete program / Delete
-  block in red, each asking first. The block's Superset toggle and the
+  Expo app, program and block editors: Add block and Add exercise / Add
+  second exercise are full-width 44 px tinted buttons 12 px under their
+  list; Move up, Move down, Delete program and Delete block are action
+  rows as above, the deletes asking first. The block's Superset toggle and the
   program's Active toggle have a muted footnote under their group saying
   what they do; the active program's toggle is fixed on (turning another
   program on moves it). A new program or block is a draft: nothing is

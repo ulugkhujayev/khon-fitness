@@ -110,7 +110,8 @@ reads during render and no synchronous `setState` inside effects.
     (TextButton, PrimaryButton, TintedButton, Capsule, PlusButton,
     BarCircleButton), lists (GroupedList, ListRow, FieldRow, FieldValue,
     ToggleRow, Empty, SearchEmpty for a search with no results, GroupFooter,
-    IndexBadge, IconTile; ListRow takes a `leading` view), inputs
+    IndexBadge, IconTile, ActionRow with ACTION_ICONS for BottomActions;
+    ListRow takes a `leading` view), inputs
     (NumberField, whose steppers repeat while held
     through `useRepeatPress` and stop at `min`/`max`, NumberRow, EffortRow, TimeStepper, InlineTextField,
     SearchField, Segmented, Toggle, DateRow, MonthGrid, MonthSwitcher, FigureField and

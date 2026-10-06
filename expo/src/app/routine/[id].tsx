@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { EditorScreen, useLeaveWhenGone } from '@/components/layout';
 import { RoutineOrderList } from '@/components/stretch/RoutineOrderList';
 import {
-  BottomActions, Capsule, ChoiceSheet, ConfirmSheet, Empty, FieldRow, GroupedList, InlineTextField, NumberRow, PlusButton, SectionTitle, TintedButton,
+  ACTION_ICONS, ActionRow, BottomActions, Capsule, ChoiceSheet, ConfirmSheet, Empty, FieldRow, GroupedList, InlineTextField, NumberRow, PlusButton, SectionTitle,
   ToggleRow,
 } from '@/components/ui';
 import { moveInOrder, nextSortOrder } from '@/domain/editors';
@@ -67,7 +67,9 @@ export default function RoutineEditor() {
         </>
       ) : null}
       <BottomActions>
-        <TintedButton text="Delete routine" color={K.Red} onPress={() => setConfirming(true)} />
+        <GroupedList>
+          <ActionRow icon={ACTION_ICONS.delete} title="Delete routine" color={K.Red} last onPress={() => setConfirming(true)} />
+        </GroupedList>
       </BottomActions>
       <ChoiceSheet
         visible={picking}

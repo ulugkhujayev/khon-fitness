@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { BlockExerciseGroup } from '@/components/editors/BlockExerciseGroup';
 import { EditorScreen } from '@/components/layout';
-import { Capsule, ChoiceSheet, ConfirmSheet, GroupedList, GroupFooter, TintedButton, ToggleRow } from '@/components/ui';
+import { ACTION_ICONS, ActionRow, BottomActions, Capsule, ChoiceSheet, ConfirmSheet, GroupedList, GroupFooter, TintedButton, ToggleRow } from '@/components/ui';
 import { freeSlot, moveInOrder, nextSortOrder } from '@/domain/editors';
 import { Defaults, Kind } from '@/domain/types';
 import { useBlock } from '@/db/hooks';
@@ -76,15 +76,28 @@ export default function BlockEditor() {
         <TintedButton text={data.mine.length === 0 ? 'Add exercise' : 'Add second exercise'} onPress={() => choose(free)} style={styles.action} />
       ) : null}
       {/* Order and delete come once the block is saved. */}
-      {!isNew && data.siblings.length > 1 ? (
-        <View style={styles.move}>
-          {index > 0 ? <TintedButton text="Move up" onPress={() => repo.saveBlocks(moveInOrder(data.siblings, index, -1))} style={styles.moveButton} /> : null}
-          {index < data.siblings.length - 1 ? (
-            <TintedButton text="Move down" onPress={() => repo.saveBlocks(moveInOrder(data.siblings, index, 1))} style={styles.moveButton} />
+      {!isNew ? (
+        <BottomActions>
+          {data.siblings.length > 1 ? (
+            <GroupedList>
+              {index > 0 ? (
+                <ActionRow
+                  icon={ACTION_ICONS.up}
+                  title="Move up"
+                  last={index === data.siblings.length - 1}
+                  onPress={() => repo.saveBlocks(moveInOrder(data.siblings, index, -1))}
+                />
+              ) : null}
+              {index < data.siblings.length - 1 ? (
+                <ActionRow icon={ACTION_ICONS.down} title="Move down" last onPress={() => repo.saveBlocks(moveInOrder(data.siblings, index, 1))} />
+              ) : null}
+            </GroupedList>
           ) : null}
-        </View>
+          <GroupedList>
+            <ActionRow icon={ACTION_ICONS.delete} title="Delete block" color={K.Red} last onPress={() => setConfirmDelete(true)} />
+          </GroupedList>
+        </BottomActions>
       ) : null}
-      {!isNew ? <TintedButton text="Delete block" color={K.Red} onPress={() => setConfirmDelete(true)} style={styles.action} /> : null}
       <ChoiceSheet
         visible={picking}
         title="Exercise"
@@ -112,6 +125,4 @@ export default function BlockEditor() {
 
 const styles = StyleSheet.create({
   action: { marginTop: 12 },
-  move: { flexDirection: 'row', gap: 12, marginTop: 12 },
-  moveButton: { flex: 1 },
 });

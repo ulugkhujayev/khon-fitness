@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { EditorScreen } from '@/components/layout';
-import { BottomActions, Capsule, ChoiceSheet, TintedButton } from '@/components/ui';
+import { ACTION_ICONS, ActionRow, BottomActions, Capsule, ChoiceSheet, GroupedList } from '@/components/ui';
 import { newExercise } from '@/domain/editors';
 import { Exercise, Modality } from '@/domain/types';
 import { newId } from '@/db/id';
@@ -64,15 +64,25 @@ export function ExerciseForm({
       />
       {original ? (
         <BottomActions note={usage > 0 ? 'Used in a session, program, or plan: archive or merge it instead.' : undefined}>
-          <TintedButton text={draft.archived ? 'Unarchive' : 'Archive'} onPress={() => onArchive(draft)} />
-          <TintedButton
-            text="Merge into…"
-            onPress={() => {
-              setSelect('merge');
-              setOpen(true);
-            }}
-          />
-          <TintedButton text="Delete" color={K.Red} enabled={usage === 0} onPress={() => onDelete(draft.id)} />
+          <GroupedList>
+            <ActionRow
+              icon={draft.archived ? ACTION_ICONS.unarchive : ACTION_ICONS.archive}
+              title={draft.archived ? 'Unarchive' : 'Archive'}
+              onPress={() => onArchive(draft)}
+            />
+            <ActionRow
+              icon={ACTION_ICONS.merge}
+              title="Merge into…"
+              last
+              onPress={() => {
+                setSelect('merge');
+                setOpen(true);
+              }}
+            />
+          </GroupedList>
+          <GroupedList>
+            <ActionRow icon={ACTION_ICONS.delete} title="Delete" color={K.Red} enabled={usage === 0} last onPress={() => onDelete(draft.id)} />
+          </GroupedList>
         </BottomActions>
       ) : null}
       <ChoiceSheet visible={open} title={config.title} choices={config.choices} isSelected={config.isSelected} onPick={pick} onDismiss={() => setOpen(false)} />

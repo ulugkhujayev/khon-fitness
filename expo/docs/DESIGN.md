@@ -124,12 +124,14 @@ Two lines, 88 px total, hairline between rows.
 ## Today
 
 - No app bar. The screen title is the first thing.
-- Week strip: 7 equal cells, 56 px tall. Weekday letter 12 muted over
-  the day number 18. Today's number sits in a 32 px accent-filled circle
+- Week strip on a group-surface card (radius 20, 8 px padding top and
+  bottom; Expo app, the Kotlin strip sits on the background): 7 equal
+  cells. Weekday letter 12 muted over the day number 17, past days'
+  numbers muted. Today's number sits in a 32 px accent-filled circle
   with dark text. One 8 px dot under each number: modality color
   (accent for strength), filled for high intensity, ring for low or
   moderate, none for rest.
-- 24 px gap. The item on a group-surface card (14 px padding top and
+- 16 px gap. The item on a group-surface card (14 px padding top and
   bottom): a 40 px circle with the
   kind's symbol in its color on that color at 20 percent (dumbbell in
   accent, a runner in the modality color, a moon for rest, a green check

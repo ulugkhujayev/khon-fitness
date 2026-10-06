@@ -118,7 +118,7 @@ function Head({
 }
 
 const styles = StyleSheet.create({
-  card: { marginTop: 24, backgroundColor: K.Surface, borderRadius: Space.groupRadius, paddingHorizontal: Space.margin, paddingVertical: 14 },
+  card: { marginTop: 16, backgroundColor: K.Surface, borderRadius: Space.groupRadius, paddingHorizontal: Space.margin, paddingVertical: 14 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   text: { flex: 1 },
   line: { ...Type.subheadline, color: K.Muted, marginTop: 1 },

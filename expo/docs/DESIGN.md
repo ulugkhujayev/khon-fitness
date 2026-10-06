@@ -130,10 +130,12 @@ Two lines, 88 px total, hairline between rows.
 - Blocks: header row 52 px (index in accent, names, sets done of total
   "2 / 6", chevron or a green check), sets under it (Expo app from here
   on). On entry only the first block with work left is open. While a
-  block's sets scroll, its header sticks to the top on a strip of the
-  background until the next header pushes it off. A tap on a header opens
-  or closes that block, the others stay as they are; opening and closing
-  animate (220 ms ease) and an opened block scrolls to the top. A check
+  block's sets scroll, its header stays pinned at the top on a strip of
+  the background until its card's end pushes it off. A tap on a header
+  opens or closes that block, the others stay as they are (closing a
+  block the list is inside brings its header back to the top); opening
+  and closing animate (220 ms ease) and an opened block scrolls to the
+  top. A check
   keeps focus in its block while it has a pending set (the next one, else
   one left behind); its last set closes the block and opens the next
   block with work at the top, wrapping to an earlier one.

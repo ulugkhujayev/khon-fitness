@@ -2,22 +2,23 @@ import { useState } from 'react';
 import * as repo from '@/db/repository';
 import { SetLog, SetStatus } from '@/domain/types';
 import { afterCheck, groupBlocks, openBlocks } from '@/domain/workout';
-import { useBlockReveal } from './useBlockReveal';
+import { useBlockScroll } from './useBlockScroll';
 
 /**
  * Which blocks of a session are open and what a tap on a set's circle does. The first block with work
  * left is open; a tap on a header opens or closes that block, leaving the others as they are. A check
  * saves the set and focus moves to the set afterCheck names; a block's last set closes it and opens the
- * next block with work at the top. Changes animate (useBlockReveal).
+ * next block with work at the top. Scrolling, the pinned header and the animations: useBlockScroll.
  */
 export function useBlockFlow(logs: SetLog[], focusField: (id: string) => void) {
   // Blocks the user or a finished block opened or closed, by position; the rest follow openBlocks.
   const [chosen, setChosen] = useState<Record<number, boolean>>({});
-  const { scrollRef, animate, reveal, onHeaderLayout, onBodyLayout } = useBlockReveal();
   const blocks = groupBlocks(logs);
   const open = openBlocks(blocks, chosen);
+  const { animate, reveal, keepInView, ...scroll } = useBlockScroll(open);
 
   const toggleBlock = (i: number) => {
+    if (open[i]) keepInView(i);
     animate();
     setChosen((c) => ({ ...c, [i]: !open[i] }));
     if (!open[i]) reveal(i);
@@ -37,5 +38,5 @@ export function useBlockFlow(logs: SetLog[], focusField: (id: string) => void) {
     if (after.focus) focusField(after.focus.id);
   };
 
-  return { blocks, open, toggleBlock, toggleSet, scrollRef, onHeaderLayout, onBodyLayout };
+  return { blocks, open, toggleBlock, toggleSet, ...scroll };
 }

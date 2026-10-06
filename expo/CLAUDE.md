@@ -124,10 +124,11 @@ reads during render and no synchronous `setState` inside effects.
   - Feature folders: `plan/` (WeekStrip, PlanItemSheet, DayPlanSheet for
     one date, `colors.ts`), `today/` (TodayCard, BodyweightSection,
     BodyweightEntry, WindowSheet, `useNow` minute clock), `session/`
-    (BlockHeader, sticky in the list, and BlockBody, SetRow,
+    (BlockHeader, BlockBody, SessionFooter, SetRow,
     SwapSheet, … and the hooks `useFieldFocus`, `useLeaveWhenGone`,
-    `useBlockFlow` (open blocks, what a check does), `useBlockReveal`
-    (animated open and close, scroll the opened block to the top)),
+    `useBlockFlow` (open blocks, what a check does), `useBlockScroll`
+    (the pinned header of the open block, animated open and close, scroll
+    an opened block to the top)),
     `editors/` (ExerciseForm with a table-driven select config, ModalityForm,
     ColorSheet, BlockExerciseGroup), `history/` (CalendarGrid with the
     `useDayDrag` long-press drag, CalendarDay, DayDetail, BodyweightHistory,
@@ -186,7 +187,8 @@ reads during render and no synchronous `setState` inside effects.
   constructor defaults), `dates.ts` (local `yyyy-MM-dd`, ISO weekday 1..7;
   never use UTC/`toISOString` for dates), `plan.ts` (`itemFor`, `PlanRules`),
   `session.ts` (`buildSetLogs`, `previousByKey`, `epley`), `workout.ts`
-  (summary, block grouping and title, `afterCheck` (where a check moves on), gains, effort,
+  (summary, block grouping and title, `afterCheck` (where a check moves on), `blockSpans` and
+  `pinnedHeader` (which header pins while its sets scroll), gains, effort,
   Today's done line), `history.ts` (day dots, day labels, calendar hit test
   and drop rule, session lines, e1RM progress, weekly sets per muscle, cardio
   trends), `timer.ts` (TimerState, snapshot, CueGate, cue and alert rules,
@@ -303,7 +305,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 172 tests after the session blocks; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 173 tests after the session blocks; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

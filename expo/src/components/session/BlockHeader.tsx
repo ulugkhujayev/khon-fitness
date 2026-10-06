@@ -2,35 +2,35 @@ import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SymbolView } from 'expo-symbols';
 import { Check } from '@/components/ui';
 import { sets } from '@/domain/format';
+import { SetLog } from '@/domain/types';
+import { blockTitle, doneCount, isBlockDone } from '@/domain/workout';
 import { Font, K, Space, tabular, Type } from '@/theme';
 
 /**
  * The header of a session block (DESIGN.md, Set row, "Blocks"): a 56 pt row with the block number, the
  * exercise names, its sets done of total and its state. The top of the block's card; the whole card while
- * closed. The list keeps it stuck to the top while its sets scroll under it, until the next header pushes
- * it off, so it sits on a strip of the screen background that hides what scrolls behind.
+ * closed. A copy of it is pinned over the list while its sets scroll (useBlockScroll), so it sits on a
+ * strip of the screen background that hides what scrolls behind.
  */
 export function BlockHeader({
   index,
-  title,
-  doneSets,
-  setCount,
-  done,
+  logs,
   open,
   onToggle,
   onLayout,
 }: {
   /** Zero-based; shown as 1, 2, 3. */
   index: number;
-  title: string;
-  doneSets: number;
-  setCount: number;
-  /** Every set logged or skipped. */
-  done: boolean;
+  /** The block's sets. */
+  logs: SetLog[];
   open: boolean;
   onToggle: () => void;
   onLayout?: (e: LayoutChangeEvent) => void;
 }) {
+  const title = blockTitle(logs);
+  const doneSets = doneCount(logs);
+  const setCount = logs.length;
+  const done = isBlockDone(logs);
   return (
     <View style={[styles.strip, index > 0 && styles.next]} onLayout={onLayout}>
       <Pressable

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { fmt, parseNumberInput, sets } from '../src/domain/format';
 import { Defaults, hexAlpha, ItemType, Session, SetLog, SetStatus } from '../src/domain/types';
 import {
-  blockTitle, clampEffort, doneCount, doneLine, progressLine, openBlocks, gain, groupBlocks, isBlockDone, kgDecimals, afterCheck, headerIndices, setTag, summarize,
+  blockTitle, clampEffort, doneCount, doneLine, progressLine, openBlocks, gain, groupBlocks, isBlockDone, kgDecimals, afterCheck, blockSpans, pinnedHeader, setTag, summarize,
 } from '../src/domain/workout';
 
 const log = (p: Partial<SetLog> & Pick<SetLog, 'id' | 'order'>): SetLog => ({
@@ -88,11 +88,21 @@ describe('session flow', () => {
     expect(afterCheck(blocks, three[3])).toEqual({ open: 0, focus: three[0] });
   });
 
-  test('block headers among the list children, each open block adding its sets', () => {
-    expect(headerIndices([false, false, false])).toEqual([0, 1, 2]);
-    expect(headerIndices([true, false, false])).toEqual([0, 2, 3]);
-    expect(headerIndices([true, true, false])).toEqual([0, 2, 4]);
-    expect(headerIndices([])).toEqual([]);
+  test('spans cover the open blocks that have been laid out', () => {
+    const headers = new Map([[0, { y: 0, height: 62 }], [1, { y: 400, height: 66 }], [2, { y: 476, height: 66 }]]);
+    const bodies = new Map([[0, { y: 62, height: 300 }], [1, { y: 466, height: 500 }]]);
+    expect(blockSpans([true, false, true], headers, bodies)).toEqual([{ index: 0, top: 0, height: 62, end: 362 }]);
+    expect(blockSpans([false, true, false], headers, bodies)).toEqual([{ index: 1, top: 400, height: 66, end: 966 }]);
+  });
+
+  test("an open block's header pins while its sets show, then its card's end pushes it off", () => {
+    const spans = [{ index: 1, top: 400, height: 66, end: 966 }];
+    expect(pinnedHeader(spans, 400)).toBeNull();
+    expect(pinnedHeader(spans, 401)).toEqual({ index: 1, shift: 0 });
+    expect(pinnedHeader(spans, 900)).toEqual({ index: 1, shift: 0 });
+    expect(pinnedHeader(spans, 920)).toEqual({ index: 1, shift: -20 });
+    expect(pinnedHeader(spans, 966)).toBeNull();
+    expect(pinnedHeader([], 500)).toBeNull();
   });
 
   test('the last pending set closes every block', () => {

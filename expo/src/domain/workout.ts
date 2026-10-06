@@ -68,17 +68,42 @@ export function afterCheck(blocks: SetLog[][], checked: SetLog): { open: number 
   return next == null ? { open: null, focus: undefined } : { open: next, focus: pending(blocks[next])[0] };
 }
 
-/**
- * Where the block headers sit among a session list's children, for sticky headers: every block adds its
- * header, and an open one its sets right after it.
- */
-export function headerIndices(open: boolean[]): number[] {
-  let at = 0;
-  return open.map((isOpen) => {
-    const header = at;
-    at += isOpen ? 2 : 1;
-    return header;
+/** Where a view sits in a scrolling list: its top in the list's content and its height. */
+export interface Frame {
+  y: number;
+  height: number;
+}
+
+/** An open block in the session list: its header's top and height, and where its sets end. */
+export interface BlockSpan {
+  index: number;
+  top: number;
+  height: number;
+  end: number;
+}
+
+/** The open blocks whose header and sets have both been laid out, in list order. */
+export function blockSpans(open: boolean[], headers: Map<number, Frame>, bodies: Map<number, Frame>): BlockSpan[] {
+  const spans: BlockSpan[] = [];
+  open.forEach((isOpen, index) => {
+    const header = headers.get(index);
+    const body = bodies.get(index);
+    if (isOpen && header && body) spans.push({ index, top: header.y, height: header.height, end: body.y + body.height });
   });
+  return spans;
+}
+
+/**
+ * The open block whose header has scrolled under the top of the list while its sets still show, and how
+ * far a pinned copy of that header moves up (0 or less) so the card's end pushes it off. Null when no
+ * header needs pinning. Runs on the UI thread for every scroll frame.
+ */
+export function pinnedHeader(spans: BlockSpan[], scrollY: number): { index: number; shift: number } | null {
+  'worklet';
+  for (const s of spans) {
+    if (scrollY > s.top && scrollY < s.end) return { index: s.index, shift: Math.min(0, s.end - scrollY - s.height) };
+  }
+  return null;
 }
 
 /** Exercise names of a block, A first, joined: "Bench Press · Leg Press". */

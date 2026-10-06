@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { DemoClock, exerciseFrame, forDemoSide, guideFor, nearestStep, previewFrame, stepAt, StretchDemo } from '@/domain/stretch';
+import { DemoClock, exerciseFrame, forDemoSide, guideFor, nearestStep, previewFrame, stepAt, StretchDemo, timelineFill } from '@/domain/stretch';
 import { K, Type } from '@/theme';
 import { DemoView } from './demoAssets';
 import { DemoControl } from './DemoControl';
 import { DemoFrame } from './DemoFrame';
-import { StepTabs } from './StepTabs';
+import { StepTimeline } from './StepTimeline';
 
 /**
  * A lesson before Start, a clock-driven demonstration during the stretch (StretchDemonstration.kt).
@@ -126,10 +126,11 @@ function Demonstration({
         </View>
       </View>
       {preview ? (
-        <StepTabs
+        <StepTimeline
           style={styles.tabs}
           steps={guide.steps}
           selected={selected}
+          fill={timelineFill(guide, frame)}
           onSelect={(i) => {
             setPlaying(false);
             setManualFrame(guide.steps[i].frame);
@@ -144,7 +145,7 @@ function Demonstration({
 const styles = StyleSheet.create({
   none: { ...Type.body, color: K.Muted },
   controls: { position: 'absolute', left: 10, right: 10, bottom: 10, flexDirection: 'row', justifyContent: 'space-between', pointerEvents: 'box-none' },
-  tabs: { marginTop: 12 },
+  tabs: { marginTop: 14 },
   // Three lines reserved, so the controls below never jump between steps.
   instruction: { ...Type.body, color: K.OnPhaseText, minHeight: 66, marginTop: 12, marginBottom: 8 },
 });

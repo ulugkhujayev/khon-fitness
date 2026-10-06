@@ -2,7 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   activeRoutine, clampReps, clampStretchSeconds, DemoClock, entrySeconds, exerciseFrame, forDemoSide, guideFor, nearestStep, newRoutine, newStretch, playerAction,
-  playerProgress, playerStatus, previewFrame, repMotion, routineOf, routineRun, routineSeconds, routineSteps, routineSummary, sideLine, stepAt, StretchDemo,
+  playerProgress, playerStatus, previewFrame, repMotion, routineOf, routineRun, routineSeconds, routineSteps, routineSummary, sideLine, stepAt, StretchDemo, timelineFill,
   stretchLine, stretchSessionFor, withRepsMode,
 } from '../src/domain/stretch';
 import { begin, finished, skip, tick, timerState } from '../src/domain/timer';
@@ -28,6 +28,11 @@ describe('StretchDemo (StretchDemoTest)', () => {
 
   test('instruction describes the movement being demonstrated', () => {
     expect([0, 1, 32, 33].map((f) => stepAt(guide, f))).toEqual([0, 1, 1, 2]);
+  });
+
+  test('the timeline fills as the pose moves from one step into the next', () => {
+    expect([0, 16, 32, 47.5, 63].map((f) => timelineFill(guide, f))).toEqual([0, 0.25, 0.5, 0.75, 1]);
+    expect(timelineFill({ ...guide, steps: [guide.steps[0]] }, 40)).toBe(0);
   });
 
   test('exercise repetitions skip the introductory setup', () => {

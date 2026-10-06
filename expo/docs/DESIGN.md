@@ -242,10 +242,12 @@ Two lines, 88 px total, hairline between rows.
   Play/Pause and Change view are 40 px round controls over the image's
   bottom corners, a white symbol on black at 45 percent, like a video
   player's (Expo app).
-  The steps are 32 px capsules in one row, 8 px apart (Expo app): the bold
-  number, then the title in footnote white on Surface2; the shown step
-  filled in accent with white text. The row scrolls sideways when the
-  steps do not fit and keeps the shown step in view as the demo plays.
+  The steps are a timeline (Expo app): 26 px numbered nodes on a 3 px line,
+  each title under its node in footnote muted. Nodes up to the shown step
+  are accent with white numbers, the shown one in a 34 px accent-tinted
+  halo with its title white and semibold, later ones Surface3 with muted
+  numbers. The line is Surface2 and fills in accent as far as the demo has
+  come, moving on as the pose moves into each step.
 - Demo playback does not start the exercise clock. A new stretch or side
   opens with its demonstration playing. The Start button stays fixed below
   the scrollable guide, timer, and routine progress.

@@ -141,7 +141,7 @@ reads during render and no synchronous `setState` inside effects.
     `useDayDrag` long-press drag, CalendarDay, DayDetail, BodyweightHistory,
     ExerciseProgress, MuscleVolumeList, CardioTrendsSection), `cardio/`
     (TimerView, CardioForm, CardioFieldRows, IntervalRows, ComputedRow),
-    `stretch/` (StretchDemonstration with StepTabs and DemoControl: the lesson before Start and the
+    `stretch/` (StretchDemonstration with StepTimeline and DemoControl: the lesson before Start and the
     clock-driven pose during it; DemoFrame shifts a whole sprite sheet inside a
     one-frame clip, so a new frame never decodes again; DemoPoster;
     `demoAssets.ts` with the literal requires; StretchPlayerView; StretchForm;
@@ -203,7 +203,7 @@ reads during render and no synchronous `setState` inside effects.
   `chart.ts` (chart scale, label picks and the value axis width),
   `stepper.ts` (a number widget step, the pace of a held − or +),
   `stretch.ts` (the guides in
-  `stretchGuides.json`, preview and exercise frames, `DemoClock`, routine
+  `stretchGuides.json`, preview and exercise frames, the step timeline's fill, `DemoClock`, routine
   steps and summary, player text, when a run counts, editor limits),
   `window.ts` (`EatingWindowRules`, the Today summary, the 28-day strip, hour
   limits, `windowAlerts`), `health.ts` (workout kinds, drafts, merging band
@@ -313,7 +313,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 176 tests after the routine drafts; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 177 tests after the step timeline; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

@@ -66,6 +66,20 @@ export function stepAt(g: StretchDemo, frame: number): number {
   return i < 0 ? g.steps.length - 1 : i;
 }
 
+/**
+ * How far the steps' timeline is filled, 0..1 from the first step's node to the last: every step before the
+ * shown one, and the shown one by how far the pose has moved into it from the step before.
+ */
+export function timelineFill(g: StretchDemo, frame: number): number {
+  const n = g.steps.length;
+  const i = stepAt(g, frame);
+  if (n < 2 || i === 0) return 0;
+  const from = g.steps[i - 1].frame;
+  const to = g.steps[i].frame;
+  const into = to > from ? Math.min(1, Math.max(0, (frame - from) / (to - from))) : 1;
+  return (i - 1 + into) / (n - 1);
+}
+
 /** During the exercise: a hold shows the held pose; reps follow the clock, pausing at each end for `repHoldFraction`. */
 export function exerciseFrame(g: StretchDemo, progress: number | null): number {
   if (progress == null) return g.frameCount - 1;

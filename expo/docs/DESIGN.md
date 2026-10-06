@@ -73,14 +73,6 @@ padded cards, per-item buttons, "Updated" lines.
   the chosen one in a white ring. The modality list shows how many
   exercises each groups, a footnote on what modalities are for, and the
   archived ones in their own group when shown.
-- Eating window sheet (Expo app): first a card with the state in words
-  ("Open · closes in 2 h 10 m", a 10 px dot green when open) over an 8 px
-  day bar from 00:00 to 24:00, the fixed hours in green with their times
-  under the ends and a white mark at now; then Open now or Close now as a
-  tinted button; then On, Opens, Closes and Remind before on an elevated
-  group; then the last 28 days as four weeks of seven 12 px dots (filled:
-  kept the hours, ring: opened or closed by hand, white: today) with
-  "Kept the hours on 20 of 27 days" under them.
 - Settings (Expo app): groups with icon tiles like iOS Settings. Backup
   (Export, Import) with a footnote on what a backup holds, or how the
   last export or import went (red on an error); App (Version, Check for
@@ -299,12 +291,20 @@ Two lines, 88 px total, hairline between rows.
 - Sheet: title "Eating window", then a grouped list: "Open now" or
   "Close now" as the first row (accent text), "Hours 12:00–20:00" with a
   chevron to the editor, "History". No buttons in the sheet except the
-  rows.
+  rows. Expo app instead: first a card with the state in words ("Open ·
+  closes in 2 h 10 m", a 10 px dot green when open) over an 8 px day bar
+  from 00:00 to 24:00, the fixed hours in green with their times under
+  the ends and a white mark at now; then Open now or Close now as a
+  tinted button; then On, Opens, Closes and Remind before on an elevated
+  group; then the last 28 days.
 - Widget: 2x1, surface #1c1c1e, radius 14. Left: 12 px dot. Then "Open"
   or "Closed" 17/600 and "2 h 10 m left" 13 muted on one line under it.
   Tap opens the app on Today with the sheet open.
 - History: a strip of 8 px cells, one per day, 4 px apart, filled green
   when the window was kept, ring when not, empty when the feature was off.
+  Expo app: four weeks of seven 12 px dots on an elevated card (today
+  white) with "Kept the hours on 20 of 27 days" and what a ring means
+  under them.
 
 ## Frame
 

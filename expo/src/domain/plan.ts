@@ -53,6 +53,13 @@ export function itemFor(data: PlanData, date: string): PlanItem {
 }
 
 /** What the weekly template holds for a weekday (1 = Monday), ignoring overrides. */
+/** The weekly template at a glance: "5 training days · 2 rest days", Monday to Sunday. */
+export function weekSummary(data: PlanData): string {
+  const training = [1, 2, 3, 4, 5, 6, 7].filter((d) => !templateItem(data, d).isRest).length;
+  const count = (n: number, what: string) => `${n} ${what} ${n === 1 ? 'day' : 'days'}`;
+  return `${count(training, 'training')} · ${count(7 - training, 'rest')}`;
+}
+
 export function templateItem(data: PlanData, day: number): PlanItem {
   const w = data.plan.find((x) => x.weekday === day);
   return resolve(data, w?.itemType ?? ItemType.REST, w?.itemId ?? null, false);

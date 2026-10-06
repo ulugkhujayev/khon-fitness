@@ -2,19 +2,12 @@ import { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SymbolViewProps } from 'expo-symbols';
 import { itemColor, sessionColor } from '@/components/plan/colors';
+import { itemIcon, PLAN_ICONS } from '@/components/plan/icons';
 import { PrimaryButton, ProgressBar, SymbolCircle, TextButton } from '@/components/ui';
 import { PlanItem } from '@/domain/plan';
 import { Exercise, ItemType, Modality, Session } from '@/domain/types';
 import { progressLine } from '@/domain/workout';
 import { K, Space, tabular, Type } from '@/theme';
-
-/** The leading symbol by what the card shows. */
-const ICONS = {
-  program: { ios: 'dumbbell.fill', android: 'fitness_center', web: 'fitness_center' },
-  cardio: { ios: 'figure.run', android: 'directions_run', web: 'directions_run' },
-  rest: { ios: 'moon.zzz.fill', android: 'bedtime', web: 'bedtime' },
-  done: { ios: 'checkmark', android: 'check', web: 'check' },
-} satisfies Record<string, SymbolViewProps['name']>;
 
 /**
  * Today's item (TodayScreen.kt) with its kind as a symbol in its color: a running session with the time
@@ -51,7 +44,7 @@ export function TodayCard({
     return (
       <View style={styles.card}>
         <Head
-          icon={unfinished.itemType === ItemType.PROGRAM ? ICONS.program : ICONS.cardio}
+          icon={unfinished.itemType === ItemType.PROGRAM ? PLAN_ICONS.program : PLAN_ICONS.cardio}
           color={sessionColor(unfinished, exercises, modalities).color}
           title={unfinished.programName ?? unfinished.exerciseName ?? 'Session'}
           line={progressLine(unfinished.startedAt, now.getTime())}
@@ -72,7 +65,7 @@ export function TodayCard({
   if (doneText) {
     return (
       <View style={styles.card}>
-        <Head icon={ICONS.done} color={K.Green} title={item.name} line={doneText} green>
+        <Head icon={PLAN_ICONS.done} color={K.Green} title={item.name} line={doneText} green>
           <TextButton text="Start again" onPress={onStart} style={styles.again} />
         </Head>
       </View>
@@ -81,7 +74,7 @@ export function TodayCard({
   const kind = itemColor(item, modalities);
   return (
     <View style={styles.card}>
-      <Head icon={item.isRest ? ICONS.rest : item.itemType === ItemType.PROGRAM ? ICONS.program : ICONS.cardio} color={kind?.color ?? K.Muted} title={item.name} line={line} />
+      <Head icon={itemIcon(item)} color={kind?.color ?? K.Muted} title={item.name} line={line} />
       {item.isRest ? null : <PrimaryButton text="Start" onPress={onStart} compact style={styles.button} />}
     </View>
   );

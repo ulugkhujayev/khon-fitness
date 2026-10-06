@@ -73,6 +73,11 @@ padded cards, per-item buttons, "Updated" lines.
   the chosen one in a white ring. The modality list shows how many
   exercises each groups, a footnote on what modalities are for, and the
   archived ones in their own group when shown.
+- Week plan (Expo app): the week at a glance as the section title ("5
+  training days · 2 rest days"), then one row per weekday leading with an
+  icon tile of what it holds in its color (the dumbbell, runner and moon
+  of Today's card), today's weekday in accent, and a footnote that a
+  change applies from today on.
 
 ## Lists
 

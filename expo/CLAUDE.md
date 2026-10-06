@@ -130,7 +130,7 @@ reads during render and no synchronous `setState` inside effects.
     thread, for folding headers), FloatingTabBar, `useLeaveWhenGone` (leave a screen whose record
     is gone).
   - Feature folders: `plan/` (WeekStrip, PlanItemSheet, DayPlanSheet for
-    one date, `colors.ts`), `today/` (TodayCard, BodyweightSection,
+    one date, `colors.ts`, `icons.ts` with a plan item's symbol), `today/` (TodayCard, BodyweightSection,
     BodyweightEntry, WindowSheet, `useNow` minute clock), `session/` (BlockCard, SessionFooter, SetRow,
     SwapSheet, … and the hooks `useFieldFocus`, `useLeaveWhenGone`,
     `useBlockFlow` (open block, what a check does), `useBlockReveal`
@@ -192,7 +192,7 @@ reads during render and no synchronous `setState` inside effects.
 - `src/domain/`: pure TypeScript, **no Expo or React imports**, so `bun test`
   runs it. `types.ts` (entities with Kotlin field names, `Defaults` = Kotlin
   constructor defaults), `dates.ts` (local `yyyy-MM-dd`, ISO weekday 1..7;
-  never use UTC/`toISOString` for dates), `plan.ts` (`itemFor`, `PlanRules`),
+  never use UTC/`toISOString` for dates), `plan.ts` (`itemFor`, `PlanRules`, `weekSummary`),
   `session.ts` (`buildSetLogs`, `previousByKey`, `epley`), `workout.ts`
   (summary, block grouping and title, `afterCheck` (where a check moves on), gains, effort,
   Today's done line), `history.ts` (day dots, day labels, calendar hit test
@@ -313,7 +313,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 178 tests after the modalities; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 179 tests after the week plan; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

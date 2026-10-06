@@ -2,7 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 import { parseBackup } from '../src/domain/backup';
 import { addDays } from '../src/domain/dates';
-import { doneSessionFor, itemFor, PlanData, PlanRules, templateItem } from '../src/domain/plan';
+import { doneSessionFor, itemFor, PlanData, PlanRules, templateItem, weekSummary } from '../src/domain/plan';
 import { DayOverride, Defaults, Exercise, ItemType, Kind, Program, Session } from '../src/domain/types';
 
 const today = '2026-09-24';
@@ -90,6 +90,12 @@ describe('template and done session', () => {
     expect(templateItem(plan, 4).overridden).toBe(false);
     expect(templateItem(plan, 1)).toMatchObject({ name: 'Rest', isRest: true });
     expect(templateItem({ ...plan, plan: [{ weekday: 2, itemType: ItemType.PROGRAM, itemId: 'gone' }] }, 2).isRest).toBe(true);
+  });
+
+  test('the week at a glance counts training and rest days', () => {
+    expect(weekSummary(data())).toBe('1 training day · 6 rest days');
+    const full = { ...data(), plan: [1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday, itemType: ItemType.PROGRAM, itemId: 'tpv3' })) };
+    expect(weekSummary(full)).toBe('6 training days · 1 rest day');
   });
 
   test('doneSessionFor needs a finished session of the same item on the date', () => {

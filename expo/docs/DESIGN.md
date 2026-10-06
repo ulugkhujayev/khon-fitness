@@ -98,7 +98,7 @@ padded cards, per-item buttons, "Updated" lines.
 - One primary button per screen at most: 52 px tall, full width, accent
   fill, dark text. Start, Finish, Done.
 - All other actions are text buttons, 44 px tap height, no fill, no
-  border. Exception (Expo app): Today's bodyweight Add is the primary
+  border. Exception (Expo app): Today's bodyweight Add is a 44 px
   capsule tinted, accent text on accent at 20 percent, so it reads as a
   button without competing with Start.
 - Icon buttons only in the top bar or the set-row check. Never floating
@@ -136,9 +136,10 @@ Two lines, 88 px total, hairline between rows.
   at 20 percent; Expo app, the Kotlin app has a 72 px sparkline), then
   24 px gap and the entry on its own group-surface card (radius 20, 16
   padding; Expo app, the Kotlin app has number widget + "Add" on one
-  line): the picked value 48/700 with "kg" in muted 17 (tap to type), its
-  change since the last day weighed in muted 15 ("+0.2 kg since Oct 5"),
-  a ruler picker running to the card's edges (0.1 kg ticks 10 px apart,
+  line), 14 px padding top and bottom: the picked value 34/700 with "kg"
+  in muted 15 (tap to type), its change since the last day weighed in
+  muted 13 ("+0.2 kg since Oct 5"), a 42 px ruler picker running to the
+  card's edges (ticks 22 / 15 / 9 px, 0.1 kg ticks 10 px apart,
   a label every kg, an accent center line, edges fading into the card, a
   haptic click per tick, firmer on a whole kg), and a tinted button (see
   Buttons): "Add", "Update" when today has another value, "Saved" (off)

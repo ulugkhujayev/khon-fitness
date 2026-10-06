@@ -7,10 +7,10 @@ import { Font, K, tabular, Type } from '@/theme';
 import { EdgeFade } from './EdgeFade';
 
 // Not in DESIGN.md (the ruler is new to the Expo app): tick heights hang from the top, labels sit under them.
-const TICK = { major: 28, half: 20, minor: 12, width: 2 } as const;
-const LINE = { width: 3, height: TICK.major + 6 } as const;
-const LABEL = { top: TICK.major + 6, width: 48 } as const;
-const HEIGHT = LABEL.top + 18;
+const TICK = { major: 22, half: 15, minor: 9, width: 2 } as const;
+const LINE = { width: 3, height: TICK.major + 4 } as const;
+const LABEL = { top: TICK.major + 4, width: 48 } as const;
+const HEIGHT = LABEL.top + 16;
 
 /**
  * Horizontal ruler picker: the ticks scroll under a fixed accent line, stop on a tick, click on each one

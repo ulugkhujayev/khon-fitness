@@ -29,9 +29,9 @@ export function BodyweightEntry({ today, bodyweights, onSave }: { today: string;
 }
 
 const styles = StyleSheet.create({
-  card: { marginTop: 24, paddingTop: 20, paddingBottom: Space.margin, paddingHorizontal: Space.margin },
-  change: { ...Type.subheadline, ...tabular, color: K.Muted, textAlign: 'center', marginTop: 2 },
+  card: { marginTop: 24, paddingVertical: 14, paddingHorizontal: Space.margin },
+  change: { ...Type.footnote, ...tabular, color: K.Muted, textAlign: 'center' },
   // The ruler runs to the card's edges and fades into it.
-  ruler: { marginTop: 16, marginHorizontal: -Space.margin },
-  save: { marginTop: 16 },
+  ruler: { marginTop: 10, marginHorizontal: -Space.margin },
+  save: { marginTop: 12 },
 });

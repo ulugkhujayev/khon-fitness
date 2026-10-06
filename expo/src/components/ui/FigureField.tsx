@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import { parseNumberInput } from '@/domain/format';
-import { K, Type } from '@/theme';
+import { Font, K, Type } from '@/theme';
 import { useNumberText } from './useNumberText';
 
 /**
@@ -53,5 +53,5 @@ export function FigureField({
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center' },
   input: { ...Type.figure, minWidth: 44, padding: 0, textAlign: 'center' },
-  unit: { ...Type.headline, color: K.Muted, marginLeft: 6 },
+  unit: { ...Type.subheadline, fontFamily: Font.medium, color: K.Muted, marginLeft: 4 },
 });

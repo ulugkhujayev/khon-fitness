@@ -115,8 +115,10 @@ padded cards, per-item buttons, "Updated" lines.
   program's Active toggle have a muted footnote under their group saying
   what they do; the active program's toggle is fixed on (turning another
   program on moves it). A new program or block is a draft: nothing is
-  saved, and there is no Delete, until Done or Add block saves the
-  program, or the first exercise saves the block.
+  saved, and there is no Delete, until Done saves the program or the
+  first exercise saves the block. Add block on a new program saves it so
+  the block has a home, but left without Done and without a block it is
+  deleted again, and its Active choice waits for Done.
 
 ## Buttons
 

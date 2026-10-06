@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useDropOnLeave } from '@/components/editors/useDropOnLeave';
 import { EditorScreen } from '@/components/layout';
 import {
   Capsule, ConfirmSheet, Empty, FieldRow, GroupedList, GroupFooter, IndexBadge, InlineTextField, ListRow, SectionTitle, TintedButton, ToggleRow,
@@ -15,37 +16,48 @@ import { K } from '@/theme';
 /**
  * Program editor (ProgramEditorScreen in Editors.kt): name, active, the numbered blocks in order with Add
  * block, Delete. A new program (`new`) is a draft: nothing is saved until Done, or Add block, which saves
- * it first so the block has a program to belong to.
+ * it first so the block has a program to belong to. Saved that way it stays provisional (`draft`): left
+ * without Done and without a block, it is deleted again, and its Active choice (`activate`) waits for Done,
+ * so the program active before keeps the mark until then.
  */
 export default function ProgramEditor() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, draft, activate } = useLocalSearchParams<{ id: string; draft?: string; activate?: string }>();
   const isNew = id === 'new';
+  const provisional = draft === '1';
+  // A choice not saved yet: a new program's, or a provisional one's until Done.
+  const pending = isNew || provisional;
   const { data } = useProgram(id);
+  const { keep } = useDropOnLeave(provisional, (data?.blocks.length ?? 0) > 0, () => repo.deleteProgram(id));
   // Null until edited: Done saves only a changed name; a draft keeps its active choice here.
   const [name, setName] = useState<string | null>(null);
   const [draftActive, setDraftActive] = useState<boolean | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const program = data ? (isNew ? newProgram(id, data.programCount) : data.program) : null;
   if (!data || !program) return <EditorScreen />;
-  const active = draftActive ?? program.active;
+  const active = draftActive ?? (program.active || activate === '1');
 
-  const create = async () => {
+  const create = async (makeActive: boolean) => {
     const programId = newId();
-    await repo.createProgram({ ...program, id: programId, name: name?.trim() || program.name, active });
+    await repo.createProgram({ ...program, id: programId, name: name?.trim() || program.name, active: makeActive });
     return programId;
   };
 
   const addBlock = async () => {
     if (!isNew) return router.push(`/block/${id}/new`);
-    const programId = await create();
-    router.replace(`/program/${programId}`);
+    // Active only if it is the first program; a chosen Active waits for Done.
+    const programId = await create(program.active);
+    router.replace({ pathname: '/program/[id]', params: { id: programId, draft: '1', activate: active ? '1' : '0' } });
     router.push(`/block/${programId}/new`);
   };
 
   const done = async () => {
     const n = name?.trim();
-    if (isNew) await create();
-    else if (n && n !== program.name) repo.patchProgram(id, { name: n });
+    keep();
+    if (isNew) await create(active);
+    else {
+      if (n && n !== program.name) repo.patchProgram(id, { name: n });
+      if (provisional && active && !program.active) repo.setActiveProgram(id);
+    }
     router.back();
   };
 
@@ -59,8 +71,8 @@ export default function ProgramEditor() {
         <ToggleRow
           label="Active"
           value={active}
-          disabled={!isNew && program.active}
-          onChange={(on) => (isNew ? setDraftActive(on) : on && repo.setActiveProgram(id))}
+          disabled={!pending && program.active}
+          onChange={(on) => (pending ? setDraftActive(on) : on && repo.setActiveProgram(id))}
         />
       </GroupedList>
       <GroupFooter text="One program is active: the one you train now. Turning another one on moves it there." />
@@ -84,8 +96,8 @@ export default function ProgramEditor() {
       </GroupedList>
       <TintedButton text="Add block" onPress={addBlock} style={styles.action} />
 
-      {/* Nothing to delete before the first save; the last program cannot go, Today always plans from one. */}
-      {!isNew && data.programCount > 1 ? (
+      {/* Nothing to delete before Done; the last program cannot go, Today always plans from one. */}
+      {!isNew && !provisional && data.programCount > 1 ? (
         <TintedButton text="Delete program" color={K.Red} onPress={() => setConfirmDelete(true)} style={styles.action} />
       ) : null}
 

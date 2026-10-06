@@ -130,6 +130,11 @@ export const deleteProgram = (id: string) =>
     await tx.run(T.blockExercises, 'DELETE FROM block_exercises WHERE blockId IN (SELECT id FROM blocks WHERE programId = ?)', [id]);
     await tx.run(T.blocks, 'DELETE FROM blocks WHERE programId = ?', [id]);
     await tx.run(T.programs, 'DELETE FROM programs WHERE id = ?', [id]);
+    // One program is always active: if that was this one, the first left takes over.
+    await tx.run(
+      T.programs,
+      'UPDATE programs SET active = 1 WHERE id = (SELECT id FROM programs ORDER BY sortOrder LIMIT 1) AND NOT EXISTS (SELECT 1 FROM programs WHERE active = 1)',
+    );
   });
 
 export const saveBlocks = (list: Block[]) => write((tx) => tx.upsert(T.blocks, list));

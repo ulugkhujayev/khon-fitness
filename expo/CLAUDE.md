@@ -133,6 +133,7 @@ reads during render and no synchronous `setState` inside effects.
     `useBlockFlow` (open block, what a check does), `useBlockReveal`
     (animated open and close, scroll the opened block to the top)),
     `editors/` (ExerciseForm with a table-driven select config, ModalityForm,
+    `useDropOnLeave` (delete a provisional record left unkept),
     ColorSheet, BlockExerciseGroup), `history/` (CalendarGrid with the
     `useDayDrag` long-press drag, CalendarDay, DayDetail, BodyweightHistory,
     ExerciseProgress, MuscleVolumeList, CardioTrendsSection), `cardio/`

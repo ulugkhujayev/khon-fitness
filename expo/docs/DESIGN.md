@@ -68,7 +68,11 @@ padded cards, per-item buttons, "Updated" lines.
   modality list.
 - A color is shown as a 12 px filled circle. A color is edited on a
   full-screen editor with a row of 12 preset circles; tap one. No
-  native color input.
+  native color input. Expo app: the modality editor shows them right on
+  the page under a Color title, two rows of six 34 px circles on a card,
+  the chosen one in a white ring. The modality list shows how many
+  exercises each groups, a footnote on what modalities are for, and the
+  archived ones in their own group when shown.
 
 ## Lists
 

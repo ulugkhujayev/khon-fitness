@@ -2,11 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import { axisWidth, dateLabelIndices, niceStep, scaleFor, valueLabelIndices } from '../src/domain/chart';
 import { longDate, monthDay, monthGrid, monthStart, monthTitle, shortDate, weekdayName, weekOf } from '../src/domain/dates';
 import {
-  asCardio, asStrength, blockSummary, filterLibrary, freeSlot, moveInOrder, newExercise, matchesQuery, newProgram, nextSortOrder, noResults, searchByName, toggleIn, withIntervals,
+  asCardio, asStrength, blockSummary, filterLibrary, freeSlot, moveInOrder, newExercise, matchesQuery, modalityUse, newProgram, nextSortOrder, noResults, searchByName, toggleIn, withIntervals,
   withMaxReps, withMinReps, withSets,
 } from '../src/domain/editors';
 import { SEED_EXERCISES } from '../src/domain/seed';
-import { Block, BlockExercise, Kind } from '../src/domain/types';
+import { Block, BlockExercise, Exercise, Kind } from '../src/domain/types';
 
 const be: BlockExercise = { id: 'x', blockId: 'b', slot: 0, exerciseId: 'bench', sets: 3, minReps: 8, maxReps: 12 };
 
@@ -46,6 +46,14 @@ describe('block editor', () => {
     expect(searchByName(list, '')).toHaveLength(3);
     expect(matchesQuery('Cable Seated Row', ' ROW ')).toBe(true);
     expect(matchesQuery('Cable Seated Row', 'squat')).toBe(false);
+  });
+
+  test('a modality counts the cardio exercises it groups, archived ones left out', () => {
+    const run = (id: string, p: Partial<Exercise> = {}): Exercise => ({ ...newExercise(id), kind: Kind.CARDIO, primaryMuscle: null, modalityId: 'run', ...p });
+    const list = [run('a'), run('b'), run('c', { archived: true }), run('d', { modalityId: 'bike' }), { ...newExercise('e'), modalityId: 'run' }];
+    expect(modalityUse('run', list)).toBe('2 exercises');
+    expect(modalityUse('bike', list)).toBe('1 exercise');
+    expect(modalityUse('swim', list)).toBe('No exercises');
   });
 
   test('a new program goes after the others and is active only as the first', () => {

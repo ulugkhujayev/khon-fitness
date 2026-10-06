@@ -8,7 +8,7 @@ import * as repo from '@/db/repository';
 export default function ModalityEditor() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data } = useModalities();
-  const original = data?.find((m) => m.id === id) ?? null;
+  const original = data?.modalities.find((m) => m.id === id) ?? null;
   if (!data || (id !== 'new' && !original)) return <EditorScreen />;
 
   return (

@@ -137,7 +137,7 @@ reads during render and no synchronous `setState` inside effects.
     (animated open and close, scroll the opened block to the top)),
     `editors/` (ExerciseForm with a table-driven select config, ModalityForm,
     `useDropOnLeave` (delete a provisional record left unkept),
-    ColorSheet, BlockExerciseGroup), `history/` (CalendarGrid with the
+    ColorGrid, BlockExerciseGroup), `history/` (CalendarGrid with the
     `useDayDrag` long-press drag, CalendarDay, DayDetail, BodyweightHistory,
     ExerciseProgress, MuscleVolumeList, CardioTrendsSection), `cardio/`
     (TimerView, CardioForm, CardioFieldRows, IntervalRows, ComputedRow),
@@ -186,7 +186,7 @@ reads during render and no synchronous `setState` inside effects.
   `openStretchPlayer`.
 - `src/db/hooks.ts`: the named reads screens use (`useToday` with the active
   routine, the eating window and a running program's sets done, `useSession`, `usePreviousLogs`,
-  `usePrograms`, `useProgram`, `useBlock`, `useLibrary`, `useModalities`,
+  `usePrograms`, `useProgram`, `useBlock`, `useLibrary`, `useModalities` with the exercises for counts,
   `usePlan`, `useExerciseUsage`, `useHistory`, `useCardioSession`,
   `useStretching`, `useStretchUseCount`, `useImportData`).
 - `src/domain/`: pure TypeScript, **no Expo or React imports**, so `bun test`
@@ -313,7 +313,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 177 tests after the step timeline; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 178 tests after the modalities; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

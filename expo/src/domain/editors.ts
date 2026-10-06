@@ -135,5 +135,11 @@ export function blockSummary(blockId: string, blockExercises: BlockExercise[], e
 /** Sort order for a new block: after the highest one, since deletes leave gaps a count would collide with. */
 export const nextSortOrder = (list: { sortOrder: number }[]) => list.reduce((m, x) => Math.max(m, x.sortOrder + 1), 0);
 
+/** What a modality groups: "3 exercises", "1 exercise", "No exercises" (archived exercises not counted). */
+export function modalityUse(modalityId: string, exercises: Exercise[]): string {
+  const n = exercises.filter((e) => e.kind === Kind.CARDIO && !e.archived && e.modalityId === modalityId).length;
+  return n === 0 ? 'No exercises' : `${n} ${n === 1 ? 'exercise' : 'exercises'}`;
+}
+
 /** Name of a modality, or empty when it is gone. */
 export const modalityName = (modalityId: string | null, modalities: Modality[]) => modalities.find((m) => m.id === modalityId)?.name ?? '';

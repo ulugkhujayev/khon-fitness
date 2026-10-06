@@ -126,8 +126,15 @@ export function useLibrary() {
   );
 }
 
+/** Modalities, and the exercises that use them for the list's counts. */
 export function useModalities() {
-  return useLive(() => repo.modalities(), [T.modalities]);
+  return useLive(
+    async () => {
+      const [modalities, exercises] = await Promise.all([repo.modalities(), repo.exercises()]);
+      return { modalities, exercises };
+    },
+    [T.modalities, T.exercises],
+  );
 }
 
 /** Week plan: the template with what it points at, and modality colors for the dots. */

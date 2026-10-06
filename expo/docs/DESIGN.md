@@ -239,9 +239,10 @@ Two lines, 88 px total, hairline between rows.
   Before Start, the guide automatically plays setup, movement, and hold steps.
   Numbered steps pause on a position. Play demo restarts the lesson. Change
   view switches between two camera angles. Each step has a plain instruction.
-  The steps are a segmented control (Expo app): a Surface track with one
-  segment per step, the number (12 bold) over the title (13, two lines),
-  the shown step on Surface3 with its number in accent and title in white.
+  The steps are tabs over a 2 px underline: "1. Set up" in footnote white,
+  the shown step and its line in accent, the rest of the line Surface3.
+  The line sits right under the titles (Expo app: no space kept for a
+  second line; a wrapping title only makes the row taller).
 - Demo playback does not start the exercise clock. A new stretch or side
   opens with its demonstration playing. The Start button stays fixed below
   the scrollable guide, timer, and routine progress.

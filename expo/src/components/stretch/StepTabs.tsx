@@ -1,15 +1,15 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { DemoStep } from '@/domain/stretch';
-import { Font, K, tabular, Type } from '@/theme';
+import { K, Space, Type } from '@/theme';
 
 /**
- * A guide's steps as a segmented control (the look of Segmented, two lines tall so four steps and long titles
- * fit): the step number over its title, the shown step on a lighter segment with its number in accent.
- * A tap holds that step's pose.
+ * A guide's numbered steps as tabs with an underline (StretchDemonstration.kt): the shown step in accent.
+ * Compact: the line sits right under the title, and every tab keeps its title on the line's edge, so a
+ * title that wraps only makes its row taller, never leaves a gap under a short one. A tap holds that step.
  */
 export function StepTabs({ steps, selected, onSelect }: { steps: DemoStep[]; selected: number; onSelect: (index: number) => void }) {
   return (
-    <View style={styles.track} accessibilityRole="tablist">
+    <View style={styles.row} accessibilityRole="tablist">
       {steps.map((step, i) => {
         const active = i === selected;
         return (
@@ -19,11 +19,11 @@ export function StepTabs({ steps, selected, onSelect }: { steps: DemoStep[]; sel
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             accessibilityLabel={`Step ${i + 1}: ${step.title}`}
-            style={({ pressed }) => [styles.segment, active && styles.active, pressed && !active && styles.pressed]}>
-            <Text style={[styles.number, active && styles.activeNumber]}>{i + 1}</Text>
+            style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
             <Text style={[styles.title, active && styles.activeTitle]} numberOfLines={2}>
-              {step.title}
+              {`${i + 1}. ${step.title}`}
             </Text>
+            <View style={[styles.line, active && styles.activeLine]} />
           </Pressable>
         );
       })}
@@ -32,12 +32,11 @@ export function StepTabs({ steps, selected, onSelect }: { steps: DemoStep[]; sel
 }
 
 const styles = StyleSheet.create({
-  track: { flexDirection: 'row', borderRadius: 12, backgroundColor: K.Surface, padding: 3, gap: 3 },
-  segment: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 9, paddingVertical: 6, paddingHorizontal: 4, minHeight: 52 },
-  active: { backgroundColor: K.Surface3 },
-  pressed: { backgroundColor: K.Surface2 },
-  number: { ...Type.caption1, ...tabular, fontFamily: Font.bold, color: K.Dim },
-  activeNumber: { color: K.Accent },
-  title: { ...Type.footnote, fontFamily: Font.medium, color: K.Muted, textAlign: 'center', marginTop: 1 },
-  activeTitle: { color: K.Text },
+  row: { flexDirection: 'row' },
+  tab: { flex: 1, minHeight: Space.tapMin, justifyContent: 'flex-end' },
+  pressed: { opacity: 0.6 },
+  title: { ...Type.footnote, color: K.White, textAlign: 'center', paddingHorizontal: 4, marginBottom: 6 },
+  activeTitle: { color: K.Accent },
+  line: { height: 2, backgroundColor: K.Surface3 },
+  activeLine: { backgroundColor: K.Accent },
 });

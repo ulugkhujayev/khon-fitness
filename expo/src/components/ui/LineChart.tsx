@@ -10,8 +10,9 @@ import { Font, K, Type } from '@/theme';
 // the value axis, sized to its labels (axisWidth) plus AXIS_GAP, so the chart sits even in its margins.
 const PAD = { r: 8, t: 22, b: 24 };
 const AXIS_GAP = 8;
-// Axis and date labels in secondary label at 12: tertiary at 11 was too faint to read on black.
-const TICK = { fill: K.Muted, fontSize: Type.caption1.fontSize, fontFamily: Font.medium };
+// Axis and date labels in secondary label at caption 1 (12): tertiary at 11 was too faint to read on black.
+const TICK_SIZE = Type.caption1.fontSize ?? 12;
+const TICK = { fill: K.Muted, fontSize: TICK_SIZE, fontFamily: Font.medium };
 
 type Anchor = 'start' | 'middle' | 'end';
 
@@ -68,7 +69,7 @@ function Plot({
   const values = points.map((p) => p.value);
   const { yMin, yMax, step, ticks } = scaleFor(values);
   const tickText = ticks.map((v) => label(v, step < 1 ? 1 : 0));
-  const left = axisWidth(tickText, TICK.fontSize) + AXIS_GAP;
+  const left = axisWidth(tickText, TICK_SIZE) + AXIS_GAP;
   const plotW = width - left - PAD.r;
   const plotH = height - PAD.t - PAD.b;
   const yFor = (v: number) => PAD.t + ((yMax - v) * plotH) / (yMax - yMin);

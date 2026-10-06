@@ -1,15 +1,16 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { longDate, parseIso, weekdayName, weekOf } from '@/domain/dates';
 import { itemFor, PlanData } from '@/domain/plan';
-import { Modality } from '@/domain/types';
+import { hexAlpha, Modality } from '@/domain/types';
 import { Font, K, Space, tabular, Type } from '@/theme';
-import { Dot, GroupedList } from '@/components/ui';
+import { GroupedList } from '@/components/ui';
 import { itemColor } from './colors';
 
 /**
  * Monday to Sunday of this week on a group-surface card (DESIGN.md, Today): weekday letter over the day
- * number, past days muted, today in an accent circle, one dot for the planned item. Tap a day to see or
- * change it. Port of WeekStrip in TodayScreen.kt.
+ * number in a rounded square whose border carries the planned item's color (tinted inside for high
+ * intensity, none for rest), past days muted, today filled in accent. Tap a day to see or change it.
+ * Port of WeekStrip in TodayScreen.kt, with the dot moved onto the border.
  */
 export function WeekStrip({
   today,
@@ -38,10 +39,14 @@ export function WeekStrip({
             accessibilityHint="Change plan"
             style={({ pressed }) => [styles.cell, pressed && styles.pressed]}>
             <Text style={[styles.letter, isToday && styles.todayLetter]}>{weekdayName(i + 1)[0]}</Text>
-            <View style={[styles.day, isToday && styles.todayDay]}>
+            <View
+              style={[
+                styles.day,
+                c && { borderColor: past ? hexAlpha(c.color, 0.5) : c.color, backgroundColor: c.filled ? hexAlpha(c.color, 0.2) : 'transparent' },
+                isToday && styles.todayDay,
+              ]}>
               <Text style={[styles.number, past && styles.past, isToday && styles.todayNumber]}>{parseIso(date).getDate()}</Text>
             </View>
-            <View style={styles.dotBox}>{c ? <Dot color={c.color} filled={c.filled} size={7} /> : null}</View>
           </Pressable>
         );
       })}
@@ -55,10 +60,20 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: K.Surface2 },
   letter: { ...Type.caption1, fontFamily: Font.medium, color: K.Muted },
   todayLetter: { color: K.Accent },
-  day: { marginTop: 4, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  // Not in Theme.kt: a 38 pt square with continuous corners (a squircle on iOS) and a 2 pt border.
+  day: {
+    marginTop: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    borderCurve: 'continuous',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   todayDay: { backgroundColor: K.Accent },
   number: { ...Type.body, fontFamily: Font.medium, ...tabular },
   past: { color: K.Muted },
   todayNumber: { fontFamily: Font.bold, color: K.AccentInk },
-  dotBox: { marginTop: 4, height: 8, justifyContent: 'center' },
 });

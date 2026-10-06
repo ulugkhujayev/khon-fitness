@@ -58,7 +58,18 @@ git clone --depth 1 https://github.com/ulugkhujayev/khon-fitness.git ../khon-fit
   next `bunx expo prebuild --clean` wipes hand edits. Change `app.json` or a
   config plugin, then prebuild (rules in AGENTS.md, "Never edit `android/` or
   `ios/`").
-  `pod install` runs on the Mac.
+  `pod install` runs on the Mac. `bunx expo prebuild` clears both folders
+  even without `--clean` (also `ios/Pods` and the build caches), so run
+  `pod install` in `ios/` right after it; otherwise `Podfile.lock`, the
+  workspace and `PrivacyInfo.xcprivacy` show as deleted.
+- App icon and splash (2026-10-06): the orange K mark (`#FF9F0A`) from the
+  user's artwork, every file in `assets/images` built from the same cutout.
+  `icon.png` is opaque black with the mark at 64 % of the height;
+  `android-icon-foreground.png` / `-monochrome.png` keep it inside the 66 dp
+  safe circle on `backgroundColor` black; `splash-icon.png` (mark and the
+  "Khon Fitness" wordmark) stays inside a circle of 96 % of the canvas, because
+  `imageWidth` is 200 and Android 12+ masks the splash to a 192 dp circle;
+  `notification-icon.png` is the white 96 × 96 status bar icon.
 - `bun run ios` / `bun run android` are `expo run:ios|android`: they build the
   native project and open that build, never Expo Go. `bun run start` passes
   `--dev-client` for the same reason. Without it `expo start` targets Expo Go,

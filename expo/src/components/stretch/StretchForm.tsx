@@ -94,7 +94,7 @@ export function StretchForm({
       <ConfirmSheet
         visible={confirming}
         title="Delete this stretch?"
-        body=""
+        body="It goes from the stretch library for good."
         action="Delete"
         onDismiss={() => setConfirming(false)}
         onConfirm={() => {

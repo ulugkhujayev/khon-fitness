@@ -3,12 +3,14 @@ import { StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { EditorScreen, useLeaveWhenGone } from '@/components/layout';
 import { RoutineOrderList } from '@/components/stretch/RoutineOrderList';
+import { useConfirm } from '@/components/ui/useConfirm';
 import {
   ACTION_ICONS, ActionRow, BottomActions, Capsule, ChoiceSheet, ConfirmSheet, Empty, FieldRow, GroupedList, InlineTextField, NumberRow, PlusButton, SectionTitle,
   ToggleRow,
 } from '@/components/ui';
 import { moveInOrder, nextSortOrder } from '@/domain/editors';
 import { clampStretchSeconds, entrySeconds } from '@/domain/stretch';
+import { RoutineStretch } from '@/domain/types';
 import { useStretching } from '@/db/hooks';
 import { newId } from '@/db/id';
 import * as repo from '@/db/repository';
@@ -20,6 +22,7 @@ export default function RoutineEditor() {
   const { data } = useStretching();
   const [picking, setPicking] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const removal = useConfirm<RoutineStretch>();
   const routine = data?.routines.find((r) => r.id === id) ?? null;
   const leave = useLeaveWhenGone(data != null && routine == null);
   if (!data || !routine) return <EditorScreen />;
@@ -62,7 +65,7 @@ export default function RoutineEditor() {
             entries={mine}
             stretches={data.stretches}
             onMove={(i, dir) => repo.saveRoutineStretches(moveInOrder(mine, i, dir))}
-            onRemove={(rs) => repo.deleteRoutineStretch(rs.id)}
+            onRemove={removal.ask}
           />
         </>
       ) : null}
@@ -82,6 +85,17 @@ export default function RoutineEditor() {
         }}
         onDismiss={() => setPicking(false)}
         searchable
+      />
+      <ConfirmSheet
+        visible={removal.open}
+        title={`Remove ${data.stretches.find((st) => st.id === removal.item?.stretchId)?.name ?? 'this stretch'}?`}
+        body="It leaves this routine; the stretch stays in the library."
+        action="Remove"
+        onDismiss={removal.close}
+        onConfirm={() => {
+          removal.close();
+          if (removal.item) repo.deleteRoutineStretch(removal.item.id);
+        }}
       />
       <ConfirmSheet
         visible={confirming}

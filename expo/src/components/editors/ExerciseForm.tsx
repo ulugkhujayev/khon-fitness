@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { EditorScreen } from '@/components/layout';
-import { ACTION_ICONS, ActionRow, BottomActions, Capsule, ChoiceSheet, GroupedList } from '@/components/ui';
+import { ACTION_ICONS, ActionRow, BottomActions, Capsule, ChoiceSheet, ConfirmSheet, GroupedList } from '@/components/ui';
 import { newExercise } from '@/domain/editors';
 import { Exercise, Modality } from '@/domain/types';
 import { newId } from '@/db/id';
@@ -10,7 +10,7 @@ import { ExerciseSelect, selectConfig } from './exerciseChoices';
 
 /**
  * Exercise editor (ExerciseEditorScreen in Editors.kt). Edits a draft; Done hands it back.
- * Archive, merge and delete live at the bottom; delete only while nothing uses the exercise.
+ * Archive, merge and delete live at the bottom; delete only while nothing uses the exercise, and only after asking.
  */
 export function ExerciseForm({
   original,
@@ -37,6 +37,7 @@ export function ExerciseForm({
   // The select stays set while its sheet slides out, so the sheet keeps its content.
   const [select, setSelect] = useState<ExerciseSelect>('kind');
   const [open, setOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const config = selectConfig(
     select,
     draft,
@@ -81,11 +82,22 @@ export function ExerciseForm({
             />
           </GroupedList>
           <GroupedList>
-            <ActionRow icon={ACTION_ICONS.delete} title="Delete" color={K.Red} enabled={usage === 0} last onPress={() => onDelete(draft.id)} />
+            <ActionRow icon={ACTION_ICONS.delete} title="Delete" color={K.Red} enabled={usage === 0} last onPress={() => setConfirmDelete(true)} />
           </GroupedList>
         </BottomActions>
       ) : null}
       <ChoiceSheet visible={open} title={config.title} choices={config.choices} isSelected={config.isSelected} onPick={pick} onDismiss={() => setOpen(false)} />
+      <ConfirmSheet
+        visible={confirmDelete}
+        title={`Delete ${original?.name ?? 'this exercise'}?`}
+        body="It goes from the library for good."
+        action="Delete"
+        onDismiss={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          setConfirmDelete(false);
+          onDelete(draft.id);
+        }}
+      />
     </EditorScreen>
   );
 }

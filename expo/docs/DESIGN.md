@@ -127,7 +127,9 @@ padded cards, per-item buttons, "Updated" lines.
   Expo app, program and block editors: Add block and Add exercise / Add
   second exercise are full-width 44 px tinted buttons 12 px under their
   list; Move up, Move down, Delete program and Delete block are action
-  rows as above, the deletes asking first. The block's Superset toggle and the
+  rows as above. Every delete or remove asks first in a confirm sheet:
+  an exercise, a program, a block, an exercise from a block, a stretch
+  from a routine. The block's Superset toggle and the
   program's Active toggle have a muted footnote under their group saying
   what they do; the active program's toggle is fixed on (turning another
   program on moves it). A new program or block is a draft: nothing is

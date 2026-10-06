@@ -3,9 +3,10 @@ import { StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { BlockExerciseGroup } from '@/components/editors/BlockExerciseGroup';
 import { EditorScreen } from '@/components/layout';
+import { useConfirm } from '@/components/ui/useConfirm';
 import { ACTION_ICONS, ActionRow, BottomActions, Capsule, ChoiceSheet, ConfirmSheet, GroupedList, GroupFooter, TintedButton, ToggleRow } from '@/components/ui';
 import { freeSlot, moveInOrder, nextSortOrder } from '@/domain/editors';
-import { Defaults, Kind } from '@/domain/types';
+import { BlockExercise, Defaults, Kind } from '@/domain/types';
 import { useBlock } from '@/db/hooks';
 import { newId } from '@/db/id';
 import * as repo from '@/db/repository';
@@ -24,6 +25,7 @@ export default function BlockEditor() {
   const [slot, setSlot] = useState(0);
   const [picking, setPicking] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const removal = useConfirm<BlockExercise>();
   const [draftSuperset, setDraftSuperset] = useState<boolean>(Defaults.block.superset);
 
   const index = data ? (isNew ? data.siblings.length : data.siblings.findIndex((b) => b.id === blockId)) : -1;
@@ -68,7 +70,7 @@ export default function BlockEditor() {
           be={be}
           exerciseName={data.exercises.find((e) => e.id === be.exerciseId)?.name ?? null}
           onChoose={() => choose(be.slot)}
-          onRemove={() => repo.deleteBlockExercise(be.id)}
+          onRemove={() => removal.ask(be)}
           onChange={(patch) => repo.patchBlockExercise(be.id, patch)}
         />
       ))}
@@ -106,6 +108,17 @@ export default function BlockEditor() {
         onPick={pick}
         onDismiss={() => setPicking(false)}
         searchable
+      />
+      <ConfirmSheet
+        visible={removal.open}
+        title={`Remove ${data.exercises.find((e) => e.id === removal.item?.exerciseId)?.name ?? 'this exercise'}?`}
+        body="Its sets and rep range leave this block. Past sessions keep their sets."
+        action="Remove"
+        onDismiss={removal.close}
+        onConfirm={() => {
+          removal.close();
+          if (removal.item) repo.deleteBlockExercise(removal.item.id);
+        }}
       />
       <ConfirmSheet
         visible={confirmDelete}

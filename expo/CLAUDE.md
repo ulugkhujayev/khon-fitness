@@ -226,7 +226,9 @@ reads during render and no synchronous `setState` inside effects.
 - Text and number fields keep their own text while focused; outside values
   land only when not focused, so a database round trip never moves the cursor.
 - Sheets take `visible` and slide out after it turns false; callers keep the
-  data the sheet shows (an `open` flag next to the data, not data = null).
+  data the sheet shows (an `open` flag next to the data, not data = null;
+  `useConfirm` in `components/ui` does this for a ConfirmSheet). Every
+  delete or remove asks first.
 - Editors with a draft split into a loader and a form keyed by id; the form
   takes its initial draft in `useState`, never from an effect.
 - Ids: `newId()` in `src/db/id.ts`, 8 hex chars like Kotlin.

@@ -31,7 +31,7 @@ export function ExerciseProgress({ exercises, logs, sessions }: { exercises: Exe
         <Text style={styles.empty}>No finished sets for this exercise yet.</Text>
       ) : (
         <>
-          <LineChart points={progress.map((p) => ({ date: p.date, value: p.e1rm }))} unit="kg" height={190} />
+          <LineChart points={progress.map((p) => ({ date: p.date, value: p.e1rm }))} unit="kg" />
           <GroupedList style={styles.table}>
             {[...progress].reverse().map((p, i) => (
               <ListRow key={`${p.date}${i}`} title={shortDate(p.date)} color={K.Muted} value={`${fmt(p.topW)} kg × ${p.topR} reps`} chevron={false} last={i === progress.length - 1} />

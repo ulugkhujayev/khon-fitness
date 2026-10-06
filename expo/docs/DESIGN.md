@@ -142,7 +142,7 @@ Two lines, 88 px total, hairline between rows.
   44 px tall (the compact primary button) to keep the card small.
   Expo app; the Kotlin card has no symbol or progress.
 - 24 px gap. "Bodyweight" 18 with the latest value 22/600 on the right,
-  a 190 px line chart of the last 30 days with a soft area fill (accent
+  a line chart of the last 30 days with a soft area fill (accent
   at 20 percent; Expo app, the Kotlin app has a 72 px sparkline), then
   24 px gap and the entry on its own group-surface card (radius 20, 16
   padding; Expo app, the Kotlin app has number widget + "Add" on one
@@ -218,7 +218,8 @@ Every chart has: dashed grid lines at round values with a label on the
 left, a marker on every point, a value label on every point when there
 are seven or fewer (else on the last and the highest), the last point
 filled in accent with its unit, and dates along the bottom. A line
-without markers and labels is a defect. Axis and date labels 12/500 in
+without markers and labels is a defect. Every chart is 190 px tall
+(Today and History alike). Axis and date labels 12/500 in
 muted; value labels 12/500 muted, the last one 13/700 in white. The value
 axis is as wide as its widest label plus 8 px, the right inset 8 px, so
 the chart sits even between the screen margins.

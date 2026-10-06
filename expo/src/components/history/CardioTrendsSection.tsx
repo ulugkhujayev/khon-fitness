@@ -67,7 +67,7 @@ function Trend({ title, points, unit, decimals, format }: { title: string; point
   return (
     <View>
       <TitleRow title={title} muted style={styles.title} />
-      <LineChart points={points} unit={unit} height={170} decimals={decimals} format={format} />
+      <LineChart points={points} unit={unit} decimals={decimals} format={format} />
     </View>
   );
 }

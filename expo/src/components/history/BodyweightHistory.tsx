@@ -11,7 +11,7 @@ export function BodyweightHistory({ bodyweights }: { bodyweights: Bodyweight[] }
     <View>
       <TitleRow title="Bodyweight" value={latest ? `${fmt(latest.kg)} kg` : undefined} large />
       {latest ? (
-        <LineChart points={bodyweights.map((b) => ({ date: b.date, value: b.kg }))} unit="kg" height={170} style={styles.chart} />
+        <LineChart points={bodyweights.map((b) => ({ date: b.date, value: b.kg }))} unit="kg" style={styles.chart} />
       ) : (
         <Text style={styles.empty}>No entries yet. Add one on Today.</Text>
       )}

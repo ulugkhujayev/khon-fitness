@@ -10,6 +10,8 @@ import { Font, K, Type } from '@/theme';
 // the value axis, sized to its labels (axisWidth) plus AXIS_GAP, so the chart sits even in its margins.
 const PAD = { r: 8, t: 22, b: 24 };
 const AXIS_GAP = 8;
+/** Every chart is this tall (DESIGN.md, Charts), Today's bodyweight and History's alike. */
+const CHART_HEIGHT = 190;
 // Axis and date labels in secondary label at caption 1 (12): tertiary at 11 was too faint to read on black.
 const TICK_SIZE = Type.caption1.fontSize ?? 12;
 const TICK = { fill: K.Muted, fontSize: TICK_SIZE, fontFamily: Font.medium };
@@ -24,14 +26,12 @@ type Anchor = 'start' | 'middle' | 'end';
 export function LineChart({
   points,
   unit,
-  height = 180,
   decimals = 1,
   format,
   style,
 }: {
   points: ChartPoint[];
   unit: string;
-  height?: number;
   decimals?: number;
   /** Text for a value on the axis and the labels, e.g. a pace as m:ss. Defaults to the number with `decimals`. */
   format?: (v: number) => string;
@@ -39,13 +39,13 @@ export function LineChart({
 }) {
   const [width, setWidth] = useState(0);
   return (
-    <View style={[{ height }, style]} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+    <View style={[styles.frame, style]} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {points.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No data yet</Text>
         </View>
       ) : width > 0 ? (
-        <Plot points={points} unit={unit} width={width} height={height} label={(v, d) => format?.(v) ?? fmt(v, d ?? decimals)} />
+        <Plot points={points} unit={unit} width={width} height={CHART_HEIGHT} label={(v, d) => format?.(v) ?? fmt(v, d ?? decimals)} />
       ) : null}
     </View>
   );
@@ -126,6 +126,7 @@ function Plot({
 }
 
 const styles = StyleSheet.create({
+  frame: { height: CHART_HEIGHT },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { ...Type.caption2, fontFamily: Font.medium, color: K.Dim },
 });

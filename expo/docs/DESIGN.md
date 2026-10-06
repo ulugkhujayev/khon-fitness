@@ -130,7 +130,9 @@ Two lines, 88 px total, hairline between rows.
 - Blocks: header row 52 px (index in accent, names, sets done of total
   "2 / 6", chevron or a green check), sets under it. One block is open at
   a time; opening and closing animate (220 ms ease) and an opened block
-  scrolls to the top of the list. A check keeps its block open while it
+  scrolls to the top of the list. While its sets scroll, the open block's
+  header sticks to the top on a strip of the background, until the next
+  header pushes it off. A check keeps its block open while it
   has a pending set (focus to the next one, else one left behind); after
   its last set the next block with work opens, wrapping to an earlier
   one, and with nothing left every block closes (Expo app).

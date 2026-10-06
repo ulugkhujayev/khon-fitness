@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { fmt, parseNumberInput, sets } from '../src/domain/format';
 import { Defaults, hexAlpha, ItemType, Session, SetLog, SetStatus } from '../src/domain/types';
 import {
-  blockTitle, clampEffort, doneCount, doneLine, progressLine, firstOpenBlock, gain, groupBlocks, isBlockDone, kgDecimals, afterCheck, setTag, summarize,
+  blockTitle, clampEffort, doneCount, doneLine, progressLine, firstOpenBlock, gain, groupBlocks, isBlockDone, kgDecimals, afterCheck, headerIndices, setTag, summarize,
 } from '../src/domain/workout';
 
 const log = (p: Partial<SetLog> & Pick<SetLog, 'id' | 'order'>): SetLog => ({
@@ -84,6 +84,13 @@ describe('session flow', () => {
     const blocks = groupBlocks(three);
     expect(afterCheck(blocks, three[1])).toEqual({ open: 2, focus: three[3] });
     expect(afterCheck(blocks, three[3])).toEqual({ open: 0, focus: three[0] });
+  });
+
+  test('block headers among the list children, the open block adding its sets', () => {
+    expect(headerIndices(3, null)).toEqual([0, 1, 2]);
+    expect(headerIndices(3, 0)).toEqual([0, 2, 3]);
+    expect(headerIndices(3, 2)).toEqual([0, 1, 2]);
+    expect(headerIndices(0, null)).toEqual([]);
   });
 
   test('the last pending set closes every block', () => {

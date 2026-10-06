@@ -4,7 +4,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavBar, useLeaveWhenGone } from '@/components/layout';
-import { BlockCard } from '@/components/session/BlockCard';
+import { BlockBody } from '@/components/session/BlockBody';
+import { BlockHeader } from '@/components/session/BlockHeader';
 import { DeleteSessionSheet } from '@/components/session/DeleteSessionSheet';
 import { SessionDetails } from '@/components/session/SessionDetails';
 import { SessionHeader } from '@/components/session/SessionHeader';
@@ -16,7 +17,7 @@ import { useFieldFocus } from '@/components/session/useFieldFocus';
 import { Capsule, PrimaryButton, TintedButton } from '@/components/ui';
 import { setKey } from '@/domain/session';
 import { Kind } from '@/domain/types';
-import { blockTitle, doneCount, isBlockDone, Summary, summarize } from '@/domain/workout';
+import { blockTitle, doneCount, headerIndices, isBlockDone, Summary, summarize } from '@/domain/workout';
 import { usePreviousLogs, useSession } from '@/db/hooks';
 import * as repo from '@/db/repository';
 import { K, Space } from '@/theme';
@@ -32,7 +33,7 @@ export default function SessionScreen() {
   const previous = usePreviousLogs(id);
   const fields = useFieldFocus();
   const logs = data?.logs ?? [];
-  const { blocks, expanded, openBlock, toggleSet, scrollRef, onBlockLayout } = useBlockFlow(logs, fields.focus);
+  const { blocks, expanded, openBlock, toggleSet, scrollRef, onHeaderLayout, onBodyLayout } = useBlockFlow(logs, fields.focus);
   const [editing, setEditing] = useState(false);
   const [swap, setSwap] = useState<SwapState | null>(null);
   const [swapOpen, setSwapOpen] = useState(false);
@@ -64,36 +65,47 @@ export default function SessionScreen() {
         bottomOffset={24}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        // Headers and the open block's sets are separate children, so a header can stick while its sets scroll.
+        stickyHeaderIndices={headerIndices(blocks.length, expanded)}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
-        {blocks.map((blockLogs, bi) => (
-          <BlockCard
-            key={blockLogs[0].blockIndex}
-            index={bi}
-            title={blockTitle(blockLogs)}
-            doneSets={doneCount(blockLogs)}
-            setCount={blockLogs.length}
-            done={isBlockDone(blockLogs)}
-            open={expanded === bi}
-            onToggle={() => openBlock(expanded === bi ? null : bi)}
-            onLayout={(e) => onBlockLayout(bi, e)}>
-            {blockLogs.map((log) => (
-              <SetRow
-                key={log.id}
-                log={log}
-                prev={previous.get(setKey(log))}
-                live={live}
-                inputRef={fields.register(log.id)}
-                onToggle={() => toggleSet(log)}
-                onWeight={(weightKg) => repo.patchSetLog(log.id, { weightKg })}
-                onReps={(r) => repo.patchSetLog(log.id, { reps: r == null ? null : Math.trunc(r) })}
-                onSwap={() => {
-                  setSwap({ log, query: '', to: null });
-                  setSwapOpen(true);
-                }}
-              />
-            ))}
-          </BlockCard>
-        ))}
+        {blocks.flatMap((blockLogs, bi) => {
+          const open = expanded === bi;
+          const header = (
+            <BlockHeader
+              key={`h${blockLogs[0].blockIndex}`}
+              index={bi}
+              title={blockTitle(blockLogs)}
+              doneSets={doneCount(blockLogs)}
+              setCount={blockLogs.length}
+              done={isBlockDone(blockLogs)}
+              open={open}
+              onToggle={() => openBlock(open ? null : bi)}
+              onLayout={(e) => onHeaderLayout(bi, e)}
+            />
+          );
+          if (!open) return [header];
+          return [
+            header,
+            <BlockBody key={`b${blockLogs[0].blockIndex}`} onLayout={(e) => onBodyLayout(bi, e)}>
+              {blockLogs.map((log) => (
+                <SetRow
+                  key={log.id}
+                  log={log}
+                  prev={previous.get(setKey(log))}
+                  live={live}
+                  inputRef={fields.register(log.id)}
+                  onToggle={() => toggleSet(log)}
+                  onWeight={(weightKg) => repo.patchSetLog(log.id, { weightKg })}
+                  onReps={(r) => repo.patchSetLog(log.id, { reps: r == null ? null : Math.trunc(r) })}
+                  onSwap={() => {
+                    setSwap({ log, query: '', to: null });
+                    setSwapOpen(true);
+                  }}
+                />
+              ))}
+            </BlockBody>,
+          ];
+        })}
         <View style={styles.gap} />
         <SessionDetails session={s} live={live} onChange={(patch) => repo.patchSession(s.id, patch)} />
         <View style={styles.gap} />

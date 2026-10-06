@@ -1,4 +1,3 @@
-import { ReactNode } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { Check } from '@/components/ui';
@@ -6,10 +5,12 @@ import { sets } from '@/domain/format';
 import { Font, K, Space, tabular, Type } from '@/theme';
 
 /**
- * One block of a session (DESIGN.md, Set row, "Blocks"): a 56 pt header with the block number, the
- * exercise names, its sets done of total and its state; the set rows under it while open.
+ * The header of a session block (DESIGN.md, Set row, "Blocks"): a 56 pt row with the block number, the
+ * exercise names, its sets done of total and its state. The top of the block's card; the whole card while
+ * closed. The list keeps it stuck to the top while its sets scroll under it, until the next header pushes
+ * it off, so it sits on a strip of the screen background that hides what scrolls behind.
  */
-export function BlockCard({
+export function BlockHeader({
   index,
   title,
   doneSets,
@@ -18,7 +19,6 @@ export function BlockCard({
   open,
   onToggle,
   onLayout,
-  children,
 }: {
   /** Zero-based; shown as 1, 2, 3. */
   index: number;
@@ -30,17 +30,15 @@ export function BlockCard({
   open: boolean;
   onToggle: () => void;
   onLayout?: (e: LayoutChangeEvent) => void;
-  /** The set rows, rendered only while open. */
-  children: ReactNode;
 }) {
   return (
-    <View style={[styles.card, index > 0 && styles.next]} onLayout={onLayout}>
+    <View style={[styles.strip, index > 0 && styles.next]} onLayout={onLayout}>
       <Pressable
         onPress={onToggle}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         accessibilityLabel={`Block ${index + 1}, ${title}, ${doneSets} of ${sets(setCount)} done${done ? ', block done' : ''}`}
-        style={({ pressed }) => [styles.header, pressed && styles.pressed]}>
+        style={({ pressed }) => [styles.header, open && styles.openHeader, pressed && styles.pressed]}>
         <View style={styles.number}>
           <Text style={styles.numberText}>{index + 1}</Text>
         </View>
@@ -58,15 +56,16 @@ export function BlockCard({
           )}
         </View>
       </Pressable>
-      {open ? children : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: K.Surface, borderRadius: Space.groupRadius, overflow: 'hidden', marginTop: 6 },
-  next: { marginTop: 10 },
-  header: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingLeft: 16, paddingRight: 12 },
+  strip: { backgroundColor: K.Bg, paddingTop: 6 },
+  next: { paddingTop: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingLeft: 16, paddingRight: 12, backgroundColor: K.Surface, borderRadius: Space.groupRadius },
+  // Open, the sets continue the card below.
+  openHeader: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   pressed: { backgroundColor: K.Surface2 },
   number: { width: 24, height: 24, borderRadius: 12, backgroundColor: K.AccentSoft, alignItems: 'center', justifyContent: 'center' },
   numberText: { ...Type.footnote, fontFamily: Font.bold, color: K.Accent },

@@ -65,6 +65,13 @@ export function afterCheck(blocks: SetLog[][], checked: SetLog): { open: number 
   return next == null ? { open: null, focus: undefined } : { open: next, focus: pending(blocks[next])[0] };
 }
 
+/**
+ * Where the block headers sit among a session list's children, for sticky headers: every block adds its
+ * header, and the open one its sets right after it.
+ */
+export const headerIndices = (count: number, open: number | null): number[] =>
+  Array.from({ length: count }, (_, i) => (open != null && i > open ? i + 1 : i));
+
 /** Exercise names of a block, A first, joined: "Bench Press · Leg Press". */
 export function blockTitle(logs: SetLog[]): string {
   const bySlot = new Map<number, string>();

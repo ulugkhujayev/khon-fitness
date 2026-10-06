@@ -123,7 +123,8 @@ reads during render and no synchronous `setState` inside effects.
     is gone).
   - Feature folders: `plan/` (WeekStrip, PlanItemSheet, DayPlanSheet for
     one date, `colors.ts`), `today/` (TodayCard, BodyweightSection,
-    BodyweightEntry, WindowSheet, `useNow` minute clock), `session/` (BlockCard, SetRow,
+    BodyweightEntry, WindowSheet, `useNow` minute clock), `session/`
+    (BlockHeader, sticky in the list, and BlockBody, SetRow,
     SwapSheet, … and the hooks `useFieldFocus`, `useLeaveWhenGone`,
     `useBlockFlow` (open block, what a check does), `useBlockReveal`
     (animated open and close, scroll the opened block to the top)),
@@ -302,7 +303,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 171 tests after the session blocks; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 172 tests after the session blocks; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

@@ -13,7 +13,7 @@ import { useBlockReveal } from './useBlockReveal';
 export function useBlockFlow(logs: SetLog[], focusField: (id: string) => void) {
   // Undefined until the user opens or closes a block, or a check moves on.
   const [chosen, setChosen] = useState<number | null | undefined>(undefined);
-  const { scrollRef, reveal, onBlockLayout } = useBlockReveal();
+  const { scrollRef, reveal, onHeaderLayout, onBodyLayout } = useBlockReveal();
   const blocks = groupBlocks(logs);
   const expanded = chosen !== undefined ? chosen : blocks.length > 0 ? firstOpenBlock(blocks) : null;
 
@@ -31,5 +31,5 @@ export function useBlockFlow(logs: SetLog[], focusField: (id: string) => void) {
     if (focus) focusField(focus.id);
   };
 
-  return { blocks, expanded, openBlock, toggleSet, scrollRef, onBlockLayout };
+  return { blocks, expanded, openBlock, toggleSet, scrollRef, onHeaderLayout, onBodyLayout };
 }

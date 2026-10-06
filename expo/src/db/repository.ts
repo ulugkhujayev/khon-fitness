@@ -288,10 +288,12 @@ export const swapExerciseInSession = (sessionId: string, fromExerciseId: string,
 
 export const saveStretch = (s: Stretch) => write((tx) => tx.upsert(T.stretches, s));
 export const deleteStretch = (id: string) => write((tx) => tx.run(T.stretches, 'DELETE FROM stretches WHERE id = ?', [id]));
-export const saveRoutine = (r: StretchRoutine) =>
+/** A new routine, with its first stretch when it has one, made the active one when it is. */
+export const createRoutine = (r: StretchRoutine, first: RoutineStretch | null) =>
   write(async (tx) => {
     await tx.upsert(T.stretchRoutines, r);
     if (r.active) await tx.run(T.stretchRoutines, 'UPDATE stretch_routines SET active = (id = ?)', [r.id]);
+    if (first) await tx.upsert(T.routineStretches, first);
   });
 export const patchRoutine = (id: string, patch: Partial<Omit<StretchRoutine, 'id' | 'active'>>) =>
   write((tx) => tx.patch(T.stretchRoutines, id, patch));

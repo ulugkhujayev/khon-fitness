@@ -83,9 +83,11 @@ padded cards, per-item buttons, "Updated" lines.
   Open, no Use, no Edit. Destructive and secondary actions live in the
   editor screen, at the bottom, as text buttons.
 - Add is a single "+" text button at the right of the section title.
-  Expo app: a program's blocks are numbered like a session's (the index
-  in a 24 px accent-tinted circle) and add with a tinted "Add block"
-  button under the list.
+  Expo app: inside an editor it is a tinted "Add …" button under the list
+  instead (Add block, Add exercise, Add stretch), and a program's blocks
+  are numbered like a session's (the index in a 24 px accent-tinted
+  circle). A routine's order rows carry up, down and remove as bare
+  symbols with 44 px targets.
 - No dates on list rows unless the row IS a date (history).
 - Rows that open a part of the app (Programs tab: Exercises, Stretching,
   Modalities, Week plan, Settings) lead with a 30 px icon tile like iOS
@@ -129,7 +131,8 @@ padded cards, per-item buttons, "Updated" lines.
   list; Move up, Move down, Delete program and Delete block are action
   rows as above. Every delete or remove asks first in a confirm sheet:
   an exercise, a program, a block, an exercise from a block, a stretch
-  from a routine. The block's Superset toggle and the
+  from a routine. A new routine is a draft too, saved by Done or its first
+  stretch. The block's Superset toggle and the
   program's Active toggle have a muted footnote under their group saying
   what they do; the active program's toggle is fixed on (turning another
   program on moves it). A new program or block is a draft: nothing is

@@ -3,7 +3,7 @@ import { Linking, StyleSheet } from 'react-native';
 import { EditorScreen } from '@/components/layout';
 import {
   ACTION_ICONS, ActionRow, BottomActions, Capsule, ChoiceSheet, ConfirmSheet, FieldRow, FieldValue, GroupedList, InlineTextField, ListRow, NumberRow,
-  ToggleRow,
+  SectionTitle, ToggleRow,
 } from '@/components/ui';
 import { clampReps, clampStretchSeconds, figureName, FIGURES, newStretch, withRepsMode } from '@/domain/stretch';
 import { Stretch, StretchMode } from '@/domain/types';
@@ -14,8 +14,8 @@ import { StretchDemonstration } from './StretchDemonstration';
 const GUIDES = Object.keys(FIGURES).map((id) => ({ id, title: FIGURES[id] }));
 
 /**
- * Stretch editor (StretchEditorScreen in StretchEditors.kt): the guide's lesson on top, then name, guide, sides,
- * hold or reps, seconds, muscles, cue and a reference link. Edits a draft; Done hands it back.
+ * Stretch editor (StretchEditorScreen in StretchEditors.kt): the guide's lesson on top, then name and guide;
+ * Timing (sides, hold or reps, seconds); Details (muscles, cue, a reference link). Edits a draft; Done hands it back.
  * Built-in stretches and ones a routine uses cannot be deleted.
  */
 export function StretchForm({
@@ -38,7 +38,7 @@ export function StretchForm({
   const set = (patch: Partial<Stretch>) => setDraft({ ...draft, ...patch });
 
   return (
-    <EditorScreen title={original ? 'Stretch' : 'New stretch'} trailing={<Capsule text="Done" onPress={() => onSave(draft)} />}>
+    <EditorScreen title={original ? original.name : 'New stretch'} trailing={<Capsule text="Done" onPress={() => onSave(draft)} />}>
       <StretchDemonstration figure={draft.figure} compact style={styles.demo} />
       <GroupedList>
         <FieldRow label="Name" divider={false}>
@@ -47,11 +47,17 @@ export function StretchForm({
         <FieldRow label="Guide" onPress={() => setGuideOpen(true)}>
           <FieldValue text={figureName(draft.figure)} />
         </FieldRow>
-        <ToggleRow label="Per side" value={draft.sided} onChange={(sided) => set({ sided })} />
+      </GroupedList>
+      <SectionTitle text="Timing" style={styles.section} />
+      <GroupedList>
+        <ToggleRow label="Per side" divider={false} value={draft.sided} onChange={(sided) => set({ sided })} />
         <ToggleRow label="Reps" value={reps} onChange={(on) => setDraft(withRepsMode(draft, on))} />
         {reps ? <NumberRow label="Rep count" value={draft.reps} unit="" step={1} decimals={0} onChange={(v) => set({ reps: clampReps(v) })} /> : null}
         <NumberRow label={reps ? 'Time' : 'Hold'} value={draft.seconds} unit="s" step={5} decimals={0} onChange={(v) => set({ seconds: clampStretchSeconds(v) })} />
-        <FieldRow label="Muscles">
+      </GroupedList>
+      <SectionTitle text="Details" style={styles.section} />
+      <GroupedList>
+        <FieldRow label="Muscles" divider={false}>
           <InlineTextField value={draft.muscles} onChange={(muscles) => set({ muscles })} placeholder="hamstrings, glutes" label="Muscles" />
         </FieldRow>
         <FieldRow label="Cue">
@@ -108,5 +114,6 @@ export function StretchForm({
 
 const styles = StyleSheet.create({
   demo: { marginBottom: 12 },
+  section: { marginTop: 24 },
   link: { marginTop: 16 },
 });

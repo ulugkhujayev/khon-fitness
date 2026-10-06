@@ -201,6 +201,14 @@ export const clampReps = (v: number | null) => clamp(Math.trunc(v ?? 1), 1, 50);
 /** A new custom stretch: a 45 s hold with the hip flexor guide (StretchEditorScreen's draft). */
 export const newStretch = (id: string): Stretch => ({ ...Defaults.stretch, id, name: '', figure: 'hipflexor' });
 
+/** A routine not saved yet: "New routine", after the others, active only when it is the first. */
+export const newRoutine = (id: string, routines: StretchRoutine[]): StretchRoutine => ({
+  id,
+  name: 'New routine',
+  active: routines.length === 0,
+  sortOrder: routines.reduce((m, r) => Math.max(m, r.sortOrder + 1), 0),
+});
+
 /** Reps on gives 10 reps when there were none; off goes back to a hold. */
 export const withRepsMode = (st: Stretch, on: boolean): Stretch => ({
   ...st,

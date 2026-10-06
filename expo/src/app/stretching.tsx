@@ -1,29 +1,31 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { EditorScreen } from '@/components/layout';
-import { BarCircleButton, Empty, GroupedList, ListRow } from '@/components/ui';
-import { nextSortOrder } from '@/domain/editors';
+import { BarCircleButton, Empty, GroupedList, IconTile, ListRow, SectionTitle } from '@/components/ui';
 import { routineSummary } from '@/domain/stretch';
 import { useStretching } from '@/db/hooks';
-import { newId } from '@/db/id';
-import * as repo from '@/db/repository';
 import { K } from '@/theme';
 
-/** Stretching (RoutinesScreen in StretchEditors.kt): the routines, the active one filled, and the stretch library. */
+/**
+ * Stretching (RoutinesScreen in StretchEditors.kt): the routines, the active one filled, then the stretch
+ * library with its icon tile, as on the Programs tab. A new routine opens as a draft in its editor.
+ */
 export default function Stretching() {
   const { data } = useStretching();
 
-  const addRoutine = async () => {
-    if (!data) return;
-    const id = newId();
-    await repo.saveRoutine({ id, name: 'New routine', active: data.routines.length === 0, sortOrder: nextSortOrder(data.routines) });
-    router.push({ pathname: '/routine/[id]', params: { id } });
-  };
-
   return (
-    <EditorScreen title="Stretching" trailing={<BarCircleButton icon={{ ios: 'plus', android: 'add', web: 'add' }} label="New routine" onPress={addRoutine} />}>
+    <EditorScreen
+      title="Stretching"
+      trailing={
+        <BarCircleButton
+          icon={{ ios: 'plus', android: 'add', web: 'add' }}
+          label="New routine"
+          onPress={() => router.push({ pathname: '/routine/[id]', params: { id: 'new' } })}
+        />
+      }>
       {data ? (
         <>
+          <SectionTitle text="Routines" />
           <GroupedList>
             {data.routines.map((r, i) => (
               <ListRow
@@ -38,9 +40,15 @@ export default function Stretching() {
             ))}
             {data.routines.length === 0 ? <Empty text="No routines yet" /> : null}
           </GroupedList>
-          <View style={styles.gap} />
+          <SectionTitle text="Library" style={styles.section} />
           <GroupedList>
-            <ListRow title="Stretch library" value={String(data.stretches.filter((s) => !s.archived).length)} last onPress={() => router.push('/stretches')} />
+            <ListRow
+              leading={<IconTile icon={{ ios: 'figure.flexibility', android: 'self_improvement', web: 'self_improvement' }} color={K.Green} />}
+              title="Stretches"
+              value={String(data.stretches.filter((s) => !s.archived).length)}
+              last
+              onPress={() => router.push('/stretches')}
+            />
           </GroupedList>
         </>
       ) : null}
@@ -49,5 +57,5 @@ export default function Stretching() {
 }
 
 const styles = StyleSheet.create({
-  gap: { height: 24 },
+  section: { marginTop: 24 },
 });

@@ -1,88 +1,94 @@
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { EditorScreen, useLeaveWhenGone } from '@/components/layout';
-import { RoutineOrderList } from '@/components/stretch/RoutineOrderList';
+import { RoutineStretches } from '@/components/stretch/RoutineStretches';
+import { ACTION_ICONS, ActionRow, BottomActions, Capsule, ChoiceSheet, ConfirmSheet, FieldRow, GroupedList, GroupFooter, InlineTextField, ToggleRow } from '@/components/ui';
 import { useConfirm } from '@/components/ui/useConfirm';
-import {
-  ACTION_ICONS, ActionRow, BottomActions, Capsule, ChoiceSheet, ConfirmSheet, Empty, FieldRow, GroupedList, InlineTextField, NumberRow, PlusButton, SectionTitle,
-  ToggleRow,
-} from '@/components/ui';
 import { moveInOrder, nextSortOrder } from '@/domain/editors';
-import { clampStretchSeconds, entrySeconds } from '@/domain/stretch';
+import { newRoutine } from '@/domain/stretch';
 import { RoutineStretch } from '@/domain/types';
 import { useStretching } from '@/db/hooks';
 import { newId } from '@/db/id';
 import * as repo from '@/db/repository';
 import { K } from '@/theme';
 
-/** Routine editor (RoutineEditorScreen in StretchEditors.kt): name, active, the stretches with their seconds, order. Edits save live. */
+/**
+ * Routine editor (RoutineEditorScreen in StretchEditors.kt): name, active, the stretches with their seconds,
+ * Add stretch, their order, delete. Edits save live. A new routine (`new`) is a draft until Done or its first
+ * stretch saves it, so backing out leaves nothing behind.
+ */
 export default function RoutineEditor() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const isNew = id === 'new';
   const { data } = useStretching();
   const [picking, setPicking] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const removal = useConfirm<RoutineStretch>();
-  const routine = data?.routines.find((r) => r.id === id) ?? null;
-  const leave = useLeaveWhenGone(data != null && routine == null);
+  // A draft's name and active choice; a saved routine writes them as they change.
+  const [draftName, setDraftName] = useState<string | null>(null);
+  const [draftActive, setDraftActive] = useState<boolean | null>(null);
+  const saved = data?.routines.find((r) => r.id === id) ?? null;
+  const leave = useLeaveWhenGone(!isNew && data != null && saved == null);
+  const draft = data && isNew ? newRoutine(id, data.routines) : null;
+  const routine = draft ? { ...draft, name: draftName ?? draft.name, active: draftActive ?? draft.active } : saved;
   if (!data || !routine) return <EditorScreen />;
 
   const mine = data.routineStretches.filter((rs) => rs.routineId === id).sort((a, b) => a.sortOrder - b.sortOrder);
   const library = data.stretches.filter((s) => !s.archived);
 
+  const create = (first: string | null) => {
+    const routineId = newId();
+    const entry = first ? { id: newId(), routineId, stretchId: first, sortOrder: 0, seconds: null } : null;
+    repo.createRoutine({ ...routine, id: routineId, name: routine.name.trim() || 'New routine' }, entry);
+    return routineId;
+  };
+
+  const pick = (stretchId: string) => {
+    setPicking(false);
+    if (isNew) router.replace({ pathname: '/routine/[id]', params: { id: create(stretchId) } });
+    else repo.saveRoutineStretches([{ id: newId(), routineId: id, stretchId, sortOrder: nextSortOrder(mine), seconds: null }]);
+  };
+
   return (
-    <EditorScreen title={routine.name} trailing={<Capsule text="Done" onPress={() => router.back()} />}>
+    <EditorScreen
+      title={isNew ? 'New routine' : routine.name}
+      trailing={
+        <Capsule
+          text="Done"
+          onPress={() => {
+            if (isNew) create(null);
+            router.back();
+          }}
+        />
+      }>
       <GroupedList>
         <FieldRow label="Name" divider={false}>
-          <InlineTextField value={routine.name} onChange={(name) => repo.patchRoutine(id, { name })} label="Routine name" />
+          <InlineTextField value={routine.name} onChange={(name) => (isNew ? setDraftName(name) : repo.patchRoutine(id, { name }))} label="Routine name" />
         </FieldRow>
-        <ToggleRow label="Active" value={routine.active} onChange={(on) => repo.setRoutineActive(id, on)} />
+        <ToggleRow label="Active" value={routine.active} onChange={(on) => (isNew ? setDraftActive(on) : repo.setRoutineActive(id, on))} />
       </GroupedList>
-      <SectionTitle text="Stretches" trailing={<PlusButton label="Add a stretch" onPress={() => setPicking(true)} />} style={styles.section} />
-      <GroupedList>
-        {mine.map((rs, i) => {
-          const st = data.stretches.find((s) => s.id === rs.stretchId);
-          return (
-            <NumberRow
-              key={rs.id}
-              label={st?.name ?? 'Missing stretch'}
-              note={st?.sided ? 'per side' : undefined}
-              value={entrySeconds(rs, st)}
-              unit="s"
-              step={5}
-              decimals={0}
-              divider={i > 0}
-              onChange={(v) => repo.patchRoutineStretch(rs.id, { seconds: clampStretchSeconds(v) })}
-            />
-          );
-        })}
-        {mine.length === 0 ? <Empty text="No stretches yet" /> : null}
-      </GroupedList>
-      {mine.length > 0 ? (
-        <>
-          <SectionTitle text="Order" style={styles.section} />
-          <RoutineOrderList
-            entries={mine}
-            stretches={data.stretches}
-            onMove={(i, dir) => repo.saveRoutineStretches(moveInOrder(mine, i, dir))}
-            onRemove={removal.ask}
-          />
-        </>
+      <GroupFooter text="The active routine is the one Today offers to stretch." />
+      <RoutineStretches
+        entries={mine}
+        stretches={data.stretches}
+        onSeconds={(rs, seconds) => repo.patchRoutineStretch(rs.id, { seconds })}
+        onAdd={() => setPicking(true)}
+        onMove={(i, dir) => repo.saveRoutineStretches(moveInOrder(mine, i, dir))}
+        onRemove={removal.ask}
+      />
+      {!isNew ? (
+        <BottomActions>
+          <GroupedList>
+            <ActionRow icon={ACTION_ICONS.delete} title="Delete routine" color={K.Red} last onPress={() => setConfirming(true)} />
+          </GroupedList>
+        </BottomActions>
       ) : null}
-      <BottomActions>
-        <GroupedList>
-          <ActionRow icon={ACTION_ICONS.delete} title="Delete routine" color={K.Red} last onPress={() => setConfirming(true)} />
-        </GroupedList>
-      </BottomActions>
       <ChoiceSheet
         visible={picking}
         title="Add a stretch"
         choices={library.map((s) => ({ id: s.id, title: s.name }))}
         isSelected={(stretchId) => mine.some((rs) => rs.stretchId === stretchId)}
-        onPick={(stretchId) => {
-          repo.saveRoutineStretches([{ id: newId(), routineId: id, stretchId, sortOrder: nextSortOrder(mine), seconds: null }]);
-          setPicking(false);
-        }}
+        onPick={pick}
         onDismiss={() => setPicking(false)}
         searchable
       />
@@ -113,6 +119,3 @@ export default function RoutineEditor() {
   );
 }
 
-const styles = StyleSheet.create({
-  section: { marginTop: 20 },
-});

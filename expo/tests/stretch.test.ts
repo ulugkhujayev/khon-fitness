@@ -1,7 +1,7 @@
 /** Ports of StretchDemoTest.kt, StretchRoutineStepsTest.kt and DemoClockTest.kt, plus the player and editor rules. */
 import { describe, expect, test } from 'bun:test';
 import {
-  activeRoutine, clampReps, clampStretchSeconds, DemoClock, entrySeconds, exerciseFrame, forDemoSide, guideFor, nearestStep, newStretch, playerAction,
+  activeRoutine, clampReps, clampStretchSeconds, DemoClock, entrySeconds, exerciseFrame, forDemoSide, guideFor, nearestStep, newRoutine, newStretch, playerAction,
   playerProgress, playerStatus, previewFrame, repMotion, routineOf, routineRun, routineSeconds, routineSteps, routineSummary, sideLine, stepAt, StretchDemo,
   stretchLine, stretchSessionFor, withRepsMode,
 } from '../src/domain/stretch';
@@ -202,5 +202,11 @@ describe('runs and editors', () => {
     expect(entrySeconds(entry({ seconds: 30 }), stretch({ seconds: 60 }))).toBe(30);
     expect(entrySeconds(entry(), stretch({ seconds: 60 }))).toBe(60);
     expect(entrySeconds(entry(), undefined)).toBe(45);
+  });
+
+  test('a new routine goes after the others and is active only as the first', () => {
+    expect(newRoutine('r', [])).toEqual({ id: 'r', name: 'New routine', active: true, sortOrder: 0 });
+    const routines = [{ id: 'a', name: 'A', active: true, sortOrder: 0 }, { id: 'b', name: 'B', active: false, sortOrder: 4 }];
+    expect(newRoutine('r', routines)).toEqual({ id: 'r', name: 'New routine', active: false, sortOrder: 5 });
   });
 });

@@ -110,7 +110,8 @@ reads during render and no synchronous `setState` inside effects.
     (TextButton, PrimaryButton, TintedButton, Capsule, PlusButton,
     BarCircleButton), lists (GroupedList, ListRow, FieldRow, FieldValue,
     ToggleRow, Empty, SearchEmpty for a search with no results, GroupFooter,
-    IndexBadge, IconTile, ActionRow with ACTION_ICONS for BottomActions;
+    IndexBadge, IconTile, IconButton, ActionRow with ACTION_ICONS for
+    BottomActions;
     ListRow takes a `leading` view), inputs
     (NumberField, whose steppers repeat while held
     through `useRepeatPress` and stop at `min`/`max`, NumberRow, EffortRow, TimeStepper, InlineTextField,
@@ -144,7 +145,7 @@ reads during render and no synchronous `setState` inside effects.
     clock-driven pose during it; DemoFrame shifts a whole sprite sheet inside a
     one-frame clip, so a new frame never decodes again; DemoPoster;
     `demoAssets.ts` with the literal requires; StretchPlayerView; StretchForm;
-    RoutineOrderList), `import/` (HealthIntro, DraftList, DraftSheet).
+    RoutineStretches with RoutineOrderList), `import/` (HealthIntro, DraftList, DraftSheet).
 - `src/health/`: the platform's health store behind one `HealthSource`
   (`source.android.ts` Health Connect, `source.ios.ts` HealthKit, `source.ts`
   none), `useHealthImport` (status, permission, 60 days of workouts) and
@@ -312,7 +313,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 175 tests after the program drafts; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 176 tests after the routine drafts; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

@@ -1,8 +1,8 @@
-import { GroupedList, ListRow, TextButton } from '@/components/ui';
+import { ACTION_ICONS, GroupedList, IconButton, ListRow } from '@/components/ui';
 import { RoutineStretch, Stretch } from '@/domain/types';
 import { K } from '@/theme';
 
-/** The routine's stretches in order, each with up, down and Remove (the Order group of RoutineEditorScreen). */
+/** The routine's stretches in order, each with up, down and remove as symbols (the Order group of RoutineEditorScreen). */
 export function RoutineOrderList({
   entries,
   stretches,
@@ -27,9 +27,9 @@ export function RoutineOrderList({
             last={i === entries.length - 1}
             trailing={
               <>
-                <TextButton text="↑" label={`Move ${name} up`} enabled={i > 0} onPress={() => onMove(i, -1)} />
-                <TextButton text="↓" label={`Move ${name} down`} enabled={i < entries.length - 1} onPress={() => onMove(i, 1)} />
-                <TextButton text="Remove" label={`Remove ${name}`} color={K.Red} onPress={() => onRemove(rs)} />
+                <IconButton icon={ACTION_ICONS.up} label={`Move ${name} up`} enabled={i > 0} onPress={() => onMove(i, -1)} />
+                <IconButton icon={ACTION_ICONS.down} label={`Move ${name} down`} enabled={i < entries.length - 1} onPress={() => onMove(i, 1)} />
+                <IconButton icon={ACTION_ICONS.delete} label={`Remove ${name}`} color={K.Red} onPress={() => onRemove(rs)} />
               </>
             }
           />

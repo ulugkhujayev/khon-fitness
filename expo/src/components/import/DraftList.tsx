@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 import { exerciseColor } from '@/components/plan/colors';
 import { GroupedList, GroupFooter, PrimaryButton, SectionTitle } from '@/components/ui';
-import { ImportDraft, pendingLine } from '@/domain/health';
+import { ImportDraft, importAllLabel, pendingLine } from '@/domain/health';
 import { Exercise, Modality } from '@/domain/types';
 import { K } from '@/theme';
 import { DraftRow } from './DraftRow';
@@ -54,7 +54,7 @@ export function DraftList({
         }
       />
       {ready.length > 0 ? (
-        <PrimaryButton text={all ? `Import all ${drafts.length}` : `Import ${ready.length} matched`} onPress={() => onImportAll(ready)} style={styles.action} />
+        <PrimaryButton text={importAllLabel(ready.length, drafts.length)} onPress={() => onImportAll(ready)} style={styles.action} />
       ) : null}
     </>
   );

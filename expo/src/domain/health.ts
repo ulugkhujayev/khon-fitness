@@ -237,5 +237,11 @@ export const draftStats = (d: ImportDraft) => [shortDate(draftDate(d)), ...draft
 export const draftDetail = (d: ImportDraft) =>
   [...draftParts(d, 'avg '), d.laps != null ? `${d.laps} laps` : null, `from ${originLabel(d)}`].filter((p): p is string => p != null).join(' · ');
 
+/** The import button: "Import 1 session", "Import all 3 sessions", or "Import 2 matched" when some need a pick. */
+export function importAllLabel(ready: number, total: number): string {
+  if (ready < total) return `Import ${ready} matched`;
+  return total === 1 ? 'Import 1 session' : `Import all ${total} sessions`;
+}
+
 /** Today's row: "1 new session from the band", "3 new sessions from the band". */
 export const pendingLine = (n: number) => (n === 1 ? '1 new session from the band' : `${n} new sessions from the band`);

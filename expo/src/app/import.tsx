@@ -4,7 +4,7 @@ import { DraftList } from '@/components/import/DraftList';
 import { DraftSheet } from '@/components/import/DraftSheet';
 import { HealthIntro } from '@/components/import/HealthIntro';
 import { EditorScreen } from '@/components/layout';
-import { ContentEmpty, GroupedList, GroupFooter, IconTile, ListRow, TextButton } from '@/components/ui';
+import { ActionRow, ContentEmpty, GroupedList, GroupFooter, IconTile, ListRow, SectionTitle } from '@/components/ui';
 import { defaultExercise, draftDate, ImportDraft, importDrafts } from '@/domain/health';
 import { itemFor } from '@/domain/plan';
 import { useImportData } from '@/db/hooks';
@@ -81,7 +81,15 @@ export default function ImportScreen() {
           {strength > 0 ? (
             <GroupFooter text={`${strength} strength ${strength === 1 ? 'workout' : 'workouts'} from the watch not shown: gym sessions are logged in the app.`} />
           ) : null}
-          {health.writeTestRun ? <TextButton text="Debug: write a test run" onPress={health.writeTestRun} style={styles.debug} /> : null}
+          {/* Debug builds only: a run written to the health store, to try the import without a band. */}
+          {health.writeTestRun ? (
+            <>
+              <SectionTitle text="Developer" style={styles.card} />
+              <GroupedList>
+                <ActionRow icon={{ ios: 'hammer.fill', android: 'build', web: 'build' }} title="Write a test run" color={K.Muted} last onPress={health.writeTestRun} />
+              </GroupedList>
+            </>
+          ) : null}
         </>
       )}
       <DraftSheet
@@ -102,5 +110,4 @@ export default function ImportScreen() {
 
 const styles = StyleSheet.create({
   card: { marginTop: 24 },
-  debug: { alignSelf: 'flex-start', marginTop: 32 },
 });

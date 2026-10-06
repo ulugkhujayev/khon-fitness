@@ -76,9 +76,11 @@ padded cards, per-item buttons, "Updated" lines.
 - Import (Expo app): the source on a card (a red heart tile, "Apple
   Health" or "Health Connect", "Last 60 days"); then "3 new sessions from
   the band" over two-line rows: a runner tile in the exercise's color, the
-  workout type over "Mon, Oct 5 · 32 min · 5.2 km · 141 bpm", the
-  exercise it imports as on the right, or Choose in accent; a footnote;
-  Import all. Reading, all caught up, and missing access are each a card
+  workout type with the exercise it imports as on the right of the same
+  line (Choose in accent), and "Mon, Oct 5 · 32 min · 5.2 km · 141 bpm"
+  on a line of its own; a footnote; "Import 1 session" or "Import all 3
+  sessions". Debug builds add a Developer group with a muted "Write a
+  test run" row. Reading, all caught up, and missing access are each a card
   with a symbol, a title and a line (ContentEmpty), with the one action.
 - Settings (Expo app): groups with icon tiles like iOS Settings. Backup
   (Export, Import) with a footnote on what a backup holds, or how the

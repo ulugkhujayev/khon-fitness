@@ -1,7 +1,7 @@
 /** Port of ImportDefaultTest.kt, plus the merge, interval heart rate and import rules of HealthImport.kt and importDraft. */
 import { describe, expect, test } from 'bun:test';
 import {
-  appName, defaultExercise, lapsOf, lengthInMeters, draftDetail, draftStats, HealthWorkout, importDrafts, importedIds, importedSession, intervalHeartRates,
+  appName, defaultExercise, lapsOf, lengthInMeters, draftDetail, draftStats, HealthWorkout, importAllLabel, importDrafts, importedIds, importedSession, intervalHeartRates,
   mergeOverlaps, pendingCount, pendingLine, toDraft,
 } from '../src/domain/health';
 import { Defaults, Exercise, Kind } from '../src/domain/types';
@@ -90,6 +90,7 @@ describe('import', () => {
     expect(draftStats({ ...d, distanceM: null, avgHr: null })).toBe('Mon, Oct 5 · 30 min');
     expect(draftDetail({ ...d, laps: 40 })).toBe('30 min · 5.2 km · avg 141 bpm · 40 laps · from Mi Fitness');
     expect([pendingLine(1), pendingLine(3)]).toEqual(['1 new session from the band', '3 new sessions from the band']);
+    expect([importAllLabel(1, 1), importAllLabel(3, 3), importAllLabel(2, 3)]).toEqual(['Import 1 session', 'Import all 3 sessions', 'Import 2 matched']);
     expect([appName('com.xiaomi.wearable'), appName('com.example.fitbuddy')]).toEqual(['Mi Fitness', 'Fitbuddy']);
   });
 });

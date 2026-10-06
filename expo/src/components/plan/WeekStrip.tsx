@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { longDate, parseIso, weekdayName, weekOf } from '@/domain/dates';
 import { itemFor, PlanData } from '@/domain/plan';
 import { hexAlpha, Modality } from '@/domain/types';
@@ -7,10 +7,10 @@ import { GroupedList } from '@/components/ui';
 import { itemColor } from './colors';
 
 /**
- * Monday to Sunday of this week on a group-surface card (DESIGN.md, Today): weekday letter over the day
- * number in a rounded square whose border carries the planned item's color (tinted inside for high
+ * Monday to Sunday of this week on a group-surface card (DESIGN.md, Today): each day a rounded tile with
+ * the weekday letter over the number, its border in the planned item's color (tinted inside for high
  * intensity, none for rest), past days muted, today filled in accent. Tap a day to see or change it.
- * Port of WeekStrip in TodayScreen.kt, with the dot moved onto the border.
+ * Port of WeekStrip in TodayScreen.kt, with the dot moved onto the tile's border.
  */
 export function WeekStrip({
   today,
@@ -37,16 +37,14 @@ export function WeekStrip({
             accessibilityRole="button"
             accessibilityLabel={`${longDate(date)}, ${item.name}${isToday ? ', today' : ''}`}
             accessibilityHint="Change plan"
-            style={({ pressed }) => [styles.cell, pressed && styles.pressed]}>
-            <Text style={[styles.letter, isToday && styles.todayLetter]}>{weekdayName(i + 1)[0]}</Text>
-            <View
-              style={[
-                styles.day,
-                c && { borderColor: past ? hexAlpha(c.color, 0.5) : c.color, backgroundColor: c.filled ? hexAlpha(c.color, 0.2) : 'transparent' },
-                isToday && styles.todayDay,
-              ]}>
-              <Text style={[styles.number, past && styles.past, isToday && styles.todayNumber]}>{parseIso(date).getDate()}</Text>
-            </View>
+            style={({ pressed }) => [
+              styles.tile,
+              c && { borderColor: past ? hexAlpha(c.color, 0.5) : c.color, backgroundColor: c.filled ? hexAlpha(c.color, 0.2) : 'transparent' },
+              isToday && styles.today,
+              pressed && styles.pressed,
+            ]}>
+            <Text style={[styles.letter, isToday && styles.todayText]}>{weekdayName(i + 1)[0]}</Text>
+            <Text style={[styles.number, past && styles.past, isToday && styles.todayText, isToday && styles.todayNumber]}>{parseIso(date).getDate()}</Text>
           </Pressable>
         );
       })}
@@ -55,25 +53,22 @@ export function WeekStrip({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 2, paddingVertical: 8, paddingHorizontal: 6, borderRadius: Space.groupRadius },
-  cell: { flex: 1, alignItems: 'center', borderRadius: 12, paddingVertical: 4 },
-  pressed: { backgroundColor: K.Surface2 },
-  letter: { ...Type.caption1, fontFamily: Font.medium, color: K.Muted },
-  todayLetter: { color: K.Accent },
-  // Not in Theme.kt: a 38 pt square with continuous corners (a squircle on iOS) and a 2 pt border.
-  day: {
-    marginTop: 4,
-    width: 38,
-    height: 38,
-    borderRadius: 11,
+  row: { flexDirection: 'row', gap: 6, padding: 8, borderRadius: Space.groupRadius },
+  // Not in Theme.kt: a tile with continuous corners (a squircle on iOS) and a 2 pt border in the plan's color.
+  tile: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 12,
     borderCurve: 'continuous',
     borderWidth: 2,
     borderColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  todayDay: { backgroundColor: K.Accent },
-  number: { ...Type.body, fontFamily: Font.medium, ...tabular },
+  today: { backgroundColor: K.Accent },
+  pressed: { opacity: 0.6 },
+  letter: { ...Type.caption1, fontFamily: Font.medium, color: K.Muted },
+  number: { ...Type.body, fontFamily: Font.medium, ...tabular, marginTop: 2 },
   past: { color: K.Muted },
-  todayNumber: { fontFamily: Font.bold, color: K.AccentInk },
+  todayText: { color: K.AccentInk },
+  todayNumber: { fontFamily: Font.bold },
 });

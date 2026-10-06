@@ -73,6 +73,11 @@ padded cards, per-item buttons, "Updated" lines.
   the chosen one in a white ring. The modality list shows how many
   exercises each groups, a footnote on what modalities are for, and the
   archived ones in their own group when shown.
+- Settings (Expo app): groups with icon tiles like iOS Settings. Backup
+  (Export, Import) with a footnote on what a backup holds, or how the
+  last export or import went (red on an error); App (Version, Check for
+  update or Restart to update) with the update's state; Reset to built-in
+  data in red on its own, with a footnote on what it deletes.
 - Week plan (Expo app): the week at a glance as the section title ("5
   training days · 2 rest days"), then one row per weekday leading with an
   icon tile of what it holds in its color (the dumbbell, runner and moon

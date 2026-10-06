@@ -117,7 +117,8 @@ reads during render and no synchronous `setState` inside effects.
     LineChart (`format` for m:ss), ProgressBar, SymbolCircle, Dot, Check.
     Pick lists use `ChoiceSheet`; do not build another sheet of choice rows.
   - `layout/`: NavBar, BackButton, EditorScreen (empty = loading frame),
-    TabScreen (fixed large title and bar items, scrolling content), FloatingTabBar, `useLeaveWhenGone` (leave a screen whose record
+    TabScreen (scrolling content under LargeTitleHeader, a large title that
+    folds on scroll with Reanimated), FloatingTabBar, `useLeaveWhenGone` (leave a screen whose record
     is gone).
   - Feature folders: `plan/` (WeekStrip, PlanItemSheet, DayPlanSheet for
     one date, `colors.ts`), `today/` (TodayCard, BodyweightSection,

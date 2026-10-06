@@ -1,18 +1,18 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ScreenTitle } from '@/components/ui';
 import { K, Space } from '@/theme';
+import { LARGE_TITLE_HEIGHT, LargeTitleHeader } from './LargeTitleHeader';
 import { TAB_BAR_HEIGHT } from './TabBar';
 
 /** Room between the end of the content and the floating tab bar, so the last row scrolls clear of it. */
 const BAR_CLEARANCE = 32;
 
 /**
- * A tab screen: the large title with its bar items stays put at the top (a hairline under it once the
- * content scrolls beneath), the content scrolls with 16 pt margins and clears the floating tab bar and
- * the keyboard.
+ * A tab screen: the large title with its bar items stays at the top and folds as the content scrolls under
+ * it; the content scrolls with 16 pt margins and clears the floating tab bar and the keyboard.
  */
 export function TabScreen({
   title,
@@ -27,31 +27,33 @@ export function TabScreen({
   scrollEnabled?: boolean;
 }) {
   const insets = useSafeAreaInsets();
-  const [scrolled, setScrolled] = useState(false);
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    scrollY.set(e.contentOffset.y);
+  });
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={[styles.header, scrolled && styles.scrolled]}>
-        <ScreenTitle text={title} trailing={trailing} />
+      {/* The header sits over this frame, not the safe area's padding, so its top is the inset's edge. */}
+      <View style={styles.frame}>
+        <KeyboardAwareScrollView
+          bottomOffset={24}
+          scrollEnabled={scrollEnabled}
+          // The bar floats over the screen's bottom edge, above the home indicator, so the inset counts too.
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + TAB_BAR_HEIGHT + BAR_CLEARANCE }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          onScroll={onScroll}>
+          {children}
+        </KeyboardAwareScrollView>
+        <LargeTitleHeader title={title} trailing={trailing} scrollY={scrollY} />
       </View>
-      <KeyboardAwareScrollView
-        bottomOffset={24}
-        scrollEnabled={scrollEnabled}
-        // The bar floats over the screen's bottom edge, above the home indicator, so the inset counts too.
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + TAB_BAR_HEIGHT + BAR_CLEARANCE }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        // React skips the render while the flag stays the same, so this costs nothing per frame.
-        onScroll={(e) => setScrolled(e.nativeEvent.contentOffset.y > 0)}>
-        {children}
-      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: K.Bg },
-  // The hairline is always there, clear until the content scrolls, so the header never changes height.
-  header: { paddingHorizontal: Space.margin, backgroundColor: K.Bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'transparent' },
-  scrolled: { borderBottomColor: K.Divider },
-  content: { paddingHorizontal: Space.margin, paddingTop: 4 },
+  frame: { flex: 1 },
+  content: { paddingHorizontal: Space.margin, paddingTop: LARGE_TITLE_HEIGHT + 4 },
 });

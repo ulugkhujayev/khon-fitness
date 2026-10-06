@@ -24,9 +24,11 @@ padded cards, per-item buttons, "Updated" lines.
   text, the title centered in Headline, the primary action trailing as a
   34 pt accent capsule ("Done") or a round symbol button ("+").
 - Large title: 34 bold on the leading edge at the top of a tab screen;
-  bar items trailing as round symbol buttons. It stays fixed while the
-  content scrolls under it, with a hairline under it once scrolled (Expo
-  app; the Kotlin title scrolls away).
+  bar items trailing as round symbol buttons. It stays at the top and
+  folds as the content scrolls (Expo app; the Kotlin title scrolls away):
+  over the first 12 pt the bar's bottom edge rises with the content (60 pt
+  to 48), over the first 40 pt the title shrinks toward its leading edge
+  to about 20 pt, and a hairline fades in once content passes under it.
 - Tab bar: a floating capsule 60 pt tall, 24 pt from the sides, 10 pt above
   the bottom edge, group surface with a 1 pt hairline and a soft shadow;
   three items with filled symbols and 11 pt labels; the selected item sits

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { TextButton } from '@/components/ui';
 import { DemoClock, exerciseFrame, forDemoSide, guideFor, nearestStep, previewFrame, stepAt, StretchDemo } from '@/domain/stretch';
 import { K, Type } from '@/theme';
 import { DemoView } from './demoAssets';
 import { DemoFrame } from './DemoFrame';
+import { StepTabs } from './StepTabs';
 
 /**
  * A lesson before Start, a clock-driven demonstration during the stretch (StretchDemonstration.kt).
@@ -110,25 +111,14 @@ function Demonstration({
         <TextButton text="Change view" label={`Change camera angle. View ${view + 1} of 2`} color={K.White} onPress={() => setView(view === 0 ? 1 : 0)} />
       </View>
       {preview ? (
-        <View style={styles.tabs} accessibilityRole="tablist">
-          {guide.steps.map((step, i) => (
-            <Pressable
-              key={step.title}
-              onPress={() => {
-                setPlaying(false);
-                setManualFrame(step.frame);
-              }}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: selected === i }}
-              accessibilityLabel={`Step ${i + 1}: ${step.title}`}
-              style={styles.tab}>
-              <Text style={[styles.tabText, { color: selected === i ? K.Accent : K.White }]} numberOfLines={2}>
-                {`${i + 1}. ${step.title}`}
-              </Text>
-              <View style={[styles.underline, { backgroundColor: selected === i ? K.Accent : K.OnPhaseLine }]} />
-            </Pressable>
-          ))}
-        </View>
+        <StepTabs
+          steps={guide.steps}
+          selected={selected}
+          onSelect={(i) => {
+            setPlaying(false);
+            setManualFrame(guide.steps[i].frame);
+          }}
+        />
       ) : null}
       <Text style={styles.instruction}>{instruction}</Text>
     </View>
@@ -138,11 +128,6 @@ function Demonstration({
 const styles = StyleSheet.create({
   none: { ...Type.body, color: K.Muted },
   controls: { flexDirection: 'row', justifyContent: 'space-between' },
-  tabs: { flexDirection: 'row' },
-  tab: { flex: 1, minHeight: 48, justifyContent: 'space-between' },
-  // Two lines reserved, so tabs with short titles line up with long ones.
-  tabText: { ...Type.footnote, minHeight: 36, textAlign: 'center', paddingHorizontal: 4, marginVertical: 8 },
-  underline: { height: 2 },
   // Three lines reserved, so the controls below never jump between steps.
   instruction: { ...Type.body, color: K.OnPhaseText, minHeight: 66, marginTop: 12, marginBottom: 8 },
 });

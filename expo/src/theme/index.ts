@@ -39,8 +39,6 @@ export const K = {
   OnPhaseDim: 'rgba(255,255,255,0.6)',
   /** The step instruction in the stretch player and editor (white at 90 percent). */
   OnPhaseText: 'rgba(255,255,255,0.9)',
-  /** Underline of an unselected demonstration step (white at 20 percent). */
-  OnPhaseLine: 'rgba(255,255,255,0.2)',
   /** Studio background of the stretch demonstration renders (assets/stretch_demos/README.md). */
   DemoBackdrop: '#F5F5F5',
   /** Text on the white primary button of the stretch player. */

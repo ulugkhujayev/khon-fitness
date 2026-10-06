@@ -141,7 +141,7 @@ reads during render and no synchronous `setState` inside effects.
     `useDayDrag` long-press drag, CalendarDay, DayDetail, BodyweightHistory,
     ExerciseProgress, MuscleVolumeList, CardioTrendsSection), `cardio/`
     (TimerView, CardioForm, CardioFieldRows, IntervalRows, ComputedRow),
-    `stretch/` (StretchDemonstration: the lesson before Start and the
+    `stretch/` (StretchDemonstration with StepTabs: the lesson before Start and the
     clock-driven pose during it; DemoFrame shifts a whole sprite sheet inside a
     one-frame clip, so a new frame never decodes again; DemoPoster;
     `demoAssets.ts` with the literal requires; StretchPlayerView; StretchForm;

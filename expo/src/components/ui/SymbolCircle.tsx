@@ -2,9 +2,9 @@ import { StyleSheet, View } from 'react-native';
 import { SymbolView, SymbolViewProps } from 'expo-symbols';
 import { hexAlpha } from '@/domain/types';
 
-/** Size of the circle and its symbol (not in DESIGN.md; the Today card's leading icon, a 44 pt row). */
-const SIZE = 44;
-const SYMBOL = 22;
+/** Size of the circle and its symbol (DESIGN.md, Today: the card's leading icon). */
+const SIZE = 40;
+const SYMBOL = 20;
 
 /** A symbol in its color on a soft circle of the same color (20 percent), e.g. a workout's kind. Decorative: the text next to it names the thing. */
 export function SymbolCircle({ icon, color }: { icon: SymbolViewProps['name']; color: string }) {

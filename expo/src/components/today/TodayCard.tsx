@@ -65,7 +65,7 @@ export function TodayCard({
             <Text style={styles.count} importantForAccessibility="no" accessibilityElementsHidden>{`${progress.done} / ${progress.total}`}</Text>
           </View>
         ) : null}
-        <PrimaryButton text="Resume" onPress={() => onResume(unfinished)} style={styles.button} />
+        <PrimaryButton text="Resume" onPress={() => onResume(unfinished)} compact style={styles.button} />
       </View>
     );
   }
@@ -82,7 +82,7 @@ export function TodayCard({
   return (
     <View style={styles.card}>
       <Head icon={item.isRest ? ICONS.rest : item.itemType === ItemType.PROGRAM ? ICONS.program : ICONS.cardio} color={kind?.color ?? K.Muted} title={item.name} line={line} />
-      {item.isRest ? null : <PrimaryButton text="Start" onPress={onStart} style={styles.button} />}
+      {item.isRest ? null : <PrimaryButton text="Start" onPress={onStart} compact style={styles.button} />}
     </View>
   );
 }
@@ -118,14 +118,14 @@ function Head({
 }
 
 const styles = StyleSheet.create({
-  card: { marginTop: 24, backgroundColor: K.Surface, borderRadius: Space.groupRadius, paddingHorizontal: Space.margin, paddingVertical: 18 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  card: { marginTop: 24, backgroundColor: K.Surface, borderRadius: Space.groupRadius, paddingHorizontal: Space.margin, paddingVertical: 14 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   text: { flex: 1 },
-  line: { ...Type.subheadline, color: K.Muted, marginTop: 2 },
+  line: { ...Type.subheadline, color: K.Muted, marginTop: 1 },
   green: { color: K.Green },
-  progress: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 },
+  progress: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
   bar: { flex: 1 },
   count: { ...Type.footnote, ...tabular, color: K.Muted },
-  button: { marginTop: 18 },
+  button: { marginTop: 14 },
   again: { alignSelf: 'flex-start', marginTop: 2 },
 });

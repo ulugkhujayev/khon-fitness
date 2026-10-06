@@ -1,5 +1,5 @@
-import { StyleSheet, ViewStyle } from 'react-native';
-import { K, Space } from '@/theme';
+import { ViewStyle } from 'react-native';
+import { K } from '@/theme';
 import { PrimaryButton } from './PrimaryButton';
 
 /**
@@ -7,10 +7,6 @@ import { PrimaryButton } from './PrimaryButton';
  * tinted (HIG), accent text on accent at 20 percent and 44 pt tall, so the screen's one primary button
  * keeps the lead.
  */
-export function TintedButton({ style, ...props }: { text: string; enabled?: boolean; onPress: () => void; label?: string; style?: ViewStyle }) {
-  return <PrimaryButton {...props} color={K.AccentSoft} textColor={K.Accent} style={StyleSheet.flatten([styles.button, style])} />;
+export function TintedButton(props: { text: string; enabled?: boolean; onPress: () => void; label?: string; style?: ViewStyle }) {
+  return <PrimaryButton {...props} color={K.AccentSoft} textColor={K.Accent} compact />;
 }
-
-const styles = StyleSheet.create({
-  button: { height: Space.tapMin, borderRadius: Space.tapMin / 2 },
-});

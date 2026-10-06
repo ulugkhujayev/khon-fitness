@@ -95,7 +95,8 @@ padded cards, per-item buttons, "Updated" lines.
 
 ## Buttons
 
-- One primary button per screen at most: 52 px tall, full width, accent
+- One primary button per screen at most: 52 px tall (44 on Today's
+  card, Expo app), full width, accent
   fill, dark text. Start, Finish, Done.
 - All other actions are text buttons, 44 px tap height, no fill, no
   border. Exception (Expo app): Today's bodyweight Add is a 44 px
@@ -124,12 +125,14 @@ Two lines, 88 px total, hairline between rows.
   with dark text. One 8 px dot under each number: modality color
   (accent for strength), filled for high intensity, ring for low or
   moderate, none for rest.
-- 24 px gap. The item on a group-surface card: a 44 px circle with the
+- 24 px gap. The item on a group-surface card (14 px padding top and
+  bottom): a 40 px circle with the
   kind's symbol in its color on that color at 20 percent (dumbbell in
   accent, a runner in the modality color, a moon for rest, a green check
   once done), then the name 22/700 over its line in muted 15. While a
   session runs the line is green "In progress · 34 min" and a program
-  adds the green progress bar with "12 / 42"; Resume or Start under it.
+  adds the green progress bar with "12 / 42"; Resume or Start under it,
+  44 px tall (the compact primary button) to keep the card small.
   Expo app; the Kotlin card has no symbol or progress.
 - 24 px gap. "Bodyweight" 18 with the latest value 22/600 on the right,
   a 190 px line chart of the last 30 days with a soft area fill (accent

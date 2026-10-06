@@ -24,7 +24,7 @@ export function BlockExerciseGroup({
   const letter = String.fromCharCode(65 + be.slot);
   return (
     <View>
-      <SectionTitle text={letter} style={styles.title} trailing={<TextButton text="Remove" color={K.Red} label={`Remove ${letter}`} onPress={onRemove} />} />
+      <SectionTitle text={`Exercise ${letter}`} style={styles.title} trailing={<TextButton text="Remove" color={K.Red} label={`Remove ${letter}`} onPress={onRemove} />} />
       <GroupedList>
         <FieldRow label="Exercise" divider={false} onPress={onChoose}>
           <FieldValue text={exerciseName ?? 'Choose'} />

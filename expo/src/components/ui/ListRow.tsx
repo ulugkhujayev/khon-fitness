@@ -19,6 +19,7 @@ export function ListRow({
   trailing,
   selected,
   elevated = false,
+  leading,
   onPress,
 }: {
   title: string;
@@ -36,6 +37,8 @@ export function ListRow({
   selected?: boolean;
   /** On the elevated fill inside a sheet. */
   elevated?: boolean;
+  /** In place of the dot, e.g. a block's IndexBadge. */
+  leading?: ReactNode;
   onPress?: () => void;
 }) {
   const role = onPress ? (selected !== undefined ? 'radio' : 'button') : undefined;
@@ -46,7 +49,8 @@ export function ListRow({
       accessibilityRole={role}
       accessibilityState={selected !== undefined ? { selected } : undefined}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: elevated ? K.Surface3 : K.Surface2 }]}>
-      {dot ? (
+      {leading ? <View style={styles.leading}>{leading}</View> : null}
+      {dot && !leading ? (
         <View style={styles.dotColumn}>
           <Dot color={dot} filled={dotFilled} />
         </View>
@@ -70,6 +74,7 @@ export function ListRow({
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16 },
   dotColumn: { width: 24 },
+  leading: { marginRight: 12 },
   inner: { flex: 1, flexDirection: 'row', alignItems: 'center', minHeight: Space.rowMin, paddingRight: 16 },
   separator: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: K.Divider },
   title: { ...Type.body, flex: 1, paddingVertical: 12 },

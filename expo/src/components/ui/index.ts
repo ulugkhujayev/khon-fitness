@@ -17,6 +17,8 @@ export { FieldRow } from './FieldRow';
 export { FieldValue } from './FieldValue';
 export { FigureField } from './FigureField';
 export { GroupedList } from './GroupedList';
+export { GroupFooter } from './GroupFooter';
+export { IndexBadge } from './IndexBadge';
 export { InlineTextField } from './InlineTextField';
 export { LineChart } from './LineChart';
 export { ListRow } from './ListRow';

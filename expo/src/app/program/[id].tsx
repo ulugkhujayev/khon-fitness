@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { EditorScreen } from '@/components/layout';
-import { BottomActions, Capsule, ConfirmSheet, Empty, FieldRow, GroupedList, InlineTextField, ListRow, PlusButton, SectionTitle, TextButton, ToggleRow } from '@/components/ui';
+import { Capsule, ConfirmSheet, Empty, FieldRow, GroupedList, IndexBadge, InlineTextField, ListRow, SectionTitle, TintedButton, ToggleRow } from '@/components/ui';
 import { blockSummary, nextSortOrder } from '@/domain/editors';
 import { sets } from '@/domain/format';
 import { useProgram } from '@/db/hooks';
@@ -10,7 +10,7 @@ import { newId } from '@/db/id';
 import * as repo from '@/db/repository';
 import { K } from '@/theme';
 
-/** Program editor (ProgramEditorScreen in Editors.kt): name, active, the blocks in order, delete. */
+/** Program editor (ProgramEditorScreen in Editors.kt): name, active, the numbered blocks in order with Add block, Delete. */
 export default function ProgramEditor() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data } = useProgram(id);
@@ -42,13 +42,14 @@ export default function ProgramEditor() {
         <ToggleRow label="Active" value={program.active} onChange={(on) => on && repo.setActiveProgram(id)} />
       </GroupedList>
 
-      <SectionTitle text="Blocks" style={styles.blocks} trailing={<PlusButton label="Add block" onPress={addBlock} />} />
+      <SectionTitle text="Blocks" style={styles.blocks} />
       <GroupedList>
         {data.blocks.map((b, i) => {
           const summary = blockSummary(b.id, data.blockExercises, data.exercises);
           return (
             <ListRow
               key={b.id}
+              leading={<IndexBadge index={i} />}
               title={summary.title || 'Empty block'}
               value={sets(summary.sets)}
               last={i === data.blocks.length - 1}
@@ -58,12 +59,10 @@ export default function ProgramEditor() {
         })}
         {data.blocks.length === 0 ? <Empty text="No blocks yet" /> : null}
       </GroupedList>
+      <TintedButton text="Add block" onPress={addBlock} style={styles.add} />
 
-      {data.programCount > 1 ? (
-        <BottomActions>
-          <TextButton text="Delete program" color={K.Red} onPress={() => setConfirmDelete(true)} />
-        </BottomActions>
-      ) : null}
+      {/* The last program cannot go: Today always has one to plan from. */}
+      {data.programCount > 1 ? <TintedButton text="Delete program" color={K.Red} onPress={() => setConfirmDelete(true)} style={styles.delete} /> : null}
 
       <ConfirmSheet
         visible={confirmDelete}
@@ -83,4 +82,6 @@ export default function ProgramEditor() {
 
 const styles = StyleSheet.create({
   blocks: { marginTop: 24 },
+  add: { marginTop: 12 },
+  delete: { marginTop: 32 },
 });

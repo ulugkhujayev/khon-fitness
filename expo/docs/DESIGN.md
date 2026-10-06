@@ -83,6 +83,9 @@ padded cards, per-item buttons, "Updated" lines.
   Open, no Use, no Edit. Destructive and secondary actions live in the
   editor screen, at the bottom, as text buttons.
 - Add is a single "+" text button at the right of the section title.
+  Expo app: a program's blocks are numbered like a session's (the index
+  in a 24 px accent-tinted circle) and add with a tinted "Add block"
+  button under the list.
 - No dates on list rows unless the row IS a date (history).
 - Empty state: one muted line, no illustration. A search that finds
   nothing, on a screen or in a pick sheet, shows the system's no-results
@@ -105,6 +108,11 @@ padded cards, per-item buttons, "Updated" lines.
   release (Expo app).
 - Bottom of the editor: Archive, Merge into…, Delete as text buttons,
   Delete in red, disabled with a one-line reason when not allowed.
+  Expo app, program and block editors: full-width 44 px tinted buttons
+  instead: Add block, Add exercise / Add second exercise in accent; Move
+  up and Move down side by side; Delete program / Delete block in red,
+  each asking first. The block's Superset toggle has a muted footnote
+  under its group saying what it does.
 
 ## Buttons
 

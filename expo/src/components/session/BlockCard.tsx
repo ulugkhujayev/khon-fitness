@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Check, Disclosure } from '@/components/ui';
+import { Check, Disclosure, IndexBadge } from '@/components/ui';
 import { sets } from '@/domain/format';
 import { Font, K, Space, tabular, Type } from '@/theme';
 
@@ -40,9 +40,7 @@ export function BlockCard({
         accessibilityState={{ expanded: open }}
         accessibilityLabel={`Block ${index + 1}, ${title}, ${doneSets} of ${sets(setCount)} done${done ? ', block done' : ''}`}
         style={({ pressed }) => [styles.header, pressed && styles.pressed]}>
-        <View style={styles.number}>
-          <Text style={styles.numberText}>{index + 1}</Text>
-        </View>
+        <IndexBadge index={index} />
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.count}>{`${doneSets} / ${setCount}`}</Text>
         <View style={styles.state}>
@@ -59,8 +57,6 @@ const styles = StyleSheet.create({
   next: { marginTop: 10 },
   header: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingLeft: 16, paddingRight: 12 },
   pressed: { backgroundColor: K.Surface2 },
-  number: { width: 24, height: 24, borderRadius: 12, backgroundColor: K.AccentSoft, alignItems: 'center', justifyContent: 'center' },
-  numberText: { ...Type.footnote, fontFamily: Font.bold, color: K.Accent },
   title: { ...Type.body, fontFamily: Font.semibold, flex: 1, paddingHorizontal: 10, paddingVertical: 12 },
   count: { ...Type.subheadline, ...tabular, color: K.Muted },
   state: { marginLeft: 10, minWidth: 18, alignItems: 'center' },

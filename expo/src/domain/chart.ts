@@ -62,3 +62,15 @@ export function dateLabelIndices(n: number, plotWidth: number): number[] {
   }
   return out;
 }
+
+/** Advance of Inter Medium glyphs in em: digits and most letters about 0.62, a dot or colon about 0.3. */
+const NARROW = new Set(['.', ':', ',', ' ']);
+
+/**
+ * Width the value axis needs: its widest label at `fontSize`, estimated from glyph advances because an SVG
+ * label cannot be measured before it draws. The axis then hugs its labels instead of a fixed margin.
+ */
+export function axisWidth(labels: string[], fontSize: number): number {
+  const width = (s: string) => [...s].reduce((w, ch) => w + (NARROW.has(ch) ? 0.3 : 0.62), 0) * fontSize;
+  return Math.ceil(Math.max(0, ...labels.map(width)));
+}

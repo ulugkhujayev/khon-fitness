@@ -208,4 +208,6 @@ left, a marker on every point, a value label on every point when there
 are seven or fewer (else on the last and the highest), the last point
 filled in accent with its unit, and dates along the bottom. A line
 without markers and labels is a defect. Axis and date labels 12/500 in
-muted; value labels 12/500 muted, the last one 13/700 in white.
+muted; value labels 12/500 muted, the last one 13/700 in white. The value
+axis is as wide as its widest label plus 8 px, the right inset 8 px, so
+the chart sits even between the screen margins.

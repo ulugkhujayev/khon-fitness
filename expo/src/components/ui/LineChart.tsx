@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
-import { ChartPoint, dateLabelIndices, scaleFor, valueLabelIndices } from '@/domain/chart';
+import { axisWidth, ChartPoint, dateLabelIndices, scaleFor, valueLabelIndices } from '@/domain/chart';
 import { monthDay } from '@/domain/dates';
 import { fmt } from '@/domain/format';
 import { Font, K, Type } from '@/theme';
 
-/** Plot insets: room for the value axis on the left, labels above points and dates below (LineChart.kt). */
-const PAD = { l: 40, r: 14, t: 22, b: 24 };
+// Insets: labels above points and dates below; the right one just clears the last marker. The left one is
+// the value axis, sized to its labels (axisWidth) plus AXIS_GAP, so the chart sits even in its margins.
+const PAD = { r: 8, t: 22, b: 24 };
+const AXIS_GAP = 8;
 // Axis and date labels in secondary label at 12: tertiary at 11 was too faint to read on black.
 const TICK = { fill: K.Muted, fontSize: Type.caption1.fontSize, fontFamily: Font.medium };
 
@@ -63,12 +65,14 @@ function Plot({
   label: (v: number, decimals?: number) => string;
 }) {
   const n = points.length;
-  const plotW = width - PAD.l - PAD.r;
-  const plotH = height - PAD.t - PAD.b;
   const values = points.map((p) => p.value);
   const { yMin, yMax, step, ticks } = scaleFor(values);
+  const tickText = ticks.map((v) => label(v, step < 1 ? 1 : 0));
+  const left = axisWidth(tickText, TICK.fontSize) + AXIS_GAP;
+  const plotW = width - left - PAD.r;
+  const plotH = height - PAD.t - PAD.b;
   const yFor = (v: number) => PAD.t + ((yMax - v) * plotH) / (yMax - yMin);
-  const xs = points.map((_, i) => (n === 1 ? PAD.l + plotW / 2 : PAD.l + (i * plotW) / (n - 1)));
+  const xs = points.map((_, i) => (n === 1 ? left + plotW / 2 : left + (i * plotW) / (n - 1)));
   const ys = values.map(yFor);
   const line = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x},${ys[i]}`).join(' ');
   const area = `${line} L${xs[n - 1]},${PAD.t + plotH} L${xs[0]},${PAD.t + plotH} Z`;
@@ -80,11 +84,11 @@ function Plot({
   return (
     <Svg width={width} height={height}>
       {ticks.map((v) => (
-        <Line key={`g${v}`} x1={PAD.l} x2={width - PAD.r} y1={yFor(v)} y2={yFor(v)} stroke={K.Divider} strokeWidth={1} strokeDasharray="6 8" />
+        <Line key={`g${v}`} x1={left} x2={width - PAD.r} y1={yFor(v)} y2={yFor(v)} stroke={K.Divider} strokeWidth={1} strokeDasharray="6 8" />
       ))}
-      {ticks.map((v) => (
-        <SvgText key={`t${v}`} x={PAD.l - 8} y={yFor(v) + 4} textAnchor="end" {...TICK}>
-          {label(v, step < 1 ? 1 : 0)}
+      {ticks.map((v, i) => (
+        <SvgText key={`t${v}`} x={left - AXIS_GAP} y={yFor(v) + 4} textAnchor="end" {...TICK}>
+          {tickText[i]}
         </SvgText>
       ))}
       <Path d={area} fill={K.Accent} fillOpacity={0.13} />

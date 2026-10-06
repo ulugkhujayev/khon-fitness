@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { dateLabelIndices, niceStep, scaleFor, valueLabelIndices } from '../src/domain/chart';
+import { axisWidth, dateLabelIndices, niceStep, scaleFor, valueLabelIndices } from '../src/domain/chart';
 import { longDate, monthDay, monthGrid, monthStart, monthTitle, shortDate, weekdayName, weekOf } from '../src/domain/dates';
 import {
   asCardio, asStrength, blockSummary, filterLibrary, freeSlot, moveInOrder, newExercise, nextSortOrder, searchByName, toggleIn, withIntervals,
@@ -127,5 +127,18 @@ describe('date labels', () => {
     expect(oct.slice(-2)).toEqual(['2026-10-31', null]);
     // March 2026 holds the DST switch in most zones; every day still appears once.
     expect(new Set(monthGrid('2026-03-10').filter(Boolean)).size).toBe(31);
+  });
+});
+
+describe('value axis width', () => {
+  test('hugs the widest label', () => {
+    expect(axisWidth(['77', '78', '79', '80', '81'], 12)).toBe(15);
+    expect(axisWidth(['80', '80.5', '81'], 12)).toBe(26);
+    expect(axisWidth(['5:00', '5:30'], 12)).toBe(26);
+    expect(axisWidth(['100', '120'], 12)).toBeGreaterThan(axisWidth(['80'], 12));
+  });
+
+  test('no labels, no width', () => {
+    expect(axisWidth([], 12)).toBe(0);
   });
 });

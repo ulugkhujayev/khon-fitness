@@ -187,7 +187,7 @@ reads during render and no synchronous `setState` inside effects.
   trends), `timer.ts` (TimerState, snapshot, CueGate, cue and alert rules,
   timer screen text), `cardio.ts` (form fields, values, pace, save patch),
   `editors.ts` (block/exercise editor rules, library filter, preset colors),
-  `chart.ts` (chart scale and label picks), `stretch.ts` (the guides in
+  `chart.ts` (chart scale, label picks and the value axis width), `stretch.ts` (the guides in
   `stretchGuides.json`, preview and exercise frames, `DemoClock`, routine
   steps and summary, player text, when a run counts, editor limits),
   `window.ts` (`EatingWindowRules`, the Today summary, the 28-day strip, hour
@@ -296,7 +296,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 164 tests after the Today card; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 166 tests after the chart axis; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

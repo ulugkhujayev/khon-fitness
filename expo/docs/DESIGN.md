@@ -87,6 +87,11 @@ padded cards, per-item buttons, "Updated" lines.
   in a 24 px accent-tinted circle) and add with a tinted "Add block"
   button under the list.
 - No dates on list rows unless the row IS a date (history).
+- Rows that open a part of the app (Programs tab: Exercises, Stretching,
+  Modalities, Week plan, Settings) lead with a 30 px icon tile like iOS
+  Settings: a white symbol on a rounded square (radius 7, continuous) of
+  its color, grouped under section titles (Library, Plan; Settings on
+  its own). Expo app.
 - Empty state: one muted line, no illustration. A search that finds
   nothing, on a screen or in a pick sheet, shows the system's no-results
   view in the list's card instead (Expo app): a 32 px magnifying glass in

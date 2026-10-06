@@ -9,7 +9,7 @@ import { K, Space, tabular, Type } from '@/theme';
 const SPOKEN = { Add: 'Add bodyweight', Update: "Update today's bodyweight", Saved: "Today's bodyweight is saved" } as const;
 
 /**
- * Today's bodyweight entry on its own card, apart from the chart above: the picked value as a big figure
+ * Today's bodyweight entry on its own card, under the statistics card: the picked value as a big figure
  * (tap to type), its change since the last day weighed, a ruler to drag, and a tinted Add, Update or
  * Saved. The ruler starts at the latest entry and stays on the saved value after a save.
  */
@@ -29,7 +29,7 @@ export function BodyweightEntry({ today, bodyweights, onSave }: { today: string;
 }
 
 const styles = StyleSheet.create({
-  card: { marginTop: 24, paddingTop: 20, paddingBottom: Space.margin, paddingHorizontal: Space.margin },
+  card: { marginTop: 12, paddingTop: 20, paddingBottom: Space.margin, paddingHorizontal: Space.margin },
   change: { ...Type.subheadline, ...tabular, color: K.Muted, textAlign: 'center', marginTop: 2 },
   // The ruler runs to the card's edges and fades into it.
   ruler: { marginTop: 16, marginHorizontal: -Space.margin },

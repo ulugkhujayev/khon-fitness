@@ -1,6 +1,6 @@
 /** Today's bodyweight entry: the ruler math and the rules around Add. */
 import { describe, expect, test } from 'bun:test';
-import { BODYWEIGHT_RULER, changeSince, DEFAULT_KG, entryAction, startKg } from '../src/domain/bodyweight';
+import { BODYWEIGHT_RULER, changeSince, DEFAULT_KG, entryAction, periodStats, PERIODS, signedKg, startKg } from '../src/domain/bodyweight';
 import { offsetOf, rulerInset, rulerSegments, tickCount, tickIndex, tickKind, tickValue, valueAt } from '../src/domain/ruler';
 
 const r = BODYWEIGHT_RULER;
@@ -86,5 +86,43 @@ describe('bodyweight entry', () => {
     expect(entryAction(withToday, today, 80.1)).toEqual({ text: 'Saved', enabled: false });
     expect(entryAction(withToday, today, 80.2)).toEqual({ text: 'Update', enabled: true });
     expect(entryAction(weights, today, 0)).toEqual({ text: 'Add', enabled: false });
+  });
+});
+
+describe('bodyweight stats', () => {
+  const weights = [
+    { date: '2026-06-01', kg: 84 },
+    { date: '2026-09-10', kg: 82.4 },
+    { date: '2026-09-30', kg: 81.9 },
+    { date: '2026-10-02', kg: 80.2 },
+    { date: '2026-10-06', kg: 80.7 },
+  ];
+  const days = (label: string) => PERIODS.find((p) => p.label === label)?.days ?? 0;
+
+  test('a period ends today and counts today as its last day', () => {
+    expect(periodStats(weights, today, days('1W')).points.map((b) => b.date)).toEqual(['2026-09-30', '2026-10-02', '2026-10-06']);
+    expect(periodStats(weights, '2026-10-05', days('1W')).points.map((b) => b.date)).toEqual(['2026-09-30', '2026-10-02']);
+  });
+
+  test('change runs from the first entry of the period to the last', () => {
+    expect(periodStats(weights, today, days('1W')).change).toBe(-1.2);
+    expect(periodStats(weights, today, days('1M')).change).toBe(-1.7);
+    expect(periodStats(weights, today, days('1Y')).change).toBe(-3.3);
+  });
+
+  test('lowest and highest over the period', () => {
+    const month = periodStats(weights, today, days('1M'));
+    expect([month.lowest, month.highest]).toEqual([80.2, 82.4]);
+  });
+
+  test('no change below two entries, nothing without entries', () => {
+    expect(periodStats([{ date: today, kg: 80 }], today, 7)).toEqual({ points: [{ date: today, kg: 80 }], change: null, lowest: 80, highest: 80 });
+    expect(periodStats([{ date: '2026-08-01', kg: 80 }], today, 7)).toEqual({ points: [], change: null, lowest: null, highest: null });
+  });
+
+  test('signed kilograms', () => {
+    expect(signedKg(0.30000000000000004)).toBe('+0.3 kg');
+    expect(signedKg(-1.2)).toBe('−1.2 kg');
+    expect(signedKg(0.04)).toBe('0 kg');
   });
 });

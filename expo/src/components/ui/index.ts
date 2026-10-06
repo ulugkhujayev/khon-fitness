@@ -30,6 +30,7 @@ export { ScreenTitle } from './ScreenTitle';
 export { SearchField } from './SearchField';
 export { SectionTitle } from './SectionTitle';
 export { Segmented } from './Segmented';
+export { StatRow } from './StatRow';
 export { Sheet } from './Sheet';
 export { SheetGroupTitle } from './SheetGroupTitle';
 export { TextButton } from './TextButton';

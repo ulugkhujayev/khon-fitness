@@ -125,11 +125,16 @@ Two lines, 88 px total, hairline between rows.
   (accent for strength), filled for high intensity, ring for low or
   moderate, none for rest.
 - 24 px gap. Item name 30/700, preview 15 muted, Start 56 px.
-- 24 px gap. "Bodyweight" 18 with the latest value 22/600 on the right,
-  a 72 px sparkline with a soft area fill (accent at 20 percent), then
-  24 px gap and the entry on its own group-surface card (radius 20, 16
-  padding; Expo app, the Kotlin app has number widget + "Add" on one
-  line): the picked value 48/700 with "kg" in muted 17 (tap to type), its
+- 28 px gap, then two group-surface cards (radius 20, 16 padding, 12 px
+  apart). Expo app; the Kotlin app has the title, a sparkline and number
+  widget + "Add" on one line.
+- Statistics card: "Bodyweight" 18 with the latest value 22/600 on the
+  right; a segmented period switch 1W / 1M / 3M / 1Y (default 1M, each
+  ending today) on the elevated fill; three equal columns, a figure 17/600
+  over its name in muted 13: Change (first to last entry of the period),
+  Lowest, Highest, "—" when the period has too few entries; the period's
+  line chart, 150 px, soft area fill. Without entries: one muted line.
+- Entry card: the picked value 48/700 with "kg" in muted 17 (tap to type), its
   change since the last day weighed in muted 15 ("+0.2 kg since Oct 5"),
   a ruler picker running to the card's edges (0.1 kg ticks 10 px apart,
   a label every kg, an accent center line, edges fading into the card, a

@@ -114,14 +114,14 @@ reads during render and no synchronous `setState` inside effects.
     RulerPicker with EdgeFade; `useNumberText` keeps a focused field's
     text), sheets (Sheet, ChoiceSheet,
     ChoiceList, ChoiceRow, SheetGroupTitle, ConfirmSheet), TitleRow,
-    LineChart (`format` for m:ss), ProgressBar, Dot, Check.
+    LineChart (`format` for m:ss), StatRow, ProgressBar, Dot, Check.
     Pick lists use `ChoiceSheet`; do not build another sheet of choice rows.
   - `layout/`: NavBar, BackButton, EditorScreen (empty = loading frame),
     TabScreen, FloatingTabBar, `useLeaveWhenGone` (leave a screen whose record
     is gone).
   - Feature folders: `plan/` (WeekStrip, PlanItemSheet, DayPlanSheet for
     one date, `colors.ts`), `today/` (TodayCard, BodyweightSection,
-    BodyweightEntry, WindowSheet, `useNow` minute clock), `session/` (BlockCard, SetRow,
+    BodyweightStats, BodyweightEntry, WindowSheet, `useNow` minute clock), `session/` (BlockCard, SetRow,
     SwapSheet, … and the hooks `useFieldFocus`, `useLeaveWhenGone`),
     `editors/` (ExerciseForm with a table-driven select config, ModalityForm,
     ColorSheet, BlockExerciseGroup), `history/` (CalendarGrid with the
@@ -195,7 +195,8 @@ reads during render and no synchronous `setState` inside effects.
   and watch copies, default exercise, interval heart rate, the imported
   session), `widgets.ts` (the Today and window widget cards, the window
   timeline), `ruler.ts` (ruler picker ticks, offsets and segments),
-  `bodyweight.ts` (Today's ruler, start value, change line, Add/Update),
+  `bodyweight.ts` (Today's ruler, start value, change line, Add/Update/Saved,
+  periods and their change, lowest and highest),
   `format.ts` (`fmt`, `parseNumberInput`, `dur`, `preview`), `backup.ts` (`parseBackup`, `describeBackup`), `seed.ts`.
 - `src/db/`: `schema.ts` (Room v4 DDL verbatim, 17 tables, `COLUMNS`,
   `BOOL_COLUMNS`), `rows.ts` (bool 0/1 conversion, upsert SQL),
@@ -296,7 +297,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 162 tests after the bodyweight ruler; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 167 tests after the bodyweight cards; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

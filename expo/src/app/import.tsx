@@ -1,21 +1,22 @@
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { DraftList } from '@/components/import/DraftList';
 import { DraftSheet } from '@/components/import/DraftSheet';
 import { HealthIntro } from '@/components/import/HealthIntro';
 import { EditorScreen } from '@/components/layout';
-import { TextButton } from '@/components/ui';
+import { ContentEmpty, GroupedList, GroupFooter, IconTile, ListRow, TextButton } from '@/components/ui';
 import { defaultExercise, draftDate, ImportDraft, importDrafts } from '@/domain/health';
 import { itemFor } from '@/domain/plan';
 import { useImportData } from '@/db/hooks';
 import * as repo from '@/db/repository';
 import { healthSource } from '@/health/source';
 import { useHealthImport } from '@/health/useHealthImport';
-import { K, Type } from '@/theme';
+import { K } from '@/theme';
 
 /**
  * Import (ImportScreen.kt): band and watch workouts from Health Connect or Apple Health become cardio sessions,
- * one tap each or all matched at once. Imported ones never show again.
+ * one tap each or all matched at once. Imported ones never show again. The source on top, then the waiting
+ * sessions, or a card saying it is reading, all caught up, or what access is missing.
  */
 export default function ImportScreen() {
   const { data } = useImportData();
@@ -42,11 +43,29 @@ export default function ImportScreen() {
         />
       ) : (
         <>
-          {health.error ? <Text style={styles.error}>{health.error}</Text> : null}
+          <GroupedList>
+            <ListRow
+              leading={<IconTile icon={{ ios: 'heart.fill', android: 'favorite', web: 'favorite' }} color={K.Red} />}
+              title={healthSource.name}
+              value="Last 60 days"
+              chevron={false}
+              last
+            />
+          </GroupedList>
+          {health.error ? <GroupFooter text={health.error} error /> : null}
           {!list ? (
-            <Text style={styles.text}>Reading…</Text>
+            <GroupedList style={styles.card}>
+              <ContentEmpty icon={{ ios: 'arrow.down.circle', android: 'download', web: 'download' }} title="Reading workouts…" text={`From ${healthSource.name}.`} />
+            </GroupedList>
           ) : list.length === 0 ? (
-            <Text style={styles.text}>Nothing new in the last 60 days. Sessions already imported do not show again.</Text>
+            <GroupedList style={styles.card}>
+              <ContentEmpty
+                icon={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
+                color={K.Green}
+                title="All caught up"
+                text="Nothing new in the last 60 days. Sessions already imported do not show again."
+              />
+            </GroupedList>
           ) : (
             <DraftList
               drafts={list}
@@ -60,7 +79,7 @@ export default function ImportScreen() {
             />
           )}
           {strength > 0 ? (
-            <Text style={styles.note}>{`${strength} strength ${strength === 1 ? 'workout' : 'workouts'} from the watch not shown. Gym sessions are logged in the app.`}</Text>
+            <GroupFooter text={`${strength} strength ${strength === 1 ? 'workout' : 'workouts'} from the watch not shown: gym sessions are logged in the app.`} />
           ) : null}
           {health.writeTestRun ? <TextButton text="Debug: write a test run" onPress={health.writeTestRun} style={styles.debug} /> : null}
         </>
@@ -82,8 +101,6 @@ export default function ImportScreen() {
 }
 
 const styles = StyleSheet.create({
-  text: { ...Type.subheadline, color: K.Muted },
-  error: { ...Type.subheadline, color: K.Red, marginBottom: 12 },
-  note: { ...Type.footnote, color: K.Dim, marginTop: 16 },
+  card: { marginTop: 24 },
   debug: { alignSelf: 'flex-start', marginTop: 32 },
 });

@@ -1,13 +1,14 @@
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { exerciseColor } from '@/components/plan/colors';
-import { GroupedList, ListRow, PrimaryButton } from '@/components/ui';
-import { draftLine, draftTitle, ImportDraft } from '@/domain/health';
-import { Exercise, Intensity, Modality } from '@/domain/types';
-import { K, Type } from '@/theme';
+import { GroupedList, GroupFooter, PrimaryButton, SectionTitle } from '@/components/ui';
+import { ImportDraft, pendingLine } from '@/domain/health';
+import { Exercise, Modality } from '@/domain/types';
+import { K } from '@/theme';
+import { DraftRow } from './DraftRow';
 
 /**
- * The band sessions waiting for import, each with the exercise it goes under (ImportScreen.kt). A row opens the
- * picker; Import all brings in every matched one.
+ * The band sessions waiting for import, each with the exercise it goes under (ImportScreen.kt), under a title
+ * that counts them. A row opens the picker; Import all brings in every matched one.
  */
 export function DraftList({
   drafts,
@@ -29,35 +30,37 @@ export function DraftList({
   const all = ready.length === drafts.length;
   return (
     <>
+      <SectionTitle text={pendingLine(drafts.length)} style={styles.section} />
       <GroupedList>
         {drafts.map((d, i) => {
           const ex = exerciseFor(d);
           return (
-            <ListRow
+            <DraftRow
               key={d.sourceId}
-              title={draftTitle(d)}
-              value={draftLine(d, ex != null)}
-              dot={ex ? exerciseColor(ex, modalities) : K.Dim}
-              dotFilled={ex?.intensity === Intensity.HIGH}
+              draft={d}
+              exerciseName={ex?.name ?? null}
+              color={ex ? exerciseColor(ex, modalities) : K.Dim}
               last={i === drafts.length - 1}
               onPress={() => onPick(d)}
             />
           );
         })}
       </GroupedList>
+      <GroupFooter
+        text={
+          all
+            ? 'Each one becomes a session under the exercise on its right. Tap a row to pick a different one first.'
+            : 'The ones marked Choose match no exercise yet: tap one to pick it. The rest import under the exercise shown.'
+        }
+      />
       {ready.length > 0 ? (
         <PrimaryButton text={all ? `Import all ${drafts.length}` : `Import ${ready.length} matched`} onPress={() => onImportAll(ready)} style={styles.action} />
       ) : null}
-      <Text style={styles.note}>
-        {all
-          ? 'Each one becomes a session under the exercise shown. Tap a row to pick a different exercise first.'
-          : 'Sessions marked "tap to choose" have no matching exercise; tap one to pick it. The rest import under the exercise shown.'}
-      </Text>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  action: { marginTop: 16 },
-  note: { ...Type.footnote, color: K.Dim, marginTop: 10 },
+  section: { marginTop: 24 },
+  action: { marginTop: 20 },
 });

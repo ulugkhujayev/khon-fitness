@@ -227,14 +227,11 @@ export function importedSession(d: ImportDraft, ex: Exercise, sessionId: string,
 }
 
 /** Row title: "Mon, Oct 5 · Run · Mi Fitness". */
-export const draftTitle = (d: ImportDraft) => `${shortDate(draftDate(d))} · ${d.typeName} · ${originLabel(d)}`;
-
 const draftParts = (d: ImportDraft, hrPrefix: string) =>
   [`${Math.trunc(draftSeconds(d) / 60)} min`, d.distanceM != null ? `${fmt(d.distanceM / 1000)} km` : null, d.avgHr != null ? `${hrPrefix}${d.avgHr} bpm` : null];
 
-/** Row line: "32 min · 5.2 km · 141 bpm", and "tap to choose" when no exercise matched. */
-export const draftLine = (d: ImportDraft, matched: boolean) =>
-  [...draftParts(d, ''), matched ? null : 'tap to choose'].filter((p): p is string => p != null).join(' · ');
+/** A row's second line under the workout's type: "Mon, Oct 5 · 32 min · 5.2 km · 141 bpm". */
+export const draftStats = (d: ImportDraft) => [shortDate(draftDate(d)), ...draftParts(d, '')].filter((p): p is string => p != null).join(' · ');
 
 /** The picker's line: "32 min · 5.2 km · avg 141 bpm · 40 laps · from Mi Fitness". */
 export const draftDetail = (d: ImportDraft) =>

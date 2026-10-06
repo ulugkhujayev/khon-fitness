@@ -109,7 +109,7 @@ reads during render and no synchronous `setState` inside effects.
   - `ui/`: design-system primitives with a barrel `index.ts`: buttons
     (TextButton, PrimaryButton, TintedButton, Capsule, PlusButton,
     BarCircleButton), lists (GroupedList, ListRow, FieldRow, FieldValue,
-    ToggleRow, Empty, SearchEmpty for a search with no results, GroupFooter,
+    ToggleRow, Empty, ContentEmpty and SearchEmpty for nothing to show, GroupFooter,
     IndexBadge, IconTile, IconButton, ActionRow with ACTION_ICONS for
     BottomActions;
     ListRow takes a `leading` view), inputs
@@ -146,7 +146,7 @@ reads during render and no synchronous `setState` inside effects.
     one-frame clip, so a new frame never decodes again; DemoPoster;
     `demoAssets.ts` with the literal requires; StretchPlayerView with PlayerButton and RoutineProgress (long press: ×20
     test speed in development builds); StretchForm;
-    RoutineStretches with RoutineOrderList), `import/` (HealthIntro, DraftList, DraftSheet).
+    RoutineStretches with RoutineOrderList), `import/` (HealthIntro, DraftList with DraftRow, DraftSheet).
 - `src/health/`: the platform's health store behind one `HealthSource`
   (`source.android.ts` Health Connect, `source.ios.ts` HealthKit, `source.ts`
   none), `useHealthImport` (status, permission, 60 days of workouts) and

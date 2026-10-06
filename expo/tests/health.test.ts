@@ -1,7 +1,7 @@
 /** Port of ImportDefaultTest.kt, plus the merge, interval heart rate and import rules of HealthImport.kt and importDraft. */
 import { describe, expect, test } from 'bun:test';
 import {
-  appName, defaultExercise, lapsOf, lengthInMeters, draftDetail, draftLine, draftTitle, HealthWorkout, importDrafts, importedIds, importedSession, intervalHeartRates,
+  appName, defaultExercise, lapsOf, lengthInMeters, draftDetail, draftStats, HealthWorkout, importDrafts, importedIds, importedSession, intervalHeartRates,
   mergeOverlaps, pendingCount, pendingLine, toDraft,
 } from '../src/domain/health';
 import { Defaults, Exercise, Kind } from '../src/domain/types';
@@ -86,9 +86,8 @@ describe('import', () => {
 
   test('words on the import screen and Today', () => {
     const d = toDraft(workout({ hrSamples: [[at(18, 1), 141]] }));
-    expect(draftTitle(d)).toBe('Mon, Oct 5 · Run · Mi Fitness');
-    expect(draftLine(d, true)).toBe('30 min · 5.2 km · 141 bpm');
-    expect(draftLine({ ...d, distanceM: null, avgHr: null }, false)).toBe('30 min · tap to choose');
+    expect(draftStats(d)).toBe('Mon, Oct 5 · 30 min · 5.2 km · 141 bpm');
+    expect(draftStats({ ...d, distanceM: null, avgHr: null })).toBe('Mon, Oct 5 · 30 min');
     expect(draftDetail({ ...d, laps: 40 })).toBe('30 min · 5.2 km · avg 141 bpm · 40 laps · from Mi Fitness');
     expect([pendingLine(1), pendingLine(3)]).toEqual(['1 new session from the band', '3 new sessions from the band']);
     expect([appName('com.xiaomi.wearable'), appName('com.example.fitbuddy')]).toEqual(['Mi Fitness', 'Fitbuddy']);

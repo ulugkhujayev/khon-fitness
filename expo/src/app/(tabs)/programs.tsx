@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { TabScreen } from '@/components/layout';
-import { BarCircleButton, Empty, GroupedList, ListRow, ScreenTitle } from '@/components/ui';
+import { BarCircleButton, Empty, GroupedList, ListRow } from '@/components/ui';
 import { usePrograms } from '@/db/hooks';
 import { newId } from '@/db/id';
 import * as repo from '@/db/repository';
@@ -19,8 +19,7 @@ export default function ProgramsScreen() {
   };
 
   return (
-    <TabScreen>
-      <ScreenTitle text="Programs" trailing={<BarCircleButton icon={{ ios: 'plus', android: 'add', web: 'add' }} label="New program" onPress={addProgram} />} />
+    <TabScreen title="Programs" trailing={<BarCircleButton icon={{ ios: 'plus', android: 'add', web: 'add' }} label="New program" onPress={addProgram} />}>
       {data ? (
         <>
           <GroupedList>

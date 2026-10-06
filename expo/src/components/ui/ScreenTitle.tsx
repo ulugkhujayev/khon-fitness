@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Type } from '@/theme';
 
-/** Large title at the top of a scrolling tab screen, bar items trailing. */
+/** Large title at the top of a tab screen, bar items trailing. TabScreen keeps it fixed above the content. */
 export function ScreenTitle({ text, trailing }: { text: string; trailing?: ReactNode }) {
   return (
     <View style={styles.row}>

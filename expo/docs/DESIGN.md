@@ -23,8 +23,10 @@ padded cards, per-item buttons, "Updated" lines.
 - Navigation bar: 56 pt, a round 36 pt Back button with a chevron and no
   text, the title centered in Headline, the primary action trailing as a
   34 pt accent capsule ("Done") or a round symbol button ("+").
-- Large title: 34 bold on the leading edge at the top of a scrolling tab
-  screen; bar items trailing as round symbol buttons.
+- Large title: 34 bold on the leading edge at the top of a tab screen;
+  bar items trailing as round symbol buttons. It stays fixed while the
+  content scrolls under it, with a hairline under it once scrolled (Expo
+  app; the Kotlin title scrolls away).
 - Tab bar: a floating capsule 60 pt tall, 24 pt from the sides, 10 pt above
   the bottom edge, group surface with a 1 pt hairline and a soft shadow;
   three items with filled symbols and 11 pt labels; the selected item sits

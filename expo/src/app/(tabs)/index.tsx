@@ -10,7 +10,7 @@ import { BodyweightSection } from '@/components/today/BodyweightSection';
 import { TodayCard } from '@/components/today/TodayCard';
 import { useNow } from '@/components/today/useNow';
 import { WindowSheet } from '@/components/today/WindowSheet';
-import { BarCircleButton, GroupedList, ListRow, ScreenTitle } from '@/components/ui';
+import { BarCircleButton, GroupedList, ListRow } from '@/components/ui';
 import { today as todayIso } from '@/domain/dates';
 import { pendingLine } from '@/domain/health';
 import { windowSummary } from '@/domain/window';
@@ -58,11 +58,9 @@ export default function TodayScreen() {
   const summary = data ? windowSummary(data.eatingWindow, data.windowDays.find((d) => d.date === today), now) : null;
 
   return (
-    <TabScreen>
-      <ScreenTitle
-        text="Today"
-        trailing={<BarCircleButton icon={{ ios: 'gearshape', android: 'settings', web: 'settings' }} label="Settings" onPress={() => router.push('/settings')} />}
-      />
+    <TabScreen
+      title="Today"
+      trailing={<BarCircleButton icon={{ ios: 'gearshape', android: 'settings', web: 'settings' }} label="Settings" onPress={() => router.push('/settings')} />}>
       {data && summary ? (
         <>
           <WeekStrip

@@ -4,11 +4,24 @@ import { K, Type } from '@/theme';
 
 const STEP_MIN = 15;
 
-/** A time of day as hh:mm in 15-minute steps, in the number widget's shape (TimeStepper in WindowSheet.kt). */
-export function TimeStepper({ minute, name, onChange }: { minute: number; name: string; onChange: (minute: number) => void }) {
+/**
+ * A time of day as hh:mm in 15-minute steps, in the number widget's shape (TimeStepper in WindowSheet.kt).
+ * `elevated` for a sheet's group, whose fill is the widget's own.
+ */
+export function TimeStepper({
+  minute,
+  name,
+  elevated = false,
+  onChange,
+}: {
+  minute: number;
+  name: string;
+  elevated?: boolean;
+  onChange: (minute: number) => void;
+}) {
   const text = EatingWindowRules.hhmm(minute);
   return (
-    <View style={styles.box} accessible={false}>
+    <View style={[styles.box, elevated && styles.elevated]} accessible={false}>
       <Step glyph="−" label={`${name} ${STEP_MIN} minutes earlier`} onPress={() => onChange(minute - STEP_MIN)} />
       <View style={styles.divider} />
       <Text style={styles.value} accessibilityLabel={`${name} ${text}`}>
@@ -31,7 +44,8 @@ function Step({ glyph, label, onPress }: { glyph: string; label: string; onPress
 const styles = StyleSheet.create({
   box: { width: 150, height: 38, flexDirection: 'row', alignItems: 'stretch', borderRadius: 10, backgroundColor: K.Surface2, overflow: 'hidden' },
   step: { width: 40, alignItems: 'center', justifyContent: 'center' },
-  pressed: { backgroundColor: K.Surface3 },
+  elevated: { backgroundColor: K.Surface3 },
+  pressed: { opacity: 0.6 },
   divider: { width: 1, backgroundColor: K.Divider },
   value: { ...Type.value, flex: 1, textAlign: 'center', alignSelf: 'center' },
 });

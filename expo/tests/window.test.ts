@@ -1,6 +1,8 @@
 /** Port of EatingWindowRulesTest.kt, plus the cases around the fixed hours. */
 import { describe, expect, test } from 'bun:test';
-import { EatingWindowRules, windowAlerts, windowStrip, windowSummary, withEnd, withRemind, withStart } from '../src/domain/window';
+import {
+  dayShares, EatingWindowRules, stripSummary, windowAlerts, windowStatus, windowStrip, windowSummary, withEnd, withRemind, withStart,
+} from '../src/domain/window';
 import { EatingWindow, WindowDay } from '../src/domain/types';
 
 const hours: EatingWindow = { id: 1, enabled: true, startMinute: 12 * 60, endMinute: 20 * 60, remindBeforeMin: 15 };
@@ -54,6 +56,14 @@ describe('window summary, strip, hours and alerts', () => {
     expect(windowSummary(hours, null, at(9))).toEqual({ open: false, text: 'opens 12:00' });
     expect(windowSummary({ ...hours, enabled: false }, null, at(13))).toEqual({ open: false, text: 'Off' });
     expect(windowSummary(null, null, at(13)).text).toBe('Off');
+  });
+
+  test("the sheet's headline, day bar and strip summary", () => {
+    expect(windowStatus(hours, null, at(18, 50))).toBe('Open · closes in 1 h 10 m');
+    expect(windowStatus(hours, null, at(9))).toBe('Closed · opens 12:00');
+    expect(windowStatus({ ...hours, enabled: false }, null, at(13))).toBe('Off');
+    expect(dayShares(hours, at(18))).toEqual({ from: 0.5, to: 20 / 24, now: 0.75 });
+    expect(stripSummary(['kept', 'changed', 'kept', 'today'])).toBe('Kept the hours on 2 of 3 days.');
   });
 
   test('the strip marks changed days and leaves today open', () => {

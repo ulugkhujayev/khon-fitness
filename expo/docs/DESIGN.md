@@ -73,6 +73,14 @@ padded cards, per-item buttons, "Updated" lines.
   the chosen one in a white ring. The modality list shows how many
   exercises each groups, a footnote on what modalities are for, and the
   archived ones in their own group when shown.
+- Eating window sheet (Expo app): first a card with the state in words
+  ("Open · closes in 2 h 10 m", a 10 px dot green when open) over an 8 px
+  day bar from 00:00 to 24:00, the fixed hours in green with their times
+  under the ends and a white mark at now; then Open now or Close now as a
+  tinted button; then On, Opens, Closes and Remind before on an elevated
+  group; then the last 28 days as four weeks of seven 12 px dots (filled:
+  kept the hours, ring: opened or closed by hand, white: today) with
+  "Kept the hours on 20 of 27 days" under them.
 - Settings (Expo app): groups with icon tiles like iOS Settings. Backup
   (Export, Import) with a footnote on what a backup holds, or how the
   last export or import went (red on an error); App (Version, Check for

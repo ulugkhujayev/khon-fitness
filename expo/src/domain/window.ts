@@ -50,6 +50,25 @@ export function windowSummary(w: EatingWindow | null, day: WindowDay | null | un
     : { open: false, text: `opens ${EatingWindowRules.hhmm(w.startMinute)}` };
 }
 
+/** The sheet's headline: "Open · closes in 2 h 10 m", "Closed · opens 12:00", or "Off". */
+export function windowStatus(w: EatingWindow, day: WindowDay | null | undefined, now: Date): string {
+  const s = windowSummary(w, day, now);
+  return w.enabled ? `${s.open ? 'Open' : 'Closed'} · ${s.text}` : s.text;
+}
+
+/** Where things sit on a day drawn from 00:00 to 24:00, as shares of it: the fixed hours, and now. */
+export function dayShares(w: EatingWindow, now: Date): { from: number; to: number; now: number } {
+  const day = 24 * 60;
+  return { from: w.startMinute / day, to: w.endMinute / day, now: (now.getHours() * 60 + now.getMinutes()) / day };
+}
+
+/** "Kept the hours on 20 of 27 days": the settled days of the 28-day strip, today left out. */
+export function stripSummary(cells: StripCell[]): string {
+  const settled = cells.filter((c) => c !== 'today');
+  const kept = settled.filter((c) => c === 'kept').length;
+  return `Kept the hours on ${kept} of ${settled.length} days.`;
+}
+
 /** One cell of the 28-day strip: kept the fixed hours, changed them, or today (not settled yet). */
 export type StripCell = 'kept' | 'changed' | 'today';
 

@@ -131,7 +131,7 @@ reads during render and no synchronous `setState` inside effects.
     is gone).
   - Feature folders: `plan/` (WeekStrip, PlanItemSheet, DayPlanSheet for
     one date, `colors.ts`, `icons.ts` with a plan item's symbol), `today/` (TodayCard, BodyweightSection,
-    BodyweightEntry, WindowSheet, `useNow` minute clock), `session/` (BlockCard, SessionFooter, SetRow,
+    BodyweightEntry, WindowSheet with WindowDayBar, `useNow` minute clock), `session/` (BlockCard, SessionFooter, SetRow,
     SwapSheet, … and the hooks `useFieldFocus`, `useLeaveWhenGone`,
     `useBlockFlow` (open block, what a check does), `useBlockReveal`
     (animated open and close, scroll the opened block to the top)),
@@ -206,7 +206,8 @@ reads during render and no synchronous `setState` inside effects.
   `stretch.ts` (the guides in
   `stretchGuides.json`, preview and exercise frames, the step timeline's fill, `DemoClock`, routine
   steps and summary, player text, when a run counts, editor limits),
-  `window.ts` (`EatingWindowRules`, the Today summary, the 28-day strip, hour
+  `window.ts` (`EatingWindowRules`, the Today summary, the sheet's status, day bar
+  and strip summary, the 28-day strip, hour
   limits, `windowAlerts`), `health.ts` (workout kinds, drafts, merging band
   and watch copies, default exercise, interval heart rate, the imported
   session), `widgets.ts` (the Today and window widget cards, the window

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { fmt, parseNumberInput, sets } from '../src/domain/format';
 import { Defaults, hexAlpha, ItemType, Session, SetLog, SetStatus } from '../src/domain/types';
 import {
-  blockTitle, clampEffort, doneCount, doneLine, progressLine, firstOpenBlock, gain, groupBlocks, isBlockDone, kgDecimals, nextPending, setTag, summarize,
+  blockTitle, clampEffort, doneCount, doneLine, progressLine, firstOpenBlock, gain, groupBlocks, isBlockDone, kgDecimals, afterCheck, setTag, summarize,
 } from '../src/domain/workout';
 
 const log = (p: Partial<SetLog> & Pick<SetLog, 'id' | 'order'>): SetLog => ({
@@ -67,9 +67,28 @@ describe('session flow', () => {
     expect(firstOpenBlock([[logs[0]]])).toBe(0);
   });
 
-  test('focus moves to the next pending set, across blocks', () => {
-    expect(nextPending(logs, logs[1])?.id).toBe('c1');
-    expect(nextPending(logs, logs[4])).toBeUndefined();
+  test('a check keeps its block open while it has a pending set, focus on the next one', () => {
+    const blocks = groupBlocks(logs);
+    expect(afterCheck(blocks, logs[2])).toEqual({ open: 1, focus: logs[4] });
+    // c2 checked before c1: c1 was left behind, so focus goes back to it.
+    expect(afterCheck(blocks, logs[4])).toEqual({ open: 1, focus: logs[2] });
+  });
+
+  test('a finished block opens the next one with a pending set, wrapping to an earlier one', () => {
+    const three = [
+      log({ id: 'a1', order: 0, blockIndex: 0, status: SetStatus.PENDING }),
+      log({ id: 'b1', order: 1, blockIndex: 1, status: SetStatus.PENDING }),
+      log({ id: 'b2', order: 2, blockIndex: 1, setIndex: 1, status: SetStatus.DONE }),
+      log({ id: 'c1', order: 3, blockIndex: 2, status: SetStatus.PENDING }),
+    ];
+    const blocks = groupBlocks(three);
+    expect(afterCheck(blocks, three[1])).toEqual({ open: 2, focus: three[3] });
+    expect(afterCheck(blocks, three[3])).toEqual({ open: 0, focus: three[0] });
+  });
+
+  test('the last pending set closes every block', () => {
+    const blocks = groupBlocks(logs.map((l) => (l.id === 'c1' ? { ...l, status: SetStatus.DONE } : l)));
+    expect(afterCheck(blocks, logs[4])).toEqual({ open: null, focus: undefined });
   });
 
   test('tags, decimals and gains', () => {

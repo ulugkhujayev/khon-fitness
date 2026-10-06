@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { Check } from '@/components/ui';
 import { sets } from '@/domain/format';
@@ -17,6 +17,7 @@ export function BlockCard({
   done,
   open,
   onToggle,
+  onLayout,
   children,
 }: {
   /** Zero-based; shown as 1, 2, 3. */
@@ -28,11 +29,12 @@ export function BlockCard({
   done: boolean;
   open: boolean;
   onToggle: () => void;
+  onLayout?: (e: LayoutChangeEvent) => void;
   /** The set rows, rendered only while open. */
   children: ReactNode;
 }) {
   return (
-    <View style={[styles.card, index > 0 && styles.next]}>
+    <View style={[styles.card, index > 0 && styles.next]} onLayout={onLayout}>
       <Pressable
         onPress={onToggle}
         accessibilityRole="button"

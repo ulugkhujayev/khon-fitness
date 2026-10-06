@@ -11,18 +11,19 @@ import { SessionHeader } from '@/components/session/SessionHeader';
 import { SetRow } from '@/components/session/SetRow';
 import { SummarySheet } from '@/components/session/SummarySheet';
 import { SwapSheet, SwapState } from '@/components/session/SwapSheet';
+import { useBlockFlow } from '@/components/session/useBlockFlow';
 import { useFieldFocus } from '@/components/session/useFieldFocus';
 import { Capsule, PrimaryButton, TintedButton } from '@/components/ui';
 import { setKey } from '@/domain/session';
-import { Kind, SetLog, SetStatus } from '@/domain/types';
-import { blockTitle, doneCount, firstOpenBlock, groupBlocks, isBlockDone, nextPending, Summary, summarize } from '@/domain/workout';
+import { Kind } from '@/domain/types';
+import { blockTitle, doneCount, isBlockDone, Summary, summarize } from '@/domain/workout';
 import { usePreviousLogs, useSession } from '@/db/hooks';
 import * as repo from '@/db/repository';
 import { K, Space } from '@/theme';
 
 /**
  * A program session (SessionScreen.kt): live logging while unfinished, read-only with an Edit toggle after.
- * Every tap saves. One tap on the circle logs a set as shown, then focus moves to the next set's kg field.
+ * Every tap saves. One tap on the circle logs a set as shown, then focus moves on (useBlockFlow).
  */
 export default function SessionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,9 +31,9 @@ export default function SessionScreen() {
   const { data } = useSession(id);
   const previous = usePreviousLogs(id);
   const fields = useFieldFocus();
+  const logs = data?.logs ?? [];
+  const { blocks, expanded, openBlock, toggleSet, scrollRef, onBlockLayout } = useBlockFlow(logs, fields.focus);
   const [editing, setEditing] = useState(false);
-  // Undefined until the user opens or closes a block: then the first block with a pending set is open.
-  const [chosen, setChosen] = useState<number | null | undefined>(undefined);
   const [swap, setSwap] = useState<SwapState | null>(null);
   const [swapOpen, setSwapOpen] = useState(false);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -40,24 +41,10 @@ export default function SessionScreen() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const leave = useLeaveWhenGone(data != null && data.session == null);
 
-  const logs = data?.logs ?? [];
-  const blocks = groupBlocks(logs);
-  const expanded = chosen !== undefined ? chosen : blocks.length > 0 ? firstOpenBlock(blocks) : null;
-
   const s = data?.session;
   if (!s) return <View style={styles.safe} />;
   const finished = s.finishedAt != null;
   const live = !finished || editing;
-
-  const toggle = (log: SetLog) => {
-    const next = log.status === SetStatus.DONE ? SetStatus.PENDING : SetStatus.DONE;
-    repo.patchSetLog(log.id, { status: next });
-    if (next !== SetStatus.DONE) return;
-    const n = nextPending(logs, log);
-    // Pin the open block, so finishing a block never moves the view on its own.
-    setChosen(n ? blocks.findIndex((b) => b[0].blockIndex === n.blockIndex) : expanded);
-    if (n) fields.focus(n.id);
-  };
 
   const openSummary = async () => {
     setSummary(summarize(logs, await repo.allSetLogs(), s.id));
@@ -73,6 +60,7 @@ export default function SessionScreen() {
         <SessionHeader title={s.programName ?? 'Session'} done={doneCount(logs)} total={logs.length} onFinish={openSummary} />
       )}
       <KeyboardAwareScrollView
+        ref={scrollRef}
         bottomOffset={24}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -86,7 +74,8 @@ export default function SessionScreen() {
             setCount={blockLogs.length}
             done={isBlockDone(blockLogs)}
             open={expanded === bi}
-            onToggle={() => setChosen(expanded === bi ? null : bi)}>
+            onToggle={() => openBlock(expanded === bi ? null : bi)}
+            onLayout={(e) => onBlockLayout(bi, e)}>
             {blockLogs.map((log) => (
               <SetRow
                 key={log.id}
@@ -94,7 +83,7 @@ export default function SessionScreen() {
                 prev={previous.get(setKey(log))}
                 live={live}
                 inputRef={fields.register(log.id)}
-                onToggle={() => toggle(log)}
+                onToggle={() => toggleSet(log)}
                 onWeight={(weightKg) => repo.patchSetLog(log.id, { weightKg })}
                 onReps={(r) => repo.patchSetLog(log.id, { reps: r == null ? null : Math.trunc(r) })}
                 onSwap={() => {

@@ -128,7 +128,12 @@ Two lines, 88 px total, hairline between rows.
   [ − 60 kg + ] [ − 8 reps + ]. Value 18/600 tabular, inputs at least
   64 px wide so "100" and "12.5" fit. Delta in green 12 under the widget.
 - Blocks: header row 52 px (index in accent, names, sets done of total
-  "2 / 6", chevron or a green check), sets under it.
+  "2 / 6", chevron or a green check), sets under it. One block is open at
+  a time; opening and closing animate (220 ms ease) and an opened block
+  scrolls to the top of the list. A check keeps its block open while it
+  has a pending set (focus to the next one, else one left behind); after
+  its last set the next block with work opens, wrapping to an earlier
+  one, and with nothing left every block closes (Expo app).
 
 ## Today
 

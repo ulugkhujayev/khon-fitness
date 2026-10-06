@@ -47,11 +47,22 @@ export function firstOpenBlock(blocks: SetLog[][]): number {
   return i >= 0 ? i : 0;
 }
 
-/** Where focus goes after a check: the next pending set in execution order. */
-export function nextPending(logs: SetLog[], after: SetLog): SetLog | undefined {
-  return logs
-    .filter((l) => l.order > after.order && l.status === SetStatus.PENDING)
-    .sort((a, b) => a.order - b.order)[0];
+/**
+ * Where a session goes after a set is checked. Its block stays open while it has a pending set, and focus
+ * goes to the next one (later in the order, else one left behind). A finished block hands over to the next
+ * block with a pending set, wrapping to an earlier one, with focus on its first pending set; with nothing
+ * left, every block closes. `blocks` come from groupBlocks before the check lands, so `checked` is still
+ * pending in them.
+ */
+export function afterCheck(blocks: SetLog[][], checked: SetLog): { open: number | null; focus: SetLog | undefined } {
+  const pending = (block: SetLog[]) => block.filter((l) => l.id !== checked.id && l.status === SetStatus.PENDING);
+  const here = blocks.findIndex((b) => b.some((l) => l.id === checked.id));
+  const left = here >= 0 ? pending(blocks[here]) : [];
+  if (left.length > 0) return { open: here, focus: left.find((l) => l.order > checked.order) ?? left[0] };
+  const after = blocks.map((_, i) => i).filter((i) => i > here);
+  const before = blocks.map((_, i) => i).filter((i) => i < here);
+  const next = [...after, ...before].find((i) => pending(blocks[i]).length > 0);
+  return next == null ? { open: null, focus: undefined } : { open: next, focus: pending(blocks[next])[0] };
 }
 
 /** Exercise names of a block, A first, joined: "Bench Press · Leg Press". */

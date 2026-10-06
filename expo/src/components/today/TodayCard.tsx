@@ -48,12 +48,12 @@ export function TodayCard({
           color={sessionColor(unfinished, exercises, modalities).color}
           title={unfinished.programName ?? unfinished.exerciseName ?? 'Session'}
           line={progressLine(unfinished.startedAt, now.getTime())}
-          green
+          lineColor={K.Accent}
         />
         {progress ? (
           <View style={styles.progress}>
             <View style={styles.bar}>
-              <ProgressBar done={progress.done} total={progress.total} label={`${progress.done} of ${progress.total} sets done`} />
+              <ProgressBar done={progress.done} total={progress.total} label={`${progress.done} of ${progress.total} sets done`} color={K.Accent} />
             </View>
             <Text style={styles.count} importantForAccessibility="no" accessibilityElementsHidden>{`${progress.done} / ${progress.total}`}</Text>
           </View>
@@ -65,7 +65,7 @@ export function TodayCard({
   if (doneText) {
     return (
       <View style={styles.card}>
-        <Head icon={PLAN_ICONS.done} color={K.Green} title={item.name} line={doneText} green>
+        <Head icon={PLAN_ICONS.done} color={K.Green} title={item.name} line={doneText} lineColor={K.Green}>
           <TextButton text="Start again" onPress={onStart} style={styles.again} />
         </Head>
       </View>
@@ -86,14 +86,15 @@ function Head({
   color,
   title,
   line,
-  green = false,
+  lineColor = K.Muted,
   children,
 }: {
   icon: SymbolViewProps['name'];
   color: string;
   title: string;
   line: string;
-  green?: boolean;
+  /** Accent while a session runs, green once it is done. */
+  lineColor?: string;
   children?: ReactNode;
 }) {
   return (
@@ -103,7 +104,7 @@ function Head({
         <Text style={Type.title2} numberOfLines={2}>
           {title}
         </Text>
-        <Text style={[styles.line, green && styles.green]}>{line}</Text>
+        <Text style={[styles.line, { color: lineColor }]}>{line}</Text>
         {children}
       </View>
     </View>
@@ -115,7 +116,6 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   text: { flex: 1 },
   line: { ...Type.subheadline, color: K.Muted, marginTop: 1 },
-  green: { color: K.Green },
   progress: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
   bar: { flex: 1 },
   count: { ...Type.footnote, ...tabular, color: K.Muted },

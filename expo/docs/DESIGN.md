@@ -237,8 +237,9 @@ Two lines, 88 px total, hairline between rows.
   kind's symbol in its color on that color at 20 percent (dumbbell in
   accent, a runner in the modality color, a moon for rest, a green check
   once done), then the name 22/700 over its line in muted 15. While a
-  session runs the line is green "In progress · 34 min" and a program
-  adds the green progress bar with "12 / 42"; Resume or Start under it,
+  session runs the line is "In progress · 34 min" in accent and a program
+  adds the progress bar in accent with "12 / 42" (green stays for done:
+  the done line and its check); Resume or Start under it,
   44 px tall (the compact primary button) to keep the card small.
   Expo app; the Kotlin card has no symbol or progress.
 - 24 px gap. "Bodyweight" 18 with the latest value 22/600 on the right,

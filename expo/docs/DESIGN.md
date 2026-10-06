@@ -239,6 +239,9 @@ Two lines, 88 px total, hairline between rows.
   Before Start, the guide automatically plays setup, movement, and hold steps.
   Numbered steps pause on a position. Play demo restarts the lesson. Change
   view switches between two camera angles. Each step has a plain instruction.
+  Play/Pause and Change view are 40 px round controls over the image's
+  bottom corners, a white symbol on black at 45 percent, like a video
+  player's (Expo app).
   The steps are 32 px capsules in one row, 8 px apart (Expo app): the bold
   number, then the title in footnote white on Surface2; the shown step
   filled in accent with white text. The row scrolls sideways when the

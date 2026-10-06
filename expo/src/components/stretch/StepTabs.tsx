@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, ViewStyle } from 'react-native';
 import { DemoStep } from '@/domain/stretch';
 import { Font, K, tabular, Type } from '@/theme';
 
@@ -11,7 +11,17 @@ const CHIP = 32;
  * The row scrolls sideways when the steps do not fit, and keeps the shown step in view as the demo plays.
  * A tap holds that step's pose.
  */
-export function StepTabs({ steps, selected, onSelect }: { steps: DemoStep[]; selected: number; onSelect: (index: number) => void }) {
+export function StepTabs({
+  steps,
+  selected,
+  onSelect,
+  style,
+}: {
+  steps: DemoStep[];
+  selected: number;
+  onSelect: (index: number) => void;
+  style?: ViewStyle;
+}) {
   const scroll = useRef<ScrollView>(null);
   const lefts = useRef<number[]>([]);
 
@@ -21,7 +31,7 @@ export function StepTabs({ steps, selected, onSelect }: { steps: DemoStep[]; sel
   }, [selected]);
 
   return (
-    <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row} accessibilityRole="tablist">
+    <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false} style={style} contentContainerStyle={styles.row} accessibilityRole="tablist">
       {steps.map((step, i) => {
         const active = i === selected;
         return (

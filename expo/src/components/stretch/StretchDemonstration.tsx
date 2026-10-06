@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { TextButton } from '@/components/ui';
 import { DemoClock, exerciseFrame, forDemoSide, guideFor, nearestStep, previewFrame, stepAt, StretchDemo } from '@/domain/stretch';
 import { K, Type } from '@/theme';
 import { DemoView } from './demoAssets';
+import { DemoControl } from './DemoControl';
 import { DemoFrame } from './DemoFrame';
 import { StepTabs } from './StepTabs';
 
@@ -97,21 +97,37 @@ function Demonstration({
 
   return (
     <View style={style}>
-      <DemoFrame
-        figure={figure}
-        guide={guide}
-        view={view}
-        frame={frame}
-        mirror={mirror}
-        height={compact ? 208 : 272}
-        description={`${guide.name}. ${guide.steps[selected].title}. ${instruction}`}
-      />
-      <View style={styles.controls}>
-        {preview ? <TextButton text={playing ? 'Pause demo' : 'Play demo'} color={K.White} onPress={togglePlay} /> : <View />}
-        <TextButton text="Change view" label={`Change camera angle. View ${view + 1} of 2`} color={K.White} onPress={() => setView(view === 0 ? 1 : 0)} />
+      <View>
+        <DemoFrame
+          figure={figure}
+          guide={guide}
+          view={view}
+          frame={frame}
+          mirror={mirror}
+          height={compact ? 208 : 272}
+          description={`${guide.name}. ${guide.steps[selected].title}. ${instruction}`}
+        />
+        {/* Over the image's bottom corners, like a video player's controls. */}
+        <View style={styles.controls}>
+          {preview ? (
+            <DemoControl
+              icon={playing ? { ios: 'pause.fill', android: 'pause', web: 'pause' } : { ios: 'play.fill', android: 'play_arrow', web: 'play_arrow' }}
+              label={playing ? 'Pause demo' : 'Play demo'}
+              onPress={togglePlay}
+            />
+          ) : (
+            <View />
+          )}
+          <DemoControl
+            icon={{ ios: 'rotate.3d', android: '3d_rotation', web: '3d_rotation' }}
+            label={`Change camera angle. View ${view + 1} of 2`}
+            onPress={() => setView(view === 0 ? 1 : 0)}
+          />
+        </View>
       </View>
       {preview ? (
         <StepTabs
+          style={styles.tabs}
           steps={guide.steps}
           selected={selected}
           onSelect={(i) => {
@@ -127,7 +143,8 @@ function Demonstration({
 
 const styles = StyleSheet.create({
   none: { ...Type.body, color: K.Muted },
-  controls: { flexDirection: 'row', justifyContent: 'space-between' },
+  controls: { position: 'absolute', left: 10, right: 10, bottom: 10, flexDirection: 'row', justifyContent: 'space-between', pointerEvents: 'box-none' },
+  tabs: { marginTop: 12 },
   // Three lines reserved, so the controls below never jump between steps.
   instruction: { ...Type.body, color: K.OnPhaseText, minHeight: 66, marginTop: 12, marginBottom: 8 },
 });

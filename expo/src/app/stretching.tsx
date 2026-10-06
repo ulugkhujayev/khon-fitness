@@ -21,7 +21,7 @@ export default function Stretching() {
   };
 
   return (
-    <EditorScreen title="Stretching" trailing={<BarCircleButton icon={{ ios: 'plus', android: 'add', web: 'add' }} label="New routine" onPress={addRoutine} />}>
+    <EditorScreen title="Stretching" large trailing={<BarCircleButton icon={{ ios: 'plus', android: 'add', web: 'add' }} label="New routine" onPress={addRoutine} />}>
       {data ? (
         <>
           <GroupedList>

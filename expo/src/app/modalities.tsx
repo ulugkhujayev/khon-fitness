@@ -15,6 +15,7 @@ export default function Modalities() {
   return (
     <EditorScreen
       title="Modalities"
+      large
       trailing={<BarCircleButton icon={{ ios: 'plus', android: 'add', web: 'add' }} label="New modality" onPress={() => router.push('/modality/new')} />}>
       <GroupedList>
         {list.map((m, i) => (

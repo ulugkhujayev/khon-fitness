@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { Linking, StyleSheet, Text } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 import { EditorScreen } from '@/components/layout';
 import {
-  BottomActions, Capsule, ChoiceSheet, ConfirmSheet, FieldRow, FieldValue, GroupedList, InlineTextField, ListRow, NumberRow, TextButton,
+  BottomActions, Capsule, ChoiceSheet, ConfirmSheet, FieldRow, FieldValue, GroupedList, InlineTextField, ListRow, NumberRow, TintedButton,
   ToggleRow,
 } from '@/components/ui';
 import { clampReps, clampStretchSeconds, figureName, FIGURES, newStretch, withRepsMode } from '@/domain/stretch';
 import { Stretch, StretchMode } from '@/domain/types';
 import { newId } from '@/db/id';
-import { K, Type } from '@/theme';
+import { K } from '@/theme';
 import { StretchDemonstration } from './StretchDemonstration';
 
 const GUIDES = Object.keys(FIGURES).map((id) => ({ id, title: FIGURES[id] }));
@@ -67,14 +67,9 @@ export function StretchForm({
         </GroupedList>
       ) : null}
       {original ? (
-        <>
-          <BottomActions>
-            <TextButton text="Delete stretch" color={K.Red} enabled={!original.builtin && useCount === 0} onPress={() => setConfirming(true)} />
-          </BottomActions>
-          {original.builtin || useCount > 0 ? (
-            <Text style={styles.reason}>{original.builtin ? 'Built-in stretches cannot be deleted.' : `In use by ${useCount} routine rows.`}</Text>
-          ) : null}
-        </>
+        <BottomActions note={original.builtin ? 'Built-in stretches cannot be deleted.' : useCount > 0 ? `In use by ${useCount} routine rows.` : undefined}>
+          <TintedButton text="Delete stretch" color={K.Red} enabled={!original.builtin && useCount === 0} onPress={() => setConfirming(true)} />
+        </BottomActions>
       ) : null}
       <ChoiceSheet
         visible={guideOpen}
@@ -105,5 +100,4 @@ export function StretchForm({
 const styles = StyleSheet.create({
   demo: { marginBottom: 12 },
   link: { marginTop: 16 },
-  reason: { ...Type.footnote, color: K.Dim, marginTop: 6, paddingLeft: 2 },
 });

@@ -25,6 +25,7 @@ export default function Library() {
   return (
     <EditorScreen
       title="Exercises"
+      large
       trailing={<BarCircleButton icon={{ ios: 'plus', android: 'add', web: 'add' }} label="New exercise" onPress={() => router.push('/exercise/new')} />}>
       <SearchField value={query} onChange={setQuery} />
       <View style={styles.gap} />

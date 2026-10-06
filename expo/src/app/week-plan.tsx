@@ -20,12 +20,12 @@ export default function WeekPlan() {
   // The weekday stays set while its sheet slides out.
   const [day, setDay] = useState(1);
   const [open, setOpen] = useState(false);
-  if (!data) return <EditorScreen title="Week plan" />;
+  if (!data) return <EditorScreen title="Week plan" large />;
   const { plan, modalities } = data;
   const current = templateItem(plan, day);
 
   return (
-    <EditorScreen title="Week plan">
+    <EditorScreen title="Week plan" large>
       <GroupedList>
         {DAYS.map((d) => {
           const item = templateItem(plan, d);

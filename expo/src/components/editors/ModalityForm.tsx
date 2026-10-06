@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { EditorScreen } from '@/components/layout';
-import { BottomActions, Capsule, Chevron, Dot, FieldRow, GroupedList, InlineTextField, TextButton } from '@/components/ui';
+import { BottomActions, Capsule, Chevron, Dot, FieldRow, GroupedList, InlineTextField, TintedButton } from '@/components/ui';
 import { PRESET_COLORS } from '@/domain/editors';
 import { argbToHex, Modality } from '@/domain/types';
 import { newId } from '@/db/id';
@@ -23,7 +23,7 @@ export function ModalityForm({ original, onSave, onArchive }: { original: Modali
       </GroupedList>
       {original ? (
         <BottomActions>
-          <TextButton text={draft.archived ? 'Unarchive' : 'Archive'} onPress={() => onArchive(draft)} />
+          <TintedButton text={draft.archived ? 'Unarchive' : 'Archive'} onPress={() => onArchive(draft)} />
         </BottomActions>
       ) : null}
       <ColorSheet

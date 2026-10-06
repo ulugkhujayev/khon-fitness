@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
 import { EditorScreen } from '@/components/layout';
-import { BottomActions, Capsule, ChoiceSheet, TextButton } from '@/components/ui';
+import { BottomActions, Capsule, ChoiceSheet, TintedButton } from '@/components/ui';
 import { newExercise } from '@/domain/editors';
 import { Exercise, Modality } from '@/domain/types';
 import { newId } from '@/db/id';
-import { K, Type } from '@/theme';
+import { K } from '@/theme';
 import { ExerciseFields } from './ExerciseFields';
 import { ExerciseSelect, selectConfig } from './exerciseChoices';
 
@@ -64,26 +63,19 @@ export function ExerciseForm({
         }}
       />
       {original ? (
-        <>
-          <BottomActions>
-            <TextButton text={draft.archived ? 'Unarchive' : 'Archive'} onPress={() => onArchive(draft)} />
-            <TextButton
-              text="Merge into…"
-              onPress={() => {
-                setSelect('merge');
-                setOpen(true);
-              }}
-            />
-            <TextButton text="Delete" color={K.Red} enabled={usage === 0} onPress={() => onDelete(draft.id)} />
-          </BottomActions>
-          {usage > 0 ? <Text style={styles.reason}>Used in a session, program, or plan. Archive or merge instead.</Text> : null}
-        </>
+        <BottomActions note={usage > 0 ? 'Used in a session, program, or plan: archive or merge it instead.' : undefined}>
+          <TintedButton text={draft.archived ? 'Unarchive' : 'Archive'} onPress={() => onArchive(draft)} />
+          <TintedButton
+            text="Merge into…"
+            onPress={() => {
+              setSelect('merge');
+              setOpen(true);
+            }}
+          />
+          <TintedButton text="Delete" color={K.Red} enabled={usage === 0} onPress={() => onDelete(draft.id)} />
+        </BottomActions>
       ) : null}
       <ChoiceSheet visible={open} title={config.title} choices={config.choices} isSelected={config.isSelected} onPick={pick} onDismiss={() => setOpen(false)} />
     </EditorScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  reason: { ...Type.footnote, color: K.Dim, marginTop: 6, paddingLeft: 2 },
-});

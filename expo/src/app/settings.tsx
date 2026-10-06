@@ -54,7 +54,7 @@ export default function SettingsScreen() {
     ]);
 
   return (
-    <EditorScreen title="Settings">
+    <EditorScreen title="Settings" large>
       <GroupedList>
         <ListRow title="Export backup" color={K.Accent} onPress={onExport} chevron={false} />
         <ListRow title="Import backup" color={K.Accent} onPress={onImport} chevron={false} />

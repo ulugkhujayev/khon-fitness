@@ -9,7 +9,7 @@ import { ExerciseProgress } from '@/components/history/ExerciseProgress';
 import { MuscleVolumeList } from '@/components/history/MuscleVolumeList';
 import { TabScreen } from '@/components/layout';
 import { DayPlanSheet } from '@/components/plan/DayPlanSheet';
-import { MonthSwitcher, TextButton, TitleRow } from '@/components/ui';
+import { BarCircleButton, MonthSwitcher, TitleRow } from '@/components/ui';
 import { monthStart, monthWeeks, today as todayIso } from '@/domain/dates';
 import { muscleVolume, stretchMonth } from '@/domain/history';
 import { itemFor, sessionScreen } from '@/domain/plan';
@@ -44,7 +44,7 @@ export default function HistoryScreen() {
   return (
     <TabScreen
       title="History"
-      trailing={<TextButton text="Import" label="Import workouts" onPress={() => router.push('/import')} />}
+      trailing={<BarCircleButton icon={{ ios: 'arrow.down.heart', android: 'download', web: 'download' }} label="Import workouts" onPress={() => router.push('/import')} />}
       scrollEnabled={!dragging}>
       {data ? (
         <>

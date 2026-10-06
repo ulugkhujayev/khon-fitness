@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { EditorScreen } from '@/components/layout';
 import { DemoPoster } from '@/components/stretch/DemoPoster';
-import { BarCircleButton, Empty, GroupedList, ListRow, SearchField } from '@/components/ui';
+import { BarCircleButton, GroupedList, ListRow, SearchEmpty, SearchField } from '@/components/ui';
 import { searchByName } from '@/domain/editors';
 import { stretchLine } from '@/domain/stretch';
 import { useStretching } from '@/db/hooks';
@@ -37,7 +37,7 @@ export default function StretchLibrary() {
               onPress={() => router.push({ pathname: '/stretch-editor/[id]', params: { id: st.id } })}
             />
           ))}
-          {list.length === 0 ? <Empty text="Nothing matches" /> : null}
+          {list.length === 0 ? <SearchEmpty query={query} /> : null}
         </GroupedList>
       ) : null}
     </EditorScreen>

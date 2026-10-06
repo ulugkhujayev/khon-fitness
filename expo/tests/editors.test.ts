@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { axisWidth, dateLabelIndices, niceStep, scaleFor, valueLabelIndices } from '../src/domain/chart';
 import { longDate, monthDay, monthGrid, monthStart, monthTitle, shortDate, weekdayName, weekOf } from '../src/domain/dates';
 import {
-  asCardio, asStrength, blockSummary, filterLibrary, freeSlot, moveInOrder, newExercise, nextSortOrder, searchByName, toggleIn, withIntervals,
+  asCardio, asStrength, blockSummary, filterLibrary, freeSlot, moveInOrder, newExercise, nextSortOrder, noResults, searchByName, toggleIn, withIntervals,
   withMaxReps, withMinReps, withSets,
 } from '../src/domain/editors';
 import { SEED_EXERCISES } from '../src/domain/seed';
@@ -44,6 +44,11 @@ describe('block editor', () => {
     const list = [{ name: 'Incline DB Press' }, { name: 'Leg Press' }, { name: 'Row' }];
     expect(searchByName(list, '  PRESS ').map((x) => x.name)).toEqual(['Incline DB Press', 'Leg Press']);
     expect(searchByName(list, '')).toHaveLength(3);
+  });
+
+  test('a search that finds nothing names the query and what to try', () => {
+    expect(noResults('  squat ')).toEqual({ title: 'No Results for “squat”', hint: 'Check the spelling or try a new search.' });
+    expect(noResults(' ')).toEqual({ title: 'No Results', hint: 'Try another filter.' });
   });
 
   test('moving a block swaps sort orders with its neighbour', () => {

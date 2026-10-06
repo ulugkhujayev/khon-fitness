@@ -84,7 +84,11 @@ padded cards, per-item buttons, "Updated" lines.
   editor screen, at the bottom, as text buttons.
 - Add is a single "+" text button at the right of the section title.
 - No dates on list rows unless the row IS a date (history).
-- Empty state: one muted line, no illustration.
+- Empty state: one muted line, no illustration. A search that finds
+  nothing, on a screen or in a pick sheet, shows the system's no-results
+  view in the list's card instead (Expo app): a 32 px magnifying glass in
+  muted, "No Results for “row”" in Headline, "Check the spelling or try a
+  new search." in muted 15, centered.
 
 ## Editors
 

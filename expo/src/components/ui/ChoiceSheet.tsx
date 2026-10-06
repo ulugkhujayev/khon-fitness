@@ -24,6 +24,7 @@ export function ChoiceSheet({
   onPick,
   onDismiss,
   header,
+  empty,
 }: {
   visible: boolean;
   title?: string;
@@ -33,11 +34,14 @@ export function ChoiceSheet({
   onDismiss: () => void;
   /** Shown above the list, e.g. a search field. */
   header?: ReactNode;
+  /** Shown in the list when it has no choices, e.g. SearchEmpty under a search field. */
+  empty?: ReactNode;
 }) {
   return (
     <Sheet visible={visible} title={title} onDismiss={onDismiss}>
       {header ? <View style={styles.header}>{header}</View> : null}
       <ChoiceList>
+        {choices.length === 0 ? empty : null}
         {choices.map((c, i) => (
           <ChoiceRow
             key={c.id}

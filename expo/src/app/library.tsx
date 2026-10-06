@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { EditorScreen } from '@/components/layout';
 import { exerciseColor } from '@/components/plan/colors';
-import { BarCircleButton, ChoiceSheet, Empty, FieldRow, FieldValue, GroupedList, ListRow, SearchField, Segmented, ToggleRow } from '@/components/ui';
+import { BarCircleButton, ChoiceSheet, FieldRow, FieldValue, GroupedList, ListRow, SearchEmpty, SearchField, Segmented, ToggleRow } from '@/components/ui';
 import { cap, filterLibrary, modalityName } from '@/domain/editors';
 import { Intensity, Kind, MUSCLE_GROUPS } from '@/domain/types';
 import { useLibrary } from '@/db/hooks';
@@ -50,7 +50,7 @@ export default function Library() {
               onPress={() => router.push(`/exercise/${e.id}`)}
             />
           ))}
-          {list.length === 0 ? <Empty text="Nothing matches" /> : null}
+          {list.length === 0 ? <SearchEmpty query={query} /> : null}
         </GroupedList>
       ) : null}
       <GroupedList style={styles.list}>

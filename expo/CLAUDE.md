@@ -109,7 +109,8 @@ reads during render and no synchronous `setState` inside effects.
   - `ui/`: design-system primitives with a barrel `index.ts`: buttons
     (TextButton, PrimaryButton, TintedButton, Capsule, PlusButton,
     BarCircleButton), lists (GroupedList, ListRow, FieldRow, FieldValue,
-    ToggleRow, Empty), inputs (NumberField, whose steppers repeat while held
+    ToggleRow, Empty, SearchEmpty for a search with no results), inputs
+    (NumberField, whose steppers repeat while held
     through `useRepeatPress` and stop at `min`/`max`, NumberRow, EffortRow, TimeStepper, InlineTextField,
     SearchField, Segmented, Toggle, DateRow, MonthGrid, MonthSwitcher, FigureField and
     RulerPicker with EdgeFade; `useNumberText` keeps a focused field's
@@ -303,7 +304,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 172 tests after the session blocks; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 173 tests after the search empty state; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

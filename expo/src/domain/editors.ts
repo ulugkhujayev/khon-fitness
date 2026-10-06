@@ -104,6 +104,15 @@ export function filterLibrary(list: Exercise[], f: LibraryFilter): Exercise[] {
   );
 }
 
+/**
+ * What a search that found nothing says (iOS ContentUnavailableView.search): "No Results for “row”" and
+ * what to try. Without a query only the filters can be to blame.
+ */
+export function noResults(query: string): { title: string; hint: string } {
+  const q = query.trim();
+  return q ? { title: `No Results for “${q}”`, hint: 'Check the spelling or try a new search.' } : { title: 'No Results', hint: 'Try another filter.' };
+}
+
 /** Name search without case, for pickers: an empty query keeps everything. */
 export function searchByName<T extends { name: string }>(list: T[], query: string): T[] {
   const q = query.trim().toLowerCase();

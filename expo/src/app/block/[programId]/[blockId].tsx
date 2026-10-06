@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { BlockExerciseGroup } from '@/components/editors/BlockExerciseGroup';
 import { EditorScreen } from '@/components/layout';
-import { BottomActions, Capsule, ChoiceSheet, GroupedList, SearchField, TextButton, ToggleRow } from '@/components/ui';
+import { BottomActions, Capsule, ChoiceSheet, GroupedList, SearchEmpty, SearchField, TextButton, ToggleRow } from '@/components/ui';
 import { freeSlot, moveInOrder, searchByName } from '@/domain/editors';
 import { Defaults, Kind } from '@/domain/types';
 import { useBlock } from '@/db/hooks';
@@ -78,6 +78,7 @@ export default function BlockEditor() {
         onPick={pick}
         onDismiss={() => setPicking(false)}
         header={<SearchField value={query} onChange={setQuery} elevated />}
+        empty={<SearchEmpty query={query} />}
       />
     </EditorScreen>
   );

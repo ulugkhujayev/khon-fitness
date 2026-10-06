@@ -1,4 +1,4 @@
-import { ChoiceSheet, SearchField } from '@/components/ui';
+import { ChoiceSheet, SearchEmpty, SearchField } from '@/components/ui';
 import { searchByName } from '@/domain/editors';
 import { Exercise, SetLog } from '@/domain/types';
 
@@ -48,6 +48,7 @@ export function SwapSheet({
       onPick={(id) => state && onChange({ ...state, to: found.find((e) => e.id === id) ?? null })}
       onDismiss={onDismiss}
       header={state ? <SearchField value={state.query} onChange={(query) => onChange({ ...state, query })} elevated /> : null}
+      empty={<SearchEmpty query={state?.query ?? ''} />}
     />
   );
 }

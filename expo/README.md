@@ -9,12 +9,18 @@ Stack: Bun, Expo SDK 57, TypeScript, Expo Router, expo-sqlite.
 
 ## Run
 
-Everything goes through Bun. Do not use npm or yarn; `bun.lock` is the lock file.
+Everything goes through Bun (1.4.2 or newer). Do not use npm or yarn; `bun.lock`
+is the lock file. The app has its own native modules, so it runs as a development
+build, not in Expo Go.
 
 ```sh
 bun install
-bun run start         # scan the QR code with Expo Go
+cd ios && pod install && cd ..   # on the Mac, before the first iOS build
+bun run android       # build the native project, install it and start Metro
+bun run ios
+bun run start         # Metro only, for a development build already installed
 bun run typecheck
+bun run lint
 bun test              # domain rules and the SQLite schema, no device needed
 bun run add <pkg>     # bunx expo install: SDK-compatible versions
 bun run doctor

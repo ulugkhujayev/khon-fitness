@@ -30,6 +30,16 @@ Android app: https://github.com/ulugkhujayev/khon-fitness (Kotlin, Jetpack
 Compose, Room; owner Mirzohid). That repo is the source of truth for
 behavior. Never push to it.
 
+Its owner asked for this app as a pull request (2026-10-20). It goes into
+`expo/` of that repo from the user's fork `MametovUral/khon-fitness`, branch
+`expo-app`: a clone of this repo rewritten with
+`git filter-repo --to-subdirectory-filter expo` and a mailmap that gives the
+user's commits his GitHub noreply address
+(`105767102+MametovUral@users.noreply.github.com`), then merged with
+`--allow-unrelated-histories` onto the original's `main`. The rewrite is
+deterministic, so a later update repeats it and merges again. The user opens
+the PR in the browser; there is no `gh` here.
+
 To read the original while porting:
 
 ```sh
@@ -327,7 +337,7 @@ reads during render and no synchronous `setState` inside effects.
 ```sh
 bun run typecheck          # bunx tsc --noEmit
 bun run lint               # bunx expo lint (ESLint 9, eslint-config-expo)
-bun test                   # 179 tests after the week plan; also passes under TZ=UTC / America/New_York / Pacific/Auckland
+bun test                   # 180 tests; also passes under TZ=UTC / America/New_York / Pacific/Auckland
 CI=1 bunx expo export --platform android --platform ios --output-dir /tmp/khon-dist   # bundles both platforms
 ```
 

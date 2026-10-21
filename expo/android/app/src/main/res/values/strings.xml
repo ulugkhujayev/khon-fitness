@@ -1,0 +1,8 @@
+<resources>
+  <string name="app_name">Khon Fitness</string>
+  <string name="expo_system_ui_user_interface_style" translatable="false">dark</string>
+  <string name="expo_runtime_version">1.0.0</string>
+  <string name="widget_today_description" translatable="false">Workout of the day with a Start button</string>
+  <string name="widget_eatingwindow_description" translatable="false">Eating window: open or closed, and the next change time</string>
+  <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
+</resources>

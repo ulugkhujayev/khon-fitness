@@ -12,7 +12,7 @@ fun repeatDelay(n: Int): Long = maxOf(50L, 160L - n * 15L)
 
 /** One step of a number widget from [base], inside its bounds, rounded so steps of 0.1 or 2.5 do not drift. */
 fun stepValue(base: Double, sign: Int, step: Double, min: Double = 0.0, max: Double = Double.POSITIVE_INFINITY): Double =
-    ((base + sign * step) * 10000).roundToLong().toDouble().div(10000).coerceIn(min, max)
+    bound(((base + sign * step) * 10000).roundToLong().toDouble().div(10000), min, max)
 
 /** Width of a chart's value axis: its widest measured label plus the gap to the plot, so the axis hugs its labels. */
 fun axisWidth(labelWidths: List<Float>, gap: Float): Float = ceil(labelWidths.maxOrNull() ?: 0f) + gap
@@ -72,6 +72,12 @@ const val NAV_HAIRLINE_FADE = 16f
 
 /** Opacity of a navigation bar's hairline after [y] dp of scroll. */
 fun navHairline(y: Float) = fold(y, NAV_HAIRLINE_FADE, 0f, 1f)
+
+/** Opacity of a navigation bar's hairline after [px] of scroll on a screen of [density] px per dp. */
+fun barHairline(px: Int, density: Float) = navHairline(px / density)
+
+/** Scroll offset (px) of a lazy list for a navigation bar: past the first item it counts as scrolled all the way. */
+fun listBarOffset(firstIndex: Int, firstOffsetPx: Int): Int = if (firstIndex > 0) Int.MAX_VALUE else firstOffsetPx
 
 /** A spring given by mass, stiffness and damping, as Compose takes it: the ratio to critical damping and the stiffness at mass 1. */
 data class SpringSpec(val dampingRatio: Float, val stiffness: Float)

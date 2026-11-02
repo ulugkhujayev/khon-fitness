@@ -134,7 +134,7 @@ fun KhonNav() {
 private val TABS = listOf(Routes.TODAY, Routes.HISTORY, Routes.PROGRAMS)
 
 /** Direction a tab switch shifts the screens: 1 toward a tab on the right, -1 toward the left, null when not between tabs. */
-private fun tabShift(from: String?, to: String?): Int? {
+internal fun tabShift(from: String?, to: String?): Int? {
     val a = TABS.indexOf(from); val b = TABS.indexOf(to)
     return if (a < 0 || b < 0 || a == b) null else if (b > a) 1 else -1
 }

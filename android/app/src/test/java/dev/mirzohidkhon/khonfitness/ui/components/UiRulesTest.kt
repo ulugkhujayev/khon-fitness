@@ -65,6 +65,21 @@ class UiRulesTest {
         assertEquals(1f, navHairline(40f), 0f)
     }
 
+    @Test fun barHairlineFollowsScrollInDp() {
+        // 2.75 px per dp: 22 px is 8 dp, half way.
+        assertEquals(0f, barHairline(0, 2.75f), 0f)
+        assertEquals(0.5f, barHairline(22, 2.75f), 1e-6f)
+        assertEquals(1f, barHairline(44, 2.75f), 0f)
+        assertEquals(1f, barHairline(listBarOffset(1, 0), 2.75f), 0f)
+    }
+
+    @Test fun listPastItsFirstItemCountsAsScrolledAllTheWay() {
+        assertEquals(0, listBarOffset(0, 0))
+        assertEquals(30, listBarOffset(0, 30))
+        assertEquals(Int.MAX_VALUE, listBarOffset(1, 0))
+        assertEquals(Int.MAX_VALUE, listBarOffset(4, 12))
+    }
+
     @Test fun slideSpringMatchesTheExpoSpring() {
         val s = springOf(damping = 20f, stiffness = 240f, mass = 0.8f)
         assertEquals(0.7217f, s.dampingRatio, 1e-4f)

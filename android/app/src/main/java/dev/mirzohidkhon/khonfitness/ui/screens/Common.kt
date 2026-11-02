@@ -92,14 +92,14 @@ fun EditorTopBar(back: String, title: String, onBack: () -> Unit, done: String =
                 }
             }
         }
-        if (scrollPx != null) BarHairline(Modifier.align(Alignment.BottomStart)) { navHairline(scrollPx() / density) }
+        if (scrollPx != null) BarHairline(Modifier.align(Alignment.BottomStart)) { barHairline(scrollPx(), density) }
     }
 }
 
 private val BAR_SIDE = 88.dp
 
 /** Scroll offset of a lazy list for [EditorTopBar]: past the first item it counts as scrolled all the way. */
-fun androidx.compose.foundation.lazy.LazyListState.barOffset(): Int = if (firstVisibleItemIndex > 0) Int.MAX_VALUE else firstVisibleItemScrollOffset
+fun androidx.compose.foundation.lazy.LazyListState.barOffset(): Int = listBarOffset(firstVisibleItemIndex, firstVisibleItemScrollOffset)
 
 /** 36 dp round bar button on the group surface, like a Liquid Glass toolbar item without the blur. */
 @Composable
@@ -172,12 +172,16 @@ fun ConfirmSheet(title: String, body: String, action: String, onDismiss: () -> U
     }
 }
 
-/** What a [ConfirmSheet] asks about: [ask] opens it for an item, [close] closes it. Open while [item] is set. */
+/**
+ * What a [ConfirmSheet] asks about: [ask] opens it for an item, [confirm] closes it and runs the action on that item
+ * once (a second tap on the red button finds nothing open), [close] closes it and runs nothing. Open while [item] is set.
+ */
 class ConfirmState<T : Any> {
     var item by androidx.compose.runtime.mutableStateOf<T?>(null)
         private set
     fun ask(next: T) { item = next }
     fun close() { item = null }
+    fun confirm(action: (T) -> Unit) { val it = item ?: return; item = null; action(it) }
 }
 
 @Composable
@@ -187,7 +191,7 @@ fun <T : Any> rememberConfirm(): ConfirmState<T> = androidx.compose.runtime.reme
 @Composable
 fun <T : Any> ConfirmSheet(state: ConfirmState<T>, title: (T) -> String, body: (T) -> String, action: String = "Delete", onConfirm: (T) -> Unit) {
     val item = state.item ?: return
-    ConfirmSheet(title(item), body(item), action, onDismiss = state::close) { state.close(); onConfirm(item) }
+    ConfirmSheet(title(item), body(item), action, onDismiss = state::close) { state.confirm(onConfirm) }
 }
 
 /** One option of a [ChoiceSheet]. */

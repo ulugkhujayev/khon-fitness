@@ -71,3 +71,12 @@ root cause was a first save that can fail (E11 on the screen). The lead
 replaced the design: the first stretch commits the draft and cannot fail,
 the phase flips in the click handler, and one queue orders every write of
 the screen (`P5B-FIX3.md`). The attack runs again on it.
+
+# P5B-FIX3 design attack, round 2 (Sol, 2026-11-02)
+
+Verdict on the replaced design (first stretch commits; one queue):
+**open-ended**. Restore could not tell a deletion from an unfinished
+create; import and Reset are not ordered with the screen's queue; and
+old callbacks, local input and row identity had no rule. The owner chose
+to drop the routine draft: "+" saves an empty routine at once
+(`P5B-FIX4.md`).

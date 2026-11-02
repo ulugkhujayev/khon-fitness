@@ -43,7 +43,7 @@ import org.robolectric.annotation.GraphicsMode
 
 /**
  * Every [NumberField] caller on a 360 dp phone at font scales 1.0, 1.3 and 1.6, filled with the longest value the
- * caller allows and once empty: the value, unit and placeholder fit on one line inside their slot, and each step
+ * field accepts and once empty: the value, unit and placeholder fit on one line inside their slot, and each step
  * button keeps its width (44 dp; 36 dp in the compact two-per-row mode of a session set).
  */
 @RunWith(RobolectricTestRunner::class)
@@ -58,13 +58,17 @@ class NumberFieldFitTest {
         val index: Int = 0, val compactAllowed: Boolean = false, val content: @Composable (Double?) -> Unit,
     )
 
-    private fun row(name: String, value: Double, unit: String, step: Double, decimals: Int, stepText: String, min: Double = 0.0, max: Double = Double.POSITIVE_INFINITY) =
-        Case(name, value, unit, stepText) { v -> NumberRow(name, v, unit, step, decimals, true, min, max) {} }
+    /** The longest value a field accepts: six whole digits and its [decimals] (`cleanTyped`), or [max] when shorter. */
+    private fun longest(decimals: Int, max: Double = Double.POSITIVE_INFINITY) =
+        minOf(max, ("999999" + if (decimals > 0) "." + "9".repeat(decimals) else "").toDouble())
 
-    private fun inRow(label: String, value: Double, unit: String, step: Double, stepText: String, placeholder: String? = null, note: String? = null, min: Double = 0.0, max: Double = Double.POSITIVE_INFINITY, elevated: Boolean = false) =
-        Case(label, value, unit, stepText, placeholder) { v -> FieldRow(label, note = note) { Field(v, step, unit, 176.dp, 0, 38, placeholder, min, max, elevated) } }
+    private fun row(name: String, unit: String, step: Double, decimals: Int, stepText: String, min: Double = 0.0, max: Double = Double.POSITIVE_INFINITY) =
+        Case(name, longest(decimals, max), unit, stepText) { v -> NumberRow(name, v, unit, step, decimals, true, min, max) {} }
 
-    private fun interval(index: Int, value: Double, unit: String, stepText: String) = Case("Round 12 $unit", value, unit, stepText, index = index) { v ->
+    private fun inRow(label: String, unit: String, step: Double, stepText: String, placeholder: String? = null, note: String? = null, min: Double = 0.0, max: Double = Double.POSITIVE_INFINITY, elevated: Boolean = false) =
+        Case(label, longest(0, max), unit, stepText, placeholder) { v -> FieldRow(label, note = note) { Field(v, step, unit, 176.dp, 0, 38, placeholder, min, max, elevated) } }
+
+    private fun interval(index: Int, unit: String, stepText: String) = Case("Round 12 $unit", longest(0), unit, stepText, index = index) { v ->
         FieldRow("Round 12") {
             Column(Modifier.padding(vertical = 8.dp), horizontalAlignment = Alignment.End) {
                 Field(if (index == 0) v else 999.0, 1.0, "bpm", 176.dp, 0, 38)
@@ -86,30 +90,35 @@ class NumberFieldFitTest {
 
     private val cases = listOf(
         // Cardio (CardioScreen.kt): top fields, intervals, effort.
-        row("Time", 999.9, "min", 1.0, 1, "1 min"),
-        row("Distance", 999.9, "km", 0.1, 1, "0.1 km"),
-        row("Avg heart rate", 999.0, "bpm", 1.0, 0, "1 bpm"),
-        row("Avg watts", 9999.0, "W", 5.0, 0, "5 W"),
-        row("Laps", 999.0, "", 1.0, 0, "1"),
-        row("Pool length", 999.0, "m", 5.0, 0, "5 m"),
-        interval(0, 999.0, "bpm", "1 bpm"),
-        interval(1, 9999.0, "W", "5 W"),
-        inRow("Effort", 10.0, "/10", 1.0, "1 /10", placeholder = "1–10", min = 1.0, max = 10.0),
-        // Session (SessionScreen.kt): the summary sheet's effort, a set's weight and reps.
-        inRow("Effort", 10.0, "/10", 1.0, "1 /10", placeholder = "1–10", min = 1.0, max = 10.0, elevated = true),
-        set(0, 102.25, "kg", "1.25 kg", "102.25"),
-        set(1, 100.0, "reps", "1 reps", "12"),
+        row("Time", "min", 1.0, 1, "1 min"),
+        row("Distance", "km", 0.1, 1, "0.1 km"),
+        row("Avg heart rate", "bpm", 1.0, 0, "1 bpm"),
+        row("Avg watts", "W", 5.0, 0, "5 W"),
+        row("Laps", "", 1.0, 0, "1"),
+        row("Pool length", "m", 5.0, 0, "5 m"),
+        interval(0, "bpm", "1 bpm"),
+        interval(1, "W", "5 W"),
+        inRow("Effort", "/10", 1.0, "1 /10", placeholder = "1–10", min = 1.0, max = 10.0),
+        // Session (SessionScreen.kt): the summary sheet's effort, a set's weight and reps. A set's placeholder is the
+        // previous set's value, so it is as long as the value.
+        inRow("Effort", "/10", 1.0, "1 /10", placeholder = "1–10", min = 1.0, max = 10.0, elevated = true),
+        set(0, longest(2), "kg", "1.25 kg", "999999.99"),
+        set(1, longest(0), "reps", "1 reps", "999999"),
         // Eating window (WindowSheet.kt).
-        inRow("Remind before", 120.0, "min", 5.0, "5 min", max = 120.0, elevated = true),
+        inRow("Remind before", "min", 5.0, "5 min", max = 120.0, elevated = true),
         // Stretching (StretchEditors.kt): a routine's seconds, a stretch's rep count and hold.
-        inRow("Hip flexor stretch", 600.0, "s", 5.0, "5 s", note = "per side", min = 5.0, max = 600.0),
-        row("Rep count", 50.0, "", 1.0, 0, "1", 1.0, 50.0),
-        row("Hold", 600.0, "s", 5.0, 0, "5 s", 5.0, 600.0),
+        inRow("Hip flexor stretch", "s", 5.0, "5 s", note = "per side", min = 5.0, max = 600.0),
+        row("Rep count", "", 1.0, 0, "1", 1.0, 50.0),
+        row("Hold", "s", 5.0, 0, "5 s", 5.0, 600.0),
         // Exercise and program editors (Editors.kt).
-        row("Max reps", 50.0, "", 1.0, 0, "1", 1.0, 50.0),
-        row("Weight step", 99.5, "kg", 0.5, 1, "0.5 kg"),
-        row("Warm-up", 999.0, "min", 1.0, 0, "1 min"),
-        row("Rest", 9999.0, "s", 10.0, 0, "10 s"),
+        row("Sets", "", 1.0, 0, "1", 1.0, 10.0),
+        row("Min reps", "", 1.0, 0, "1", 1.0, 50.0),
+        row("Max reps", "", 1.0, 0, "1", 1.0, 50.0),
+        row("Weight step", "kg", 0.5, 1, "0.5 kg"),
+        row("Warm-up", "min", 1.0, 0, "1 min"),
+        row("Work", "s", 10.0, 0, "10 s"),
+        row("Rest", "s", 10.0, 0, "10 s"),
+        row("Rounds", "", 1.0, 0, "1", 1.0, 30.0),
     )
 
     @Test fun fitsAtScale1_0() = check(1.0f)

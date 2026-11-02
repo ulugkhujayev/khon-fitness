@@ -167,9 +167,11 @@ padded cards, per-item buttons, "Updated" lines.
   font scale 1.0 and grows with the font scale up to the room it has.
   At font scale 1.5 and up the field row stacks like a list row: the
   label on its own line, the widget under it at the end, full width.
-  A value, unit or placeholder that still does not fit shrinks to fit,
-  down to 75 percent, and then the paddings beside it narrow. The unit
-  stays and the value stays on one line.
+  A value, unit or placeholder that still does not fit shrinks in steps
+  down to 75 percent, then the paddings beside it narrow, and then it
+  takes the size that fits, with no floor. Typical values keep their
+  size; only extreme values get small. The unit stays and the value
+  stays on one line.
 - Bottom of the editor: actions as rows in grouped lists, like the
   actions at the end of an iOS contact: a 20 px symbol and the name in
   accent (Archive, Merge into…, Move up, Move down), the destructive one

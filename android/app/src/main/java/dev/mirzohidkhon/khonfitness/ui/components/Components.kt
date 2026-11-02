@@ -78,7 +78,7 @@ fun fmt(value: Double?, decimals: Int = 1): String {
     if (value == null) return ""
     val v = if (decimals == 0) value.toLong().toDouble() else value
     val s = String.format(Locale.US, "%.${decimals}f", v)
-    return if (decimals > 0 && s.endsWith(".0")) s.dropLast(2) else s
+    return if (decimals > 0) s.trimEnd('0').trimEnd('.') else s
 }
 
 @Composable

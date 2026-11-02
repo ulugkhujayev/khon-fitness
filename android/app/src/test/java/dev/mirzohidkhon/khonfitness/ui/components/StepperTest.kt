@@ -194,6 +194,34 @@ class StepperTest {
         assertEquals(2, cleanOffset("a12", 9, 0))
     }
 
+    @Test fun cleanTypedKeepsOnlyWhatTheFieldShows() {
+        // No more decimals than the field shows: 1.25 cannot be typed where 1.3 would show.
+        assertEquals("1.2", cleanTyped("1.25", 1))
+        assertEquals("125", cleanTyped("1.25", 0))
+        assertEquals("1.25", cleanTyped("1.25", 2))
+        // At most six digits before the dot: no huge or infinite numbers.
+        assertEquals("120", cleanTyped("1e20", 0))
+        assertEquals("999999", cleanTyped("9".repeat(400), 0))
+        assertEquals("999999.9", cleanTyped("9".repeat(400) + ".99", 1))
+        // Save, blur and step read the same number afterwards.
+        val kg = Stepper(0.1)
+        val t = cleanTyped("1.25", 1)
+        assertEquals(1.2, kg.parseTyped(t)!!, 0.0)
+        assertEquals(1.3, kg.step(1, true, t, null, null).shown, 1e-9)
+        // The cursor still moves with the cleaning: typing a third decimal leaves it after the second.
+        assertEquals(3, cleanOffset("1.25", 4, 1))
+    }
+
+    @Test fun stepDecimalsShowEveryStepExactly() {
+        assertEquals(0, stepDecimals(5.0))
+        assertEquals(1, stepDecimals(2.5))
+        assertEquals(2, stepDecimals(1.25))
+        assertEquals(2, stepDecimals(0.333))
+        // A 1.25 kg step shows and types 61.25, so the next step reads 61.25, not a rounded 61.3.
+        val t = cleanTyped("61.25", stepDecimals(1.25))
+        assertEquals(62.5, Stepper(1.25).step(1, true, t, 61.25, null).shown, 1e-9)
+    }
+
     @Test fun parseTypedReadsCleanTextInsideTheBounds() {
         val sets = Stepper(1.0, 1.0, 10.0)
         assertNull(sets.parseTyped(""))

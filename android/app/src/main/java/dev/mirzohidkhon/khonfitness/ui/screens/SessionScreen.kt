@@ -174,7 +174,7 @@ private fun summarize(logs: List<SetLog>, all: List<SetLog>, sessionId: String):
 private fun SetRow(log: SetLog, prev: SetLog?, live: Boolean, requester: FocusRequester, onToggle: () -> Unit, onWeight: (Double?) -> Unit, onReps: (Double?) -> Unit, onSwap: () -> Unit) {
     val tag = ('A' + log.slot).toString() + (log.setIndex + 1)
     val isDone = log.status == SetStatus.DONE
-    val decimals = if (log.stepKg % 1.0 != 0.0) 1 else 0
+    val decimals = stepDecimals(log.stepKg)
     Column(Modifier.fillMaxWidth().background(if (isDone) K.Green.copy(alpha = 0.05f) else androidx.compose.ui.graphics.Color.Transparent).padding(start = 10.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(

@@ -54,3 +54,12 @@ behaves differently.
 `COMMON.md` checks pass. Root `DESIGN.md` "Stretch player", stretch demo
 and routine editor parts and `SPEC.md` (routine drafts) updated. Report
 as `COMMON.md` says, under 30 lines.
+
+## Known gap to fix in the rebuilt stretch editor
+
+The P5A-FIX fixer found: the stretch editor's use count loads in
+`LaunchedEffect(id)` from `existing` (`StretchEditors.kt:154`); when the
+stretch list is still loading on the first frame, the count never loads
+and Delete stays enabled (the guarded `deleteStretchIfUnused` still
+refuses). Load the count when the row first appears (key the effect on
+the loaded row, or read the count as a flow), and test it.

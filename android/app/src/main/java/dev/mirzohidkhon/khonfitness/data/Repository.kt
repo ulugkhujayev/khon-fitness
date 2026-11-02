@@ -51,6 +51,26 @@ fun mergeCardioEdits(current: Session, opened: Session, edited: Session, now: Lo
     )
 }
 
+/**
+ * The exercise editor's edits merged onto [current], the row as it is now: each field the editor edits takes [edited]'s
+ * value when it differs from [opened]'s, else keeps [current]'s. Archived is not one of them: Archive writes it alone.
+ */
+fun mergeExerciseEdits(current: Exercise, opened: Exercise, edited: Exercise): Exercise {
+    fun <T> pick(field: (Exercise) -> T): T = if (field(edited) != field(opened)) field(edited) else field(current)
+    return current.copy(
+        name = pick { it.name }, kind = pick { it.kind }, notes = pick { it.notes }, primaryMuscle = pick { it.primaryMuscle },
+        secondaryMuscles = pick { it.secondaryMuscles }, stepKg = pick { it.stepKg }, modalityId = pick { it.modalityId },
+        intensity = pick { it.intensity }, intervals = pick { it.intervals }, warmupSec = pick { it.warmupSec },
+        workSec = pick { it.workSec }, restSec = pick { it.restSec }, rounds = pick { it.rounds }, fields = pick { it.fields },
+    )
+}
+
+/** The modality editor's edits (name, color) merged onto [current] the same way as [mergeExerciseEdits]. */
+fun mergeModalityEdits(current: Modality, opened: Modality, edited: Modality): Modality {
+    fun <T> pick(field: (Modality) -> T): T = if (field(edited) != field(opened)) field(edited) else field(current)
+    return current.copy(name = pick { it.name }, color = pick { it.color })
+}
+
 class KhonRepository(private val dao: KhonDao) {
     val exercises: Flow<List<Exercise>> = dao.exercises()
     val modalities: Flow<List<Modality>> = dao.modalities()
@@ -121,15 +141,18 @@ class KhonRepository(private val dao: KhonDao) {
     }
 
     suspend fun exercise(id: String) = dao.exercise(id)
-    suspend fun saveExercise(e: Exercise) = dao.upsert(e)
-    suspend fun exerciseUsage(id: String): Int = dao.setLogCountFor(id) + dao.cardioSessionCountFor(id) +
-        dao.blockExerciseCountFor(id) + dao.weekPlanCardioCountFor(id) + dao.overrideCardioCountFor(id)
+    /** The exercise editor's Done: a new exercise ([opened] null) is written whole, an existing one gets only its changed fields. */
+    suspend fun saveExerciseEdits(opened: Exercise?, edited: Exercise) = if (opened == null) dao.upsert(edited) else dao.saveExerciseEdits(opened, edited)
+    suspend fun setExerciseArchived(id: String, archived: Boolean) = dao.setExerciseArchived(id, archived)
+    suspend fun exerciseUsage(id: String): Int = dao.exerciseUsage(id)
     suspend fun deleteExercise(id: String) { if (exerciseUsage(id) == 0) dao.deleteExercise(id) }
     suspend fun mergeExercise(from: String, into: String) {
         dao.moveSetLogs(from, into); dao.moveCardioSessions(from, into); dao.moveBlockExercises(from, into)
         dao.movePlanCardio(from, into); dao.moveOverrideCardio(from, into); dao.deleteExercise(from)
     }
-    suspend fun saveModality(m: Modality) = dao.upsert(m)
+    /** The modality editor's Done: a new modality ([opened] null) is written whole, an existing one gets only its changed fields. */
+    suspend fun saveModalityEdits(opened: Modality?, edited: Modality) = if (opened == null) dao.upsert(edited) else dao.saveModalityEdits(opened, edited)
+    suspend fun setModalityArchived(id: String, archived: Boolean) = dao.setModalityArchived(id, archived)
 
     suspend fun saveProgram(p: Program) = dao.upsert(p)
     suspend fun createProgram(p: Program) = dao.createProgram(p)

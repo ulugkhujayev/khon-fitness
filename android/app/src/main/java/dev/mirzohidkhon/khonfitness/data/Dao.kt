@@ -28,12 +28,33 @@ interface KhonDao {
     @Query("UPDATE block_exercises SET exerciseId = :to WHERE exerciseId = :from") suspend fun moveBlockExercises(from: String, to: String)
     @Query("UPDATE week_plan SET itemId = :to WHERE itemType = 'cardio' AND itemId = :from") suspend fun movePlanCardio(from: String, to: String)
     @Query("UPDATE day_overrides SET itemId = :to WHERE itemType = 'cardio' AND itemId = :from") suspend fun moveOverrideCardio(from: String, to: String)
+    /** Every use that fixes an exercise's kind: set logs, cardio sessions, block exercises, plan days and dated changes. */
+    @Transaction suspend fun exerciseUsage(id: String): Int =
+        setLogCountFor(id) + cardioSessionCountFor(id) + blockExerciseCountFor(id) + weekPlanCardioCountFor(id) + overrideCardioCountFor(id)
+    @Query("UPDATE exercises SET archived = :archived WHERE id = :id") suspend fun setExerciseArchived(id: String, archived: Boolean)
+    /**
+     * The exercise editor's Done: the fields changed from [opened] to [edited] go onto the row as it is now
+     * ([mergeExerciseEdits]), so an import since the editor opened stays. A kind change is kept out when something
+     * uses the exercise by now. A deleted exercise writes nothing.
+     */
+    @Transaction suspend fun saveExerciseEdits(opened: Exercise, edited: Exercise) {
+        val current = exercise(edited.id) ?: return
+        val merged = mergeExerciseEdits(current, opened, edited)
+        upsert(if (merged.kind != current.kind && exerciseUsage(current.id) > 0) merged.copy(kind = current.kind) else merged)
+    }
 
     // modalities
     @Query("SELECT * FROM modalities ORDER BY name") fun modalities(): Flow<List<Modality>>
     @Query("SELECT * FROM modalities") suspend fun modalitiesOnce(): List<Modality>
     @Upsert suspend fun upsert(modality: Modality)
     @Upsert suspend fun upsertModalities(list: List<Modality>)
+    @Query("SELECT * FROM modalities WHERE id = :id") suspend fun modality(id: String): Modality?
+    @Query("UPDATE modalities SET archived = :archived WHERE id = :id") suspend fun setModalityArchived(id: String, archived: Boolean)
+    /** The modality editor's Done: the changed fields onto the row as it is now ([mergeModalityEdits]); a deleted one writes nothing. */
+    @Transaction suspend fun saveModalityEdits(opened: Modality, edited: Modality) {
+        val current = modality(edited.id) ?: return
+        upsert(mergeModalityEdits(current, opened, edited))
+    }
 
     // programs
     @Query("SELECT * FROM programs ORDER BY sortOrder, name") fun programs(): Flow<List<Program>>

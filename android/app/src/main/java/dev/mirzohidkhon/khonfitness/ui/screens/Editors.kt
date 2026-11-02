@@ -190,7 +190,9 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
     val isNew = exerciseId == "new"
     val original = exercises.find { it.id == exerciseId }
     if (!isNew && original == null) return
-    var draft by remember(exerciseId, original == null) { mutableStateOf(original ?: Exercise(newId(), "", Kind.STRENGTH, primaryMuscle = "chest")) }
+    // What the editor opened with: Done writes only the fields that differ from it, onto the row as it is then.
+    val opened = remember(exerciseId, original == null) { original }
+    var draft by remember(exerciseId, original == null) { mutableStateOf(opened ?: Exercise(newId(), "", Kind.STRENGTH, primaryMuscle = "chest")) }
     var sheet by remember { mutableStateOf<String?>(null) }
     // Null while the count loads, which keeps the kind locked and Delete off.
     var usage by remember { mutableStateOf<Int?>(if (isNew) 0 else null) }
@@ -199,7 +201,7 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
     val locked = kindLocked(isNew, usage)
     val isStrength = draft.kind == Kind.STRENGTH
     EditorScaffold("Library", if (isNew) "New exercise" else original!!.name, onBack = { nav.popBackStack() }, onDone = {
-        if (draft.name.isNotBlank()) vm.run { vm.repo.saveExercise(draft.copy(name = draft.name.trim())) }; nav.popBackStack()
+        if (draft.name.isNotBlank()) vm.run { vm.repo.saveExerciseEdits(opened, draft.copy(name = draft.name.trim())) }; nav.popBackStack()
     }) {
         GroupedList {
             FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Exercise name", label = "Name") }
@@ -238,8 +240,9 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
         }
         if (!isNew) EditorActions(note = if ((usage ?: 0) > 0) "Used in a session, program, or plan: archive or merge it instead." else null) {
             GroupedList {
-                ActionRow(if (draft.archived) Icons.Unarchive else Icons.Archive, if (draft.archived) "Unarchive" else "Archive", divider = false) {
-                    vm.run { vm.repo.saveExercise(draft.copy(archived = !draft.archived)) }; nav.popBackStack()
+                val archived = original!!.archived
+                ActionRow(if (archived) Icons.Unarchive else Icons.Archive, if (archived) "Unarchive" else "Archive", divider = false) {
+                    vm.run { vm.repo.setExerciseArchived(exerciseId, !archived) }; nav.popBackStack()
                 }
                 ActionRow(Icons.Merge, "Merge into…") { sheet = "merge" }
             }
@@ -284,17 +287,19 @@ fun ModalityEditorScreen(vm: AppViewModel, nav: NavHostController, modalityId: S
     val isNew = modalityId == "new"
     val original = modalities.find { it.id == modalityId }
     if (!isNew && original == null) return
-    var draft by remember(modalityId, original == null) { mutableStateOf(original ?: Modality(newId(), "", PRESET_COLORS[3])) }
+    val opened = remember(modalityId, original == null) { original }
+    var draft by remember(modalityId, original == null) { mutableStateOf(opened ?: Modality(newId(), "", PRESET_COLORS[3])) }
     EditorScaffold("Modalities", if (isNew) "New modality" else original!!.name, onBack = { nav.popBackStack() }, onDone = {
-        if (draft.name.isNotBlank()) vm.run { vm.repo.saveModality(draft.copy(name = draft.name.trim())) }; nav.popBackStack()
+        if (draft.name.isNotBlank()) vm.run { vm.repo.saveModalityEdits(opened, draft.copy(name = draft.name.trim())) }; nav.popBackStack()
     }) {
         GroupedList { FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Bike, rowing…", label = "Name") } }
         SectionTitle("Color", Modifier.padding(top = 24.dp))
         ColorGrid(draft.color) { draft = draft.copy(color = it) }
         if (!isNew) EditorActions(note = "Archived, it leaves the pickers; past sessions keep it and its color.") {
             GroupedList {
-                ActionRow(if (draft.archived) Icons.Unarchive else Icons.Archive, if (draft.archived) "Unarchive" else "Archive", divider = false) {
-                    vm.run { vm.repo.saveModality(draft.copy(archived = !draft.archived)) }; nav.popBackStack()
+                val archived = original!!.archived
+                ActionRow(if (archived) Icons.Unarchive else Icons.Archive, if (archived) "Unarchive" else "Archive", divider = false) {
+                    vm.run { vm.repo.setModalityArchived(modalityId, !archived) }; nav.popBackStack()
                 }
             }
         }

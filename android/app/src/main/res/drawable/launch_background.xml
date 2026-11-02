@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launch window on Android 9 to 11: black with the K logo centered. The foreground art is 108 dp with the logo
+     in its middle half; at 192 dp the logo shows near the size of the Android 12+ splash icon and nothing crops. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/ic_launcher_background" />
+    <item
+        android:width="192dp"
+        android:height="192dp"
+        android:drawable="@mipmap/ic_launcher_foreground"
+        android:gravity="center" />
+</layer-list>

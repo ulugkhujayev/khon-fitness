@@ -65,6 +65,12 @@ class CardioIntervalsKeptTest {
         shows("100")
     }
 
+    /**
+     * Types [new] over the field showing [old], then lets a frame pass: the field's input session takes the typed text
+     * only on the next frame, and a focused field that leaves the screen before it reports its old text once more.
+     */
+    private fun type(old: String, new: String) { compose.onNodeWithText(old).performTextReplacement(new); compose.waitForIdle() }
+
     private fun shows(text: String) = compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
 
     private fun save() {
@@ -77,7 +83,7 @@ class CardioIntervalsKeptTest {
     /** Opens the form on rounds [rounds], types 150 over the first round's 100, then runs [meanwhile] and saves. */
     private fun editThenSave(rounds: List<IntervalLog>, meanwhile: suspend () -> Unit, settled: String) {
         openForm(rounds)
-        compose.onNodeWithText("100").performTextReplacement("150")
+        type("100", "150")
         io { meanwhile() }
         shows(settled)
         save()
@@ -103,7 +109,7 @@ class CardioIntervalsKeptTest {
         openForm(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200)))
         io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 220))) }
         shows("220")
-        compose.onNodeWithText("100").performTextReplacement("150")
+        type("100", "150")
         io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 240), IntervalLog("i2", "c1", 1, avgHr = 120, watts = 260))) }
         shows("Round 2")
         save()
@@ -114,7 +120,7 @@ class CardioIntervalsKeptTest {
         openForm(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200)))
         io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 120, watts = 200))) }
         shows("120")
-        compose.onNodeWithText("200").performTextReplacement("250")
+        type("200", "250")
         io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 130, watts = 200), IntervalLog("i2", "c1", 1, avgHr = 140, watts = 260))) }
         shows("Round 2")
         save()
@@ -123,10 +129,10 @@ class CardioIntervalsKeptTest {
 
     @Test fun `a field typed back to its first value is still written`() {
         openForm(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200)))
-        compose.onNodeWithText("100").performTextReplacement("150")
-        compose.onNodeWithText("150").performTextReplacement("100")
-        io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 130, watts = 210))) }
-        shows("210")
+        type("100", "150")
+        type("150", "100")
+        io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 130, watts = 210), IntervalLog("i2", "c1", 1, avgHr = 140, watts = 260))) }
+        shows("Round 2")
         save()
         assertEquals(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 210), saved("i1"))
     }
@@ -135,16 +141,16 @@ class CardioIntervalsKeptTest {
         openForm(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200)))
         io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 120, watts = 200))) }
         shows("120")
-        compose.onNodeWithText("200").performTextReplacement("")
-        io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 130, watts = 200))) }
-        shows("130")
+        type("200", "")
+        io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 130, watts = 200), IntervalLog("i2", "c1", 1, avgHr = 140, watts = 260))) }
+        shows("Round 2")
         save()
         assertEquals(IntervalLog("i1", "c1", 0, avgHr = 130, watts = null), saved("i1"))
     }
 
     @Test fun `an edited round deleted before Save is not created again`() {
         openForm(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200)))
-        compose.onNodeWithText("100").performTextReplacement("150")
+        type("100", "150")
         io { dao.deleteIntervalLogsFor("c1") }
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Round 1").fetchSemanticsNodes().isEmpty() }
         save()
@@ -161,10 +167,10 @@ class CardioIntervalsKeptTest {
         val id = mutableStateOf("c1")
         compose.setContent { KhonTheme { CardioScreen(vm, rememberNavController(), id.value) } }
         shows("100")
-        compose.onNodeWithText("100").performTextReplacement("150")
+        type("100", "150")
         compose.runOnIdle { id.value = "c2" }
         shows("120")
-        compose.onNodeWithText("120").performTextReplacement("160")
+        type("120", "160")
         compose.onNodeWithText("Save").performClick()
         compose.waitUntil(5_000) { runBlocking(Dispatchers.IO) { dao.session("c2")?.finishedAt != null } }
         io {

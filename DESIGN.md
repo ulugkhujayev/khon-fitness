@@ -192,9 +192,10 @@ padded cards, per-item buttons, "Updated" lines.
   routine", and its Active choice, on by default only when there is no
   routine yet), and so does its first stretch, which becomes its first
   row. From then on it is a saved routine: each edit writes at once, it
-  shows Delete, and leaving without Done keeps it. A draft survives a
-  rotation and process death, and a restored editor edits the same
-  routine. The routine's Active has a footnote that says what it does;
+  shows Delete, and leaving without Done keeps it. While the first
+  stretch's save runs, Add stretch is off; Name and Active still change
+  and are written once the save ends. A draft survives a rotation and
+  process death, and a restored editor edits the same routine. The routine's Active has a footnote that says what it does;
   turning it off leaves no routine active.
 - The stretch editor groups its fields: name and guide; Timing (Per
   side, Reps, Rep count, Hold or Time); Details (Muscles, Cue, Link);

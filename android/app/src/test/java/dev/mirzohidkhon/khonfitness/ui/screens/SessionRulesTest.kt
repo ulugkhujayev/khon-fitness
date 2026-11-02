@@ -1,0 +1,134 @@
+package dev.mirzohidkhon.khonfitness.ui.screens
+
+import dev.mirzohidkhon.khonfitness.data.SetLog
+import dev.mirzohidkhon.khonfitness.data.SetStatus
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+class SessionRulesTest {
+    private var order = 0
+    private fun set(block: Int, slot: Int = 0, index: Int = 0, status: String = SetStatus.PENDING, kg: Double? = 60.0, reps: Int? = 8, exercise: String = "ex$block$slot", session: String = "s") =
+        SetLog("$session-$block-$slot-$index", session, block, false, slot, index, order++, exercise, "Name $block$slot", 6, 10, 2.5, kg, reps, status)
+
+    private fun done(l: SetLog) = l.copy(status = SetStatus.DONE)
+
+    // Three blocks of two sets each.
+    private val a1 = set(0, index = 0); private val a2 = set(0, index = 1)
+    private val b1 = set(1, index = 0); private val b2 = set(1, index = 1)
+    private val c1 = set(2, index = 0); private val c2 = set(2, index = 1)
+
+    @Test fun `opening the session opens only the first block with work`() {
+        assertEquals(0, firstOpenBlock(groupBlocks(listOf(a1, a2, b1, b2))))
+        assertEquals(1, firstOpenBlock(groupBlocks(listOf(done(a1), done(a2), b1, b2))))
+        // Nothing pending: the first block.
+        assertEquals(0, firstOpenBlock(groupBlocks(listOf(done(a1), done(b1)))))
+        assertEquals(1, openBlock(groupBlocks(listOf(done(a1), done(a2), b1)), picked = false, chosen = null))
+        assertNull(openBlock(emptyList(), picked = false, chosen = null))
+    }
+
+    @Test fun `a picked block wins over the first with work, and none open stays none`() {
+        val blocks = groupBlocks(listOf(a1, b1))
+        assertEquals(1, openBlock(blocks, picked = true, chosen = 1))
+        assertNull(openBlock(blocks, picked = true, chosen = null))
+    }
+
+    @Test fun `blocks group by block index in execution order`() {
+        val later = set(0, index = 2).copy(order = -1)
+        assertEquals(listOf(listOf(later, a1, a2), listOf(b1)), groupBlocks(listOf(b1, a2, a1, later)))
+    }
+
+    @Test fun `a check with sets left keeps the block open and focuses the next pending set`() {
+        val a3 = set(0, index = 2)
+        val after = afterCheck(groupBlocks(listOf(a1, a2, a3, b1)), a1)
+        assertEquals(0, after.open)
+        assertEquals(a2.id, after.focus?.id)
+    }
+
+    @Test fun `with no later pending set in the block, focus goes to one left behind`() {
+        val after = afterCheck(groupBlocks(listOf(a1, a2, b1)), a2)
+        assertEquals(0, after.open)
+        assertEquals(a1.id, after.focus?.id)
+    }
+
+    @Test fun `the block's last set opens the next block with work, focus on its first pending set`() {
+        val after = afterCheck(groupBlocks(listOf(done(a1), a2, done(b1), b2, c1, c2)), a2)
+        assertEquals(1, after.open)
+        assertEquals(b2.id, after.focus?.id)
+    }
+
+    @Test fun `a done block is passed over`() {
+        val after = afterCheck(groupBlocks(listOf(done(a1), a2, done(b1), done(b2), c1, c2)), a2)
+        assertEquals(2, after.open)
+        assertEquals(c1.id, after.focus?.id)
+    }
+
+    @Test fun `with no later block left it wraps to an earlier one`() {
+        val after = afterCheck(groupBlocks(listOf(a1, a2, done(b1), done(b2), done(c1), c2)), c2)
+        assertEquals(0, after.open)
+        assertEquals(a1.id, after.focus?.id)
+    }
+
+    @Test fun `the last set of the workout closes every block`() {
+        val after = afterCheck(groupBlocks(listOf(done(a1), done(a2), done(b1), b2)), b2)
+        assertNull(after.open)
+        assertNull(after.focus)
+    }
+
+    @Test fun `skipped sets count as no work`() {
+        val after = afterCheck(groupBlocks(listOf(a1, b1.copy(status = SetStatus.SKIPPED))), a1)
+        assertNull(after.open)
+    }
+
+    @Test fun `block header text`() {
+        val bench = set(3, slot = 0).copy(exerciseName = "Bench Press")
+        val press = set(3, slot = 1).copy(exerciseName = "Leg Press")
+        assertEquals("Bench Press · Leg Press", blockTitle(listOf(press, bench, done(press))))
+        assertEquals(1, doneCount(listOf(done(bench), press)))
+        assertEquals(false, isBlockDone(listOf(done(bench), press)))
+        assertEquals(true, isBlockDone(listOf(done(bench), press.copy(status = SetStatus.SKIPPED))))
+        assertEquals("Block 1, Bench Press, 2 of 6 sets done", blockLabel(0, "Bench Press", 2, 6, false))
+        assertEquals("Block 2, Row, 1 of 1 set done, block done", blockLabel(1, "Row", 1, 1, true))
+    }
+
+    @Test fun `summary counts time, sets done, volume and new bests`() {
+        val start = 1_000_000L
+        // Earlier session: ex00 best 100 x 5, ex10 best 80 x 10.
+        val old = listOf(
+            set(0, kg = 100.0, reps = 5, exercise = "ex00", session = "old", status = SetStatus.DONE),
+            set(1, kg = 80.0, reps = 10, exercise = "ex10", session = "old", status = SetStatus.DONE),
+            // Not done: never a best to beat.
+            set(2, kg = 200.0, reps = 10, exercise = "ex20", session = "old", status = SetStatus.SKIPPED),
+        )
+        val today = listOf(
+            set(0, index = 0, kg = 100.0, reps = 6, exercise = "ex00", status = SetStatus.DONE), // beats 100 x 5
+            set(1, index = 0, kg = 80.0, reps = 10, exercise = "ex10", status = SetStatus.DONE), // ties: no best
+            set(2, index = 0, kg = 20.0, reps = 10, exercise = "ex20", status = SetStatus.DONE), // first time: a best
+            set(2, index = 1, kg = null, reps = null, exercise = "ex20", status = SetStatus.DONE), // empty reads as 0
+            set(2, index = 2, kg = 50.0, reps = 10, exercise = "ex20"), // pending: not counted
+        )
+        val sum = summarize(today, old + today, "s", start, start + 52 * 60_000 + 59_000)
+        assertEquals(Summary("52 min", done = 4, total = 5, volume = 600.0 + 800.0 + 200.0, bests = 2), sum)
+        assertEquals("1 h 5 min", summarize(today, today, "s", start, start + 65 * 60_000).time)
+    }
+
+    @Test fun `the progress row slides up and fades over 28 dp, the line fades in over its last 8`() {
+        assertEquals(0f, sessionRowShift(0f), 0f)
+        assertEquals(14f, sessionRowShift(14f), 0f)
+        assertEquals(28f, sessionRowShift(100f), 0f)
+        assertEquals(1f, sessionRowAlpha(0f), 0f)
+        assertEquals(0f, sessionRowAlpha(22.4f), 1e-4f)
+        assertEquals(0f, sessionLineAlpha(20f), 0f)
+        assertEquals(0.5f, sessionLineAlpha(24f), 1e-4f)
+        assertEquals(1f, sessionLineAlpha(28f), 0f)
+        assertEquals(1f, sessionLineAlpha(Int.MAX_VALUE.toFloat()), 0f)
+    }
+
+    @Test fun `an opened block lands 8 dp under what the folded header hides`() {
+        // Running: list starts at 84, folded header covers 58; the card is 10 into its item.
+        assertEquals(28f, revealOffset(84f, 58f, 10f), 0f)
+        // Finished: the bar is above the list, nothing covers it.
+        assertEquals(6f, revealOffset(4f, 0f, 10f), 0f)
+        assertEquals(0f, revealOffset(4f, 0f, 2f), 0f)
+    }
+}

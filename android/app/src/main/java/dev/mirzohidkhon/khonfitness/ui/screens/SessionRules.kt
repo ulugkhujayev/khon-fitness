@@ -62,8 +62,26 @@ fun blockLabel(index: Int, title: String, done: Int, total: Int, blockDone: Bool
 /** The block the user or a check picked: [picked] stays false until then; [chosen] null means none open. */
 data class OpenPick(val picked: Boolean = false, val chosen: Int? = null)
 
-/** Saves an [OpenPick] in the screen's saved state, so leaving a running session and returning keeps its open block. */
-val OpenPickSaver = androidx.compose.runtime.saveable.listSaver<OpenPick, Any?>({ listOf(it.picked, it.chosen) }, { OpenPick(it[0] as Boolean, it[1] as Int?) })
+/**
+ * The [OpenPick] of each session, kept for the life of the process ([dev.mirzohidkhon.khonfitness.ui.AppViewModel]
+ * holds it): Back and Resume make a new screen, and the session keeps its open block. A session that finishes or is
+ * deleted drops its entry ([drop]); a session with none starts from its default.
+ */
+class OpenPicks {
+    private val picks = androidx.compose.runtime.mutableStateMapOf<String, OpenPick>()
+    operator fun get(sessionId: String): OpenPick = picks[sessionId] ?: OpenPick()
+    operator fun set(sessionId: String, pick: OpenPick) { picks[sessionId] = pick }
+    fun drop(sessionId: String) { picks.remove(sessionId) }
+
+    /** One session's entry as a state the screen reads and writes. */
+    fun state(sessionId: String): androidx.compose.runtime.MutableState<OpenPick> = object : androidx.compose.runtime.MutableState<OpenPick> {
+        override var value: OpenPick
+            get() = this@OpenPicks[sessionId]
+            set(pick) { this@OpenPicks[sessionId] = pick }
+        override fun component1(): OpenPick = value
+        override fun component2(): (OpenPick) -> Unit = { value = it }
+    }
+}
 
 /** The block the session shows open: the one the user or a check picked ([picked]), else [firstOpenBlock]. */
 fun openBlock(blocks: List<List<SetLog>>, picked: Boolean, chosen: Int?): Int? =

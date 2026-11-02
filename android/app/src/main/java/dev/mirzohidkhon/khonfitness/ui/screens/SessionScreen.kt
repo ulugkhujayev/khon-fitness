@@ -22,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,7 +78,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     var previous by remember { mutableStateOf<Map<String, SetLog>>(emptyMap()) }
     var editing by remember { mutableStateOf(false) }
     // The open block: the first with work until the user opens or closes one, or a check moves on.
-    var pick by rememberOpenPick(sessionId)
+    var pick by rememberOpenPick(vm.openPicks, sessionId)
     // The set whose kg field takes focus once its row is composed and placed (a wrap target may still be off screen).
     var pendingFocus by remember { mutableStateOf<String?>(null) }
     var swapLog by remember { mutableStateOf<SetLog?>(null) }
@@ -172,7 +171,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         if (s.finished) "The sets and the session go away. Charts recompute." else "Nothing from today is kept.",
         if (s.finished) "Delete" else "Discard",
         onDismiss = { confirmDelete = false },
-    ) { confirmDelete = false; vm.run { vm.repo.deleteSession(s.id) }; nav.popBackStack() }
+    ) { confirmDelete = false; vm.openPicks.drop(s.id); vm.run { vm.repo.deleteSession(s.id) }; nav.popBackStack() }
     summary?.let { sum -> Sheet("Workout done", onDismiss = { summary = null }) {
         // The figures as of opening, then effort and note (the page's own fields: both read the session, so an edit in
         // one shows in the other) so they are asked for as the workout ends. The content scrolls above the keyboard;
@@ -190,15 +189,15 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                     FieldRow("Note") { InlineTextField(s.note, { n -> vm.run { vm.repo.setSessionNote(s.id, n) } }, placeholder = "Optional", label = "Note") }
                 }
             }
-            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { vm.run { vm.repo.finishSession(s.id) }; summary = null; nav.popBackStack() }
+            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { vm.openPicks.drop(s.id); vm.run { vm.repo.finishSession(s.id) }; summary = null; nav.popBackStack() }
         }
     } }
 }
 
-/** The open block of a session ([OpenPick]) in saved state: leaving a running session and returning keeps it. */
+/** The open block of a session ([OpenPick]), kept in [picks] beyond this screen: leaving a session and returning keeps it. */
 @Composable
-internal fun rememberOpenPick(sessionId: String): MutableState<OpenPick> =
-    rememberSaveable(sessionId, stateSaver = OpenPickSaver) { mutableStateOf(OpenPick()) }
+internal fun rememberOpenPick(picks: OpenPicks, sessionId: String): MutableState<OpenPick> =
+    remember(picks, sessionId) { picks.state(sessionId) }
 
 /** Room above a block card inside its list item: 6 dp for the first, 10 between cards. */
 private fun cardTop(index: Int): Dp = if (index == 0) 6.dp else 10.dp

@@ -35,6 +35,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun run(block: suspend () -> Unit) { viewModelScope.launch { block() } }
 
+    /** The open block of each session, so Back and Resume keep it (process lifetime). */
+    val openPicks = dev.mirzohidkhon.khonfitness.ui.screens.OpenPicks()
+
     /** Latest release check, done once per app start. Today and Settings both read it. */
     val update = kotlinx.coroutines.flow.MutableStateFlow<dev.mirzohidkhon.khonfitness.update.Updater.Result?>(null)
     val updateProgress = kotlinx.coroutines.flow.MutableStateFlow<Float?>(null)

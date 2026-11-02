@@ -207,7 +207,10 @@ never touch past days or dates with an override.
 ## Backup
 
 Settings has Export and Import. Export writes one JSON file through the share
-sheet. Import offers replace or merge.
+sheet. Import offers replace or merge, and writes in one transaction. After
+an import exactly one program is active when any exists: merge keeps this
+phone's active program; replace takes the backup's first active program in
+list order, or the first program when none is active.
 
 ## Update
 

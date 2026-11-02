@@ -248,6 +248,26 @@ interface KhonDao {
     @Query("DELETE FROM week_plan") suspend fun clearWeekPlan()
     @Query("DELETE FROM day_overrides") suspend fun clearOverrides()
 
+    @Query("SELECT id FROM programs WHERE active = 1 ORDER BY sortOrder, name LIMIT 1") suspend fun firstActiveProgramId(): String?
+    @Query("SELECT id FROM programs ORDER BY sortOrder, name LIMIT 1") suspend fun firstProgramId(): String?
+
+    /**
+     * A backup written in one transaction, after a wipe when [replace]. Afterwards exactly one program is active when
+     * any exists: a merge keeps this phone's active program and clears the mark on imported ones; a replace (or a
+     * merge onto a phone with none) takes the backup's first active program in list order, else the first program.
+     */
+    @Transaction suspend fun importBackup(b: Backup, replace: Boolean) {
+        val kept = if (replace) null else firstActiveProgramId()
+        if (replace) clearAll()
+        upsertModalities(b.modalities); upsertExercises(b.exercises); upsertPrograms(b.programs); upsertBlocks(b.blocks)
+        upsertBlockExercises(b.blockExercises); upsertSessions(b.sessions); upsertSetLogs(b.setLogs); upsertIntervalLogs(b.intervalLogs)
+        upsertBodyweights(b.bodyweights); upsertWeekPlan(b.weekPlan); upsertOverrides(b.overrides)
+        upsertStretches(b.stretches); upsertStretchRoutines(b.stretchRoutines); upsertRoutineStretches(b.routineStretches)
+        upsertStretchSessions(b.stretchSessions); b.eatingWindow?.let { upsert(it) }; upsertWindowDays(b.windowDays)
+        if (replace && stretchesOnce().isEmpty()) Seed.applyStretches(this)
+        (kept ?: firstActiveProgramId() ?: firstProgramId())?.let { setActiveProgram(it) }
+    }
+
     @Transaction
     suspend fun clearAll() {
         clearSetLogs(); clearIntervalLogs(); clearSessions(); clearBlockExercises(); clearBlocks(); clearPrograms()

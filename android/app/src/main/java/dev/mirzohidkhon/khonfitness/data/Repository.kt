@@ -292,16 +292,8 @@ class KhonRepository(private val dao: KhonDao) {
         return listOf(n(b.sessions.size, "session", "sessions"), n(b.stretchSessions.size, "stretch session", "stretch sessions"), n(b.bodyweights.size, "bodyweight entry", "bodyweight entries"), n(b.programs.size, "program", "programs"), n(b.exercises.size, "exercise", "exercises")).joinToString(" · ")
     }
 
-    suspend fun importJson(text: String, replace: Boolean) {
-        val b = Json { ignoreUnknownKeys = true }.decodeFromString<Backup>(text)
-        if (replace) dao.clearAll()
-        dao.upsertModalities(b.modalities); dao.upsertExercises(b.exercises); dao.upsertPrograms(b.programs); dao.upsertBlocks(b.blocks)
-        dao.upsertBlockExercises(b.blockExercises); dao.upsertSessions(b.sessions); dao.upsertSetLogs(b.setLogs); dao.upsertIntervalLogs(b.intervalLogs)
-        dao.upsertBodyweights(b.bodyweights); dao.upsertWeekPlan(b.weekPlan); dao.upsertOverrides(b.overrides)
-        dao.upsertStretches(b.stretches); dao.upsertStretchRoutines(b.stretchRoutines); dao.upsertRoutineStretches(b.routineStretches)
-        dao.upsertStretchSessions(b.stretchSessions); b.eatingWindow?.let { dao.upsert(it) }; dao.upsertWindowDays(b.windowDays)
-        if (replace) seedStretchesIfEmpty()
-    }
+    /** Merges or replaces from a backup in one transaction ([KhonDao.importBackup]). Throws when the file is not a Khon backup. */
+    suspend fun importJson(text: String, replace: Boolean) = dao.importBackup(Json { ignoreUnknownKeys = true }.decodeFromString<Backup>(text), replace)
 
     suspend fun seedIfEmpty() { if (dao.programsOnce().isEmpty() && dao.exercisesOnce().isEmpty()) Seed.apply(dao); seedStretchesIfEmpty() }
     /** Older installs have no stretches yet; the routine arrives on first start after the update. */

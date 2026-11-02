@@ -80,9 +80,10 @@ padded cards, per-item buttons, "Updated" lines.
   "Last 60 days"); then "3 new sessions from the band" over two-line
   rows: a runner tile in the exercise's color, the workout type with the
   exercise it imports as on the right of the same line (Choose in
-  accent), and "Mon, Oct 5 · 32 min · 5.2 km · 141 bpm" on a line of its
-  own; a footnote; "Import 1 session" or "Import all 3 sessions" ("Import
-  2 matched" when some need a pick). Reading, all caught up, and missing
+  accent), and "Mon, Oct 5 · 32 min · 5.2 km · 141 bpm · Mi Fitness"
+  (the app that wrote it) on a line of its own; a footnote; "Import 1
+  session" or "Import all 3 sessions" ("Import 2 matched" when some need
+  a pick). Reading, all caught up, and missing
   access are each a card with a symbol, a title and a line, with the one
   action. Debug builds add a "Debug: write a test run" text button.
 
@@ -191,13 +192,15 @@ Two lines, 88 px total, hairline between rows.
 - 16 px gap. One group of 64 px rows sized for the home screen: the
   symbol in a 40 px circle of its color like the item card's, the name
   17/600 over a line of state 15 muted (green when it is good news), a
-  chevron. The active stretch routine (green; "Done today · 10 min · 9
+  chevron. First, when a newer release is out, "Update to v0.5.0" with
+  "Tap to install" in accent (accent download symbol), "Downloading 42%"
+  while the APK downloads (a tap then does nothing); Today checks for it
+  on open. Then the active stretch routine (green; "Done today · 10 min · 9
   stretches" in green with a check once stretched), the eating window
   ("Open · closes in 3 h 20 m" in green, or "Closed · opens 12:00",
   gray), and band sessions waiting ("2 new sessions", "From the band,
   ready to import", red heart); a row with nothing to say is left out.
-  The APK updater has no "update ready" state, so updates stay in
-  Settings. At large text the name and line wrap instead of cutting.
+  At large text the name and line wrap instead of cutting.
 - 28 px gap. "Bodyweight" 17/600 with the latest value 22/700 on the
   right, a line chart of the last 30 days with a soft area fill, then
   24 px gap and the entry on its own group-surface card (radius 20, 16
@@ -208,8 +211,11 @@ Two lines, 88 px total, hairline between rows.
   label every kg, an accent center line, edges fading into the card, a
   haptic click per tick, firmer on a whole kg), and a tinted button (see
   Buttons): "Add", "Update" when today has another value, "Saved" (off)
-  when the value is today's entry. The ruler starts at the latest entry,
-  70 kg before the first.
+  when the value is today's entry; while the typed text is blank or not
+  above 0 the button is off ("Add" or "Update" dimmed) and saves nothing.
+  The ruler starts at the latest entry, 70 kg before the first. One owner
+  at a time: a typed value, a screen reader adjust or a reset stops a
+  fling and moves the ruler to it, and the fling never writes over it.
 - History's sets per muscle: one row per muscle, the name with this
   week's count bold and "last 3" in muted 13, then a 6 px track filled in
   accent to this week's sets with a 2 x 14 px white mark where last

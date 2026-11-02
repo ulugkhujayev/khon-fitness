@@ -193,7 +193,8 @@ private val SPOKEN = mapOf("Add" to "Add bodyweight", "Update" to "Update today'
 /**
  * Today's bodyweight entry on its own card, apart from the chart above: the picked value as a big figure (tap to
  * type), its change since the last day weighed, a ruler to drag, and a tinted Add, Update or Saved. The ruler
- * starts at the latest entry and stays on the saved value after a save.
+ * starts at the latest entry and stays on the saved value after a save. While the typed text is blank or not above 0
+ * the button is off, so a tap never saves the value from before.
  */
 @Composable
 fun BodyweightEntry(today: LocalDate, bodyweights: List<Bodyweight>, onSave: (Double) -> Unit) {
@@ -201,17 +202,18 @@ fun BodyweightEntry(today: LocalDate, bodyweights: List<Bodyweight>, onSave: (Do
     var touched by remember { mutableStateOf(false) }
     // The entries load after the first frame: start at the latest one until the user picks a value.
     LaunchedEffect(bodyweights.lastOrNull()) { if (!touched) kg = startKg(bodyweights) }
+    var valid by remember { mutableStateOf(true) }
     val pick: (Double) -> Unit = { kg = it; touched = true }
     val change = changeSince(bodyweights, today, kg)
-    val action = entryAction(bodyweights, today, kg)
+    val action = entryAction(bodyweights, today, kg, valid)
     Column(Modifier.padding(top = 24.dp).fillMaxWidth().clip(GroupShape).background(K.Surface).padding(vertical = 14.dp)) {
-        FigureField(kg, pick, "kg", "Bodyweight in kilograms", Modifier.padding(horizontal = 16.dp))
+        FigureField(kg, pick, "kg", "Bodyweight in kilograms", Modifier.padding(horizontal = 16.dp), onValid = { valid = it })
         if (change.isNotEmpty()) Text(
             change, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         )
         // The ruler runs to the card's edges and fades into it.
-        RulerPicker(BODYWEIGHT_RULER, kg, pick, "Bodyweight ruler", "kg", K.Surface, Modifier.padding(top = 10.dp))
-        TintedButton(action.text, Modifier.padding(top = 12.dp).padding(horizontal = 16.dp), enabled = action.enabled, description = SPOKEN[action.text]) { onSave(kg) }
+        RulerPicker(BODYWEIGHT_RULER, { kg }, pick, "Bodyweight ruler", "kg", K.Surface, Modifier.padding(top = 10.dp))
+        TintedButton(action.text, Modifier.padding(top = 12.dp).padding(horizontal = 16.dp), enabled = action.enabled, description = SPOKEN[action.text]) { if (action.enabled) onSave(kg) }
     }
 }

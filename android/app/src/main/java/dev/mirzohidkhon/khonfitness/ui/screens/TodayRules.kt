@@ -12,6 +12,7 @@ import dev.mirzohidkhon.khonfitness.data.toDate
 import dev.mirzohidkhon.khonfitness.health.ImportDraft
 import dev.mirzohidkhon.khonfitness.ui.components.Ruler
 import dev.mirzohidkhon.khonfitness.ui.components.fmt
+import dev.mirzohidkhon.khonfitness.update.Updater
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -70,9 +71,18 @@ fun importAllLabel(ready: Int, total: Int): String = when {
     else -> "Import all $total sessions"
 }
 
-/** An import row's second line: "Mon, Oct 5 · 32 min · 5.2 km · 141 bpm". */
+/** An import row's second line: "Mon, Oct 5 · 32 min · 5.2 km · 141 bpm · Mi Fitness", the app that wrote it last. */
 fun draftStats(d: ImportDraft): String =
-    listOfNotNull(d.date.format(shortDate), "${d.seconds / 60} min", d.distanceM?.let { "${fmt(it / 1000.0)} km" }, d.avgHr?.let { "$it bpm" }).joinToString(" · ")
+    listOfNotNull(d.date.format(shortDate), "${d.seconds / 60} min", d.distanceM?.let { "${fmt(it / 1000.0)} km" }, d.avgHr?.let { "$it bpm" }, d.originLabel.ifEmpty { null }).joinToString(" · ")
+
+/** Today's update row: its name, its line in accent, and whether the APK is downloading (a tap then does nothing). */
+data class UpdateRow(val title: String, val line: String, val downloading: Boolean)
+
+/** "Update to v0.5.0" over "Tap to install", or "Downloading 42%" while it downloads; none without a newer release. */
+fun updateRow(result: Updater.Result?, progress: Float?): UpdateRow? {
+    val u = result as? Updater.Result.Available ?: return null
+    return UpdateRow("Update to ${u.release.tag_name}", if (progress == null) "Tap to install" else "Downloading ${(progress * 100).toInt()}%", progress != null)
+}
 
 /** Today's bodyweight ruler: 20 to 250 kg in 0.1 kg ticks 10 dp apart, a label on every kilogram. */
 val BODYWEIGHT_RULER = Ruler(min = 20.0, max = 250.0, step = 0.1, gap = 10f, majorEvery = 10)
@@ -100,9 +110,14 @@ fun changeSince(bodyweights: List<Bodyweight>, today: LocalDate, kg: Double): St
 /** The entry button: its text, and whether a tap saves. */
 data class EntryAction(val text: String, val enabled: Boolean)
 
-/** Add for a new day, Update when today has another value (a save replaces it), Saved (off) when the value is today's entry. */
-fun entryAction(bodyweights: List<Bodyweight>, today: LocalDate, kg: Double): EntryAction {
+/**
+ * Add for a new day, Update when today has another value (a save replaces it), Saved (off) when the value is today's
+ * entry. While the typed text is blank or not above 0 ([valid] off) the button is Add or Update, off: a tap saves nothing.
+ */
+fun entryAction(bodyweights: List<Bodyweight>, today: LocalDate, kg: Double, valid: Boolean = true): EntryAction {
     val todays = bodyweights.find { it.date == today.iso() }
+    val text = if (todays != null) "Update" else "Add"
+    if (!valid || kg <= 0) return EntryAction(text, false)
     if (todays?.kg == kg) return EntryAction("Saved", false)
-    return EntryAction(if (todays != null) "Update" else "Add", kg > 0)
+    return EntryAction(text, true)
 }

@@ -24,8 +24,8 @@ fun rememberMinuteClock(): Long {
 }
 
 /**
- * Today: the week strip, today's item with Start or Resume, one group of rows (the stretch routine, the eating
- * window, band sessions waiting for import), and bodyweight with its chart and entry.
+ * Today: the week strip, today's item with Start or Resume, one group of rows (a newer release to install, the
+ * stretch routine, the eating window, band sessions waiting for import), and bodyweight with its chart and entry.
  */
 @Composable
 fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
@@ -64,6 +64,9 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     val windowRequested by dev.mirzohidkhon.khonfitness.MainActivity.windowRequested.collectAsStateWithLifecycle()
     LaunchedEffect(windowRequested) { if (windowRequested) { dev.mirzohidkhon.khonfitness.MainActivity.windowRequested.value = false; windowSheet = true } }
     val now = rememberMinuteClock()
+    val update by vm.update.collectAsStateWithLifecycle()
+    val updateProgress by vm.updateProgress.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.checkUpdate() }
     val notifLauncher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
     LaunchedEffect(Unit) {
         if (android.os.Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -85,19 +88,24 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
         }
         Spacer(Modifier.height(16.dp))
         GroupedList {
+            val updateRow = updateRow(update, updateProgress)
+            if (updateRow != null) HomeRow(Icons.Download, K.Accent, updateRow.title, updateRow.line, K.Accent, divider = false) {
+                // One download at a time: a tap while it runs does nothing.
+                if (!updateRow.downloading) vm.runUpdate(context, onNeedPermission = { nav.navigate(Routes.SETTINGS) }, onError = { })
+            }
             val routine = stretchRoutines.find { it.active } ?: stretchRoutines.firstOrNull()
             if (routine != null) {
                 val stretchedToday = stretchSessions.any { it.date == today.iso() }
                 val summary = routineSummary(routineSeconds(routine.id, routineStretches, stretches), routineStretches.count { it.routineId == routine.id })
                 HomeRow(
-                    Icons.Stretch, K.Green, routine.name, routineLine(summary, stretchedToday), if (stretchedToday) K.Green else K.Muted, divider = false,
+                    Icons.Stretch, K.Green, routine.name, routineLine(summary, stretchedToday), if (stretchedToday) K.Green else K.Muted, divider = updateRow != null,
                     trailing = if (stretchedToday) { { DoneCheck() } } else null,
                 ) { nav.navigate(Routes.stretch(routine.id)) }
             }
             val windowDay = windowDays.find { it.date == today.iso() }
             val clock = java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(now), java.time.ZoneId.systemDefault())
             val open = windowSummary(eatingWindow, windowDay, clock).first
-            HomeRow(Icons.ForkKnife, if (open) K.Green else K.Dim, "Eating window", windowStatus(eatingWindow, windowDay, clock), if (open) K.Green else K.Muted, divider = routine != null) { windowSheet = true }
+            HomeRow(Icons.ForkKnife, if (open) K.Green else K.Dim, "Eating window", windowStatus(eatingWindow, windowDay, clock), if (open) K.Green else K.Muted, divider = updateRow != null || routine != null) { windowSheet = true }
             if (pendingBand > 0) HomeRow(Icons.Heart, K.Red, pendingTitle(pendingBand), PENDING_LINE, divider = true) { nav.navigate(Routes.IMPORT) }
         }
         BodyweightSection(today, bodyweights) { kg -> vm.run { vm.repo.saveBodyweight(today.iso(), kg) } }

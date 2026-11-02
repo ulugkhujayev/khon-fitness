@@ -40,12 +40,14 @@ Three tabs.
   Middle: today's item name, a one-line preview (7 blocks, 42 sets, or
   4 x 4 min on bike), one Start button; while a session runs, the time
   since its start, its sets done, and Resume. Under it one group of rows:
-  the stretch routine, the eating window, and band sessions waiting for
-  import. Below: bodyweight as a chart of the last 30 days with the latest
+  a newer release to install (Today checks on open; tap downloads and
+  installs, the row shows the download percent), the stretch routine, the
+  eating window, and band sessions waiting for import. Below: bodyweight as a chart of the last 30 days with the latest
   value, and an entry card: the value as a big figure (tap to type) over
   a ruler to drag, its change since the last day weighed, and one button:
   Add for a new day, Update when today has another value (the save
-  replaces it), Saved (off) when the value is today's entry.
+  replaces it), Saved (off) when the value is today's entry. While the
+  typed value is blank or not above 0 the button is off.
 - History. Month calendar, one colored dot per session. Tap a day to open
   the session. Below: bodyweight chart, and an exercise picker that shows
   a progress card (see Exercise progress).
@@ -184,9 +186,11 @@ sheet. Import offers replace or merge.
 
 ## Update
 
-Settings has Check for update. It reads the latest GitHub release, compares the
-version, downloads the APK, and hands it to the package installer. Install over
-the old build with no uninstall. Needs REQUEST_INSTALL_PACKAGES.
+Settings has Check for update, and Today checks once on open and shows an
+"Update to <tag>" row when a newer release is out. It reads the latest GitHub
+release, compares the version, downloads the APK, and hands it to the package
+installer. Install over the old build with no uninstall. Needs
+REQUEST_INSTALL_PACKAGES.
 
 ## Stretching (phase 3)
 

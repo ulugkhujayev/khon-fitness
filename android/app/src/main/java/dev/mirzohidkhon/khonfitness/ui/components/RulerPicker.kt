@@ -2,8 +2,8 @@ package dev.mirzohidkhon.khonfitness.ui.components
 
 import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateDecay
+import androidx.compose.animation.core.animateTo
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.splineBasedDecay
 import androidx.compose.foundation.Canvas
@@ -74,40 +74,46 @@ private const val LABEL_TOP = TICK_MAJOR + 4
 
 /**
  * Horizontal ruler picker: the ticks move under a fixed accent center line as they are dragged or flung, stop on
- * a tick, click on each one they pass (firmer on a labelled one) and report the value. A value set elsewhere moves
- * the ruler to it. The edges fade into [surface]. Screen readers get one adjustable element that steps a tick at
- * a time.
+ * a tick, click on each one they pass (firmer on a labelled one) and report the value. [value] reads the parent's
+ * state and [onChange] writes it at once. A value set elsewhere (typed, a reset) stops any fling and moves the
+ * ruler to it with no report ([RulerMotion]). The edges fade into [surface]. Screen readers get one adjustable
+ * element that steps a tick at a time.
  */
 @Composable
-fun RulerPicker(ruler: Ruler, value: Double, onChange: (Double) -> Unit, label: String, unit: String, surface: Color, modifier: Modifier = Modifier) {
+fun RulerPicker(ruler: Ruler, value: () -> Double, onChange: (Double) -> Unit, label: String, unit: String, surface: Color, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
     val focus = LocalFocusManager.current
     val tick = rememberTick()
     val scope = rememberCoroutineScope()
     val change by rememberUpdatedState(onChange)
-    val maxOffset = (ruler.tickCount() - 1) * ruler.gap
-    // The offset (dp) of the value under the line; `shown` is that value, so a value that came from the ruler is not moved to again.
-    var offset by remember(ruler) { mutableFloatStateOf(ruler.offsetOf(value)) }
-    val shown = remember { doubleArrayOf(value) }
+    val held by rememberUpdatedState(value)
+    val motion = remember(ruler) { RulerMotion(ruler, value()) }
+    var offset by remember(ruler) { mutableFloatStateOf(motion.offset) }
+    // The drag's id, and its fling and settle.
+    val drag = remember { intArrayOf(0) }
     var moving by remember { mutableStateOf<Job?>(null) }
-    var dragging by remember { mutableStateOf(false) }
 
-    LaunchedEffect(value) {
-        if (value == shown[0] || dragging || moving != null) return@LaunchedEffect
-        shown[0] = value
-        offset = ruler.offsetOf(value)
+    fun takeOutside(v: Double) {
+        if (!motion.outside(v)) return
+        moving?.cancel(); moving = null
+        offset = motion.offset
     }
 
-    fun moveTo(o: Float) {
-        offset = o.coerceIn(0f, maxOffset)
-        val v = ruler.valueAt(offset)
-        if (v == shown[0]) return
-        shown[0] = v
-        tick(ruler.tickKind(ruler.tickIndex(v)) == TickKind.MAJOR)
-        change(v)
+    val current = value()
+    LaunchedEffect(current) { takeOutside(current) }
+
+    /** One frame of gesture [id]; false once it lost the ruler. */
+    fun step(id: Int, to: Float): Boolean {
+        val v = motion.move(id, to, held())
+        offset = motion.offset
+        if (v != null) {
+            tick(ruler.tickKind(ruler.tickIndex(v)) == TickKind.MAJOR)
+            change(v)
+        }
+        return motion.owns(id)
     }
 
-    val drag = rememberDraggableState { deltaPx -> moveTo(offset - deltaPx / density.density) }
+    val dragState = rememberDraggableState { deltaPx -> step(drag[0], motion.offset - deltaPx / density.density) }
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelMedium.copy(color = K.Muted, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum")
     // Under the ticks, room for a label line, which grows with the font scale.
@@ -116,34 +122,46 @@ fun RulerPicker(ruler: Ruler, value: Double, onChange: (Double) -> Unit, label: 
     Canvas(
         modifier.fillMaxWidth().height(height)
             .draggable(
-                drag, Orientation.Horizontal,
+                dragState, Orientation.Horizontal,
                 onDragStarted = {
-                    moving?.cancel(); moving = null; dragging = true
+                    moving?.cancel(); moving = null
+                    drag[0] = motion.start()
                     // Picking with the ruler ends typing in the figure above it.
                     focus.clearFocus()
                 },
                 onDragStopped = { velocityPx ->
-                    dragging = false
-                    val job = scope.launch {
-                        // Fling on, then settle on the nearest tick.
-                        val d = density.density
-                        AnimationState(offset * d, -velocityPx).animateDecay(splineBasedDecay(density)) {
-                            val o = this.value / d
-                            moveTo(o)
-                            if (o <= 0f || o >= maxOffset) cancelAnimation()
+                    val id = drag[0]
+                    if (motion.owns(id)) {
+                        val job = scope.launch {
+                            // Fling on, then settle on the nearest tick; outside input stops both.
+                            val d = density.density
+                            AnimationState(motion.offset * d, -velocityPx).animateDecay(splineBasedDecay(density)) {
+                                val o = this.value / d
+                                if (!step(id, o) || ruler.atEnd(o)) cancelAnimation()
+                            }
+                            if (!motion.owns(id)) return@launch
+                            AnimationState(motion.offset).animateTo(ruler.snapOffset(motion.offset), spring(stiffness = Spring.StiffnessMediumLow)) {
+                                if (!step(id, this.value)) cancelAnimation()
+                            }
                         }
-                        animate(offset, ruler.snapOffset(offset), animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { o, _ -> moveTo(o) }
+                        moving = job
+                        job.invokeOnCompletion { motion.end(id); if (moving === job) moving = null }
                     }
-                    moving = job
-                    job.invokeOnCompletion { if (moving === job) moving = null }
                 },
             )
             .edgeFade(surface)
             .semantics {
                 contentDescription = label
-                stateDescription = "${fmt(value)} $unit"
-                progressBarRangeInfo = ProgressBarRangeInfo(value.toFloat(), ruler.min.toFloat()..ruler.max.toFloat(), steps = ruler.tickCount() - 2)
-                setProgress { target -> change(ruler.tickValue(ruler.tickIndex(target.toDouble()))); true }
+                stateDescription = "${fmt(current)} $unit"
+                progressBarRangeInfo = ProgressBarRangeInfo(current.toFloat(), ruler.min.toFloat()..ruler.max.toFloat(), steps = ruler.tickCount() - 2)
+                // A screen reader adjust is the user's own pick: it stops any fling, ends typing and reports once.
+                setProgress { target ->
+                    val v = ruler.tickValue(ruler.tickIndex(target.toDouble()))
+                    takeOutside(v)
+                    focus.clearFocus()
+                    change(v)
+                    true
+                }
             },
     ) {
         val gap = ruler.gap.dp.toPx()
@@ -169,10 +187,11 @@ fun RulerPicker(ruler: Ruler, value: Double, onChange: (Double) -> Unit, label: 
 
 /**
  * A big centered figure with its unit, "80.6 kg", above a picker that sets it. A tap selects the number for typing.
- * Text that is not a positive number yet ("", "0.") leaves the value as it was; leaving the field shows the value.
+ * Text that is not a positive number yet ("", "0.") leaves the value as it was and reports [onValid] false, so a
+ * save button can turn off; leaving the field shows the value again and reports true.
  */
 @Composable
-fun FigureField(value: Double, onChange: (Double) -> Unit, unit: String, label: String, modifier: Modifier = Modifier, decimals: Int = 1) {
+fun FigureField(value: Double, onChange: (Double) -> Unit, unit: String, label: String, modifier: Modifier = Modifier, decimals: Int = 1, onValid: (Boolean) -> Unit = {}) {
     var text by remember { mutableStateOf(TextFieldValue(fmt(value, decimals))) }
     var focused by remember { mutableStateOf(false) }
     val current by rememberUpdatedState(value)
@@ -186,7 +205,9 @@ fun FigureField(value: Double, onChange: (Double) -> Unit, unit: String, label: 
                     cleaned,
                     TextRange(cleanOffset(new.text, new.selection.start, decimals), cleanOffset(new.text, new.selection.end, decimals)),
                 )
-                typedNumber(cleaned)?.takeIf { it > 0 }?.let(onChange)
+                val typed = typedFigure(cleaned)
+                typed?.let(onChange)
+                onValid(typed != null)
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = if (decimals > 0) KeyboardType.Decimal else KeyboardType.Number),
@@ -197,7 +218,7 @@ fun FigureField(value: Double, onChange: (Double) -> Unit, unit: String, label: 
                 .onFocusChanged { st ->
                     if (st.isFocused && !focused) text = text.copy(selection = TextRange(0, text.text.length))
                     // The picker may have moved the value since, and "0" was never taken.
-                    if (!st.isFocused && focused) text = TextFieldValue(fmt(current, decimals))
+                    if (!st.isFocused && focused) { text = TextFieldValue(fmt(current, decimals)); onValid(true) }
                     focused = st.isFocused
                 },
         )

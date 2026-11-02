@@ -3,10 +3,8 @@ package dev.mirzohidkhon.khonfitness.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -77,8 +75,7 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
     val loggedIds = allLogs.filter { it.status == SetStatus.DONE }.map { it.exerciseId }.toSet()
     val chosenId = exerciseId ?: strength.firstOrNull { it.id in loggedIds }?.id ?: strength.firstOrNull()?.id
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 24.dp)) {
-        ScreenTitle("History") { TextButton("Import") { nav.navigate(Routes.IMPORT) } }
+    TabScreen("History", trailing = { TextButton("Import") { nav.navigate(Routes.IMPORT) } }) {
         Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton("‹", description = "Previous month") { month = month.minusMonths(1) }
             Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy")), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
@@ -216,13 +213,13 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
             bodyweights.lastOrNull()?.let { Text("${fmt(it.kg)} kg", fontSize = 22.sp, fontWeight = FontWeight.Bold) }
         }
         if (bodyweights.isEmpty()) Text("No entries yet. Add one on Today.", color = K.Dim, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
-        else LineChart(bodyweights.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp), height = 170)
+        else LineChart(bodyweights.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp))
         Spacer(Modifier.height(24.dp))
         GroupedList { FieldRow("Exercise", divider = false, onClick = { pickExercise = true }) { Text(strength.find { it.id == chosenId }?.name ?: "Choose", fontWeight = FontWeight.SemiBold); Chevron() } }
         val progress = remember(allLogs, sessions, chosenId) { progressFor(chosenId, allLogs, sessions) }
         Text("Estimated 1RM", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
         if (progress.isEmpty()) Text("No finished sets for this exercise yet.", color = K.Dim, style = MaterialTheme.typography.bodyMedium)
-        else LineChart(progress.map { ChartPoint(it.date, it.e1rm) }, "kg", height = 190)
+        else LineChart(progress.map { ChartPoint(it.date, it.e1rm) }, "kg")
         if (progress.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
             GroupedList { progress.asReversed().forEachIndexed { i, p -> ListRow(p.date.format(shortDate), secondary = "${fmt(p.topW, 1)} kg × ${p.topR} reps", chevron = false, divider = i > 0, titleColor = K.Muted) } }
@@ -266,24 +263,24 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
             }
             if (pace.isNotEmpty()) {
                 Text("Pace $paceUnit", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
-                LineChart(pace, "", height = 170, format = { m -> val sec = Math.round(m * 60); "%d:%02d".format(sec / 60, sec % 60) })
+                LineChart(pace, "", format = { m -> val sec = Math.round(m * 60); "%d:%02d".format(sec / 60, sec % 60) })
             }
             val hr = cs.mapNotNull { s -> s.avgHr?.let { ChartPoint(s.date.toDate(), it.toDouble()) } }
             if (hr.isNotEmpty()) {
                 Text("Average heart rate", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
-                LineChart(hr, "bpm", height = 170, decimals = 0)
+                LineChart(hr, "bpm", decimals = 0)
             }
             if (cex?.intervals == true) {
                 val work = cs.mapNotNull { s -> intervalLogs.filter { it.sessionId == s.id && it.avgHr != null }.map { it.avgHr!! }.takeIf { it.isNotEmpty() }?.let { ChartPoint(s.date.toDate(), it.average()) } }
                 if (work.isNotEmpty()) {
                     Text("Heart rate in work intervals", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
-                    LineChart(work, "bpm", height = 170, decimals = 0)
+                    LineChart(work, "bpm", decimals = 0)
                 }
             }
             val time = cs.mapNotNull { s -> s.timeSec?.let { ChartPoint(s.date.toDate(), it / 60.0) } }
             if (pace.isEmpty() && hr.isEmpty() && time.isNotEmpty()) {
                 Text("Time, min", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
-                LineChart(time, "min", height = 170, decimals = 0)
+                LineChart(time, "min", decimals = 0)
             }
         }
     }

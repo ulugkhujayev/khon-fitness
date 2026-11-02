@@ -33,8 +33,9 @@ private fun cap(s: String) = s.replaceFirstChar { it.uppercase() }
 @Composable
 fun EditorScaffold(back: String, title: String, onBack: () -> Unit, onDone: (() -> Unit)?, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar(back, title, onBack = onBack, onDone = onDone)
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp), content = content)
+        val barScroll = rememberScrollState()
+        EditorTopBar(back, title, scrollPx = { barScroll.value }, onBack = onBack, onDone = onDone)
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp), content = content)
     }
 }
 

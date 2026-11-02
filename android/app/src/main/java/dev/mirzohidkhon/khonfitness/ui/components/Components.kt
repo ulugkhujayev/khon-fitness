@@ -1,6 +1,15 @@
 package dev.mirzohidkhon.khonfitness.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.rememberUpdatedState
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
@@ -71,15 +80,6 @@ fun fmt(value: Double?, decimals: Int = 1): String {
     return if (decimals > 0 && s.endsWith(".0")) s.dropLast(2) else s
 }
 
-/** Large title, as in a navigation bar at the top of a scroll view: 34 bold on the leading edge, bar items trailing. */
-@Composable
-fun ScreenTitle(text: String, trailing: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
-        trailing?.invoke()
-    }
-}
-
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
     // Grouped section header: Footnote in secondary label color, inset to the row text. Sentence case by owner rule.
@@ -106,12 +106,26 @@ fun PlusButton(label: String = "Add", onClick: () -> Unit) {
     }
 }
 
+/**
+ * The one prominent button of a screen: a 50 dp (compact 44) full-width capsule in accent. [color] is [K.Red] for a
+ * destructive confirm; [TintedButton] passes a tint. [description] is the spoken name when the text is not enough.
+ */
 @Composable
-fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+fun PrimaryButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    color: Color = K.Accent,
+    textColor: Color = K.AccentInk,
+    compact: Boolean = false,
+    description: String? = null,
+    onClick: () -> Unit,
+) {
+    val spoken = if (description != null) Modifier.semantics { contentDescription = description } else Modifier
     Box(
-        modifier.fillMaxWidth().height(50.dp).clip(CapsuleShape).background(if (enabled) K.Accent else K.Surface2).clickable(enabled = enabled, onClick = onClick),
+        modifier.fillMaxWidth().height(if (compact) 44.dp else 50.dp).clip(CapsuleShape).background(if (enabled) color else K.Surface2).clickable(enabled = enabled, role = Role.Button, onClick = onClick).then(spoken),
         contentAlignment = Alignment.Center,
-    ) { Text(text, color = if (enabled) K.AccentInk else K.Muted, fontSize = 17.sp, fontWeight = FontWeight.SemiBold) }
+    ) { Text(text, color = if (enabled) textColor else K.Muted, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = if (description != null) Modifier.clearAndSetSemantics {} else Modifier) }
 }
 
 /** iOS-style grouped inset list. Rows draw their own inset dividers. */
@@ -166,9 +180,9 @@ fun ListRow(
 @Composable
 fun Chevron() { androidx.compose.material3.Icon(dev.mirzohidkhon.khonfitness.ui.Icons.ChevronRight, contentDescription = null, tint = K.Dim, modifier = Modifier.padding(start = 6.dp).size(14.dp)) }
 
-/** Editor field row: label on the left, value or control on the right. */
+/** Editor field row: label on the left, value or control on the right. [note] is a muted line under the label, e.g. "per side". */
 @Composable
-fun FieldRow(label: String, divider: Boolean = true, onClick: (() -> Unit)? = null, value: @Composable RowScope.() -> Unit) {
+fun FieldRow(label: String, divider: Boolean = true, note: String? = null, onClick: (() -> Unit)? = null, value: @Composable RowScope.() -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
         Row(
@@ -176,7 +190,10 @@ fun FieldRow(label: String, divider: Boolean = true, onClick: (() -> Unit)? = nu
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 400
-            Text(label, color = K.Text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(if (narrow) 104.dp else 128.dp))
+            Column(Modifier.width(if (narrow) 104.dp else 128.dp).padding(vertical = 10.dp)) {
+                Text(label, color = K.Text, style = MaterialTheme.typography.bodyLarge)
+                if (note != null) Text(note, color = K.Muted, style = MaterialTheme.typography.bodySmall)
+            }
             Spacer(Modifier.width(12.dp))
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) { value() }
         }
@@ -199,7 +216,10 @@ fun InlineTextField(value: String, onValueChange: (String) -> Unit, placeholder:
     )
 }
 
-/** Hybrid number widget: minus, typed value with unit, plus. Selects all text on focus. */
+/**
+ * Hybrid number widget: minus, typed value with unit, plus. Selects all text on focus. A tap on − or + steps once
+ * with a light haptic click and saves; held, it repeats faster ([repeatPress]) and saves once on release.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NumberField(
@@ -225,6 +245,19 @@ fun NumberField(
         if (typed != value && !(hasFocus && text.text.isEmpty())) { val t = fmt(value, decimals); text = TextFieldValue(t, TextRange(t.length)) }
     }
     fun commit(v: Double?) { onValueChange(v?.let { Math.max(0.0, it) }) }
+    val tick = rememberTick()
+    // While − or + is held the steps only show; the value is saved once on release, not on every step.
+    val held = remember { arrayOfNulls<Double>(1) }
+    fun stepBy(sign: Int, save: Boolean) {
+        // The typed text first: a database write may not have come back into `value` yet.
+        val base = held[0] ?: text.text.trimEnd('.').toDoubleOrNull() ?: value ?: 0.0
+        val next = stepValue(base, sign, step)
+        val t = fmt(next, decimals)
+        text = TextFieldValue(t, TextRange(t.length))
+        tick(false)
+        if (save) commit(next) else held[0] = next
+    }
+    fun release() { held[0]?.let { commit(it) }; held[0] = null }
     // Narrow slots (two fields per row on a 360 dp phone) drop the unit and slim the steppers so the whole value stays visible.
     androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
     val compact = maxWidth < 176.dp
@@ -233,7 +266,7 @@ fun NumberField(
         Modifier.fillMaxWidth().height(height.dp).bringIntoViewRequester(bringIntoView).clip(RoundedCornerShape(10.dp)).background(K.Surface2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StepButton("−", "Decrease by ${fmt(step, decimals)} $unit".trim(), stepWidth) { commit(((value ?: 0.0) - step).coerceAtLeast(0.0)) }
+        StepButton("−", "Decrease by ${fmt(step, decimals)} $unit".trim(), stepWidth, { stepBy(-1, it) }, ::release)
         Box(Modifier.width(1.dp).fillMaxHeight().background(K.Divider))
         BasicTextField(
             value = text,
@@ -265,14 +298,51 @@ fun NumberField(
         if (compact) Spacer(Modifier.width(8.dp))
         else Text(unit, color = K.Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp, end = 8.dp))
         Box(Modifier.width(1.dp).fillMaxHeight().background(K.Divider))
-        StepButton("+", "Increase by ${fmt(step, decimals)} $unit".trim(), stepWidth) { commit((value ?: 0.0) + step) }
+        StepButton("+", "Increase by ${fmt(step, decimals)} $unit".trim(), stepWidth, { stepBy(1, it) }, ::release)
     }
     }
 }
 
+/** − or +: [onStep] gets `save = false` while held; the caller saves once in [onRelease]. */
 @Composable
-private fun RowScope.StepButton(glyph: String, label: String, width: Int = 44, onClick: () -> Unit) {
-    Box(Modifier.width(width.dp).fillMaxHeight().clickable(role = Role.Button, onClick = onClick).clearAndSetSemantics { contentDescription = label }, contentAlignment = Alignment.Center) {
+private fun RowScope.StepButton(glyph: String, label: String, width: Int, onStep: (save: Boolean) -> Unit, onRelease: () -> Unit) {
+    Box(Modifier.width(width.dp).fillMaxHeight().repeatPress(label, onTap = { onStep(true) }, onRepeat = { onStep(false) }, onRelease = onRelease), contentAlignment = Alignment.Center) {
         Text(glyph, fontSize = 22.sp, fontWeight = FontWeight.Medium, color = K.Text)
     }
+}
+
+/**
+ * Press handling for a − or + button: a tap calls [onTap]; held past [REPEAT_AFTER_MS] it calls [onRepeat] again
+ * and again, faster the longer it is held ([repeatDelay]), and [onRelease] once the finger lifts. A press shows a
+ * Surface3 fill. Screen readers get one button that taps.
+ */
+@Composable
+fun Modifier.repeatPress(label: String, onTap: () -> Unit, onRepeat: () -> Unit, onRelease: () -> Unit): Modifier {
+    val tap by rememberUpdatedState(onTap)
+    val repeat by rememberUpdatedState(onRepeat)
+    val release by rememberUpdatedState(onRelease)
+    var pressed by remember { mutableStateOf(false) }
+    return this
+        .background(if (pressed) K.Surface3 else Color.Transparent)
+        .pointerInput(Unit) {
+            coroutineScope {
+                awaitEachGesture {
+                    awaitFirstDown()
+                    pressed = true
+                    var ended = false
+                    val up = withTimeoutOrNull(REPEAT_AFTER_MS) { waitForUpOrCancellation().also { ended = true } }
+                    if (ended) {
+                        pressed = false
+                        if (up != null) { up.consume(); tap() }
+                        return@awaitEachGesture
+                    }
+                    val stepping = launch { var n = 0; while (isActive) { repeat(); delay(repeatDelay(n++)) } }
+                    waitForUpOrCancellation()?.consume()
+                    stepping.cancel()
+                    pressed = false
+                    release()
+                }
+            }
+        }
+        .clearAndSetSemantics { contentDescription = label; role = Role.Button; onClick { tap(); true } }
 }

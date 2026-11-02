@@ -40,11 +40,12 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     var confirmDelete by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar(if (s.finished) "History" else "Today", s.exerciseName ?: "Cardio", onBack = { if (!nav.popBackStack()) nav.navigate(Routes.TODAY) }, done = "Save") {
+        val barScroll = rememberScrollState()
+        EditorTopBar(if (s.finished) "History" else "Today", s.exerciseName ?: "Cardio", scrollPx = { barScroll.value }, onBack = { if (!nav.popBackStack()) nav.navigate(Routes.TODAY) }, done = "Save") {
             vm.run { vm.repo.updateSession(draft.copy(finishedAt = draft.finishedAt ?: System.currentTimeMillis())); vm.repo.saveIntervals(ivs) }
             nav.popBackStack()
         }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             GroupedList {
                 DateRow(draft.date.toDate(), divider = false) { d -> draft = draft.copy(date = d.iso()) }
                 fields.forEachIndexed { i, f ->

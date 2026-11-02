@@ -33,10 +33,11 @@ fun RoutinesScreen(vm: AppViewModel, nav: NavHostController) {
     val routineStretches by vm.routineStretches.collectAsStateWithLifecycle()
     val stretches by vm.stretches.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar("Programs", "Stretching", onBack = { nav.popBackStack() }, done = "+") {
+        val barScroll = rememberScrollState()
+        EditorTopBar("Programs", "Stretching", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+") {
             val id = newId(); vm.run { vm.repo.saveRoutine(StretchRoutine(id, "New routine", active = routines.isEmpty(), sortOrder = routines.size)) }; nav.navigate(Routes.routine(id))
         }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             GroupedList {
                 routines.forEachIndexed { i, r ->
                     val secs = routineSeconds(r.id, routineStretches, stretches)
@@ -61,8 +62,9 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
     var picking by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar("Stretching", routine.name, onBack = { nav.popBackStack() }) { nav.popBackStack() }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+        val barScroll = rememberScrollState()
+        EditorTopBar("Stretching", routine.name, scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }) { nav.popBackStack() }
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             GroupedList {
                 FieldRow("Name", divider = false) { InlineTextField(routine.name, { vm.run { vm.repo.saveRoutine(routine.copy(name = it)) } }) }
                 FieldRow("Active") { Switch(routine.active, { on -> vm.run { vm.repo.saveRoutine(routine.copy(active = on)) } }, colors = switchColors) }
@@ -116,8 +118,9 @@ fun StretchLibraryScreen(vm: AppViewModel, nav: NavHostController) {
     val stretches by vm.stretches.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar("Stretching", "Stretches", onBack = { nav.popBackStack() }, done = "+") { nav.navigate(Routes.stretchEditor("new")) }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+        val barScroll = rememberScrollState()
+        EditorTopBar("Stretching", "Stretches", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+") { nav.navigate(Routes.stretchEditor("new")) }
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             SearchField(query, { query = it })
             Spacer(Modifier.height(16.dp))
             val list = stretches.filter { !it.archived && (query.isBlank() || it.name.contains(query.trim(), true)) }
@@ -145,8 +148,9 @@ fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
     LaunchedEffect(id) { if (existing != null) useCount = vm.repo.stretchUseCount(id) }
     fun save() { vm.run { vm.repo.saveStretch(draft) } }
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar("Stretches", if (existing == null) "New stretch" else "Stretch", onBack = { nav.popBackStack() }) { save(); nav.popBackStack() }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+        val barScroll = rememberScrollState()
+        EditorTopBar("Stretches", if (existing == null) "New stretch" else "Stretch", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }) { save(); nav.popBackStack() }
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             StretchDemonstration(draft.figure, compact = true, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))
             GroupedList {
                 FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Stretch name") }

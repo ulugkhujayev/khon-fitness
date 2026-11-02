@@ -44,8 +44,7 @@ fun ProgramsScreen(vm: AppViewModel, nav: NavHostController) {
     val blocks by vm.blocks.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 24.dp)) {
-        ScreenTitle("Programs") { BarCircleButton(Icons.Plus, "New program") { val id = newId(); vm.run { vm.repo.saveProgram(Program(id, "New program", active = programs.isEmpty(), sortOrder = programs.size)) }; nav.navigate(Routes.program(id)) } }
+    TabScreen("Programs", trailing = { BarCircleButton(Icons.Plus, "New program") { val id = newId(); vm.run { vm.repo.saveProgram(Program(id, "New program", active = programs.isEmpty(), sortOrder = programs.size)) }; nav.navigate(Routes.program(id)) } }) {
         GroupedList {
             programs.forEachIndexed { i, p ->
                 ListRow(p.name, secondary = "${blocks.count { it.programId == p.id }} blocks", dotColor = K.Accent, dotFilled = p.active, divider = i > 0) { nav.navigate(Routes.program(p.id)) }
@@ -86,8 +85,9 @@ fun LibraryScreen(vm: AppViewModel, nav: NavHostController) {
     var showArchived by rememberSaveable { mutableStateOf(false) }
     var muscleSheet by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar("Programs", "Exercises", onBack = { nav.popBackStack() }, done = "+") { nav.navigate(Routes.exercise("new")) }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+        val barScroll = rememberScrollState()
+        EditorTopBar("Programs", "Exercises", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+") { nav.navigate(Routes.exercise("new")) }
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             SearchField(query, { query = it })
             Spacer(Modifier.height(12.dp))
             Segmented(listOf("All", "Strength", "Cardio"), when (kind) { Kind.STRENGTH -> 1; Kind.CARDIO -> 2; else -> 0 }) { kind = when (it) { 1 -> Kind.STRENGTH; 2 -> Kind.CARDIO; else -> "" } }
@@ -115,30 +115,6 @@ fun LibraryScreen(vm: AppViewModel, nav: NavHostController) {
 }
 
 @Composable
-fun SearchField(value: String, onChange: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(10.dp)).background(K.Surface).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        androidx.compose.material3.Icon(Icons.Search, contentDescription = null, tint = K.Dim, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        androidx.compose.foundation.text.BasicTextField(value, onChange, singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = K.Text), cursorBrush = androidx.compose.ui.graphics.SolidColor(K.Accent), modifier = Modifier.weight(1f),
-            decorationBox = { inner -> Box { if (value.isEmpty()) Text("Search", color = K.Dim, style = MaterialTheme.typography.bodyLarge); inner() } })
-        if (value.isNotEmpty()) Text("×", color = K.Muted, fontSize = 20.sp, modifier = Modifier.clickable { onChange("") }.padding(4.dp))
-    }
-}
-
-/** Fixed-width segmented control: every option gets an equal share, nothing scrolls. */
-@Composable
-fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth().height(36.dp).clip(RoundedCornerShape(10.dp)).background(K.Surface).padding(3.dp)) {
-        options.forEachIndexed { i, label ->
-            val active = i == selected
-            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(if (active) K.Surface3 else androidx.compose.ui.graphics.Color.Transparent).clickable { onSelect(i) }, contentAlignment = Alignment.Center) {
-                Text(label, color = if (active) K.Text else K.Muted, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-            }
-        }
-    }
-}
-
-@Composable
 fun Chip(text: String, active: Boolean, onClick: () -> Unit) {
     Box(Modifier.height(34.dp).clip(RoundedCornerShape(9.dp)).background(if (active) K.AccentSoft else K.Surface).clickable(onClick = onClick).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
         Text(text, color = if (active) K.Accent else K.Muted, fontSize = 15.sp, fontWeight = FontWeight.Medium)
@@ -150,8 +126,9 @@ fun ModalitiesScreen(vm: AppViewModel, nav: NavHostController) {
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     var showArchived by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar("Programs", "Modalities", onBack = { nav.popBackStack() }, done = "+") { nav.navigate(Routes.modality("new")) }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+        val barScroll = rememberScrollState()
+        EditorTopBar("Programs", "Modalities", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+") { nav.navigate(Routes.modality("new")) }
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             GroupedList { modalities.filter { showArchived || !it.archived }.forEachIndexed { i, m ->
                 ListRow(m.name, dotColor = androidx.compose.ui.graphics.Color(m.color), divider = i > 0,
                     titleColor = if (m.archived) K.Dim else K.Text) { nav.navigate(Routes.modality(m.id)) }
@@ -175,8 +152,9 @@ fun WeekPlanScreen(vm: AppViewModel, nav: NavHostController) {
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<Int?>(null) }
     Column(Modifier.fillMaxSize()) {
-    EditorTopBar("Programs", "Week plan", onBack = { nav.popBackStack() })
-    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+    val barScroll = rememberScrollState()
+    EditorTopBar("Programs", "Week plan", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() })
+    Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
     GroupedList {
         for (wd in 1..7) {
             val w = plan.plan.find { it.weekday == wd }
@@ -207,8 +185,9 @@ fun WeekPlanScreen(vm: AppViewModel, nav: NavHostController) {
 @Composable
 fun SettingsScreen(vm: AppViewModel, nav: NavHostController) {
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar("Today", "Settings", onBack = { nav.popBackStack() })
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) { Settings(vm) }
+        val barScroll = rememberScrollState()
+        EditorTopBar("Today", "Settings", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() })
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) { Settings(vm) }
     }
 }
 

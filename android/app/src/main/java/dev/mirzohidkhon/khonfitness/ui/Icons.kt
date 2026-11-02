@@ -26,4 +26,15 @@ object Icons {
     val ChevronLeft = icon("chevron.left") { addPath(pathData = PathParser().parsePathString("M15 5l-7 7 7 7").toNodes(), stroke = SolidColor(Color.White), strokeLineWidth = 2.4f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) }
     val Plus = icon("plus") { addPath(pathData = PathParser().parsePathString("M12 5v14M5 12h14").toNodes(), stroke = SolidColor(Color.White), strokeLineWidth = 2.4f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) }
     val Search = icon("search") { stroke("M11 18a7 7 0 1 0 0-14a7 7 0 1 0 0 14z"); stroke("M21 21l-4.5-4.5") }
+    /** Editor actions (ActionRow), so each action looks the same wherever it appears. */
+    val Trash = icon("trash") { stroke("M4 7h16M10 3h4M6 7l1 13h10l1-13M10 11v6M14 11v6") }
+    val Archive = icon("archivebox") { stroke("M3 4h18v4H3zM5 8v12h14V8M10 12h4") }
+    val Unarchive = icon("tray.and.arrow.up") { stroke("M4 14v6h16v-6M12 15V4M8 8l4-4 4 4") }
+    val Merge = icon("arrow.triangle.merge") { stroke("M6 4v4a6 6 0 0 0 6 6M18 4v4a6 6 0 0 1-6 6v6M9 17l3 3 3-3") }
+    val ArrowUp = icon("arrow.up") { stroke("M12 20V4M5 11l7-7 7 7") }
+    val ArrowDown = icon("arrow.down") { stroke("M12 4v16M5 13l7 7 7-7") }
+    /** Clear button of a search field: a filled circle with an x cut out. */
+    val ClearFill = icon("xmark.circle.fill") {
+        addPath(pathData = PathParser().parsePathString("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20zM8.5 7.1L12 10.6l3.5-3.5 1.4 1.4-3.5 3.5 3.5 3.5-1.4 1.4-3.5-3.5-3.5 3.5-1.4-1.4 3.5-3.5-3.5-3.5z").toNodes(), fill = SolidColor(Color.White), pathFillType = androidx.compose.ui.graphics.PathFillType.EvenOdd)
+    }
 }

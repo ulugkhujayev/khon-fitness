@@ -1,11 +1,24 @@
 package dev.mirzohidkhon.khonfitness.ui
 
 import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.IntOffset
+import androidx.navigation.NavBackStackEntry
+import dev.mirzohidkhon.khonfitness.ui.components.SlidingCapsuleRow
+import dev.mirzohidkhon.khonfitness.ui.components.rememberTick
+import dev.mirzohidkhon.khonfitness.ui.theme.Motion
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +29,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -80,10 +92,20 @@ fun KhonNav() {
             if (!nav.popBackStack(Routes.TODAY, inclusive = false)) nav.navigate(Routes.TODAY) { launchSingleTop = true }
         }
     }
-    val showBar = route == Routes.TODAY || route == Routes.HISTORY || route == Routes.PROGRAMS
-    Scaffold(containerColor = K.Bg, bottomBar = { if (showBar) BottomBar(tab) { i -> nav.navigate(listOf(Routes.TODAY, Routes.HISTORY, Routes.PROGRAMS)[i]) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true; restoreState = true } } }) { pad ->
+    val showBar = route in TABS
+    // Tab screens shift sideways as they swap, the way the selected capsule slides; pushed screens just appear.
+    val shiftPx = with(LocalDensity.current) { Motion.SHIFT_DP.dp.roundToPx() }
+    val shiftSpec = tween<IntOffset>(Motion.SHIFT_MS)
+    val fadeSpec = tween<Float>(Motion.SHIFT_MS)
+    val enter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        tabShift(initialState.destination.route, targetState.destination.route)?.let { dir -> slideInHorizontally(shiftSpec) { dir * shiftPx } + fadeIn(fadeSpec) } ?: EnterTransition.None
+    }
+    val exit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        tabShift(initialState.destination.route, targetState.destination.route)?.let { dir -> slideOutHorizontally(shiftSpec) { -dir * shiftPx } + fadeOut(fadeSpec) } ?: ExitTransition.None
+    }
+    Scaffold(containerColor = K.Bg, bottomBar = { if (showBar) BottomBar(tab) { i -> nav.navigate(TABS[i]) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true; restoreState = true } } }) { pad ->
         Box(Modifier.fillMaxSize().padding(pad).consumeWindowInsets(pad).imePadding()) {
-            NavHost(nav, startDestination = Routes.TODAY, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
+            NavHost(nav, startDestination = Routes.TODAY, enterTransition = enter, exitTransition = exit, popEnterTransition = enter, popExitTransition = exit) {
                 composable(Routes.TODAY) { TodayScreen(vm, nav) }
                 composable(Routes.HISTORY) { HistoryScreen(vm, nav) }
                 composable(Routes.PROGRAMS) { ProgramsScreen(vm, nav) }
@@ -109,26 +131,39 @@ fun KhonNav() {
     }
 }
 
-/** Floating tab bar in the iOS 26 shape: a capsule that sits above the bottom edge, filled symbols, the selected item tinted. */
+private val TABS = listOf(Routes.TODAY, Routes.HISTORY, Routes.PROGRAMS)
+
+/** Direction a tab switch shifts the screens: 1 toward a tab on the right, -1 toward the left, null when not between tabs. */
+private fun tabShift(from: String?, to: String?): Int? {
+    val a = TABS.indexOf(from); val b = TABS.indexOf(to)
+    return if (a < 0 || b < 0 || a == b) null else if (b > a) 1 else -1
+}
+
+/**
+ * Floating tab bar in the iOS 26 shape: a capsule that sits above the bottom edge, filled symbols, the selected
+ * item on a Surface2 capsule tinted accent. The capsule slides to the tab tapped, with a light haptic click.
+ */
 @Composable
 private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
+    val tick = rememberTick()
     Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(start = 24.dp, end = 24.dp, bottom = 10.dp, top = 6.dp)) {
-        Row(
-            Modifier.fillMaxWidth().height(60.dp)
+        SlidingCapsuleRow(
+            count = 3, selected = selected, shape = RoundedCornerShape(26.dp), color = K.Surface2,
+            modifier = Modifier.fillMaxWidth().height(60.dp)
                 .shadow(elevation = 12.dp, shape = RoundedCornerShape(30.dp), ambientColor = Color.Black, spotColor = Color.Black)
                 .clip(RoundedCornerShape(30.dp)).background(K.Surface)
-                .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(30.dp))
+                .border(1.dp, K.Hairline, RoundedCornerShape(30.dp))
                 .padding(4.dp),
         ) {
             listOf("Today" to Icons.Today, "History" to Icons.History, "Programs" to Icons.Programs).forEachIndexed { i, (label, icon) ->
                 val active = i == selected
                 Column(
                     Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(26.dp))
-                        .background(if (active) K.Surface2 else Color.Transparent)
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(i) },
+                        .selectable(active, interactionSource = remember { MutableInteractionSource() }, indication = null, role = Role.Tab) { if (!active) { tick(false); onSelect(i) } },
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
                 ) {
-                    Icon(icon, contentDescription = label, tint = if (active) K.Accent else K.Muted, modifier = Modifier.size(24.dp))
+                    // The label names the tab; the symbol is decorative.
+                    Icon(icon, contentDescription = null, tint = if (active) K.Accent else K.Muted, modifier = Modifier.size(24.dp))
                     Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = if (active) K.Accent else K.Muted, modifier = Modifier.padding(top = 2.dp))
                 }
             }

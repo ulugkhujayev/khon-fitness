@@ -48,6 +48,18 @@ object K {
     val Red = Color(0xFFFF453A)
     /** Elevated group surface for sheets. */
     val Elevated = Color(0xFF2C2C2E)
+    /** 1 dp edge of the floating tab bar: white at 6 percent. */
+    val Hairline = Color(0x0FFFFFFF)
+}
+
+/** Motion shared across the app. */
+object Motion {
+    /** A selection sliding to its new place (the tab bar's capsule, a segmented control): quick, no wobble. Damping 20, stiffness 240, mass 0.8. */
+    private val slideSpring = dev.mirzohidkhon.khonfitness.ui.components.springOf(damping = 20f, stiffness = 240f, mass = 0.8f)
+    fun <T> slide(): androidx.compose.animation.core.SpringSpec<T> = androidx.compose.animation.core.spring(dampingRatio = slideSpring.dampingRatio, stiffness = slideSpring.stiffness)
+    /** Tab screens shift sideways as they swap: 50 dp over 150 ms. */
+    const val SHIFT_MS = 150
+    const val SHIFT_DP = 50
 }
 
 private val scheme: ColorScheme = darkColorScheme(

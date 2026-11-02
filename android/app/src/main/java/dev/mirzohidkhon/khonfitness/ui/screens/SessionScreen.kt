@@ -67,7 +67,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val done = logs.count { it.status == SetStatus.DONE }
 
     Column(Modifier.fillMaxSize()) {
-        if (s.finished) EditorTopBar("History", s.programName ?: "Session", onBack = { nav.popBackStack() }, done = if (editing) "Done" else "Edit") { editing = !editing }
+        if (s.finished) EditorTopBar("History", s.programName ?: "Session", scrollPx = { listState.barOffset() }, onBack = { nav.popBackStack() }, done = if (editing) "Done" else "Edit") { editing = !editing }
         LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = if (s.finished) 4.dp else 6.dp, bottom = 24.dp)) {
             if (!s.finished) item {
                 Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {

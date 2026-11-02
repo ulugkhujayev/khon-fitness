@@ -57,8 +57,9 @@ fun ImportScreen(vm: AppViewModel, nav: NavHostController) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar("History", "Import", onBack = { nav.popBackStack() })
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+        val barScroll = rememberScrollState()
+        EditorTopBar("History", "Import", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() })
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             when {
                 status == HcStatus.NOT_INSTALLED -> {
                     Text("Health Connect is not on this phone. The band's app writes workouts there, and this app reads them.", color = K.Muted, style = MaterialTheme.typography.bodyMedium)

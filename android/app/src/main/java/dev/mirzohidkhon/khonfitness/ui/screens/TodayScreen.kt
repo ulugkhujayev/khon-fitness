@@ -3,10 +3,8 @@ package dev.mirzohidkhon.khonfitness.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -77,8 +75,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     }
     LaunchedEffect(Unit) { pendingBand = runCatching { dev.mirzohidkhon.khonfitness.health.HealthImport.pendingCount(context, vm.repo.importedSourceIds().toSet()) }.getOrDefault(0) }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 24.dp)) {
-        ScreenTitle("Today") { BarCircleButton(Icons.Gear, "Settings") { nav.navigate(Routes.SETTINGS) } }
+    TabScreen("Today", trailing = { BarCircleButton(Icons.Gear, "Settings") { nav.navigate(Routes.SETTINGS) } }) {
         WeekStrip(today, plan, modalities) { planDate = it }
         Spacer(Modifier.height(24.dp))
         if (loaded) Column(Modifier.fillMaxWidth().clip(GroupShape).background(K.Surface).padding(20.dp, 18.dp, 20.dp, 18.dp)) {
@@ -142,7 +139,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
         }
         val start = today.minusDays(29)
         val recent = bodyweights.filter { it.date.toDate() >= start }
-        if (recent.isNotEmpty()) LineChart(recent.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp), height = 130)
+        if (recent.isNotEmpty()) LineChart(recent.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp))
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             NumberField(bwDraft, { bwDraft = it }, step = 0.1, unit = "kg", modifier = Modifier.weight(1f), placeholder = latest?.let { fmt(it.kg) } ?: "0.0")
             Spacer(Modifier.width(12.dp))

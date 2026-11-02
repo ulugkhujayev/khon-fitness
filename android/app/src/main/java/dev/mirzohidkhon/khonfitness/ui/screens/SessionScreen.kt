@@ -26,10 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.foundation.rememberScrollState
@@ -80,7 +78,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     // The open block: the first with work until the user opens or closes one, or a check moves on.
     var pick by rememberOpenPick(vm.openPicks, sessionId)
     // The set whose kg field takes focus once its row is composed and placed (a wrap target may still be off screen).
-    var pendingFocus by remember { mutableStateOf<String?>(null) }
+    val pendingFocus = remember { PendingFocus() }
     var swapLog by remember { mutableStateOf<SetLog?>(null) }
     var summary by remember { mutableStateOf<Summary?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -119,7 +117,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         if (next != SetStatus.DONE) return
         val after = afterCheck(blocks, log, live = running) ?: return
         open(after.open)
-        pendingFocus = after.focus?.id
+        pendingFocus.aim(after.focus?.id)
     }
     val done = doneCount(logs)
     val openSummary = { summary = summarize(logs, vm.allSetLogs.value, s.id, s.startedAt, System.currentTimeMillis()) }
@@ -129,12 +127,12 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         Box(Modifier.weight(1f)) {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = topPadding, bottom = 24.dp)) {
                 itemsIndexed(blocks, key = { _, b -> b.first().blockIndex }) { bi, blockLogs ->
-                    BlockCard(bi, blockLogs, open = expanded == bi, onToggle = { pendingFocus = null; open(if (expanded == bi) null else bi) }) {
+                    BlockCard(bi, blockLogs, open = expanded == bi, onToggle = { pendingFocus.cancel(); open(if (expanded == bi) null else bi) }) {
                         blockLogs.forEach { log ->
                             HorizontalDivider(color = K.Divider)
                             SetRow(
                                 log = log, prev = previous[log.key()], live = live,
-                                focusNow = pendingFocus == log.id, onFocusTaken = { if (pendingFocus == log.id) pendingFocus = null },
+                                pending = pendingFocus,
                                 onToggle = { toggleSet(log) },
                                 onWeight = { w -> vm.run { vm.repo.updateSetLog(log.copy(weightKg = w)) } },
                                 onReps = { r -> vm.run { vm.repo.updateSetLog(log.copy(reps = r?.toInt())) } },
@@ -302,14 +300,12 @@ private fun BlockCard(index: Int, logs: List<SetLog>, open: Boolean, onToggle: (
 
 @Composable
 private fun SetRow(
-    log: SetLog, prev: SetLog?, live: Boolean, focusNow: Boolean, onFocusTaken: () -> Unit,
+    log: SetLog, prev: SetLog?, live: Boolean, pending: PendingFocus,
     onToggle: () -> Unit, onWeight: (Double?) -> Unit, onReps: (Double?) -> Unit, onSwap: () -> Unit,
 ) {
     val tag = ('A' + log.slot).toString() + (log.setIndex + 1)
-    val requester = remember { FocusRequester() }
     // A pending focus lands once this row has been placed, so its field is attached wherever the list scrolled from.
-    var placed by remember { mutableStateOf(false) }
-    if (focusNow && placed) LaunchedEffect(Unit) { runCatching { requester.requestFocus() }; onFocusTaken() }
+    val focus = rememberFieldFocus(log.id, pending)
     val isDone = log.status == SetStatus.DONE
     // At least one decimal: a 62.5 kg set can be typed on a whole-kg step, as in 0.4.8.
     val decimals = maxOf(1, stepDecimals(log.stepKg))
@@ -338,8 +334,8 @@ private fun SetRow(
         }
         if (live) {
             Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Column(Modifier.weight(1f).onGloballyPositioned { if (!placed) placed = true }) {
-                    NumberField(log.weightKg, onWeight, step = log.stepKg.takeIf { it > 0 } ?: 1.0, unit = "kg", decimals = decimals, height = 44, focusRequester = requester, placeholder = prevKg, label = "$tag ${log.exerciseName} weight")
+                Column(Modifier.weight(1f).then(focus.placed)) {
+                    NumberField(log.weightKg, onWeight, step = log.stepKg.takeIf { it > 0 } ?: 1.0, unit = "kg", decimals = decimals, height = 44, focusRequester = focus.requester, placeholder = prevKg, label = "$tag ${log.exerciseName} weight")
                     Delta(prev?.weightKg, log.weightKg, decimals, suffix = " kg")
                 }
                 Column(Modifier.weight(1f)) {

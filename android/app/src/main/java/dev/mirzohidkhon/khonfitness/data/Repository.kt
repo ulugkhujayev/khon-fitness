@@ -37,6 +37,20 @@ data class Backup(
     val eatingWindow: EatingWindow? = null, val windowDays: List<WindowDay> = emptyList(),
 )
 
+/**
+ * The cardio form's edits merged onto [current], the row as it is now: each field the form edits takes [edited]'s value
+ * when it differs from [opened]'s (what the form opened with), else keeps [current]'s. [Session.finishedAt] is set to
+ * [now] only when the row has none.
+ */
+fun mergeCardioEdits(current: Session, opened: Session, edited: Session, now: Long): Session {
+    fun <T> pick(field: (Session) -> T): T = if (field(edited) != field(opened)) field(edited) else field(current)
+    return current.copy(
+        date = pick { it.date }, timeSec = pick { it.timeSec }, distanceM = pick { it.distanceM }, avgHr = pick { it.avgHr },
+        watts = pick { it.watts }, laps = pick { it.laps }, poolLength = pick { it.poolLength }, stroke = pick { it.stroke },
+        effort = pick { it.effort }, note = pick { it.note }, finishedAt = current.finishedAt ?: now,
+    )
+}
+
 class KhonRepository(private val dao: KhonDao) {
     val exercises: Flow<List<Exercise>> = dao.exercises()
     val modalities: Flow<List<Modality>> = dao.modalities()
@@ -194,8 +208,9 @@ class KhonRepository(private val dao: KhonDao) {
     }
 
     suspend fun updateSetLog(log: SetLog) = dao.upsert(log)
-    suspend fun updateSession(session: Session) = dao.upsert(session)
-    suspend fun saveIntervals(list: List<IntervalLog>) = dao.upsertIntervalLogs(list)
+    /** The cardio form's Save: only what the user changed since [opened] is written, in one transaction with the intervals. */
+    suspend fun saveCardioEdits(opened: Session, edited: Session, intervals: List<IntervalLog>, now: Long = System.currentTimeMillis()) =
+        dao.saveCardioEdits(opened, edited, intervals, now)
     // Single fields of a session edited in place (session page, finish sheet, timer): each writes its own column only.
     suspend fun setSessionDate(sessionId: String, date: LocalDate) = dao.setSessionDate(sessionId, date.iso())
     suspend fun setSessionEffort(sessionId: String, effort: Int?) = dao.setSessionEffort(sessionId, effort)

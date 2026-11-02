@@ -83,6 +83,15 @@ interface KhonDao {
     suspend fun skipPendingSets(sessionId: String)
     /** Ends a session: its pending sets become skipped, then only [Session.finishedAt] is set. */
     @Transaction suspend fun finishSession(id: String, finishedAt: Long) { skipPendingSets(id); setSessionFinishedAt(id, finishedAt) }
+    /**
+     * The cardio form's Save: the columns changed from [opened] to [edited] go onto the row as it is now, so a timer
+     * write since the form opened stays ([mergeCardioEdits]); then the intervals. A deleted session writes nothing.
+     */
+    @Transaction suspend fun saveCardioEdits(opened: Session, edited: Session, intervals: List<IntervalLog>, now: Long) {
+        val current = session(edited.id) ?: return
+        upsert(mergeCardioEdits(current, opened, edited, now))
+        upsertIntervalLogs(intervals)
+    }
 
     @Query("SELECT * FROM set_logs WHERE sessionId = :sessionId ORDER BY `order`") fun setLogs(sessionId: String): Flow<List<SetLog>>
     @Query("SELECT * FROM set_logs WHERE sessionId = :sessionId ORDER BY `order`") suspend fun setLogsOnce(sessionId: String): List<SetLog>

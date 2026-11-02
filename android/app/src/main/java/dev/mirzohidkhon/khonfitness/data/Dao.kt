@@ -32,6 +32,22 @@ interface KhonDao {
     @Transaction suspend fun exerciseUsage(id: String): Int =
         setLogCountFor(id) + cardioSessionCountFor(id) + blockExerciseCountFor(id) + weekPlanCardioCountFor(id) + overrideCardioCountFor(id)
     @Query("UPDATE exercises SET archived = :archived WHERE id = :id") suspend fun setExerciseArchived(id: String, archived: Boolean)
+    /** Deletes the exercise only while nothing uses it, checked in the same transaction; returns whether it did. */
+    @Transaction suspend fun deleteExerciseIfUnused(id: String): Boolean {
+        if (exerciseUsage(id) > 0) return false
+        deleteExercise(id)
+        return true
+    }
+    /** Every use of [from] moves to [into], then [from] goes: all or nothing. */
+    @Transaction suspend fun mergeExercise(from: String, into: String) {
+        moveSetLogs(from, into); moveCardioSessions(from, into); moveBlockExercises(from, into)
+        movePlanCardio(from, into); moveOverrideCardio(from, into); deleteExercise(from)
+    }
+    /** Archive (or unarchive) with the page's edits: the changed fields first ([saveExerciseEdits]), then the flag. */
+    @Transaction suspend fun archiveExerciseWithEdits(opened: Exercise, edited: Exercise, archived: Boolean) {
+        if (edited.name.isNotBlank()) saveExerciseEdits(opened, edited)
+        setExerciseArchived(edited.id, archived)
+    }
     /**
      * The exercise editor's Done: the fields changed from [opened] to [edited] go onto the row as it is now
      * ([mergeExerciseEdits]), so an import since the editor opened stays. A kind change is kept out when something
@@ -50,6 +66,11 @@ interface KhonDao {
     @Upsert suspend fun upsertModalities(list: List<Modality>)
     @Query("SELECT * FROM modalities WHERE id = :id") suspend fun modality(id: String): Modality?
     @Query("UPDATE modalities SET archived = :archived WHERE id = :id") suspend fun setModalityArchived(id: String, archived: Boolean)
+    /** Archive (or unarchive) with the page's edits: the changed fields first ([saveModalityEdits]), then the flag. */
+    @Transaction suspend fun archiveModalityWithEdits(opened: Modality, edited: Modality, archived: Boolean) {
+        if (edited.name.isNotBlank()) saveModalityEdits(opened, edited)
+        setModalityArchived(edited.id, archived)
+    }
     /** The modality editor's Done: the changed fields onto the row as it is now ([mergeModalityEdits]); a deleted one writes nothing. */
     @Transaction suspend fun saveModalityEdits(opened: Modality, edited: Modality) {
         val current = modality(edited.id) ?: return
@@ -175,6 +196,15 @@ interface KhonDao {
     @Query("UPDATE set_logs SET reps = :reps WHERE id = :id") suspend fun setSetReps(id: String, reps: Int?)
     @Query("UPDATE set_logs SET exerciseId = :toId, exerciseName = :toName, stepKg = :stepKg WHERE sessionId = :sessionId AND exerciseId = :fromId")
     suspend fun swapSetExercise(sessionId: String, fromId: String, toId: String, toName: String, stepKg: Double)
+    @Query("UPDATE block_exercises SET exerciseId = :toId WHERE exerciseId = :fromId AND blockId IN (SELECT id FROM blocks WHERE programId = :programId)")
+    suspend fun swapProgramExercise(programId: String, fromId: String, toId: String)
+    /** A swap in a session, and in its program when [programId] is given: only the exercise columns, in one transaction. */
+    @Transaction suspend fun swapExercise(sessionId: String, fromId: String, to: Exercise, programId: String?) {
+        swapSetExercise(sessionId, fromId, to.id, to.name, to.stepKg)
+        if (programId != null) swapProgramExercise(programId, fromId, to.id)
+    }
+    /** A session with its set and interval logs: all or nothing. */
+    @Transaction suspend fun deleteSessionWithLogs(id: String) { deleteSetLogsFor(id); deleteIntervalLogsFor(id); deleteSession(id) }
     @Query("DELETE FROM set_logs WHERE sessionId = :sessionId") suspend fun deleteSetLogsFor(sessionId: String)
 
     @Query("SELECT * FROM interval_logs WHERE sessionId = :sessionId ORDER BY `index`") fun intervalLogs(sessionId: String): Flow<List<IntervalLog>>
@@ -220,6 +250,8 @@ interface KhonDao {
     @Upsert suspend fun upsertRoutineStretches(list: List<RoutineStretch>)
     @Query("DELETE FROM routine_stretches WHERE id = :id") suspend fun deleteRoutineStretch(id: String)
     @Query("DELETE FROM routine_stretches WHERE routineId = :routineId") suspend fun deleteRoutineStretchesFor(routineId: String)
+    /** A routine with its stretch rows: all or nothing. */
+    @Transaction suspend fun deleteRoutineWithStretches(id: String) { deleteRoutineStretchesFor(id); deleteStretchRoutine(id) }
     @Query("SELECT * FROM stretch_sessions ORDER BY date DESC, startedAt DESC") fun stretchSessions(): Flow<List<StretchSession>>
     @Query("SELECT * FROM stretch_sessions") suspend fun stretchSessionsOnce(): List<StretchSession>
     @Upsert suspend fun upsert(s: StretchSession)

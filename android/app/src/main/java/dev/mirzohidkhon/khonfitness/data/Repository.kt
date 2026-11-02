@@ -96,7 +96,7 @@ class KhonRepository(private val dao: KhonDao) {
     suspend fun deleteStretch(id: String) = dao.deleteStretch(id)
     suspend fun stretchUseCount(id: String) = dao.routineUseCount(id)
     suspend fun saveRoutine(r: StretchRoutine) { dao.upsert(r); if (r.active) dao.setActiveRoutine(r.id) }
-    suspend fun deleteRoutine(id: String) { dao.deleteRoutineStretchesFor(id); dao.deleteStretchRoutine(id) }
+    suspend fun deleteRoutine(id: String) = dao.deleteRoutineWithStretches(id)
     suspend fun saveRoutineStretch(rs: RoutineStretch) = dao.upsert(rs)
     suspend fun saveRoutineStretches(list: List<RoutineStretch>) = dao.upsertRoutineStretches(list)
     suspend fun deleteRoutineStretch(id: String) = dao.deleteRoutineStretch(id)
@@ -144,15 +144,14 @@ class KhonRepository(private val dao: KhonDao) {
     /** The exercise editor's Done: a new exercise ([opened] null) is written whole, an existing one gets only its changed fields. */
     suspend fun saveExerciseEdits(opened: Exercise?, edited: Exercise) = if (opened == null) dao.upsert(edited) else dao.saveExerciseEdits(opened, edited)
     suspend fun setExerciseArchived(id: String, archived: Boolean) = dao.setExerciseArchived(id, archived)
+    suspend fun archiveExerciseWithEdits(opened: Exercise, edited: Exercise, archived: Boolean) = dao.archiveExerciseWithEdits(opened, edited, archived)
     suspend fun exerciseUsage(id: String): Int = dao.exerciseUsage(id)
-    suspend fun deleteExercise(id: String) { if (exerciseUsage(id) == 0) dao.deleteExercise(id) }
-    suspend fun mergeExercise(from: String, into: String) {
-        dao.moveSetLogs(from, into); dao.moveCardioSessions(from, into); dao.moveBlockExercises(from, into)
-        dao.movePlanCardio(from, into); dao.moveOverrideCardio(from, into); dao.deleteExercise(from)
-    }
+    suspend fun deleteExercise(id: String): Boolean = dao.deleteExerciseIfUnused(id)
+    suspend fun mergeExercise(from: String, into: String) = dao.mergeExercise(from, into)
     /** The modality editor's Done: a new modality ([opened] null) is written whole, an existing one gets only its changed fields. */
     suspend fun saveModalityEdits(opened: Modality?, edited: Modality) = if (opened == null) dao.upsert(edited) else dao.saveModalityEdits(opened, edited)
     suspend fun setModalityArchived(id: String, archived: Boolean) = dao.setModalityArchived(id, archived)
+    suspend fun archiveModalityWithEdits(opened: Modality, edited: Modality, archived: Boolean) = dao.archiveModalityWithEdits(opened, edited, archived)
 
     suspend fun saveProgram(p: Program) = dao.upsert(p)
     suspend fun createProgram(p: Program) = dao.createProgram(p)
@@ -249,13 +248,10 @@ class KhonRepository(private val dao: KhonDao) {
     suspend fun setSessionTime(sessionId: String, timeSec: Int?) = dao.setSessionTime(sessionId, timeSec)
     /** Pending sets become skipped and the session gets its finish time, in one transaction; nothing else is written. */
     suspend fun finishSession(sessionId: String, now: Long = System.currentTimeMillis()) = dao.finishSession(sessionId, now)
-    suspend fun deleteSession(sessionId: String) { dao.deleteSetLogsFor(sessionId); dao.deleteIntervalLogsFor(sessionId); dao.deleteSession(sessionId) }
+    suspend fun deleteSession(sessionId: String) = dao.deleteSessionWithLogs(sessionId)
     suspend fun swapExerciseInSession(sessionId: String, fromExerciseId: String, to: Exercise, updateProgram: Boolean, programId: String?) {
         // Only the exercise columns change: a set's weight, reps or check saved meanwhile stays.
-        dao.swapSetExercise(sessionId, fromExerciseId, to.id, to.name, to.stepKg)
-        if (updateProgram && programId != null) {
-            dao.blocksFor(programId).forEach { b -> dao.blockExercisesFor(b.id).filter { it.exerciseId == fromExerciseId }.forEach { dao.upsert(it.copy(exerciseId = to.id)) } }
-        }
+        dao.swapExercise(sessionId, fromExerciseId, to, if (updateProgram) programId else null)
     }
 
     suspend fun importedSourceIds(): List<String> = dao.importedSourceIds().flatMap { it.split(",") }

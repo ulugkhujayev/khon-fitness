@@ -126,4 +126,22 @@ class SessionWritesTest {
         assertEquals(70.0, logs.first { it.id == "b" }.weightKg!!, 0.0)
         assertEquals(listOf(SetStatus.DONE, SetStatus.PENDING, SetStatus.SKIPPED), logs.map { it.status })
     }
+
+    @Test fun `a swap with Update the program too changes only that program's block exercises`() = runBlocking {
+        seed()
+        dao.upsertPrograms(listOf(Program("p1", "Push", active = true), Program("p2", "Pull", sortOrder = 1)))
+        dao.upsertBlocks(listOf(Block("b1", "p1", 0), Block("b2", "p2", 0)))
+        dao.upsertBlockExercises(listOf(BlockExercise("e1", "b1", 0, "bench", sets = 4), BlockExercise("e2", "b2", 0, "bench")))
+        repo.swapExerciseInSession("s1", "bench", Exercise("incline", "Incline Press", Kind.STRENGTH), updateProgram = true, programId = "p1")
+        assertEquals(BlockExercise("e1", "b1", 0, "incline", sets = 4), dao.blockExercisesFor("b1").single())
+        assertEquals("bench", dao.blockExercisesFor("b2").single().exerciseId)
+    }
+
+    @Test fun `a swap does not re-create a block exercise deleted meanwhile`() = runBlocking {
+        seed()
+        dao.upsertPrograms(listOf(Program("p1", "Push", active = true)))
+        dao.upsertBlocks(listOf(Block("b1", "p1", 0)))
+        repo.swapExerciseInSession("s1", "bench", Exercise("incline", "Incline Press", Kind.STRENGTH), updateProgram = true, programId = "p1")
+        assertTrue(dao.blockExercisesFor("b1").isEmpty())
+    }
 }

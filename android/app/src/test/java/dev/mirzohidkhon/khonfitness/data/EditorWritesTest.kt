@@ -1,5 +1,7 @@
 package dev.mirzohidkhon.khonfitness.data
 
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -127,5 +129,34 @@ class EditorWritesTest {
         dao.clearModalities()
         repo.saveModalityEdits(opened, opened.copy(name = "Cycling"))
         assertNull(dao.modality("bike"))
+    }
+
+    @Test fun `Archive with a rename typed on the page keeps it and a concurrent import of another field`() = runBlocking {
+        dao.upsert(bench)
+        val opened = dao.exercise("bench")!!
+        import(exercises = listOf(bench.copy(notes = "Pause at the chest")))
+        repo.archiveExerciseWithEdits(opened, opened.copy(name = "Flat bench"), archived = true)
+        assertEquals(bench.copy(name = "Flat bench", notes = "Pause at the chest", archived = true), dao.exercise("bench"))
+    }
+
+    @Test fun `modality Archive with a color picked on the page keeps it and a concurrent rename`() = runBlocking {
+        dao.upsert(bike)
+        val opened = dao.modality("bike")!!
+        import(modalities = listOf(bike.copy(name = "Cycling")))
+        repo.archiveModalityWithEdits(opened, opened.copy(color = 0xFF34C759), archived = true)
+        assertEquals(bike.copy(name = "Cycling", color = 0xFF34C759, archived = true), dao.modality("bike"))
+    }
+
+    @Test fun `delete refuses an exercise that something started using, checked in the same transaction`() = runBlocking {
+        dao.upsert(bench)
+        // The editor saw no use; a block exercise arrives before Delete runs.
+        dao.upsertPrograms(listOf(Program("push", "Push", active = true)))
+        dao.upsertBlocks(listOf(Block("b1", "push", 0)))
+        dao.upsertBlockExercises(listOf(BlockExercise("e1", "b1", 0, "bench")))
+        assertFalse(repo.deleteExercise("bench"))
+        assertEquals(bench, dao.exercise("bench"))
+        dao.deleteBlockExercise("e1")
+        assertTrue(repo.deleteExercise("bench"))
+        assertNull(dao.exercise("bench"))
     }
 }

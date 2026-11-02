@@ -170,7 +170,7 @@ fun updateStatus(result: Updater.Result?, progress: Float?, downloadError: Strin
 data class BackupStatus(val text: String, val error: Boolean = false)
 
 /** A file operation in Settings' Backup group: export, open a file to import, merge or replace from it, restore a saved copy. */
-enum class BackupAction { EXPORT, OPEN, MERGE, REPLACE, RESTORE }
+enum class BackupAction { EXPORT, OPEN, MERGE, REPLACE, RESTORE, LIST }
 
 /**
  * The backup footnote after [action] ended with [result]: every failure is red and names what failed. A file that
@@ -189,7 +189,18 @@ fun backupFootnote(action: BackupAction, result: Result<*>): BackupStatus? {
         BackupAction.MERGE -> if (e == null) BackupStatus("Backup merged.") else failed("Import failed")
         BackupAction.REPLACE -> if (e == null) BackupStatus("Backup restored: everything was replaced.") else failed("Import failed")
         BackupAction.RESTORE -> if (e == null) BackupStatus("Backup restored: everything was replaced.") else failed("Restore failed")
+        BackupAction.LIST -> if (e == null) null else failed("Could not list the saved copies")
     }
+}
+
+/**
+ * The saved copies in [dir], newest first. A folder that does not exist yet holds none; a folder Android cannot list
+ * is a failure, so the footnote says so instead of hiding Restore.
+ */
+fun savedBackups(dir: java.io.File): Result<List<java.io.File>> = runCatching {
+    if (!dir.exists()) return@runCatching emptyList()
+    val files = dir.listFiles() ?: throw java.io.IOException("Android could not list the saved copies")
+    files.filter { it.name.endsWith(".json") }.sortedByDescending { it.name }
 }
 
 /** The stream Android opened for a backup file; none is an error, so the footnote never reports a write that did not happen. */

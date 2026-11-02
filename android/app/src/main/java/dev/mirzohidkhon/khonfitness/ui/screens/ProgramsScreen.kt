@@ -229,7 +229,9 @@ private fun Settings(vm: AppViewModel) {
             })
         }
     }
-    val backups = remember(backupStatus) { java.io.File(context.getExternalFilesDir(null), "backups").listFiles()?.filter { it.name.endsWith(".json") }?.sortedByDescending { it.name } ?: emptyList() }
+    val listing = remember(backupStatus) { savedBackups(java.io.File(context.getExternalFilesDir(null), "backups")) }
+    val backups = listing.getOrDefault(emptyList())
+    val footnote = backupStatus ?: backupFootnote(BackupAction.LIST, listing)
 
     SectionTitle("Backup")
     GroupedList {
@@ -238,8 +240,8 @@ private fun Settings(vm: AppViewModel) {
         if (backups.isNotEmpty()) ListRow("Restore a saved copy", secondary = "${backups.size}", leading = { IconTile(Icons.Restore, K.Dim) }) { restoreSheet = true }
     }
     GroupFooter(
-        backupStatus?.text ?: "One JSON file with every program, session, bodyweight, plan and stretch. Import shows what a file holds, then merges or replaces; a copy of the current data is saved first.",
-        error = backupStatus?.error == true,
+        footnote?.text ?: "One JSON file with every program, session, bodyweight, plan and stretch. Import shows what a file holds, then merges or replaces; a copy of the current data is saved first.",
+        error = footnote?.error == true,
     )
 
     val status = updateStatus(update, progress, downloadError)

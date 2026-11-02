@@ -1,5 +1,6 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
+import org.junit.Assert.assertTrue
 import java.io.FileNotFoundException
 import java.io.IOException
 import kotlinx.serialization.SerializationException
@@ -40,5 +41,27 @@ class BackupFootnoteTest {
         assertEquals(BackupStatus("Export failed: Android could not open the file", error = true), backupFootnote(BackupAction.EXPORT, export))
         assertEquals(BackupStatus("Could not read the file: Android could not open the file", error = true), backupFootnote(BackupAction.OPEN, runCatching { null.orNoFile() }))
         assertEquals("x", "x".orNoFile())
+    }
+
+    @Test fun `saved copies list newest first and a missing folder holds none`() {
+        val root = java.nio.file.Files.createTempDirectory("ui05-backups").toFile()
+        try {
+            assertEquals(emptyList<java.io.File>(), savedBackups(java.io.File(root, "backups")).getOrThrow())
+            val dir = java.io.File(root, "backups").apply { mkdirs() }
+            listOf("a-1.json", "a-3.json", "a-2.json", "notes.txt").forEach { java.io.File(dir, it).writeText("{}") }
+            assertEquals(listOf("a-3.json", "a-2.json", "a-1.json"), savedBackups(dir).getOrThrow().map { it.name })
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun `a folder Android cannot list is a red footnote, not a hidden Restore`() {
+        val root = java.nio.file.Files.createTempDirectory("ui05-backups").toFile()
+        try {
+            // A file where the folder should be: listFiles() gives null.
+            val notADir = java.io.File(root, "backups").apply { writeText("x") }
+            val listing = savedBackups(notADir)
+            assertTrue(listing.isFailure)
+            assertEquals(BackupStatus("Could not list the saved copies: Android could not list the saved copies", error = true), backupFootnote(BackupAction.LIST, listing))
+            assertNull(backupFootnote(BackupAction.LIST, Result.success(emptyList<java.io.File>())))
+        } finally { root.deleteRecursively() }
     }
 }

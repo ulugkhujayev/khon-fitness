@@ -41,6 +41,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Writes that land in the order they were asked, one at a time: a new routine's first stretch, then its Done. */
     fun runSerial(block: suspend () -> Unit) { viewModelScope.launch { serial.withLock { block() } } }
 
+    /** New routines whose first-stretch create has not ended yet (process lifetime). */
+    val pendingRoutines = dev.mirzohidkhon.khonfitness.ui.screens.PendingRoutines()
+
     /** The open block of each session, so Back and Resume keep it (process lifetime). */
     val openPicks = dev.mirzohidkhon.khonfitness.ui.screens.OpenPicks()
 

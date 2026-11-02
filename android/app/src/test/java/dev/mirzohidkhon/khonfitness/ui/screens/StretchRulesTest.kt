@@ -48,11 +48,23 @@ class StretchRulesTest {
         d.name = "Evening"
         val first = d.forFirstStretch(stored = null, noRoutines = false)
         assertEquals(StretchRoutine("r1", "Evening", active = false), first)
-        // Nothing local marks it saved: a second pick or Done while that create is pending asks for the same id, which
-        // the database then ignores when the first create stored it.
+        // Nothing local marks it saved: Done while that create is pending asks for the same id, which the database then
+        // ignores when the first create stored it. A second pick is off meanwhile ([RoutineDraft.canPick]).
         assertEquals(first, d.forFirstStretch(stored = null, noRoutines = false))
         assertEquals(first, d.done(stored = null, noRoutines = false))
         assertNull(d.forFirstStretch(first, noRoutines = false))
+    }
+
+    @Test fun `no pick while the first create is pending, and the name saved is the typed one trimmed or New routine`() {
+        val d = RoutineDraft(isNew = true, id = "r1")
+        assertFalse(d.canPick(pending = true))
+        assertTrue(d.canPick(pending = false))
+        assertEquals(NEW_ROUTINE_NAME, d.savedName)
+        d.name = "  "
+        assertEquals(NEW_ROUTINE_NAME, d.savedName)
+        d.name = " Evening "
+        assertEquals("Evening", d.savedName)
+        assertEquals("Evening", d.done(stored = null, noRoutines = false)?.name)
     }
 
     @Test fun `a refused or lost create leaves a draft that Done saves under the same id`() {

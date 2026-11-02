@@ -68,26 +68,38 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
     var confirmDelete by remember { mutableStateOf(false) }
     val removal = rememberConfirm<RoutineStretch>()
     fun name(rs: RoutineStretch) = stretches.find { it.id == rs.stretchId }?.name ?: "Missing stretch"
+    // While the first stretch's create is pending: no pick (it would race that create), but Name and Active still edit
+    // the draft and queue their write after it, which writes nothing when the create is refused.
+    val pending = id in vm.pendingRoutines
     fun pick(stretchId: String) {
         picking = false
+        if (!draft.canPick(pending)) return
         // In order with Done. Refused when the stretch went meanwhile: nothing is written and the editor stays a draft.
-        // A pick while that create is pending finds the id stored and writes nothing.
-        draft.forFirstStretch(routine, noRoutines)?.let { r -> vm.runSerial { vm.repo.createRoutine(r, stretchId) }; return }
+        draft.forFirstStretch(routine, noRoutines)?.let { r ->
+            vm.pendingRoutines.add(id)
+            vm.runSerial { try { vm.repo.createRoutine(r, stretchId) } finally { vm.pendingRoutines.remove(id) } }
+            return
+        }
         vm.run { vm.repo.addRoutineStretch(id, stretchId) }
     }
     fun done() {
-        // After a pending first-stretch create: nothing when it saved the routine, the routine without stretches when refused.
-        draft.done(routine, noRoutines)?.let { r -> vm.runSerial { vm.repo.createRoutine(r) } }
+        // Whichever create wins (a pending first stretch's or this one), the routine ends with the draft's name and Active.
+        draft.done(routine, noRoutines)?.let { r ->
+            vm.runSerial { vm.repo.createRoutine(r); vm.repo.setRoutineName(id, r.name); vm.repo.setRoutineActive(id, r.active) }
+        }
         nav.popBackStack()
     }
     EditorScaffold("Stretching", routine?.name ?: NEW_ROUTINE_NAME, onBack = { nav.popBackStack() }, onDone = ::done) {
         GroupedList {
             FieldRow("Name", divider = false) {
-                if (isDraft) InlineTextField(draft.name ?: "", { draft.name = it }, placeholder = NEW_ROUTINE_NAME, label = "Routine name")
+                if (isDraft) InlineTextField(draft.name ?: "", { v ->
+                    draft.name = v
+                    if (pending) { val n = draft.savedName; vm.runSerial { vm.repo.setRoutineName(id, n) } }
+                }, placeholder = NEW_ROUTINE_NAME, label = "Routine name")
                 else InlineTextField(routine?.name ?: "", { v -> vm.run { vm.repo.setRoutineName(id, v) } }, placeholder = NEW_ROUTINE_NAME, label = "Routine name")
             }
             ToggleRow("Active", draft.shownActive(routine, noRoutines)) { on ->
-                if (isDraft) draft.activeChoice = on else vm.run { vm.repo.setRoutineActive(id, on) }
+                if (isDraft) { draft.activeChoice = on; if (pending) vm.runSerial { vm.repo.setRoutineActive(id, on) } } else vm.run { vm.repo.setRoutineActive(id, on) }
             }
         }
         GroupFooter("The active routine is the one Today offers to stretch.")
@@ -101,7 +113,7 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
             }
             if (mine.isEmpty()) ListRow("No stretches yet", chevron = false, divider = false, titleColor = K.Muted)
         }
-        TintedButton("Add stretch", Modifier.padding(top = 12.dp)) { picking = true }
+        TintedButton("Add stretch", Modifier.padding(top = 12.dp), enabled = draft.canPick(pending)) { picking = true }
         if (mine.isNotEmpty()) {
             SectionTitle("Order", Modifier.padding(top = 24.dp))
             GroupedList {
@@ -120,7 +132,7 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
             GroupedList { ActionRow(Icons.Trash, "Delete routine", K.Red, divider = false) { confirmDelete = true } }
         }
     }
-    if (picking) ChoiceSheet(
+    if (picking && draft.canPick(pending)) ChoiceSheet(
         "Add a stretch", stretches.filter { !it.archived }.map { Choice(it.id, it.name) },
         onPick = ::pick, onDismiss = { picking = false }, isSelected = { s -> mine.any { it.stretchId == s } }, searchable = true,
     )

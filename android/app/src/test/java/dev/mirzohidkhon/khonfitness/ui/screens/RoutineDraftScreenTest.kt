@@ -3,6 +3,8 @@ package dev.mirzohidkhon.khonfitness.ui.screens
 import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -50,7 +52,8 @@ import kotlin.concurrent.thread
  * nothing, Done writes one routine with the typed name and Active, and the first stretch saves the routine once,
  * also when the screen comes back from saved state before Done. While that first create is still pending ([Hold]),
  * the editor stays a draft under the same id: a refused create leaves a draft that Done saves, and Done after a create
- * that succeeds saves no second routine.
+ * that succeeds saves no second routine. Meanwhile Add is off, also after a restore, and Name and Active edits land
+ * after that create, with Done or Back.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -130,6 +133,22 @@ class RoutineDraftScreenTest {
         Thread.sleep(300); compose.waitForIdle()
     }
 
+    /** Add stretch, then [name] when the sheet opens: it stays shut while Add is off, and then nothing is picked. */
+    private fun tryPick(name: String) {
+        compose.onNodeWithText("Add stretch").performClick()
+        compose.waitForIdle()
+        Thread.sleep(300); compose.waitForIdle()
+        if (shows(name)) compose.onNodeWithText(name).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+    }
+
+    /** Every draft write queued so far has ended: a marker queued after them has run. */
+    private fun drained() {
+        val marker = CompletableDeferred<Unit>()
+        vm.runSerial { marker.complete(Unit) }
+        settled { marker.isCompleted }
+    }
+
     /** "+" on Stretching, then the name and the Active switch on the new routine. */
     private fun fillNewRoutine(name: String) {
         compose.onNodeWithContentDescription("New routine").performClick()
@@ -202,19 +221,76 @@ class RoutineDraftScreenTest {
         assertEquals(emptyList<RoutineStretch>(), rows())
     }
 
-    @Test fun `a pick after a restore while the first create is pending saves under the same id, so one routine`() {
+    @Test fun `a configuration change while the first create is pending keeps Add off until the create ends`() {
         io { dao.upsertStretches(listOf(Stretch("fold", "Fold"), Stretch("reach", "Reach"))) }
         val restore = StateRestorationTester(compose)
         openNewRoutine(restore)
         val hold = Hold()
         pick("Fold")
+        compose.onNodeWithText("Add stretch").assertIsNotEnabled()
         restore.emulateSavedInstanceStateRestore()
-        pick("Reach") // the restored editor is still a draft: the list does not hold its id yet
+        compose.onNodeWithText("Add stretch").assertIsNotEnabled()
 
         hold.release()
-        settled { routines().isNotEmpty() }
+        settled { routines().isNotEmpty() && rows().isNotEmpty() }
+        compose.onNodeWithText("Add stretch").assertIsEnabled()
         val id = routines().single().id
         assertEquals(listOf(RoutineStretch(rows().single().id, id, "fold", 0)), rows())
+    }
+
+    @Test fun `a pick while the first create is pending is ignored, so a refused create leaves no routine`() {
+        io { dao.upsertStretches(listOf(Stretch("fold", "Fold"), Stretch("reach", "Reach"))) }
+        openNewRoutine(StateRestorationTester(compose))
+        val hold = Hold()
+        pick("Fold")
+        tryPick("Reach")
+
+        hold.release("DELETE FROM stretches WHERE id = 'fold'")
+        drained()
+        assertEquals(emptyList<StretchRoutine>(), routines())
+        assertEquals(emptyList<RoutineStretch>(), rows())
+        compose.onNodeWithText("Add stretch").assertIsEnabled() // a draft again
+    }
+
+    @Test fun `Name and Active changed while the first create is pending, then Done, then a success, save the changes`() {
+        io { dao.upsertStretches(listOf(Stretch("fold", "Fold"))) }
+        openNewRoutine(StateRestorationTester(compose))
+        val hold = Hold()
+        pick("Fold") // creates "New routine", Active on (no routine yet)
+        compose.onNodeWithContentDescription("Routine name").performTextReplacement("Evening")
+        compose.onNodeWithContentDescription("Active").performClick()
+        compose.waitForIdle()
+        compose.onAllNodesWithText("Done").onFirst().performClick()
+
+        hold.release()
+        settled { routines().isNotEmpty() && rows().isNotEmpty() }
+        assertEquals(listOf("Evening" to false), routines().map { it.name to it.active })
+        assertEquals(listOf("fold"), rows().map { it.stretchId })
+    }
+
+    @Test fun `Name and Active changed while the first create is pending, then Back, then a success, save the changes`() {
+        io {
+            dao.upsert(StretchRoutine("daily", "Daily", active = true, sortOrder = 0))
+            dao.upsertStretches(listOf(Stretch("fold", "Fold")))
+        }
+        openStretching()
+        compose.onNodeWithContentDescription("New routine").performClick()
+        waitFor { shows("Add stretch") && vm.stretches.value.isNotEmpty() }
+        val hold = Hold()
+        pick("Fold") // creates "New routine", Active off (Daily is active)
+        compose.onNodeWithContentDescription("Routine name").performTextReplacement("Evening")
+        compose.onNodeWithContentDescription("Active").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Stretching").performClick() // Back, not Done
+        waitFor { shows("Routines") }
+
+        hold.release()
+        settled { routines().size == 2 && rows().isNotEmpty() }
+        val saved = routines().associateBy { it.id }
+        assertEquals(StretchRoutine("daily", "Daily", active = false, sortOrder = 0), saved.getValue("daily"))
+        val evening = routines().single { it.id != "daily" }
+        assertEquals("Evening" to true, evening.name to evening.active)
+        assertEquals(listOf(evening.id to "fold"), rows().map { it.routineId to it.stretchId })
     }
 
     @Test fun `Done while the first stretch's create is pending, then a refusal, saves the routine without stretches`() {

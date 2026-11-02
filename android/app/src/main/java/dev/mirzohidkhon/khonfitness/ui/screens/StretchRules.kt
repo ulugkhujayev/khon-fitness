@@ -42,9 +42,14 @@ class RoutineDraft(val isNew: Boolean, val id: String) {
     /** Done: a draft's routine to create, else null (a saved routine wrote each edit as it was made). */
     fun done(stored: StretchRoutine?, noRoutines: Boolean): StretchRoutine? = if (isDraft(stored)) routine(noRoutines) else null
 
-    /** The new routine with the typed name (or [NEW_ROUTINE_NAME]) and the Active choice. */
-    private fun routine(noRoutines: Boolean) =
-        StretchRoutine(id, name?.trim()?.takeIf { it.isNotEmpty() } ?: NEW_ROUTINE_NAME, active = activeChoice ?: noRoutines)
+    /** Add stretch and its sheet: off while the first stretch's create is [pending], so no second pick races it. */
+    fun canPick(pending: Boolean): Boolean = !pending
+
+    /** The name the routine is saved with: the typed one, trimmed, or [NEW_ROUTINE_NAME] when blank. */
+    val savedName: String get() = name?.trim()?.takeIf { it.isNotEmpty() } ?: NEW_ROUTINE_NAME
+
+    /** The new routine with [savedName] and the Active choice. */
+    private fun routine(noRoutines: Boolean) = StretchRoutine(id, savedName, active = activeChoice ?: noRoutines)
 
     companion object {
         /** The draft for a route id: `new` makes the new routine's id now, once; any other id is that routine's. */
@@ -55,6 +60,18 @@ class RoutineDraft(val isNew: Boolean, val id: String) {
             restore = { RoutineDraft(it[0] as Boolean, it[1] as String).apply { name = it[2] as String?; activeChoice = it[3] as Boolean? } },
         )
     }
+}
+
+/**
+ * The new routines whose first-stretch create is still being written, by id, for the process lifetime (as
+ * [OpenPicks]): a restored editor sees the same set; after process death it is empty and the database decides.
+ * Compose reads it as state.
+ */
+class PendingRoutines {
+    private val ids = androidx.compose.runtime.mutableStateMapOf<String, Unit>()
+    operator fun contains(id: String): Boolean = id in ids
+    fun add(id: String) { ids[id] = Unit }
+    fun remove(id: String) { ids.remove(id) }
 }
 
 /** A routine's row on Stretching: "10 min · 9 stretches", "1 min · 1 stretch". */

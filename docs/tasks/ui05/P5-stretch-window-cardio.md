@@ -76,7 +76,7 @@ transactions. No Room schema change, no migration.
 | `deleteRoutine(id)` | already one transaction (`deleteRoutineWithStretches`) |
 | `addRoutineStretch(routineId, stretchId, rowId)` | routine or stretch gone: nothing; `sortOrder` = max + 1 of that routine's rows, read inside |
 | `setRoutineStretchSeconds(rowId, s)` | targeted update |
-| `moveRoutineStretch(rowId, up)` | read the routine's rows inside, ordered by `sortOrder, id`; swap `sortOrder` with the row's current neighbour in that order (not the neighbour the screen showed) by two targeted updates; when both have the same `sortOrder`, first renumber the routine's rows 0..n-1 in that order; no neighbour or row gone: nothing |
+| `moveRoutineStretch(rowId, up)` | read the routine's rows inside, ordered by `sortOrder, id`; swap `sortOrder` with the row's current neighbour in that order (not the neighbour the screen showed) by two targeted updates; when any two rows of that routine share a `sortOrder`, first renumber all its rows 0..n-1 in that order; no neighbour or row gone: nothing |
 | `removeRoutineStretch(rowId)` | delete by id |
 | `recordStretchSession(s)` | `INSERT OR IGNORE`: a session id is written once; a replay never overwrites or re-creates a changed row |
 | `setWindowEnabled(on)`, `setWindowRemind(min)` | one transaction: insert the default settings row (id 1) when missing, then a targeted update |
@@ -106,10 +106,12 @@ transactions and add these repairs inside them:
   transaction each per P4-FIX2.
 
 Guard: a JVM unit test reads the Kotlin sources outside `data/` and fails
-when one calls `.dao()`, or a repository method that takes a whole
-`Stretch`, `StretchRoutine`, `RoutineStretch`, `StretchSession` or
-`EatingWindow` row (only `createStretch`, `createRoutine` and
-`recordStretchSession` take a row, and only for new ids).
+when one calls `.dao()` (except the repository construction in
+`KhonApp.kt`), or a repository method that takes a whole `Stretch`,
+`StretchRoutine`, `RoutineStretch`, `StretchSession` or `EatingWindow`
+row, other than these four: `createStretch` and `createRoutine` (new ids),
+`saveStretchEdits` (opened and edited rows, merged), and
+`recordStretchSession` (insert once, so a replay changes nothing).
 
 Routine drafts follow the program rule from P4-FIX item 1: a new routine
 (`new`) keeps name and Active in `rememberSaveable`; leaving without Done
@@ -137,7 +139,7 @@ sequence can show it.
 - E6: open Add stretch; delete the routine; pick a stretch: no routine row, no routine. Same for seconds and order changes: nothing written.
 - E7: import changes a row's seconds; move another row: the imported seconds stay. Rows A,B,C,D; remove B; then move C up (screen still shows B above C): C swaps with A, the current neighbour.
 - E8: move and remove of the same row, both orders: no row re-created, no partial swap, seconds unchanged.
-- E9: rows with equal `sortOrder` (from an import): a move renumbers, then swaps; the result order is strict.
+- E9: import A:0, B:1, C:1; move A down: the routine is renumbered A:0, B:1, C:2, then A and B swap; the result order is strict (B, A, C).
 - E10: routines with orders 0,1,2; delete order 1; create a routine: it gets 3.
 - E11: `createRoutine` with a first stretch deleted meanwhile: no routine, no row, no activation change.
 - D1: hold routine A's editor; make B active; rename A: B stays the only active. `setRoutineActive` of a deleted id: no flag changes. Activate B, then create active A: only A. Create active A, then activate B: only B.

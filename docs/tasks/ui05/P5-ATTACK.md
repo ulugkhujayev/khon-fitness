@@ -54,3 +54,10 @@ snapshots of a deleted routine were still unspecified. The lead added
 rules for each (task file: "Ordering", "Activation", "Import and seed",
 "Guard", attack cases E7-E11, D1, D4-D6, P2, P4, W1, W5, row 20, and a
 coverage list) and runs the attack again.
+
+# Round 3 (Sol, 2026-11-02)
+
+Verdict: **closed**. Every round 2 finding has a rule. Three guard
+conflicts (`saveStretchEdits`, replay through `recordStretchSession`, the
+`.dao()` call in `KhonApp.kt`) and one ordering conflict (renumber only on
+a tie of the two swapped rows versus E9) were fixed in the task file.

@@ -295,7 +295,7 @@ fun ModalityEditorScreen(vm: AppViewModel, nav: NavHostController, modalityId: S
         GroupedList { FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Bike, rowing…", label = "Name") } }
         SectionTitle("Color", Modifier.padding(top = 24.dp))
         ColorGrid(draft.color) { draft = draft.copy(color = it) }
-        if (!isNew) EditorActions(note = "Archived, it leaves the pickers; past sessions keep it and its color.") {
+        if (!isNew) EditorActions(note = "Archived, it moves to the archived group in Modalities; its exercises and past sessions keep it and its color.") {
             GroupedList {
                 val archived = original!!.archived
                 ActionRow(if (archived) Icons.Unarchive else Icons.Archive, if (archived) "Unarchive" else "Archive", divider = false) {

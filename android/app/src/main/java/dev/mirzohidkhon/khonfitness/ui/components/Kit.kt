@@ -22,6 +22,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.mirzohidkhon.khonfitness.ui.Icons
@@ -192,3 +195,29 @@ fun ProgressBar(done: Int, total: Int, label: String, modifier: Modifier = Modif
         if (share > 0f) Box(Modifier.fillMaxWidth(share).fillMaxHeight().clip(corner).background(color))
     }
 }
+
+/** An on/off setting as an editor row: its label and a switch in the app's colors. [enabled] off fixes it where it is. */
+@Composable
+fun ToggleRow(label: String, checked: Boolean, divider: Boolean = true, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    FieldRow(label, divider = divider) {
+        Switch(
+            checked, onChange, enabled = enabled, modifier = Modifier.semantics { contentDescription = label },
+            colors = SwitchDefaults.colors(
+                checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3,
+                uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent,
+                disabledCheckedTrackColor = K.Green.copy(alpha = 0.45f), disabledCheckedThumbColor = Color.White,
+                disabledUncheckedTrackColor = K.Surface3, disabledUncheckedThumbColor = Color.White.copy(alpha = 0.6f),
+                disabledUncheckedBorderColor = Color.Transparent,
+            ),
+        )
+    }
+}
+
+/** A select's value on the right of a [FieldRow]: in Text with a chevron, or muted with a small lock when it cannot change. */
+@Composable
+fun FieldValue(text: String, locked: Boolean = false, maxLines: Int = 1) {
+    Text(text, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = if (locked) K.Muted else K.Text, maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
+    if (locked) Icon(Icons.Lock, contentDescription = "Locked", tint = K.Dim, modifier = Modifier.padding(start = 6.dp).size(13.dp))
+    else Chevron()
+}
+

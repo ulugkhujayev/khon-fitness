@@ -52,6 +52,14 @@ object Icons {
     val HeartSquare = icon("heart.text.square.fill") {
         addPath(pathData = PathParser().parsePathString("M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zM12 17.2l.9-.8c3-2.7 4.8-4.3 4.8-6.3 0-1.6-1.3-2.9-2.9-2.9-.9 0-1.9.5-2.8 1.3-.9-.8-1.9-1.3-2.8-1.3-1.6 0-2.9 1.3-2.9 2.9 0 2 1.8 3.6 4.8 6.3z").toNodes(), fill = SolidColor(Color.White), pathFillType = androidx.compose.ui.graphics.PathFillType.EvenOdd)
     }
+    /** A value that cannot change (an exercise's kind once used), in place of the chevron. */
+    val Lock = icon("lock.fill") { fill("M7 10V7.5a5 5 0 0 1 10 0V10h.5A1.5 1.5 0 0 1 19 11.5v8a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5v-8A1.5 1.5 0 0 1 6.5 10zM9 10h6V7.5a3 3 0 0 0-6 0z") }
+    /** Settings rows: export, version, reset, restore, reopen. */
+    val Upload = icon("square.and.arrow.up") { stroke("M12 14.5v-11M7.5 8L12 3.5 16.5 8M4.5 12v7.5h15V12") }
+    val Info = icon("info.circle") { stroke("M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z"); stroke("M12 11v5.5"); fill("M12 6.8a1.2 1.2 0 1 0 0 2.4a1.2 1.2 0 1 0 0-2.4z") }
+    val Reset = icon("arrow.counterclockwise") { stroke("M4.5 12a7.5 7.5 0 1 0 2.2-5.3"); stroke("M4.5 3.5v4h4") }
+    val Restore = icon("clock.arrow.circlepath") { stroke("M4.5 12a7.5 7.5 0 1 0 2.2-5.3"); stroke("M4.5 3.5v4h4"); stroke("M12 8v4.5l3 2") }
+    val Reopen = icon("arrow.clockwise") { stroke("M19.5 12a7.5 7.5 0 1 1-2.2-5.3"); stroke("M19.5 3.5v4h-4") }
     /** Clear button of a search field: a filled circle with an x cut out. */
     val ClearFill = icon("xmark.circle.fill") {
         addPath(pathData = PathParser().parsePathString("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20zM8.5 7.1L12 10.6l3.5-3.5 1.4 1.4-3.5 3.5 3.5 3.5-1.4 1.4-3.5-3.5-3.5 3.5-1.4-1.4 3.5-3.5-3.5-3.5z").toNodes(), fill = SolidColor(Color.White), pathFillType = androidx.compose.ui.graphics.PathFillType.EvenOdd)

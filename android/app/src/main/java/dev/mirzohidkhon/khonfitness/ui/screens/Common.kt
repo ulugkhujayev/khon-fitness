@@ -75,10 +75,10 @@ fun preview(item: PlanItem, blocks: List<Block>, blockExercises: List<BlockExerc
  * Navigation bar in the HIG style: a round Back button with a chevron only (no "Back" text), the title centered
  * in Headline, and the primary action on the trailing edge as a small prominent capsule. Equal sides keep the
  * title centered. Given the list under it ([scrollPx], its scroll offset in px), a hairline fades in on its
- * bottom edge once content scrolls beneath ([navHairline]).
+ * bottom edge once content scrolls beneath ([navHairline]). [done] "+" shows a round plus spoken as [addLabel].
  */
 @Composable
-fun EditorTopBar(back: String, title: String, onBack: () -> Unit, done: String = "Done", scrollPx: (() -> Int)? = null, onDone: (() -> Unit)? = null) {
+fun EditorTopBar(back: String, title: String, onBack: () -> Unit, done: String = "Done", scrollPx: (() -> Int)? = null, addLabel: String = "Add", onDone: (() -> Unit)? = null) {
     Box(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             // 88 wide on each side holds a Done capsule and keeps the title centered; a large font may widen it.
@@ -87,7 +87,7 @@ fun EditorTopBar(back: String, title: String, onBack: () -> Unit, done: String =
             Box(Modifier.widthIn(min = BAR_SIDE), contentAlignment = Alignment.CenterEnd) {
                 when {
                     onDone == null -> Unit
-                    done == "+" -> BarCircleButton(dev.mirzohidkhon.khonfitness.ui.Icons.Plus, "Add", onDone)
+                    done == "+" -> BarCircleButton(dev.mirzohidkhon.khonfitness.ui.Icons.Plus, addLabel, onDone)
                     else -> Capsule(done, onDone)
                 }
             }

@@ -86,7 +86,7 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
             }
             SectionTitle("Notes", Modifier.padding(top = 24.dp))
             GroupedList {
-                FieldRow("Effort", divider = false) { NumberField(draft.effort?.toDouble(), { draft = draft.copy(effort = it?.toInt()?.coerceIn(1, 10)) }, 1.0, "/10", Modifier.width(176.dp), 0, 38, placeholder = "1–10") }
+                FieldRow("Effort", divider = false) { NumberField(draft.effort?.toDouble(), { draft = draft.copy(effort = it?.toInt()) }, 1.0, "/10", Modifier.width(176.dp), 0, 38, placeholder = "1–10", min = 1.0, max = 10.0) }
                 FieldRow("Note") { InlineTextField(draft.note, { draft = draft.copy(note = it) }, placeholder = "Optional") }
             }
             Spacer(Modifier.height(24.dp))
@@ -108,6 +108,6 @@ private fun StrokeSheet(current: String?, onPick: (String) -> Unit, onDismiss: (
 }
 
 @Composable
-fun NumberRow(label: String, value: Double?, unit: String, step: Double, decimals: Int, divider: Boolean, set: (Double?) -> Unit) {
-    FieldRow(label, divider = divider) { NumberField(value, set, step, unit, Modifier.width(176.dp), decimals, 38) }
+fun NumberRow(label: String, value: Double?, unit: String, step: Double, decimals: Int, divider: Boolean, min: Double = 0.0, max: Double = Double.POSITIVE_INFINITY, set: (Double?) -> Unit) {
+    FieldRow(label, divider = divider) { NumberField(value, set, step, unit, Modifier.width(176.dp), decimals, 38, min = min, max = max) }
 }

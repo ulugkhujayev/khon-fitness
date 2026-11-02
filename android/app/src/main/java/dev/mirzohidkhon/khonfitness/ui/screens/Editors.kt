@@ -95,9 +95,9 @@ fun BlockEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Strin
             SectionTitle(('A' + be.slot).toString(), Modifier.padding(top = 20.dp)) { TextButton("Remove", K.Red) { vm.run { vm.repo.deleteBlockExercise(be.id) } } }
             GroupedList {
                 FieldRow("Exercise", divider = false, onClick = { picking = be.slot }) { Text(ex?.name ?: "Choose", fontWeight = FontWeight.SemiBold); Chevron() }
-                NumberRow("Sets", be.sets.toDouble(), "", 1.0, 0, true) { v -> vm.run { vm.repo.saveBlockExercise(be.copy(sets = (v ?: 1.0).toInt().coerceIn(1, 10))) } }
-                NumberRow("Min reps", be.minReps.toDouble(), "", 1.0, 0, true) { v -> vm.run { vm.repo.saveBlockExercise(run { val m = (v ?: 1.0).toInt().coerceIn(1, 50); be.copy(minReps = m, maxReps = maxOf(be.maxReps, m)) }) } }
-                NumberRow("Max reps", be.maxReps.toDouble(), "", 1.0, 0, true) { v -> vm.run { vm.repo.saveBlockExercise(run { val m = (v ?: 1.0).toInt().coerceIn(1, 50); be.copy(maxReps = m, minReps = minOf(be.minReps, m)) }) } }
+                NumberRow("Sets", be.sets.toDouble(), "", 1.0, 0, true, min = 1.0, max = 10.0) { v -> vm.run { vm.repo.saveBlockExercise(be.copy(sets = (v ?: 1.0).toInt())) } }
+                NumberRow("Min reps", be.minReps.toDouble(), "", 1.0, 0, true, min = 1.0, max = 50.0) { v -> vm.run { vm.repo.saveBlockExercise(run { val m = (v ?: 1.0).toInt(); be.copy(minReps = m, maxReps = maxOf(be.maxReps, m)) }) } }
+                NumberRow("Max reps", be.maxReps.toDouble(), "", 1.0, 0, true, min = 1.0, max = 50.0) { v -> vm.run { vm.repo.saveBlockExercise(run { val m = (v ?: 1.0).toInt(); be.copy(maxReps = m, minReps = minOf(be.minReps, m)) }) } }
             }
         }
         if (mine.size < 2) Row(Modifier.padding(top = 16.dp)) { TextButton(if (mine.isEmpty()) "Add exercise" else "Add second exercise") { picking = mine.size } }
@@ -154,7 +154,7 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
                     NumberRow("Warm-up", draft.warmupSec / 60.0, "min", 1.0, 0, true) { draft = draft.copy(warmupSec = ((it ?: 0.0) * 60).toInt()) }
                     NumberRow("Work", draft.workSec.toDouble(), "s", 10.0, 0, true) { draft = draft.copy(workSec = (it ?: 0.0).toInt()) }
                     NumberRow("Rest", draft.restSec.toDouble(), "s", 10.0, 0, true) { draft = draft.copy(restSec = (it ?: 0.0).toInt()) }
-                    NumberRow("Rounds", draft.rounds.toDouble(), "", 1.0, 0, true) { draft = draft.copy(rounds = (it ?: 1.0).toInt().coerceIn(1, 30)) }
+                    NumberRow("Rounds", draft.rounds.toDouble(), "", 1.0, 0, true, min = 1.0, max = 30.0) { draft = draft.copy(rounds = (it ?: 1.0).toInt()) }
                 }
                 FieldRow("Fields", onClick = { sheet = "fields" }) { Text(draft.fieldList.joinToString(", ") { fieldLabel(it) }.ifEmpty { "None" }, fontWeight = FontWeight.SemiBold, maxLines = 2); Chevron() }
             }

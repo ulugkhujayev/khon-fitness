@@ -118,7 +118,11 @@ padded cards, per-item buttons, "Updated" lines.
   plus button. No caption above it. No native spinner. A tap on − or +
   steps once with a light haptic click; held past 350 ms it repeats,
   160 ms apart and 15 ms faster each step down to 50, and saves once on
-  release. The eating-window time steppers do the same.
+  release. The eating-window time steppers do the same. Steps and typed
+  numbers stay inside the field's limits (effort 1 to 10, sets 1 to 10),
+  so the field never shows a number that is not stored. An empty field
+  with a numeric placeholder (last time, latest bodyweight) steps from
+  that number, not from zero.
 - Bottom of the editor: actions as rows in grouped lists, like the
   actions at the end of an iOS contact: a 20 px symbol and the name in
   accent (Archive, Merge into…, Move up, Move down), the destructive one

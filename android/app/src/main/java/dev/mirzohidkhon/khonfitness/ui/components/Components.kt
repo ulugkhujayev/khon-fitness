@@ -218,7 +218,8 @@ fun InlineTextField(value: String, onValueChange: (String) -> Unit, placeholder:
 
 /**
  * Hybrid number widget: minus, typed value with unit, plus. Selects all text on focus. A tap on − or + steps once
- * with a light haptic click and saves; held, it repeats faster ([repeatPress]) and saves once on release.
+ * with a light haptic click and saves; held, it repeats faster ([repeatPress]) and saves once on release
+ * ([Stepper]). Steps and typed numbers stay inside [min]..[max]; an empty field steps from its numeric placeholder.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -233,31 +234,30 @@ fun NumberField(
     focusRequester: FocusRequester? = null,
     onFocused: (() -> Unit)? = null,
     placeholder: String? = null,
+    min: Double = 0.0,
+    max: Double = Double.POSITIVE_INFINITY,
 ) {
+    val stepper = remember { Stepper(step) }.also { it.step = step; it.min = min; it.max = max }
     var text by remember { mutableStateOf(TextFieldValue(fmt(value, decimals))) }
     var hasFocus by remember { mutableStateOf(false) }
     val bringIntoView = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
-    // Sync from outside (steppers, prefill) only when the typed text does not already mean this value. Keeps the cursor where the user left it.
-    // While the user has cleared the field, leave it empty: the owner may push a minimum back that would prefix the next digit.
+    // Sync from outside (prefill, another field) only when the typed text does not already mean this value. Keeps the cursor where the user left it.
+    // Not while a hold shows its steps or for the late echo of a save made here ([Stepper.arrived]). While the user
+    // has cleared the field, leave it empty: the owner may push a minimum back that would prefix the next digit.
     LaunchedEffect(value) {
-        val typed = text.text.trimEnd('.').toDoubleOrNull()
-        if (typed != value && !(hasFocus && text.text.isEmpty())) { val t = fmt(value, decimals); text = TextFieldValue(t, TextRange(t.length)) }
+        val typed = typedNumber(text.text)?.let(stepper::bounded)
+        if (stepper.arrived(value) && typed != value && !(hasFocus && text.text.isEmpty())) { val t = fmt(value, decimals); text = TextFieldValue(t, TextRange(t.length)) }
     }
-    fun commit(v: Double?) { onValueChange(v?.let { Math.max(0.0, it) }) }
     val tick = rememberTick()
-    // While − or + is held the steps only show; the value is saved once on release, not on every step.
-    val held = remember { arrayOfNulls<Double>(1) }
     fun stepBy(sign: Int, save: Boolean) {
-        // The typed text first: a database write may not have come back into `value` yet.
-        val base = held[0] ?: text.text.trimEnd('.').toDoubleOrNull() ?: value ?: 0.0
-        val next = stepValue(base, sign, step)
-        val t = fmt(next, decimals)
+        val s = stepper.step(sign, save, text.text, value, placeholder)
+        val t = fmt(s.shown, decimals)
         text = TextFieldValue(t, TextRange(t.length))
         tick(false)
-        if (save) commit(next) else held[0] = next
+        s.save?.let(onValueChange)
     }
-    fun release() { held[0]?.let { commit(it) }; held[0] = null }
+    fun release() { stepper.release(value)?.let(onValueChange) }
     // Narrow slots (two fields per row on a 360 dp phone) drop the unit and slim the steppers so the whole value stays visible.
     androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
     val compact = maxWidth < 176.dp
@@ -273,7 +273,7 @@ fun NumberField(
             onValueChange = { new ->
                 val cleaned = new.text.replace(',', '.').filter { it.isDigit() || it == '.' }
                 text = new.copy(text = cleaned)
-                commit(cleaned.toDoubleOrNull())
+                onValueChange(stepper.typed(cleaned.toDoubleOrNull(), value))
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = if (decimals > 0) KeyboardType.Decimal else KeyboardType.Number),
@@ -291,7 +291,12 @@ fun NumberField(
                         // The keyboard is still rising when focus lands. Scroll again once it has settled.
                         scope.launch { delay(120); bringIntoView.bringIntoView(); delay(300); bringIntoView.bringIntoView() }
                     }
-                    if (!st.isFocused && hasFocus && text.text.trimEnd('.').toDoubleOrNull() != value) text = TextFieldValue(fmt(value, decimals))
+                    // On leaving, show what the field stands for: the typed number inside the bounds (its save may not
+                    // have come back yet), or the value when the field was left empty.
+                    if (!st.isFocused && hasFocus) {
+                        val shown = fmt(typedNumber(text.text)?.let(stepper::bounded) ?: value, decimals)
+                        if (shown != text.text) text = TextFieldValue(shown)
+                    }
                     hasFocus = st.isFocused
                 },
         )
@@ -313,7 +318,7 @@ private fun RowScope.StepButton(glyph: String, label: String, width: Int, onStep
 
 /**
  * Press handling for a − or + button: a tap calls [onTap]; held past [REPEAT_AFTER_MS] it calls [onRepeat] again
- * and again, faster the longer it is held ([repeatDelay]), and [onRelease] once the finger lifts. A press shows a
+ * and again, faster the longer it is held ([repeatDelay]), and [onRelease] once the hold ends ([PressFlow]). A press shows a
  * Surface3 fill. Screen readers get one button that taps.
  */
 @Composable
@@ -329,18 +334,23 @@ fun Modifier.repeatPress(label: String, onTap: () -> Unit, onRepeat: () -> Unit,
                 awaitEachGesture {
                     awaitFirstDown()
                     pressed = true
-                    var ended = false
-                    val up = withTimeoutOrNull(REPEAT_AFTER_MS) { waitForUpOrCancellation().also { ended = true } }
-                    if (ended) {
+                    val flow = PressFlow({ tap() }, { repeat() }, { release() })
+                    // `finally` also runs when the button leaves the screen mid-hold, so the shown step is saved.
+                    try {
+                        var ended = false
+                        val up = withTimeoutOrNull(REPEAT_AFTER_MS) { waitForUpOrCancellation().also { ended = true } }
+                        if (ended) {
+                            up?.consume()
+                            flow.endEarly(lifted = up != null)
+                            return@awaitEachGesture
+                        }
+                        flow.hold()
+                        val stepping = launch { var n = 0; while (isActive) { flow.repeat(); delay(repeatDelay(n++)) } }
+                        try { waitForUpOrCancellation()?.consume() } finally { stepping.cancel() }
+                    } finally {
                         pressed = false
-                        if (up != null) { up.consume(); tap() }
-                        return@awaitEachGesture
+                        flow.end()
                     }
-                    val stepping = launch { var n = 0; while (isActive) { repeat(); delay(repeatDelay(n++)) } }
-                    waitForUpOrCancellation()?.consume()
-                    stepping.cancel()
-                    pressed = false
-                    release()
                 }
             }
         }

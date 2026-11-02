@@ -124,7 +124,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                 if (live) {
                     GroupedList {
                         DateRow(s.date.toDate(), divider = false) { d -> vm.run { vm.repo.updateSession(s.copy(date = d.iso())) } }
-                        FieldRow("Effort") { NumberField(s.effort?.toDouble(), { v -> vm.run { vm.repo.updateSession(s.copy(effort = v?.toInt()?.coerceIn(1, 10))) } }, 1.0, "/10", Modifier.width(176.dp), 0, 38, placeholder = "1–10") }
+                        FieldRow("Effort") { NumberField(s.effort?.toDouble(), { v -> vm.run { vm.repo.updateSession(s.copy(effort = v?.toInt())) } }, 1.0, "/10", Modifier.width(176.dp), 0, 38, placeholder = "1–10", min = 1.0, max = 10.0) }
                         FieldRow("Note") { InlineTextField(s.note, { vm.run { vm.repo.updateSession(s.copy(note = it)) } }, placeholder = "Optional") }
                     }
                 } else if (s.note.isNotBlank() || s.effort != null) {

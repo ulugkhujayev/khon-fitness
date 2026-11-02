@@ -50,9 +50,9 @@ fun WindowSheet(vm: AppViewModel, onDismiss: () -> Unit) {
                 if (st.open) ListRow("Close now", chevron = false, divider = false, titleColor = K.Accent) { vm.run { vm.repo.closeWindowNow(today.iso(), System.currentTimeMillis()); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) }; onDismiss() }
                 else ListRow("Open now", chevron = false, divider = false, titleColor = K.Accent) { vm.run { vm.repo.openWindowNow(today.iso(), System.currentTimeMillis()); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) }; onDismiss() }
             }
-            FieldRow("Opens", divider = w.enabled) { TimeStepper(w.startMinute, "Opens", 0..(w.endMinute - 60)) { m -> save(w.copy(startMinute = m.coerceIn(0, w.endMinute - 60))) } }
-            FieldRow("Closes") { TimeStepper(w.endMinute, "Closes", (w.startMinute + 60)..(24 * 60 - 1)) { m -> save(w.copy(endMinute = m.coerceIn(w.startMinute + 60, 24 * 60 - 1))) } }
-            FieldRow("Remind before", divider = true) { NumberField(w.remindBeforeMin.toDouble(), { v -> save(w.copy(remindBeforeMin = (v ?: 0.0).toInt().coerceIn(0, 120))) }, 5.0, "min", Modifier.width(176.dp), 0, 38) }
+            FieldRow("Opens", divider = w.enabled) { TimeStepper(w.startMinute, "Opens", 0..(w.endMinute - 60)) { m -> save(w.copy(startMinute = m)) } }
+            FieldRow("Closes") { TimeStepper(w.endMinute, "Closes", (w.startMinute + 60)..(24 * 60 - 1)) { m -> save(w.copy(endMinute = m)) } }
+            FieldRow("Remind before", divider = true) { NumberField(w.remindBeforeMin.toDouble(), { v -> save(w.copy(remindBeforeMin = (v ?: 0.0).toInt())) }, 5.0, "min", Modifier.width(176.dp), 0, 38, max = 120.0) }
             FieldRow("On") { Switch(w.enabled, { save(w.copy(enabled = it)) }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
         }
         if (w.enabled) {
@@ -70,25 +70,26 @@ fun WindowSheet(vm: AppViewModel, onDismiss: () -> Unit) {
 }
 
 /**
- * hh:mm with 15-minute steps, in the number-widget shape, kept inside [range]. Like the number widget's steppers,
- * a tap steps once with a click; held, it repeats and saves once on release.
+ * hh:mm with 15-minute steps, in the number-widget shape, kept inside [range]. Like the number widget's steppers
+ * ([Stepper]), a tap steps once with a click and saves; held, it repeats and saves once on release.
  */
 @Composable
 fun TimeStepper(minute: Int, name: String, range: IntRange, onChange: (Int) -> Unit) {
     val tick = dev.mirzohidkhon.khonfitness.ui.components.rememberTick()
-    // The time shown while a step is held, and after release until the saved value comes back.
-    var held by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
-    androidx.compose.runtime.LaunchedEffect(minute) { held = null }
+    val stepper = androidx.compose.runtime.remember { Stepper(15.0) }.also { it.min = range.first.toDouble(); it.max = range.last.toDouble() }
+    // The time shown while a step is held, and after a save until its value comes back.
+    var shown by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
+    androidx.compose.runtime.LaunchedEffect(minute) { if (stepper.arrived(minute.toDouble())) shown = null }
     fun step(sign: Int, save: Boolean) {
-        val next = ((held ?: minute) + sign * 15).coerceIn(range)
+        val s = stepper.step(sign, save, shown?.toString() ?: "", minute.toDouble(), null)
         tick(false)
-        held = next
-        if (save) onChange(next)
+        shown = s.shown.toInt()
+        s.save?.let { onChange(it.toInt()) }
     }
-    fun release() { held?.let(onChange) }
+    fun release() { stepper.release(minute.toDouble())?.let { onChange(it.toInt()) } }
     Row(Modifier.width(150.dp).height(38.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).background(K.Surface2), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         Box(Modifier.width(40.dp).fillMaxHeight().repeatPress("$name 15 minutes earlier", { step(-1, true) }, { step(-1, false) }, ::release), contentAlignment = androidx.compose.ui.Alignment.Center) { Text("−", fontWeight = FontWeight.Medium) }
-        Text(EatingWindowRules.hhmm(held ?: minute), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(EatingWindowRules.hhmm(shown ?: minute), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Box(Modifier.width(40.dp).fillMaxHeight().repeatPress("$name 15 minutes later", { step(1, true) }, { step(1, false) }, ::release), contentAlignment = androidx.compose.ui.Alignment.Center) { Text("+", fontWeight = FontWeight.Medium) }
     }
 }

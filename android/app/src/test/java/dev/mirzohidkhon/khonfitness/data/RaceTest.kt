@@ -1,6 +1,7 @@
 package dev.mirzohidkhon.khonfitness.data
 
 import android.app.Application
+import androidx.room.InvalidationTracker
 import androidx.sqlite.db.SupportSQLiteDatabase
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -28,7 +29,8 @@ class RaceTest {
     private var wroteAt = "never"
     private val write: suspend () -> Unit = { wroteAt = stage }
 
-    @Before fun open() { db = raceDatabase(race) }
+    // Opened at once: Room syncs its tracker triggers on an observer change only while the database is open.
+    @Before fun open() { db = raceDatabase(race); read("day_overrides") }
 
     @After fun close() = db.close()
 
@@ -90,9 +92,38 @@ class RaceTest {
         assertNotOneTransaction {
             race.step(firstWriteAfterRead("day_overrides"), write) {
                 transaction { read("day_overrides"); insertOverride() }
-                transaction { insertOverride(note = "room_table_modification_log") }
+                // The name in the SQL text itself, where the helper looks; a bound value would never reach it.
+                transaction { raw.execSQL("INSERT OR REPLACE INTO day_overrides (date, itemType, itemId, auto) VALUES ('2026-11-03', 'room_table_modification_log', NULL, 0)") }
             }
         }
+    }
+
+    private val observer = object : InvalidationTracker.Observer("day_overrides") { override fun onInvalidated(tables: Set<String>) {} }
+
+    /** One app transaction next to a transaction of Room's tracker alone ([change] adds or removes an observer). */
+    private fun trackerThenStep(at: (String) -> Boolean, change: () -> Unit) {
+        race.step(at, write) {
+            change()
+            transaction { read("day_overrides"); read("sessions"); insertOverride() }
+            stage = "after the step"
+        }
+        assertEquals("after the step", wroteAt)
+    }
+
+    @Test fun `an observer added in the step does not split it at a read match`() =
+        trackerThenStep({ it == "SELECT * FROM sessions" }) { db.invalidationTracker.addObserver(observer) }
+
+    @Test fun `an observer added in the step does not split it at a write match`() =
+        trackerThenStep(firstWriteAfterRead("day_overrides")) { db.invalidationTracker.addObserver(observer) }
+
+    @Test fun `an observer removed in the step does not split it at a read match`() {
+        db.invalidationTracker.addObserver(observer)
+        trackerThenStep({ it == "SELECT * FROM sessions" }) { db.invalidationTracker.removeObserver(observer) }
+    }
+
+    @Test fun `an observer removed in the step does not split it at a write match`() {
+        db.invalidationTracker.addObserver(observer)
+        trackerThenStep(firstWriteAfterRead("day_overrides")) { db.invalidationTracker.removeObserver(observer) }
     }
 
     @Test fun `nested transactions inside one outer transaction after the match still defer`() {

@@ -72,6 +72,17 @@ interface KhonDao {
     @Upsert suspend fun upsert(session: Session)
     @Upsert suspend fun upsertSessions(list: List<Session>)
     @Query("DELETE FROM sessions WHERE id = :id") suspend fun deleteSession(id: String)
+    // One field of a session the user or the timer edits in place: a whole-row write from a snapshot would undo an edit
+    // that landed after the snapshot was read.
+    @Query("UPDATE sessions SET date = :date WHERE id = :id") suspend fun setSessionDate(id: String, date: String)
+    @Query("UPDATE sessions SET effort = :effort WHERE id = :id") suspend fun setSessionEffort(id: String, effort: Int?)
+    @Query("UPDATE sessions SET note = :note WHERE id = :id") suspend fun setSessionNote(id: String, note: String)
+    @Query("UPDATE sessions SET timeSec = :timeSec WHERE id = :id") suspend fun setSessionTime(id: String, timeSec: Int?)
+    @Query("UPDATE sessions SET finishedAt = :finishedAt WHERE id = :id") suspend fun setSessionFinishedAt(id: String, finishedAt: Long?)
+    @Query("UPDATE set_logs SET status = '${SetStatus.SKIPPED}' WHERE sessionId = :sessionId AND status = '${SetStatus.PENDING}'")
+    suspend fun skipPendingSets(sessionId: String)
+    /** Ends a session: its pending sets become skipped, then only [Session.finishedAt] is set. */
+    @Transaction suspend fun finishSession(id: String, finishedAt: Long) { skipPendingSets(id); setSessionFinishedAt(id, finishedAt) }
 
     @Query("SELECT * FROM set_logs WHERE sessionId = :sessionId ORDER BY `order`") fun setLogs(sessionId: String): Flow<List<SetLog>>
     @Query("SELECT * FROM set_logs WHERE sessionId = :sessionId ORDER BY `order`") suspend fun setLogsOnce(sessionId: String): List<SetLog>

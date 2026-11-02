@@ -392,7 +392,7 @@ internal suspend fun recordTimer(app: KhonApp, s: TimerState) = runCatching {
     if (s.stretch) { if (s.completed > 0 || s.elapsed >= 30.0) app.repo.saveStretchSession(dev.mirzohidkhon.khonfitness.data.StretchSession(
         id = s.sessionId, routineId = s.sessionId.substringBefore(":"), routineName = s.title, date = java.time.LocalDate.now().format(dev.mirzohidkhon.khonfitness.data.ISO),
         startedAt = s.startedAt, totalSec = elapsed, completed = s.completed, skipped = s.skipped)) }
-    else app.repo.session(s.sessionId).first()?.let { app.repo.updateSession(it.copy(timeSec = elapsed)) }
+    else app.repo.setSessionTime(s.sessionId, elapsed) // Only the duration: an effort or note typed meanwhile stays.
 }
 
 /** A snapshot is stale once its cardio session is gone or finished, or its stretch routine is gone or already recorded. */

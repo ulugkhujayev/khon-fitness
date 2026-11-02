@@ -196,12 +196,13 @@ class KhonRepository(private val dao: KhonDao) {
     suspend fun updateSetLog(log: SetLog) = dao.upsert(log)
     suspend fun updateSession(session: Session) = dao.upsert(session)
     suspend fun saveIntervals(list: List<IntervalLog>) = dao.upsertIntervalLogs(list)
-    suspend fun finishSession(sessionId: String) {
-        val session = dao.session(sessionId) ?: return
-        val logs = dao.setLogsOnce(sessionId).map { if (it.status == SetStatus.PENDING) it.copy(status = SetStatus.SKIPPED) else it }
-        dao.upsertSetLogs(logs)
-        dao.upsert(session.copy(finishedAt = System.currentTimeMillis()))
-    }
+    // Single fields of a session edited in place (session page, finish sheet, timer): each writes its own column only.
+    suspend fun setSessionDate(sessionId: String, date: LocalDate) = dao.setSessionDate(sessionId, date.iso())
+    suspend fun setSessionEffort(sessionId: String, effort: Int?) = dao.setSessionEffort(sessionId, effort)
+    suspend fun setSessionNote(sessionId: String, note: String) = dao.setSessionNote(sessionId, note)
+    suspend fun setSessionTime(sessionId: String, timeSec: Int?) = dao.setSessionTime(sessionId, timeSec)
+    /** Pending sets become skipped and the session gets its finish time, in one transaction; nothing else is written. */
+    suspend fun finishSession(sessionId: String, now: Long = System.currentTimeMillis()) = dao.finishSession(sessionId, now)
     suspend fun deleteSession(sessionId: String) { dao.deleteSetLogsFor(sessionId); dao.deleteIntervalLogsFor(sessionId); dao.deleteSession(sessionId) }
     suspend fun swapExerciseInSession(sessionId: String, fromExerciseId: String, to: Exercise, updateProgram: Boolean, programId: String?) {
         val logs = dao.setLogsOnce(sessionId).filter { it.exerciseId == fromExerciseId }.map { it.copy(exerciseId = to.id, exerciseName = to.name, stepKg = to.stepKg) }

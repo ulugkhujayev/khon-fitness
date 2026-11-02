@@ -20,6 +20,14 @@ class BackupFootnoteTest {
         assertNull(backupFootnote(BackupAction.OPEN, ok)) // the import sheet opens instead
     }
 
+    @Test fun `W5 a merge, replace or restore that worked re-arms the window alarms and widgets, nothing else does`() {
+        for (a in listOf(BackupAction.MERGE, BackupAction.REPLACE, BackupAction.RESTORE)) {
+            assertTrue(a.name, backupChangesData(a, ok))
+            assertTrue(a.name, !backupChangesData(a, fail(IOException("busy"))))
+        }
+        for (a in listOf(BackupAction.EXPORT, BackupAction.OPEN, BackupAction.LIST)) assertTrue(a.name, !backupChangesData(a, ok))
+    }
+
     @Test fun `every failure is red and names what failed`() {
         assertEquals(BackupStatus("Export failed: disk full", error = true), backupFootnote(BackupAction.EXPORT, fail(IOException("disk full"))))
         assertEquals(BackupStatus("Import failed: busy", error = true), backupFootnote(BackupAction.MERGE, fail(IllegalStateException("busy"))))

@@ -164,7 +164,7 @@ class TimerService : Service() {
         val snap = TimerSnapshots.load(this) ?: return stopIfIdle()
         val app = applicationContext as KhonApp
         restoring = scope.launch {
-            val open = runCatching { withContext(Dispatchers.IO) { stillOpen(app, snap.state) } }.getOrNull() ?: return@launch stopIfIdle()
+            val open = runCatching { withContext(Dispatchers.IO) { stillOpen(app.repo, snap.state) } }.getOrNull() ?: return@launch stopIfIdle()
             if (state.value != null) return@launch
             if (!open || snap.expired(System.currentTimeMillis())) { TimerSnapshots.clear(app, snap.state.sessionId); return@launch stopIfIdle() }
             val s = snap.advanced(System.currentTimeMillis())
@@ -386,19 +386,25 @@ class TimerService : Service() {
 }
 
 /** Writes the timer result: the stretch session, or the cardio duration. Repeating it for the same state changes nothing. */
-/** Stretch runs count only after one completed stretch or 30 s of stretching; skipping through the list is not a session. */
 internal suspend fun recordTimer(app: KhonApp, s: TimerState) = runCatching {
-    val elapsed = s.elapsed.toInt()
-    if (s.stretch) { if (s.completed > 0 || s.elapsed >= 30.0) app.repo.recordStretchSession(dev.mirzohidkhon.khonfitness.data.StretchSession(
-        id = s.sessionId, routineId = s.sessionId.substringBefore(":"), routineName = s.title, date = java.time.LocalDate.now().format(dev.mirzohidkhon.khonfitness.data.ISO),
-        startedAt = s.startedAt, totalSec = elapsed, completed = s.completed, skipped = s.skipped)) }
-    else app.repo.setSessionTime(s.sessionId, elapsed) // Only the duration: an effort or note typed meanwhile stays.
+    if (s.stretch) stretchResult(s, java.time.LocalDate.now())?.let { app.repo.recordStretchSession(it) } // written once per session id
+    else app.repo.setSessionTime(s.sessionId, s.elapsed.toInt()) // Only the duration: an effort or note typed meanwhile stays.
 }
 
+/**
+ * A stretch run's session, with the routine name captured when the run started. Stretch runs count only after one
+ * completed stretch or 30 s of stretching; skipping through the list is not a session (null).
+ */
+internal fun stretchResult(s: TimerState, date: java.time.LocalDate): dev.mirzohidkhon.khonfitness.data.StretchSession? =
+    if (s.completed > 0 || s.elapsed >= 30.0) dev.mirzohidkhon.khonfitness.data.StretchSession(
+        id = s.sessionId, routineId = s.sessionId.substringBefore(":"), routineName = s.title, date = date.format(dev.mirzohidkhon.khonfitness.data.ISO),
+        startedAt = s.startedAt, totalSec = s.elapsed.toInt(), completed = s.completed, skipped = s.skipped,
+    ) else null
+
 /** A snapshot is stale once its cardio session is gone or finished, or its stretch routine is gone or already recorded. */
-private suspend fun stillOpen(app: KhonApp, s: TimerState): Boolean =
-    if (s.stretch) app.repo.stretchRoutines.first().any { it.id == s.sessionId.substringBefore(":") } && app.repo.stretchSessions.first().none { it.id == s.sessionId }
-    else app.repo.session(s.sessionId).first()?.finished == false
+internal suspend fun stillOpen(repo: dev.mirzohidkhon.khonfitness.data.KhonRepository, s: TimerState): Boolean =
+    if (s.stretch) repo.stretchRoutines.first().any { it.id == s.sessionId.substringBefore(":") } && repo.stretchSessions.first().none { it.id == s.sessionId }
+    else repo.session(s.sessionId).first()?.finished == false
 
 data class FinishedTimer(val sessionId: String, val elapsedSec: Int, val early: Boolean)
 

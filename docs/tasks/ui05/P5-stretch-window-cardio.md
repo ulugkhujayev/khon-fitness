@@ -1,6 +1,6 @@
 # UI05 P5: stretching, stretch demo and player, eating window, cardio
 
-Class: Normal. Read `COMMON.md` in this folder first. Review follows
+Class: Risky (it rewrites stored data; protocol steps 1-7). Read `COMMON.md` in this folder first. Review follows
 `~/.config/agents/review-protocol.md`. P1 added the shared kit; use it.
 
 ## Expo reference
@@ -24,13 +24,13 @@ Class: Normal. Read `COMMON.md` in this folder first. Review follows
 `ui/screens/StretchScreen.kt`, `StretchEditors.kt`, `WindowSheet.kt`,
 `CardioScreen.kt`, `TimerScreen.kt`, `ui/components/StretchDemonstration.kt`,
 `ui/components/*`. The timer service, cue gate, scheduler and widgets stay
-as they are.
+as they are, except the two narrow changes in "Writes".
 
 ## Contract
 
 | # | Action | Data | Expected |
 |---|---|---|---|
-| 1 | Open Stretching | routines, some archived | Groups and drafts per `stretching.tsx` / `routine/[id].tsx` |
+| 1 | Open Stretching | routines, one active or none; stretches, some archived | Layout per `stretching.tsx` / `routine/[id].tsx`. Routines have no archive state (schema); archived stretches are hidden from the library and the pick sheet |
 | 2 | Edit a routine's order | routine with stretches | Order rows carry up, down and remove as bare symbols with 44 px targets; remove asks first |
 | 3 | New routine, leave without Done and without a stretch | — | Nothing saved |
 | 4 | New routine, add the first stretch | — | Routine saved |
@@ -41,26 +41,88 @@ as they are.
 | 9 | Change window times | time steppers | P1 stepper behavior; spoken labels "Opens 15 minutes earlier" stay |
 | 10 | Open cardio form and interval timer | any | Layout per the Expo cardio components where they differ from Kotlin; timer behavior unchanged |
 | 11 | Delete a stretch or routine | any | Confirm sheet first |
+| 12 | Delete a stretch | built-in, or used by a routine row at confirm time | Refused; the editor shows why ("Built-in stretches cannot be deleted." / "In use by N routine rows."); nothing is deleted |
+| 13 | Delete a routine | with stretches and past stretch sessions | Routine and its routine rows go; stretch sessions stay (they hold the routine name and totals, no stretch ids) and History shows them |
+| 14 | Stretch editor | new or existing | Name, Guide, Per side, Reps, Rep count, Time/Hold, Muscles, Cue, Link, Watch the reference: every 0.4.8 field kept; Done on a new stretch with a blank name saves nothing |
+| 15 | Stretch library | search text | Filters by name; "Nothing matches" when empty |
+| 16 | Routine Done | new routine, no stretch | Saves the routine (name, Active) with no stretches |
+| 17 | Routine Active | switch On / Off | On makes it the only active routine; Off leaves none active (as 0.4.8; Today falls back to the first routine, the widget shows none) |
+| 18 | Import | backups with zero, one or two active routines | Merge keeps this phone's active routine and clears the mark on imported ones; replace keeps the backup's first active routine by sortOrder, else none. At most one active after any import |
+| 19 | Stretch run result | the same result recorded twice (restore after process death) | One stretch session, unchanged by the second record |
+| 20 | Stretch run | routine deleted during the run, then finish | One stretch session with the captured name; no routine or routine rows re-created |
+| 21 | Stretch demo | play, pause, change view, pick a step | Demo playback never starts the run clock or writes anything |
+| 22 | Cardio form | exercise fields removed after values were stored | Stored fields, swim laps math, interval inputs and the delete confirm stay as in 0.4.8 (`git show 2b73707:<path>`); the timer's background-permission action stays |
 
-## Writes (lessons from P3 and P4)
+## Writes: one set of guarded commands (closed design)
 
-These P5 screens still save whole rows from the copy they hold:
-`ui/screens/StretchEditors.kt:69,70,81,92,93,149` (`saveRoutine`,
-`saveRoutineStretch(es)`, `saveStretch`) and `ui/screens/WindowSheet.kt:46`
-(`saveEatingWindow(n)`). Move each to targeted updates or a merge of the
-changed fields onto the current row in one `@Transaction`, as
-`saveExerciseEdits`, `saveCardioEdits` and the `setSet*` queries do. A row
-deleted meanwhile is not re-created. Routine drafts follow the program
-rule from P4-FIX item 1: the first stretch saves the routine as a real
-routine, and the editor keeps its id in saved state. Deletes do not orphan
-rows (a routine's stretches, a stretch used by routines or past stretch
-sessions keeps their history). Test these against a real in-memory Room
-database, as `test/.../data/EditorWritesTest.kt` does; each test fails on
-the old whole-row write. No Room schema change, no migration.
+Rule: a P5 screen never writes a row it holds. Every stored write from the
+stretch, routine, window and player paths goes through one of the DAO
+commands below; each is one `@Transaction` (or one SQL statement), reads
+what it checks inside itself, and writes nothing when its row is gone. The
+repository exposes only these, and removes `saveStretch(Stretch)`,
+`saveRoutine(StretchRoutine)`, `saveRoutineStretch(es)`,
+`saveEatingWindow(EatingWindow)` and `saveStretchSession`, so a whole-row
+write from a held copy does not compile. Seed and import keep their own
+transactions. No Room schema change, no migration.
 
-Unit test the window state text (open, closed, off, crossing midnight if
-the rules allow it), the kept-days count text, the run progress text and
-segments, and the routine draft rules.
+| Command | Does |
+|---|---|
+| `createStretch(s)` | insert; refused when the name is blank |
+| `saveStretchEdits(opened, edited)` | merge the fields that differ onto the current row (as `saveExerciseEdits`); deleted row: nothing |
+| `deleteStretchIfUnused(id): Boolean` | in one transaction: refuse if built-in or any routine row uses it; else delete |
+| `createRoutine(r, firstStretchId?, rowId?)` | insert the routine with `sortOrder` = count read inside; when `r.active`, clear the others; insert the first routine row when given (stretch must exist) |
+| `setRoutineName(id, name)` | targeted update |
+| `setRoutineActive(id, on)` | row missing: nothing; on: `active = (id = :id)`; off: that row only |
+| `deleteRoutine(id)` | already one transaction (`deleteRoutineWithStretches`) |
+| `addRoutineStretch(routineId, stretchId, rowId)` | routine or stretch gone: nothing; `sortOrder` = max + 1 read inside |
+| `setRoutineStretchSeconds(rowId, s)` | targeted update |
+| `moveRoutineStretch(rowId, up)` | read the routine's rows by `sortOrder` inside; swap `sortOrder` with the neighbour by two targeted updates; no neighbour or row gone: nothing |
+| `removeRoutineStretch(rowId)` | delete by id |
+| `recordStretchSession(s)` | `INSERT OR IGNORE`: a session id is written once; a replay never overwrites or re-creates a changed row |
+| `setWindowEnabled(on)`, `setWindowRemind(min)` | targeted updates of the settings row (id 1) |
+| `setWindowStart(m)`, `setWindowEnd(m)` | one transaction: read the current row; write only when the hours keep at least 60 minutes between them |
+| `openWindowNow`, `closeWindowNow` | from P4-FIX2 (targeted, one transaction) |
+| `backupSnapshot(): Backup` | export reads every table inside one `@Transaction` |
+
+Import (`importBackup`) also normalizes routines per contract row 18.
+
+Routine drafts follow the program rule from P4-FIX item 1: a new routine
+(`new`) keeps name and Active in `rememberSaveable`; leaving without Done
+and without a stretch writes nothing; the first stretch or Done calls
+`createRoutine`, and from then the editor keeps the id in
+`rememberSaveable` and edits the existing routine.
+
+Allowed outside the P5 screens (narrow, nothing else in those files):
+`timer/TimerService.kt` `recordTimer` calls `recordStretchSession`;
+`window/WindowScheduler.kt` `reschedule` runs under one process-wide
+`Mutex`, so an older reschedule cannot finish after a newer one (the
+receiver already checks `enabled` at delivery).
+
+## Attack cases (from `P5-ATTACK.md`)
+
+Each becomes an in-memory Room test (as `test/.../data/EditorWritesTest.kt`)
+or a pure-rule test, and each Room test fails on the old write where a
+sequence can show it.
+
+- E1: open a stretch; import renames it; edit only Cue; Done: both kept. Delete the row first: Done writes nothing.
+- E2: open the delete confirm of an unused custom stretch; another write adds it to a routine; confirm: refused. Reverse order: `addRoutineStretch` of the deleted stretch writes nothing.
+- E3: a routine uses a stretch and has a past session: delete the stretch is refused; remove the row, delete stretch and routine: the session is unchanged.
+- E4: new routine, set name and Active, leave: no rows. Again with Done: one routine with those values, the only active one if Active.
+- E5: new routine, add the first stretch, restore saved state, Done: same routine id, one routine row.
+- E6: open Add stretch; delete the routine; pick a stretch: no routine row, no routine. Same for seconds and order changes: nothing written.
+- E7: import changes a row's seconds; move another row: the imported seconds stay. Import removes the neighbour: the move writes nothing.
+- D1: hold routine A's editor; make B active; rename A: B stays the only active. `setRoutineActive` of a deleted id: no flag changes.
+- D2: export with A active; make B active; merge the export: one active (B). Replace with zero, one, two active in the backup: none, that one, the first by `sortOrder`.
+- D3: export is one snapshot (`backupSnapshot`); round trip through merge and replace keeps every table equal and leaves no routine row whose routine or stretch is missing.
+- P1: record a result after its routine was deleted: one session with the captured name; no routine re-created.
+- P2: record the same result twice: one unchanged session. Delete it, record again: it comes back once (accepted limit: the timer clears its snapshot after recording; say so in `DESIGN.md`).
+- P3: skip every stretch before 30 s: no session (existing rule in `recordTimer`, test it).
+- W1: hold the sheet; import changes the hours; toggle On: only `enabled` changes. Start and end moved toward each other from two writes: the second is refused when under 60 minutes.
+- W2: covered by P4-FIX2; keep its tests passing.
+- W4: window state text at a boundary and across midnight per `EatingWindowRules`; the kept-days count excludes today; fixed hours never cross midnight (the steppers' ranges).
+
+Unit test the window state text (open, closed, off), the kept-days count
+text, the run progress text and segments, and the routine draft rules.
 
 ## Done
 

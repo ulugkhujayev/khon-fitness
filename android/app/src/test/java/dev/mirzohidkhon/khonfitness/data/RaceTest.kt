@@ -87,6 +87,35 @@ class RaceTest {
         assertEquals("after the step", wroteAt)
     }
 
+    @Test fun `a second transaction after a deferred write match fails`() {
+        race.arm(firstWriteAfterRead("day_overrides"), write)
+        transaction { read("day_overrides"); insertOverride() }
+        stage = "between transactions"
+        val e = assertThrows(IllegalStateException::class.java) { transaction { insertOverride() } }
+        assertTrue(e.message!!, e.message!!.startsWith("the step is not one transaction"))
+    }
+
+    @Test fun `a second transaction after a deferred read match fails`() {
+        race.arm({ it == "SELECT * FROM sessions" }, write)
+        transaction { read("day_overrides"); read("sessions") }
+        stage = "between transactions"
+        val e = assertThrows(IllegalStateException::class.java) { transaction { insertOverride() } }
+        assertTrue(e.message!!, e.message!!.startsWith("the step is not one transaction"))
+    }
+
+    @Test fun `nested transactions inside one outer transaction after the match still defer`() {
+        race.arm(firstWriteAfterRead("day_overrides"), write)
+        transaction {
+            read("day_overrides")
+            insertOverride()
+            transaction { insertOverride() }
+            transaction { insertOverride() }
+        }
+        stage = "after the step"
+        race.finish()
+        assertEquals("after the step", wroteAt)
+    }
+
     @Test fun `no transaction runs the write at the match`() {
         race.arm(firstWriteAfterRead("day_overrides"), write)
         read("day_overrides")

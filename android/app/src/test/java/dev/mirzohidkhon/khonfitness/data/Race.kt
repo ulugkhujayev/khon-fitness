@@ -19,6 +19,10 @@ import java.util.concurrent.Executors
  * - depth 1 or more and one transaction: the other writer waits for the commit, so the write runs in [finish];
  * - depth 1 or more and not one transaction: it throws "the step is not one transaction".
  *
+ * A deferred write keeps the check going until [finish]: once the step's transaction has ended, any later statement of
+ * the app (not Room's tracker bookkeeping, not BEGIN, END or PRAGMA) throws "the step is not one transaction", so a
+ * second transaction after the match cannot hide the gap between them.
+ *
  * No timing decides the outcome. Build the database with [raceDatabase], so Room's own statements run in order.
  */
 internal class Race {
@@ -29,15 +33,21 @@ internal class Race {
     private var oneTransaction = false
     private var deferred: (suspend () -> Unit)? = null
     private var ran = false
+    private var ended = false
 
     @Synchronized fun arm(at: (String) -> Boolean, write: suspend () -> Unit) {
-        this.at = at; this.write = write; first = true; oneTransaction = false; deferred = null; ran = false
+        this.at = at; this.write = write; first = true; oneTransaction = false; deferred = null; ran = false; ended = false
     }
 
     fun onQuery(sql: String) {
         val w = synchronized(this) {
             val before = depth
             if (sql.startsWith("BEGIN")) depth++ else if (sql.startsWith("END TRANSACTION")) depth--
+            if (deferred != null) {
+                if (depth == 0) ended = true
+                check(!(ended && isAppStatement(sql))) { "the step is not one transaction: \"$sql\" ran after the step's transaction ended" }
+                return
+            }
             val match = at ?: return
             if (first) { first = false; oneTransaction = before == 0 && sql.startsWith("BEGIN") } else if (depth == 0) oneTransaction = false
             if (!match(sql)) return
@@ -66,6 +76,10 @@ internal class Race {
 }
 
 private const val TRACKER_TABLE = "room_table_modification_log"
+
+/** A statement of the step itself: not a transaction boundary, a PRAGMA, or Room's invalidation tracker bookkeeping. */
+private fun isAppStatement(sql: String) = "room_table_modification" !in sql &&
+    listOf("BEGIN", "END TRANSACTION", "TRANSACTION SUCCESSFUL", "PRAGMA").none { sql.startsWith(it) }
 private val WRITES = listOf("BEGIN", "INSERT", "UPDATE", "DELETE")
 
 /**

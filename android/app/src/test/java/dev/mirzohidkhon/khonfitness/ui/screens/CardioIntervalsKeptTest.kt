@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.runtime.mutableStateOf
 import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.KhonApp
@@ -30,7 +31,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** The cardio form keeps an unsaved interval edit when an import adds or removes a round while it is open. */
+/**
+ * The cardio form writes only the interval fields the user typed: an import while the form is open (a round added or
+ * removed, the other field changed) stays, and a typed field wins even when typed back to its first value or cleared.
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class CardioIntervalsKeptTest {
@@ -50,20 +54,33 @@ class CardioIntervalsKeptTest {
 
     private fun io(block: suspend () -> Unit) = runBlocking(Dispatchers.IO) { block() }
 
-    /** Opens the form on rounds [rounds], types 150 over the first round's 100, then runs [meanwhile] and saves. */
-    private fun editThenSave(rounds: List<IntervalLog>, meanwhile: suspend () -> Unit, settled: String) {
+    /** Seeds an interval exercise with session c1 and [rounds], then opens the form and waits for "100". */
+    private fun openForm(rounds: List<IntervalLog>) {
         io {
             dao.upsert(Exercise("bike", "Bike", Kind.CARDIO, intervals = true, rounds = rounds.size, fields = "time,watts"))
             dao.upsert(Session("c1", "2026-11-02", 1000L, itemType = ItemType.CARDIO, exerciseId = "bike", exerciseName = "Bike"))
             dao.upsertIntervalLogs(rounds)
         }
         compose.setContent { KhonTheme { CardioScreen(vm, rememberNavController(), "c1") } }
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("100").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("100").performTextReplacement("150")
-        io { meanwhile() }
-        compose.waitUntil(5_000) { compose.onAllNodesWithText(settled).fetchSemanticsNodes().isNotEmpty() }
+        shows("100")
+    }
+
+    private fun shows(text: String) = compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+
+    private fun save() {
         compose.onNodeWithText("Save").performClick()
         compose.waitUntil(5_000) { runBlocking(Dispatchers.IO) { dao.session("c1")?.finishedAt != null } }
+    }
+
+    private fun saved(id: String) = runBlocking(Dispatchers.IO) { dao.intervalLogsFor("c1").first { it.id == id } }
+
+    /** Opens the form on rounds [rounds], types 150 over the first round's 100, then runs [meanwhile] and saves. */
+    private fun editThenSave(rounds: List<IntervalLog>, meanwhile: suspend () -> Unit, settled: String) {
+        openForm(rounds)
+        compose.onNodeWithText("100").performTextReplacement("150")
+        io { meanwhile() }
+        shows(settled)
+        save()
     }
 
     @Test fun `a round added by an import keeps the typed heart rate`() {
@@ -80,5 +97,79 @@ class CardioIntervalsKeptTest {
         val saved = runBlocking(Dispatchers.IO) { dao.intervalLogsFor("c1") }
         assertEquals(listOf("i1"), saved.map { it.id })
         assertEquals(150, saved.single().avgHr)
+    }
+
+    @Test fun `a heart rate edit keeps watts imports from before and after it`() {
+        openForm(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200)))
+        io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 220))) }
+        shows("220")
+        compose.onNodeWithText("100").performTextReplacement("150")
+        io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 240), IntervalLog("i2", "c1", 1, avgHr = 120, watts = 260))) }
+        shows("Round 2")
+        save()
+        assertEquals(IntervalLog("i1", "c1", 0, avgHr = 150, watts = 240), saved("i1"))
+    }
+
+    @Test fun `a watts edit keeps heart rate imports from before and after it`() {
+        openForm(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200)))
+        io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 120, watts = 200))) }
+        shows("120")
+        compose.onNodeWithText("200").performTextReplacement("250")
+        io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 130, watts = 200), IntervalLog("i2", "c1", 1, avgHr = 140, watts = 260))) }
+        shows("Round 2")
+        save()
+        assertEquals(IntervalLog("i1", "c1", 0, avgHr = 130, watts = 250), saved("i1"))
+    }
+
+    @Test fun `a field typed back to its first value is still written`() {
+        openForm(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200)))
+        compose.onNodeWithText("100").performTextReplacement("150")
+        compose.onNodeWithText("150").performTextReplacement("100")
+        io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 130, watts = 210))) }
+        shows("210")
+        save()
+        assertEquals(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 210), saved("i1"))
+    }
+
+    @Test fun `a cleared field writes null and keeps the other field's imports`() {
+        openForm(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200)))
+        io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 120, watts = 200))) }
+        shows("120")
+        compose.onNodeWithText("200").performTextReplacement("")
+        io { dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 130, watts = 200))) }
+        shows("130")
+        save()
+        assertEquals(IntervalLog("i1", "c1", 0, avgHr = 130, watts = null), saved("i1"))
+    }
+
+    @Test fun `an edited round deleted before Save is not created again`() {
+        openForm(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200)))
+        compose.onNodeWithText("100").performTextReplacement("150")
+        io { dao.deleteIntervalLogsFor("c1") }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Round 1").fetchSemanticsNodes().isEmpty() }
+        save()
+        assertEquals(emptyList<IntervalLog>(), runBlocking(Dispatchers.IO) { dao.intervalLogsFor("c1") })
+    }
+
+    @Test fun `another session id starts without the previous interval edits`() {
+        io {
+            dao.upsert(Exercise("bike", "Bike", Kind.CARDIO, intervals = true, rounds = 1, fields = "time,watts"))
+            dao.upsert(Session("c1", "2026-11-02", 1000L, itemType = ItemType.CARDIO, exerciseId = "bike", exerciseName = "Bike"))
+            dao.upsert(Session("c2", "2026-11-02", 2000L, itemType = ItemType.CARDIO, exerciseId = "bike", exerciseName = "Bike"))
+            dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200), IntervalLog("j1", "c2", 0, avgHr = 120, watts = 220)))
+        }
+        val id = mutableStateOf("c1")
+        compose.setContent { KhonTheme { CardioScreen(vm, rememberNavController(), id.value) } }
+        shows("100")
+        compose.onNodeWithText("100").performTextReplacement("150")
+        compose.runOnIdle { id.value = "c2" }
+        shows("120")
+        compose.onNodeWithText("120").performTextReplacement("160")
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(5_000) { runBlocking(Dispatchers.IO) { dao.session("c2")?.finishedAt != null } }
+        io {
+            assertEquals(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200), dao.intervalLogsFor("c1").single())
+            assertEquals(IntervalLog("j1", "c2", 0, avgHr = 160, watts = 220), dao.intervalLogsFor("c2").single())
+        }
     }
 }

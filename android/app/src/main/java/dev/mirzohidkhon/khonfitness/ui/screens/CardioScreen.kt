@@ -37,20 +37,17 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     // The row as the form opened it: Save writes only the fields that differ from it ([KhonRepository.saveCardioEdits]).
     val opened = remember(s.id) { s }
     var draft by remember(s.id) { mutableStateOf(opened) }
-    // Each interval as the form first saw it, by id (a round that arrives later joins with its first value), and the
-    // user's edits over the current rows: Save writes only what differs. A change in the round count keeps both.
-    val openedById = remember(s.id) { HashMap<String, IntervalLog>() }
-    intervals.forEach { openedById.putIfAbsent(it.id, it) }
-    var edits by remember(s.id) { mutableStateOf(mapOf<String, IntervalLog>()) }
-    val ivs = intervals.map { edits[it.id] ?: it }
-    fun edit(id: String, change: (IntervalLog) -> IntervalLog) { ivs.find { it.id == id }?.let { edits = edits + (id to change(it)) } }
+    // Only the interval fields the user typed, by interval id; every other value shows the current row, so an import
+    // while the form is open shows up and Save writes only the typed fields. A change in the round count keeps them.
+    var edits by remember(s.id) { mutableStateOf(mapOf<String, IntervalEdit>()) }
+    fun edit(id: String, change: (IntervalEdit) -> IntervalEdit) { edits = edits + (id to change(edits[id] ?: IntervalEdit())) }
     var strokeSheet by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
         EditorTopBar(if (s.finished) "History" else "Today", s.exerciseName ?: "Cardio", scrollPx = { barScroll.value }, onBack = { if (!nav.popBackStack()) nav.navigate(Routes.TODAY) }, done = "Save") {
-            vm.run { vm.repo.saveCardioEdits(opened, draft, ivs.mapNotNull { openedById[it.id] }, ivs) }
+            vm.run { vm.repo.saveCardioEdits(opened, draft, edits) }
             nav.popBackStack()
         }
         Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
@@ -78,15 +75,16 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                     if ((draft.timeSec ?: 0) > 0) { val p = draft.timeSec!! / (dist / 100.0); FieldRow("Pace") { Text("${(p / 60).toInt()}:${"%02d".format((p % 60).toInt())} /100 m", color = K.Muted) } }
                 }
             }
-            if (ivs.isNotEmpty()) {
+            if (intervals.isNotEmpty()) {
                 SectionTitle("Intervals", Modifier.padding(top = 24.dp))
                 GroupedList {
-                    ivs.forEachIndexed { i, iv ->
+                    intervals.forEachIndexed { i, iv ->
+                        val e = edits[iv.id] ?: IntervalEdit()
                         FieldRow("Round ${i + 1}", divider = i > 0) {
                             Column(Modifier.padding(vertical = 8.dp), horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                                NumberField(iv.avgHr?.toDouble(), { v -> edit(iv.id) { it.copy(avgHr = v?.toInt()) } }, 1.0, "bpm", Modifier.width(176.dp), 0, 38)
+                                NumberField(e.avgHr.or(iv.avgHr)?.toDouble(), { v -> edit(iv.id) { it.copy(avgHr = Edit.Set(v?.toInt())) } }, 1.0, "bpm", Modifier.width(176.dp), 0, 38)
                                 Spacer(Modifier.height(6.dp))
-                                NumberField(iv.watts?.toDouble(), { v -> edit(iv.id) { it.copy(watts = v?.toInt()) } }, 5.0, "W", Modifier.width(176.dp), 0, 38)
+                                NumberField(e.watts.or(iv.watts)?.toDouble(), { v -> edit(iv.id) { it.copy(watts = Edit.Set(v?.toInt())) } }, 5.0, "W", Modifier.width(176.dp), 0, 38)
                             }
                         }
                     }

@@ -64,21 +64,17 @@ fun mergeExerciseEdits(current: Exercise, opened: Exercise, edited: Exercise): E
     )
 }
 
-/**
- * The cardio form's interval edits merged onto [current], the rows as they are now, the same way as [mergeCardioEdits]:
- * per interval id, a field takes [edited]'s value when it differs from [opened]'s, else keeps [current]'s. Returns only
- * the rows that change; an interval deleted meanwhile, or not in [opened], is left out.
- */
-fun mergeIntervalEdits(current: List<IntervalLog>, opened: List<IntervalLog>, edited: List<IntervalLog>): List<IntervalLog> {
-    val was = opened.associateBy { it.id }
-    val now = current.associateBy { it.id }
-    return edited.mapNotNull { e ->
-        val o = was[e.id] ?: return@mapNotNull null
-        val c = now[e.id] ?: return@mapNotNull null
-        fun <T> pick(field: (IntervalLog) -> T): T = if (field(e) != field(o)) field(e) else field(c)
-        c.copy(avgHr = pick { it.avgHr }, watts = pick { it.watts }).takeIf { it != c }
-    }
+/** One form field: [Untouched], or [Set] to a value the user typed (null when cleared), even one equal to the stored value. */
+sealed interface Edit<out T> {
+    data object Untouched : Edit<Nothing>
+    data class Set<T>(val value: T) : Edit<T>
 }
+
+/** The typed value when touched, else [current]. */
+fun <T> Edit<T>.or(current: T): T = if (this is Edit.Set) value else current
+
+/** The cardio form's typed fields of one interval; Save writes only the touched ones ([KhonDao.saveCardioEdits]). */
+data class IntervalEdit(val avgHr: Edit<Int?> = Edit.Untouched, val watts: Edit<Int?> = Edit.Untouched)
 
 /** The modality editor's edits (name, color) merged onto [current] the same way as [mergeExerciseEdits]. */
 fun mergeModalityEdits(current: Modality, opened: Modality, edited: Modality): Modality {
@@ -244,8 +240,8 @@ class KhonRepository(private val dao: KhonDao) {
     suspend fun setSetWeight(id: String, weightKg: Double?) = dao.setSetWeight(id, weightKg)
     suspend fun setSetReps(id: String, reps: Int?) = dao.setSetReps(id, reps)
     /** The cardio form's Save: only what the user changed since [opened] and [openedIntervals] is written, in one transaction. */
-    suspend fun saveCardioEdits(opened: Session, edited: Session, openedIntervals: List<IntervalLog>, editedIntervals: List<IntervalLog>, now: Long = System.currentTimeMillis()) =
-        dao.saveCardioEdits(opened, edited, openedIntervals, editedIntervals, now)
+    suspend fun saveCardioEdits(opened: Session, edited: Session, intervalEdits: Map<String, IntervalEdit>, now: Long = System.currentTimeMillis()) =
+        dao.saveCardioEdits(opened, edited, intervalEdits, now)
     // Single fields of a session edited in place (session page, finish sheet, timer): each writes its own column only.
     suspend fun setSessionDate(sessionId: String, date: LocalDate) = dao.setSessionDate(sessionId, date.iso())
     suspend fun setSessionEffort(sessionId: String, effort: Int?) = dao.setSessionEffort(sessionId, effort)

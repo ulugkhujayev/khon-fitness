@@ -188,13 +188,17 @@ interface KhonDao {
     @Transaction suspend fun finishSession(id: String, finishedAt: Long) { skipPendingSets(id); setSessionFinishedAt(id, finishedAt) }
     /**
      * The cardio form's Save: the columns changed from [opened] to [edited] go onto the row as it is now, so a timer
-     * write since the form opened stays ([mergeCardioEdits]); then the intervals the same way ([mergeIntervalEdits]).
+     * write since the form opened stays ([mergeCardioEdits]); then each interval field the user touched, alone, by id
+     * ([IntervalEdit]): an untouched field is never written and an interval deleted meanwhile stays deleted.
      * A deleted session writes nothing.
      */
-    @Transaction suspend fun saveCardioEdits(opened: Session, edited: Session, openedIntervals: List<IntervalLog>, editedIntervals: List<IntervalLog>, now: Long) {
+    @Transaction suspend fun saveCardioEdits(opened: Session, edited: Session, intervalEdits: Map<String, IntervalEdit>, now: Long) {
         val current = session(edited.id) ?: return
         upsert(mergeCardioEdits(current, opened, edited, now))
-        upsertIntervalLogs(mergeIntervalEdits(intervalLogsFor(edited.id), openedIntervals, editedIntervals))
+        intervalEdits.forEach { (id, e) ->
+            (e.avgHr as? Edit.Set)?.let { setIntervalAvgHr(id, it.value) }
+            (e.watts as? Edit.Set)?.let { setIntervalWatts(id, it.value) }
+        }
     }
     /** A new session with its set and interval logs: all or nothing, so no session is ever saved without its logs. */
     @Transaction suspend fun insertSessionWithLogs(session: Session, setLogs: List<SetLog>, intervalLogs: List<IntervalLog>) {
@@ -240,6 +244,8 @@ interface KhonDao {
     @Query("SELECT * FROM interval_logs WHERE sessionId = :sessionId ORDER BY `index`") suspend fun intervalLogsFor(sessionId: String): List<IntervalLog>
     @Query("SELECT * FROM interval_logs") fun allIntervalLogs(): Flow<List<IntervalLog>>
     @Upsert suspend fun upsertIntervalLogs(list: List<IntervalLog>)
+    @Query("UPDATE interval_logs SET avgHr = :avgHr WHERE id = :id") suspend fun setIntervalAvgHr(id: String, avgHr: Int?)
+    @Query("UPDATE interval_logs SET watts = :watts WHERE id = :id") suspend fun setIntervalWatts(id: String, watts: Int?)
     @Query("DELETE FROM interval_logs WHERE sessionId = :sessionId") suspend fun deleteIntervalLogsFor(sessionId: String)
 
     // bodyweight

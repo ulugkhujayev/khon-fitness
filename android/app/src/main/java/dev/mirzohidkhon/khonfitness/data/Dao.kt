@@ -61,6 +61,58 @@ interface KhonDao {
     @Query("DELETE FROM block_exercises WHERE id = :id") suspend fun deleteBlockExercise(id: String)
     @Query("DELETE FROM block_exercises WHERE blockId = :blockId") suspend fun deleteBlockExercisesFor(blockId: String)
 
+    // program editors: each edit writes its own columns onto the row as it is now, never a whole row the screen holds
+    @Query("UPDATE programs SET name = :name WHERE id = :id") suspend fun setProgramName(id: String, name: String)
+    @Query("SELECT COALESCE(MAX(sortOrder) + 1, 0) FROM programs") suspend fun nextProgramOrder(): Int
+    @Query("UPDATE blocks SET superset = :superset WHERE id = :id") suspend fun setBlockSuperset(id: String, superset: Boolean)
+    @Query("UPDATE blocks SET sortOrder = :sortOrder WHERE id = :id") suspend fun setBlockOrder(id: String, sortOrder: Int)
+    @Query("SELECT COALESCE(MAX(sortOrder) + 1, 0) FROM blocks WHERE programId = :programId") suspend fun nextBlockOrder(programId: String): Int
+    @Query("SELECT COUNT(*) FROM blocks WHERE programId = :programId") suspend fun blockCountFor(programId: String): Int
+    @Query("UPDATE block_exercises SET exerciseId = :exerciseId WHERE id = :id") suspend fun setBlockExerciseExercise(id: String, exerciseId: String)
+    @Query("UPDATE block_exercises SET sets = :sets WHERE id = :id") suspend fun setBlockExerciseSets(id: String, sets: Int)
+    /** Min reps, with max raised to it when lower, both against the stored row. */
+    @Query("UPDATE block_exercises SET minReps = :reps, maxReps = MAX(maxReps, :reps) WHERE id = :id") suspend fun setBlockExerciseMinReps(id: String, reps: Int)
+    /** Max reps, with min lowered to it when higher, both against the stored row. */
+    @Query("UPDATE block_exercises SET maxReps = :reps, minReps = MIN(minReps, :reps) WHERE id = :id") suspend fun setBlockExerciseMaxReps(id: String, reps: Int)
+    @Query("DELETE FROM block_exercises WHERE blockId IN (SELECT id FROM blocks WHERE programId = :programId)") suspend fun deleteBlockExercisesOfProgram(programId: String)
+    @Query("UPDATE week_plan SET itemType = '${ItemType.REST}', itemId = NULL WHERE itemType = '${ItemType.PROGRAM}' AND itemId = :programId") suspend fun restPlanDaysOf(programId: String)
+    @Query("UPDATE day_overrides SET itemType = '${ItemType.REST}', itemId = NULL WHERE itemType = '${ItemType.PROGRAM}' AND itemId = :programId") suspend fun restOverridesOf(programId: String)
+    /** One program is always active: when none is, the first left in order takes the mark. */
+    @Query("UPDATE programs SET active = 1 WHERE id = (SELECT id FROM programs ORDER BY sortOrder, name LIMIT 1) AND NOT EXISTS (SELECT 1 FROM programs WHERE active = 1)")
+    suspend fun keepOneActiveProgram()
+
+    /** A new program, after the others in order; made the active one when [Program.active]. */
+    @Transaction suspend fun createProgram(p: Program) {
+        upsert(p.copy(sortOrder = nextProgramOrder()))
+        if (p.active) setActiveProgram(p.id)
+    }
+
+    /**
+     * A program and all it holds: its blocks and their exercises go, plan days and dated changes that hold it become
+     * rest days (they showed rest once it was gone anyway), and the active mark moves to the first program left.
+     */
+    @Transaction suspend fun deleteProgramFully(id: String) {
+        deleteBlockExercisesOfProgram(id); deleteBlocksFor(id); deleteProgram(id)
+        restPlanDaysOf(id); restOverridesOf(id); keepOneActiveProgram()
+    }
+
+    /** Deletes a program saved only so its first block had a home, unless it holds a block by now. */
+    @Transaction suspend fun dropProgramIfEmpty(id: String) { if (blockCountFor(id) == 0) deleteProgramFully(id) }
+
+    /** A new block with its first exercise, after its program's other blocks, so no block is ever saved empty. */
+    @Transaction suspend fun createBlock(b: Block, first: BlockExercise) {
+        upsert(b.copy(sortOrder = nextBlockOrder(b.programId)))
+        upsert(first.copy(blockId = b.id))
+    }
+
+    @Transaction suspend fun deleteBlockFully(id: String) { deleteBlockExercisesFor(id); deleteBlock(id) }
+
+    /** Moves a block [delta] places within its program, by the stored order, and numbers the program's blocks from 0. */
+    @Transaction suspend fun moveBlock(id: String, delta: Int) {
+        val block = blocksOnce().find { it.id == id } ?: return
+        moveInOrder(blocksFor(block.programId).map { it.id }, id, delta).forEachIndexed { i, b -> setBlockOrder(b, i) }
+    }
+
     // sessions
     @Query("SELECT * FROM sessions ORDER BY date DESC, startedAt DESC") fun sessions(): Flow<List<Session>>
     @Query("SELECT * FROM sessions") suspend fun sessionsOnce(): List<Session>

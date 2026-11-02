@@ -132,15 +132,22 @@ class KhonRepository(private val dao: KhonDao) {
     suspend fun saveModality(m: Modality) = dao.upsert(m)
 
     suspend fun saveProgram(p: Program) = dao.upsert(p)
+    suspend fun createProgram(p: Program) = dao.createProgram(p)
+    suspend fun setProgramName(id: String, name: String) = dao.setProgramName(id, name)
     suspend fun setActiveProgram(id: String) = dao.setActiveProgram(id)
-    suspend fun deleteProgram(id: String) {
-        dao.blocksFor(id).forEach { dao.deleteBlockExercisesFor(it.id) }
-        dao.deleteBlocksFor(id); dao.deleteProgram(id)
-    }
+    suspend fun deleteProgram(id: String) = dao.deleteProgramFully(id)
+    suspend fun dropProgramIfEmpty(id: String) = dao.dropProgramIfEmpty(id)
     suspend fun saveBlock(b: Block) = dao.upsert(b)
     suspend fun saveBlocks(list: List<Block>) = dao.upsertBlocks(list)
-    suspend fun deleteBlock(id: String) { dao.deleteBlockExercisesFor(id); dao.deleteBlock(id) }
+    suspend fun createBlock(b: Block, first: BlockExercise) = dao.createBlock(b, first)
+    suspend fun setBlockSuperset(id: String, superset: Boolean) = dao.setBlockSuperset(id, superset)
+    suspend fun moveBlock(id: String, delta: Int) = dao.moveBlock(id, delta)
+    suspend fun deleteBlock(id: String) = dao.deleteBlockFully(id)
     suspend fun saveBlockExercise(be: BlockExercise) = dao.upsert(be)
+    suspend fun setBlockExerciseExercise(id: String, exerciseId: String) = dao.setBlockExerciseExercise(id, exerciseId)
+    suspend fun setBlockExerciseSets(id: String, sets: Int) = dao.setBlockExerciseSets(id, sets)
+    suspend fun setBlockExerciseMinReps(id: String, reps: Int) = dao.setBlockExerciseMinReps(id, reps)
+    suspend fun setBlockExerciseMaxReps(id: String, reps: Int) = dao.setBlockExerciseMaxReps(id, reps)
     suspend fun deleteBlockExercise(id: String) = dao.deleteBlockExercise(id)
 
     /** Changes a weekday in the template. Past dates of that weekday first get auto overrides with the old value, so history keeps its plan. */
@@ -295,6 +302,14 @@ object PlanRules {
 
     /** Two days can swap when they differ and neither is in the past. */
     fun canSwap(a: LocalDate, b: LocalDate, today: LocalDate): Boolean = a != b && a >= today && b >= today
+}
+
+/** [ids] in order with [id] moved [delta] places, kept inside the list; unchanged when [id] is not in it. */
+fun moveInOrder(ids: List<String>, id: String, delta: Int): List<String> {
+    val from = ids.indexOf(id)
+    if (from < 0) return ids
+    val to = (from + delta).coerceIn(0, ids.size - 1)
+    return ids.toMutableList().apply { removeAt(from); add(to, id) }
 }
 
 fun SetLog.key(): String = "$exerciseId:$setIndex"

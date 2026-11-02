@@ -239,8 +239,8 @@ fun InlineTextField(value: String, onValueChange: (String) -> Unit, placeholder:
  * ([Stepper]). Steps and typed numbers stay inside [min]..[max]; an empty field steps from its numeric placeholder.
  * [elevated] inside a sheet's elevated group, where the box takes Surface3. [label] is the typed field's spoken name.
  * [width] is the field's width at font scale 1.0; it grows with the font scale up to the room it gets. Without it the
- * field fills its slot. A value, unit or placeholder that still does not fit shrinks to fit, down to [MIN_FIT] of its size,
- * and then the paddings beside it narrow.
+ * field fills its slot. A value, unit or placeholder that still does not fit shrinks to fit in steps down to [MIN_FIT] of
+ * its size; then the paddings beside it narrow; then it takes whatever size fits, with no floor. The unit stays visible.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -289,7 +289,8 @@ fun NumberField(
     val stepWidth = if (compact) 36 else 44
     val shown = text.text.ifEmpty { placeholder.orEmpty() }
     // The largest text size that fits the value (or placeholder) and unit. Large fonts scale non-linearly, so each
-    // candidate size is measured, not scaled. When even MIN_FIT does not fit, the paddings beside the text narrow.
+    // candidate size is measured, not scaled. When even MIN_FIT does not fit, the paddings beside the text narrow, and
+    // then the text takes the size that fits ([shrinkToFit]): only extreme values get that small.
     val (fit, pad) = remember(shown, unit, compact, maxWidth, valueStyle, unitStyle, density) {
         fun need(f: Float) = with(density) {
             val v = measurer.measure(shown, valueStyle.copy(fontSize = valueStyle.fontSize * f)).size.width
@@ -299,7 +300,7 @@ fun NumberField(
         // The row less the steppers, dividers, paddings and a caret.
         fun room(pad: Int) = maxWidth - (2 * stepWidth + 2 + pad + (if (compact) pad else 4 + pad) + 2).dp
         FIT_STEPS.firstOrNull { need(it) <= room(8) }?.let { it to 8 }
-            ?: ((FIT_STEPS.firstOrNull { need(it) <= room(2) } ?: MIN_FIT) to 2)
+            ?: ((FIT_STEPS.firstOrNull { need(it) <= room(2) } ?: shrinkToFit(room(2)) { need(it) }) to 2)
     }
     Row(
         Modifier.fillMaxWidth().height(height.dp).bringIntoViewRequester(bringIntoView).clip(RoundedCornerShape(10.dp)).background(if (elevated) K.Surface3 else K.Surface2),
@@ -353,9 +354,19 @@ fun NumberField(
     }
 }
 
-/** The smallest size, as a share of its own, that [NumberField] shrinks its value, unit and placeholder to. */
+/** The smallest step, as a share of its own size, that [NumberField] shrinks its value, unit and placeholder to. */
 const val MIN_FIT = 0.75f
 private val FIT_STEPS = listOf(1f, 0.95f, 0.9f, 0.85f, 0.8f, MIN_FIT)
+
+/**
+ * The largest size below [MIN_FIT] at which text that [need]s that much width at a size fits [room]. Text width is close
+ * to linear in its size, so the first guess scales; rounding and hinting can still miss, so each guess is measured.
+ */
+private fun shrinkToFit(room: Dp, need: (Float) -> Dp): Float {
+    var f = (MIN_FIT * (room / need(MIN_FIT))).coerceIn(0.05f, MIN_FIT)
+    while (f > 0.05f && need(f) > room) f *= 0.97f
+    return f
+}
 
 /** − or +: [onStep] gets `save = false` while held; the caller saves once in [onRelease]. */
 @Composable

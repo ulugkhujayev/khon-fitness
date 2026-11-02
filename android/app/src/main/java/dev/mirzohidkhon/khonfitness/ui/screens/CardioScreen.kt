@@ -62,17 +62,17 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                         "watts" -> NumberRow("Avg watts", draft.watts?.toDouble(), "W", 5.0, 0, divider) { draft = draft.copy(watts = it?.toInt()) }
                         "laps" -> NumberRow("Laps", draft.laps?.toDouble(), "", 1.0, 0, divider) { draft = draft.copy(laps = it?.toInt()) }
                         "poolLength" -> NumberRow("Pool length", (draft.poolLength ?: 25).toDouble(), "m", 5.0, 0, divider) { draft = draft.copy(poolLength = it?.toInt()) }
-                        "stroke" -> FieldRow("Stroke", divider = divider, onClick = { strokeSheet = true }) { Text(draft.stroke ?: "Freestyle", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold); Chevron() }
+                        "stroke" -> FieldRow("Stroke", divider = divider, onClick = { strokeSheet = true }) { FieldValue(draft.stroke ?: "Freestyle") }
                     }
                 }
                 if ("distance" in fields && (draft.distanceM ?: 0) > 0 && (draft.timeSec ?: 0) > 0) {
                     val paceSec = draft.timeSec!! / (draft.distanceM!! / 1000.0)
-                    FieldRow("Pace") { Text("${(paceSec / 60).toInt()}:${"%02d".format((paceSec % 60).toInt())} /km", color = K.Muted) }
+                    ComputedRow("Pace", "${(paceSec / 60).toInt()}:${"%02d".format((paceSec % 60).toInt())} /km")
                 }
                 if ("laps" in fields && (draft.laps ?: 0) > 0) {
                     val dist = (draft.laps ?: 0) * (draft.poolLength ?: 25)
-                    FieldRow("Distance") { Text("$dist m", color = K.Muted) }
-                    if ((draft.timeSec ?: 0) > 0) { val p = draft.timeSec!! / (dist / 100.0); FieldRow("Pace") { Text("${(p / 60).toInt()}:${"%02d".format((p % 60).toInt())} /100 m", color = K.Muted) } }
+                    ComputedRow("Distance", "$dist m")
+                    if ((draft.timeSec ?: 0) > 0) { val p = draft.timeSec!! / (dist / 100.0); ComputedRow("Pace", "${(p / 60).toInt()}:${"%02d".format((p % 60).toInt())} /100 m") }
                 }
             }
             if (intervals.isNotEmpty()) {
@@ -82,9 +82,9 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                         val e = edits[iv.id] ?: IntervalEdit()
                         FieldRow("Round ${i + 1}", divider = i > 0) {
                             Column(Modifier.padding(vertical = 8.dp), horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                                NumberField(e.avgHr.or(iv.avgHr)?.toDouble(), { v -> edit(iv.id) { it.copy(avgHr = Edit.Set(v?.toInt())) } }, 1.0, "bpm", Modifier.width(176.dp), 0, 38)
+                                NumberField(e.avgHr.or(iv.avgHr)?.toDouble(), { v -> edit(iv.id) { it.copy(avgHr = Edit.Set(v?.toInt())) } }, 1.0, "bpm", Modifier.width(176.dp), 0, 38, label = "Round ${i + 1} heart rate")
                                 Spacer(Modifier.height(6.dp))
-                                NumberField(e.watts.or(iv.watts)?.toDouble(), { v -> edit(iv.id) { it.copy(watts = Edit.Set(v?.toInt())) } }, 5.0, "W", Modifier.width(176.dp), 0, 38)
+                                NumberField(e.watts.or(iv.watts)?.toDouble(), { v -> edit(iv.id) { it.copy(watts = Edit.Set(v?.toInt())) } }, 5.0, "W", Modifier.width(176.dp), 0, 38, label = "Round ${i + 1} watts")
                             }
                         }
                     }
@@ -92,8 +92,8 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
             }
             SectionTitle("Notes", Modifier.padding(top = 24.dp))
             GroupedList {
-                FieldRow("Effort", divider = false) { NumberField(draft.effort?.toDouble(), { draft = draft.copy(effort = it?.toInt()) }, 1.0, "/10", Modifier.width(176.dp), 0, 38, placeholder = "1–10", min = 1.0, max = 10.0) }
-                FieldRow("Note") { InlineTextField(draft.note, { draft = draft.copy(note = it) }, placeholder = "Optional") }
+                FieldRow("Effort", divider = false) { NumberField(draft.effort?.toDouble(), { draft = draft.copy(effort = it?.toInt()) }, 1.0, "/10", Modifier.width(176.dp), 0, 38, placeholder = "1–10", min = 1.0, max = 10.0, label = "Effort, 1 to 10") }
+                FieldRow("Note") { InlineTextField(draft.note, { draft = draft.copy(note = it) }, placeholder = "Optional", label = "Note") }
             }
             Spacer(Modifier.height(24.dp))
             TextButton(if (s.finished) "Delete session" else "Discard", K.Red) { confirmDelete = true }
@@ -106,6 +106,12 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         if (s.finished) "Delete" else "Discard",
         onDismiss = { confirmDelete = false },
     ) { confirmDelete = false; vm.run { vm.repo.deleteSession(s.id) }; if (!nav.popBackStack()) nav.navigate(Routes.TODAY) }
+}
+
+/** A value the form works out from other fields, in Muted: pace, swim distance. */
+@Composable
+private fun ComputedRow(label: String, value: String) {
+    FieldRow(label) { Text(value, style = MaterialTheme.typography.bodyLarge, color = K.Muted) }
 }
 
 @Composable

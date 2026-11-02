@@ -366,15 +366,68 @@ Two lines, 88 px total, hairline between rows.
 - Today row, in the grouped list under the workout: dot (green open,
   muted ring closed), "Eating window", secondary "closes in 2 h 10 m" or
   "opens 12:00", chevron. Tap opens a bottom sheet.
-- Sheet: title "Eating window", then a grouped list: "Open now" or
-  "Close now" as the first row (accent text), "Hours 12:00–20:00" with a
-  chevron to the editor, "History". No buttons in the sheet except the
-  rows.
+- Sheet, titled "Eating window", scrolls when it does not fit. First an
+  elevated card, 16 dp inside, with the state in words: "Open · closes in
+  2 h 10 m", "Closed · opens 12:00" or "Off", after a 10 dp dot (filled
+  green when open, a muted ring otherwise). While the window is on, a day
+  bar sits 14 dp under it.
+- Day bar: the day from 00:00 to 24:00 as an 8 dp Surface3 track. The
+  fixed hours are green, and a 2 x 16 dp white mark shows now. The opening
+  and closing times sit 4 dp under the ends of the green in caption 12
+  muted with tabular figures. Each label centers under its end, stays
+  inside the bar, and keeps 4 dp from the other one when short hours bring
+  them close. The bar is decorative, so screen readers skip it.
+- Under the card, while the window is on, a tinted button 12 dp down:
+  "Open now" or "Close now". It writes today's manual open or close,
+  re-arms the alarms and closes the sheet.
+- Then an elevated group 20 dp down: On (switch), Opens, Closes, Remind
+  before. Opens and Closes are time steppers, 150 x 38 dp on Surface3,
+  − and + on 40 dp sides with dividers, the time 19 bold tabular. They
+  step 15 minutes per tap and repeat when held, like the number widget,
+  and save once on release. The spoken labels are "Opens 15 minutes
+  earlier", "Opens 15 minutes later", and the same for Closes. The hours
+  never cross midnight and stay at least an hour long. A large font widens
+  the stepper and keeps the time on one line. Remind before is a number
+  widget from 0 to 120 minutes in steps of 5.
+- The clock in the sheet moves on each minute while the sheet is open.
+- Last 28 days, while the window is on: a group title, then an elevated
+  card with four weeks of seven 12 dp dots in 28 x 24 dp cells, oldest
+  first. A day with no manual open or close is filled green, a changed
+  day is a green ring, and today is a white ring. Under the card the
+  footer reads "Kept the hours on 20 of 27 days. A ring is a day opened or
+  closed by hand; today is white." The count leaves today out. Screen
+  readers hear the card as "Last 28 days" and the count.
 - Widget: 2x1, surface #1c1c1e, radius 14. Left: 12 px dot. Then "Open"
   or "Closed" 17/600 and "2 h 10 m left" 13 muted on one line under it.
   Tap opens the app on Today with the sheet open.
-- History: a strip of 8 px cells, one per day, 4 px apart, filled green
-  when the window was kept, ring when not, empty when the feature was off.
+
+## Cardio form and interval timer
+
+- The cardio form is an editor screen with Save in the title bar. Its
+  first group holds the date, then the exercise's fields in the
+  exercise's order, then any field this session stored that the exercise
+  no longer lists. Each number field is a number widget. Stroke shows its
+  value with a chevron and opens a pick sheet.
+- Values the form works out sit at the end of the group in body muted:
+  the pace from time and distance ("5:30 /km"), and for a swim the
+  distance from laps and pool length ("1000 m") and its pace per 100 m.
+- Intervals, when the session has them: one row per work interval,
+  "Round 1", with heart rate and watts as two stacked number widgets.
+  Their spoken labels are "Round 1 heart rate" and "Round 1 watts".
+- Notes: Effort (1 to 10, spoken "Effort, 1 to 10") and Note. Under them
+  a red text button, "Delete session" for a saved session or "Discard"
+  for a new one, asks in a confirm sheet first.
+- The interval timer fills the screen in the phase's color: #14532d for
+  work, #1e3a5f for rest, #3a3a40 for warm-up, black while ready,
+  counting in, paused or done. Stop sits on the left of the top bar. Both
+  sides are 64 dp wide, so the exercise name stays centered as a heading.
+- In the middle: the phase word in headline at 75 percent white (screen
+  readers hear it when it changes), the countdown 96 bold with tabular
+  figures, "Round 2 of 4" 24 semibold, "Next: rest 0:30" in body, and
+  "Elapsed 1:08 of 4:30" in subheadline at 60 percent white.
+- At the bottom: the background-permission note and "Allow background"
+  while the app may be paused with the screen off, then Start timer,
+  Pause or Resume as the one primary button.
 
 ## Frame
 

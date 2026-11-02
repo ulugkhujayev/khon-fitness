@@ -153,15 +153,17 @@ fun ListRow(
     titleColor: Color = K.Text,
     trailing: (@Composable RowScope.() -> Unit)? = null,
     selected: Boolean? = null,
+    leading: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
     val largeText = androidx.compose.ui.platform.LocalConfiguration.current.fontScale >= 1.5f
     Column(modifier.fillMaxWidth()) {
-        if (divider) HorizontalDivider(Modifier.padding(start = if (dotColor != null) 42.dp else 16.dp), color = K.Divider, thickness = 0.7.dp)
+        if (divider) HorizontalDivider(Modifier.padding(start = if (leading != null) 58.dp else if (dotColor != null) 42.dp else 16.dp), color = K.Divider, thickness = 0.7.dp)
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp).then(if (onClick == null) Modifier else if (selected != null) Modifier.selectable(selected, role = Role.RadioButton, onClick = onClick) else Modifier.clickable(onClick = onClick)).padding(start = 16.dp, end = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (leading != null) { leading(); Spacer(Modifier.width(12.dp)) }
             if (dotColor != null) { Box(Modifier.width(26.dp), contentAlignment = Alignment.CenterStart) { Dot(dotColor, dotFilled) } }
             if (largeText && secondary != null) {
                 Column(Modifier.weight(1f).padding(vertical = 12.dp)) {

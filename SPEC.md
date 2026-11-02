@@ -38,10 +38,14 @@ Three tabs.
   accent color; a high-intensity item has a filled dot, low intensity a
   ring). Today is highlighted. Tap a day to see or change its item.
   Middle: today's item name, a one-line preview (7 blocks, 42 sets, or
-  4 x 4 min on bike), one Start button. Below: bodyweight as a small
-  sparkline of the last 30 days with the latest value, and a small add
-  field: type a number, tap add. No card chrome, no Save button, no
-  visible caption.
+  4 x 4 min on bike), one Start button; while a session runs, the time
+  since its start, its sets done, and Resume. Under it one group of rows:
+  the stretch routine, the eating window, and band sessions waiting for
+  import. Below: bodyweight as a chart of the last 30 days with the latest
+  value, and an entry card: the value as a big figure (tap to type) over
+  a ruler to drag, its change since the last day weighed, and one button:
+  Add for a new day, Update when today has another value (the save
+  replaces it), Saved (off) when the value is today's entry.
 - History. Month calendar, one colored dot per session. Tap a day to open
   the session. Below: bodyweight chart, and an exercise picker that shows
   a progress card (see Exercise progress).
@@ -187,7 +191,7 @@ the old build with no uninstall. Needs REQUEST_INSTALL_PACKAGES.
 ## Stretching (phase 3)
 
 Stretching is a daily routine, not a plan item. Today shows one row: the
-active routine, its length, a dot that is green when done today. Tap opens a ready screen with an automatically playing 3D demonstration, stretch name, side, and
+active routine and its length, the line green with a check when done today. Tap opens a ready screen with an automatically playing 3D demonstration, stretch name, side, and
 Start button. Start gives a three-second preparation countdown before work.
 Numbered steps let the user inspect setup and movement, and Change view
 switches camera angles. Demo playback is independent of the exercise clock.

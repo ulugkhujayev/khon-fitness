@@ -76,6 +76,15 @@ padded cards, per-item buttons, "Updated" lines.
 - A color is shown as a 12 px filled circle. A color is edited on a
   full-screen editor with a row of 12 preset circles; tap one. No
   native color input.
+- Import: the source on a card (a red heart tile, "Health Connect",
+  "Last 60 days"); then "3 new sessions from the band" over two-line
+  rows: a runner tile in the exercise's color, the workout type with the
+  exercise it imports as on the right of the same line (Choose in
+  accent), and "Mon, Oct 5 · 32 min · 5.2 km · 141 bpm" on a line of its
+  own; a footnote; "Import 1 session" or "Import all 3 sessions" ("Import
+  2 matched" when some need a pick). Reading, all caught up, and missing
+  access are each a card with a symbol, a title and a line, with the one
+  action. Debug builds add a "Debug: write a test run" text button.
 
 ## Lists
 
@@ -159,15 +168,53 @@ Two lines, 88 px total, hairline between rows.
 ## Today
 
 - No app bar. The screen title is the first thing.
-- Week strip: 7 equal cells, 56 px tall. Weekday letter 12 muted over
-  the day number 18. Today's number sits in a 32 px accent-filled circle
-  with dark text. One 8 px dot under each number: modality color
-  (accent for strength), filled for high intensity, ring for low or
-  moderate, none for rest.
-- 24 px gap. Item name 30/700, preview 15 muted, Start 56 px.
-- 24 px gap. "Bodyweight" 18 with the latest value 22/600 on the right,
-  a 72 px sparkline with a soft area fill (accent at 20 percent), and
-  one row: number widget + "Add" text button, all centered on one line.
+- Week strip: 7 equal tiles, 6 px apart, each on the group surface,
+  rounded (radius 12): the weekday letter 12 muted, the day number 17,
+  and a 7 px dot for the planned item: modality color (accent for
+  strength), filled for high intensity, ring for low or moderate, none
+  for rest. Past days: number muted, dot at 50 percent. Today's tile is
+  filled in accent, letter, number and dot in white, the number bold.
+  History's month calendar draws its days as the same tiles (weekday
+  letters stay in a row above, 52 px rows, 64 at large text): the number
+  over its dots, the selected day on Surface3, other months' days with
+  no tile and a dim number, the changed-plan mark (5 px, muted) in the
+  tile's top right corner; on today's tile every mark is white.
+- 16 px gap. The item on a group-surface card (16 px padding at the
+  sides, 14 top and bottom): a 40 px circle with the kind's symbol in
+  its color on that color at 20 percent (dumbbell in accent, a runner in
+  the modality color, a moon for rest, a green check once done), then
+  the name 22/700 over its line in muted 15. While a session runs the
+  line is "In progress · 34 min" in accent and a program adds the
+  progress bar in accent with "12 / 42" (green stays for done: the done
+  line and its check); Resume or Start under it, 44 px tall (the compact
+  primary button) to keep the card small.
+- 16 px gap. One group of 64 px rows sized for the home screen: the
+  symbol in a 40 px circle of its color like the item card's, the name
+  17/600 over a line of state 15 muted (green when it is good news), a
+  chevron. The active stretch routine (green; "Done today · 10 min · 9
+  stretches" in green with a check once stretched), the eating window
+  ("Open · closes in 3 h 20 m" in green, or "Closed · opens 12:00",
+  gray), and band sessions waiting ("2 new sessions", "From the band,
+  ready to import", red heart); a row with nothing to say is left out.
+  The APK updater has no "update ready" state, so updates stay in
+  Settings. At large text the name and line wrap instead of cutting.
+- 28 px gap. "Bodyweight" 17/600 with the latest value 22/700 on the
+  right, a line chart of the last 30 days with a soft area fill, then
+  24 px gap and the entry on its own group-surface card (radius 20, 16
+  padding at the sides, 14 top and bottom): the picked value 34/700 with
+  "kg" in muted 15 (tap to type), its change since the last day weighed
+  in muted 13 ("+0.2 kg since Oct 5"), a 42 px ruler picker running to
+  the card's edges (ticks 22 / 15 / 9 px, 0.1 kg ticks 10 px apart, a
+  label every kg, an accent center line, edges fading into the card, a
+  haptic click per tick, firmer on a whole kg), and a tinted button (see
+  Buttons): "Add", "Update" when today has another value, "Saved" (off)
+  when the value is today's entry. The ruler starts at the latest entry,
+  70 kg before the first.
+- History's sets per muscle: one row per muscle, the name with this
+  week's count bold and "last 3" in muted 13, then a 6 px track filled in
+  accent to this week's sets with a 2 x 14 px white mark where last
+  week's ended, both as shares of the biggest count of either week.
+- History's title bar carries Import as a round symbol button.
 
 ## Stretch player
 

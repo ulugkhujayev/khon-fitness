@@ -42,6 +42,22 @@ as they are.
 | 10 | Open cardio form and interval timer | any | Layout per the Expo cardio components where they differ from Kotlin; timer behavior unchanged |
 | 11 | Delete a stretch or routine | any | Confirm sheet first |
 
+## Writes (lessons from P3 and P4)
+
+These P5 screens still save whole rows from the copy they hold:
+`ui/screens/StretchEditors.kt:69,70,81,92,93,149` (`saveRoutine`,
+`saveRoutineStretch(es)`, `saveStretch`) and `ui/screens/WindowSheet.kt:46`
+(`saveEatingWindow(n)`). Move each to targeted updates or a merge of the
+changed fields onto the current row in one `@Transaction`, as
+`saveExerciseEdits`, `saveCardioEdits` and the `setSet*` queries do. A row
+deleted meanwhile is not re-created. Routine drafts follow the program
+rule from P4-FIX item 1: the first stretch saves the routine as a real
+routine, and the editor keeps its id in saved state. Deletes do not orphan
+rows (a routine's stretches, a stretch used by routines or past stretch
+sessions keeps their history). Test these against a real in-memory Room
+database, as `test/.../data/EditorWritesTest.kt` does; each test fails on
+the old whole-row write. No Room schema change, no migration.
+
 Unit test the window state text (open, closed, off, crossing midnight if
 the rules allow it), the kept-days count text, the run progress text and
 segments, and the routine draft rules.

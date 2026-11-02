@@ -62,6 +62,12 @@ Do not copy:
 - Change only `android/`, root `DESIGN.md`, root `SPEC.md`, and this task
   folder. Never edit `expo/`; it is the reference until the last phase
   deletes it.
+- Keep every feature the 0.4.8 screen has (actions, rows, navigation,
+  labels, states), even when the Expo screen lacks it: restyle it, do not
+  drop it. Before you finish, list what the old screen did (`git show
+  2b73707:<path>`) and check each item on the new one. A removal needs the
+  owner's yes; report it as a question, do not commit it. (P2 dropped the
+  Today update row this way.)
 - Keep the data layer (Room schema, backup format, repository API)
   unchanged unless the phase file says otherwise. No Room migration.
 - Pure logic you add (block flow, repeat timing, draft lifecycle, summary

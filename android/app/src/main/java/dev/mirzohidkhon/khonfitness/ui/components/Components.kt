@@ -54,12 +54,15 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mirzohidkhon.khonfitness.ui.theme.K
@@ -183,12 +186,22 @@ fun ListRow(
 @Composable
 fun Chevron() { androidx.compose.material3.Icon(dev.mirzohidkhon.khonfitness.ui.Icons.ChevronRight, contentDescription = null, tint = K.Dim, modifier = Modifier.padding(start = 6.dp).size(14.dp)) }
 
-/** Editor field row: label on the left, value or control on the right. [note] is a muted line under the label, e.g. "per side". */
+/**
+ * Editor field row: label on the left, value or control on the right. [note] is a muted line under the label, e.g. "per side".
+ * At font scale 1.5 and up (as [ListRow]) the label takes its own line and the value the full width under it, at the end.
+ */
 @Composable
 fun FieldRow(label: String, divider: Boolean = true, note: String? = null, onClick: (() -> Unit)? = null, value: @Composable RowScope.() -> Unit) {
+    val largeText = androidx.compose.ui.platform.LocalConfiguration.current.fontScale >= 1.5f
     Column(Modifier.fillMaxWidth()) {
         if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
-        Row(
+        if (largeText) Column(
+            Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 8.dp),
+        ) {
+            Text(label, color = K.Text, style = MaterialTheme.typography.bodyLarge)
+            if (note != null) Text(note, color = K.Muted, style = MaterialTheme.typography.bodySmall)
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 4.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) { value() }
+        } else Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -225,6 +238,9 @@ fun InlineTextField(value: String, onValueChange: (String) -> Unit, placeholder:
  * with a light haptic click and saves; held, it repeats faster ([repeatPress]) and saves once on release
  * ([Stepper]). Steps and typed numbers stay inside [min]..[max]; an empty field steps from its numeric placeholder.
  * [elevated] inside a sheet's elevated group, where the box takes Surface3. [label] is the typed field's spoken name.
+ * [width] is the field's width at font scale 1.0; it grows with the font scale up to the room it gets. Without it the
+ * field fills its slot. A value, unit or placeholder that still does not fit shrinks to fit, down to [MIN_FIT] of its size,
+ * and then the paddings beside it narrow.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -234,6 +250,7 @@ fun NumberField(
     step: Double,
     unit: String,
     modifier: Modifier = Modifier,
+    width: Dp? = null,
     decimals: Int = 1,
     height: Int = 44,
     focusRequester: FocusRequester? = null,
@@ -262,10 +279,28 @@ fun NumberField(
         s.save?.let(onValueChange)
     }
     fun release() { stepper.release()?.let { val t = fmt(it, decimals); text = TextFieldValue(t, TextRange(t.length)); onValueChange(it) } }
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val valueStyle = MaterialTheme.typography.bodyLarge.copy(color = K.Text, fontSize = 19.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End)
+    val unitStyle = MaterialTheme.typography.bodyLarge.copy(color = K.Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     // Narrow slots (two fields per row on a 360 dp phone) drop the unit and slim the steppers so the whole value stays visible.
-    androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.then(if (width != null) Modifier.width(width * density.fontScale) else Modifier)) {
     val compact = maxWidth < 176.dp
     val stepWidth = if (compact) 36 else 44
+    val shown = text.text.ifEmpty { placeholder.orEmpty() }
+    // The largest text size that fits the value (or placeholder) and unit. Large fonts scale non-linearly, so each
+    // candidate size is measured, not scaled. When even MIN_FIT does not fit, the paddings beside the text narrow.
+    val (fit, pad) = remember(shown, unit, compact, maxWidth, valueStyle, unitStyle, density) {
+        fun need(f: Float) = with(density) {
+            val v = measurer.measure(shown, valueStyle.copy(fontSize = valueStyle.fontSize * f)).size.width
+            val u = if (compact || unit.isEmpty()) 0 else measurer.measure(unit, unitStyle.copy(fontSize = unitStyle.fontSize * f)).size.width
+            (v + u).toDp()
+        }
+        // The row less the steppers, dividers, paddings and a caret.
+        fun room(pad: Int) = maxWidth - (2 * stepWidth + 2 + pad + (if (compact) pad else 4 + pad) + 2).dp
+        FIT_STEPS.firstOrNull { need(it) <= room(8) }?.let { it to 8 }
+            ?: ((FIT_STEPS.firstOrNull { need(it) <= room(2) } ?: MIN_FIT) to 2)
+    }
     Row(
         Modifier.fillMaxWidth().height(height.dp).bringIntoViewRequester(bringIntoView).clip(RoundedCornerShape(10.dp)).background(if (elevated) K.Surface3 else K.Surface2),
         verticalAlignment = Alignment.CenterVertically,
@@ -286,13 +321,13 @@ fun NumberField(
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = if (decimals > 0) KeyboardType.Decimal else KeyboardType.Number),
-            textStyle = MaterialTheme.typography.bodyLarge.copy(color = K.Text, fontSize = 19.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End),
+            textStyle = valueStyle.copy(fontSize = valueStyle.fontSize * fit),
             cursorBrush = SolidColor(K.Accent),
             decorationBox = { inner -> Box(contentAlignment = Alignment.CenterEnd) {
-                if (text.text.isEmpty() && placeholder != null) Text(placeholder, color = K.Dim, fontSize = 19.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+                if (text.text.isEmpty() && placeholder != null) Text(placeholder, color = K.Dim, fontSize = 19.sp * fit, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, maxLines = 1, modifier = Modifier.fillMaxWidth())
                 inner()
             } },
-            modifier = Modifier.weight(1f).padding(start = 8.dp)
+            modifier = Modifier.weight(1f).padding(start = pad.dp)
                 .then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier)
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
                 .onFocusChanged { st ->
@@ -310,13 +345,17 @@ fun NumberField(
                     hasFocus = st.isFocused
                 },
         )
-        if (compact) Spacer(Modifier.width(8.dp))
-        else Text(unit, color = K.Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp, end = 8.dp))
+        if (compact) Spacer(Modifier.width(pad.dp))
+        else Text(unit, color = K.Muted, fontSize = 13.sp * fit, fontWeight = FontWeight.Medium, maxLines = 1, modifier = Modifier.padding(start = 4.dp, end = pad.dp))
         Box(Modifier.width(1.dp).fillMaxHeight().background(K.Divider))
         StepButton("+", "Increase by ${fmt(step, decimals)} $unit".trim(), stepWidth, { stepBy(1, it) }, ::release)
     }
     }
 }
+
+/** The smallest size, as a share of its own, that [NumberField] shrinks its value, unit and placeholder to. */
+const val MIN_FIT = 0.75f
+private val FIT_STEPS = listOf(1f, 0.95f, 0.9f, 0.85f, 0.8f, MIN_FIT)
 
 /** − or +: [onStep] gets `save = false` while held; the caller saves once in [onRelease]. */
 @Composable

@@ -132,8 +132,8 @@ fun BlockEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Strin
         picking = null
         draft.firstPick(newId(), programId, superset, newId(), slot, exerciseId)?.let { (b, first) -> vm.run { vm.repo.createBlock(b, first) }; return }
         if (id == null || loading) return
-        val existing = mine.find { it.slot == slot }
-        vm.run { if (existing != null) vm.repo.setBlockExerciseExercise(existing.id, exerciseId) else vm.repo.saveBlockExercise(BlockExercise(newId(), id, slot, exerciseId)) }
+        // The stored rows decide, not the list on screen: a slot row saved meanwhile gets the pick, not a second row.
+        vm.run { vm.repo.setSlotExercise(id, slot, exerciseId) }
     }
     EditorScaffold("Program", "Block ${index + 1}", onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) {
         GroupedList {

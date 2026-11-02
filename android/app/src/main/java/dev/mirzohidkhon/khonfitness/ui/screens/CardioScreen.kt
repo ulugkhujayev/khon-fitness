@@ -37,14 +37,16 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     // The row as the form opened it: Save writes only the fields that differ from it ([KhonRepository.saveCardioEdits]).
     val opened = remember(s.id) { s }
     var draft by remember(s.id) { mutableStateOf(opened) }
-    var ivs by remember(intervals.size) { mutableStateOf(intervals) }
+    // The intervals as the form opened them (once they load), beside the edited ones: Save writes only what differs.
+    val openedIvs = remember(s.id, intervals.size) { intervals }
+    var ivs by remember(s.id, intervals.size) { mutableStateOf(openedIvs) }
     var strokeSheet by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
         EditorTopBar(if (s.finished) "History" else "Today", s.exerciseName ?: "Cardio", scrollPx = { barScroll.value }, onBack = { if (!nav.popBackStack()) nav.navigate(Routes.TODAY) }, done = "Save") {
-            vm.run { vm.repo.saveCardioEdits(opened, draft, ivs) }
+            vm.run { vm.repo.saveCardioEdits(opened, draft, openedIvs, ivs) }
             nav.popBackStack()
         }
         Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {

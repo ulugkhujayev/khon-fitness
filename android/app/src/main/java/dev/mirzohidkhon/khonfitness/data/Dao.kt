@@ -7,6 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -90,6 +91,7 @@ interface KhonDao {
     @Query("SELECT * FROM blocks ORDER BY sortOrder") fun blocks(): Flow<List<Block>>
     @Query("SELECT * FROM blocks WHERE programId = :programId ORDER BY sortOrder") suspend fun blocksFor(programId: String): List<Block>
     @Query("SELECT * FROM blocks") suspend fun blocksOnce(): List<Block>
+    @Query("SELECT * FROM blocks WHERE id = :id") suspend fun block(id: String): Block?
     @Upsert suspend fun upsert(block: Block)
     @Upsert suspend fun upsertBlocks(list: List<Block>)
     @Query("DELETE FROM blocks WHERE id = :id") suspend fun deleteBlock(id: String)
@@ -98,6 +100,7 @@ interface KhonDao {
     @Query("SELECT * FROM block_exercises ORDER BY slot") fun blockExercises(): Flow<List<BlockExercise>>
     @Query("SELECT * FROM block_exercises WHERE blockId = :blockId ORDER BY slot") suspend fun blockExercisesFor(blockId: String): List<BlockExercise>
     @Query("SELECT * FROM block_exercises") suspend fun blockExercisesOnce(): List<BlockExercise>
+    @Query("SELECT * FROM block_exercises WHERE blockId = :blockId AND slot = :slot ORDER BY id LIMIT 1") suspend fun blockExerciseAt(blockId: String, slot: Int): BlockExercise?
     @Upsert suspend fun upsert(be: BlockExercise)
     @Upsert suspend fun upsertBlockExercises(list: List<BlockExercise>)
     @Query("DELETE FROM block_exercises WHERE id = :id") suspend fun deleteBlockExercise(id: String)
@@ -143,6 +146,16 @@ interface KhonDao {
         upsert(first.copy(blockId = b.id))
     }
 
+    /**
+     * A pick for a block's slot, against the stored rows: the slot's row gets only its exercise, or a new row ([newRowId])
+     * when the slot has none. A deleted block writes nothing.
+     */
+    @Transaction suspend fun setSlotExercise(blockId: String, slot: Int, exerciseId: String, newRowId: String) {
+        if (block(blockId) == null) return
+        val row = blockExerciseAt(blockId, slot)
+        if (row != null) setBlockExerciseExercise(row.id, exerciseId) else upsert(BlockExercise(newRowId, blockId, slot, exerciseId))
+    }
+
     @Transaction suspend fun deleteBlockFully(id: String) { deleteBlockExercisesFor(id); deleteBlock(id) }
 
     /** Moves a block [delta] places within its program, by the stored order, and numbers the program's blocks from 0. */
@@ -175,12 +188,27 @@ interface KhonDao {
     @Transaction suspend fun finishSession(id: String, finishedAt: Long) { skipPendingSets(id); setSessionFinishedAt(id, finishedAt) }
     /**
      * The cardio form's Save: the columns changed from [opened] to [edited] go onto the row as it is now, so a timer
-     * write since the form opened stays ([mergeCardioEdits]); then the intervals. A deleted session writes nothing.
+     * write since the form opened stays ([mergeCardioEdits]); then the intervals the same way ([mergeIntervalEdits]).
+     * A deleted session writes nothing.
      */
-    @Transaction suspend fun saveCardioEdits(opened: Session, edited: Session, intervals: List<IntervalLog>, now: Long) {
+    @Transaction suspend fun saveCardioEdits(opened: Session, edited: Session, openedIntervals: List<IntervalLog>, editedIntervals: List<IntervalLog>, now: Long) {
         val current = session(edited.id) ?: return
         upsert(mergeCardioEdits(current, opened, edited, now))
-        upsertIntervalLogs(intervals)
+        upsertIntervalLogs(mergeIntervalEdits(intervalLogsFor(edited.id), openedIntervals, editedIntervals))
+    }
+    /** A new session with its set and interval logs: all or nothing, so no session is ever saved without its logs. */
+    @Transaction suspend fun insertSessionWithLogs(session: Session, setLogs: List<SetLog>, intervalLogs: List<IntervalLog>) {
+        upsert(session); upsertSetLogs(setLogs); upsertIntervalLogs(intervalLogs)
+    }
+    /**
+     * A Health Connect import ([insertSessionWithLogs]), written only while none of its source records is imported yet,
+     * checked in the same transaction: a second tap on the same draft writes nothing. Returns whether it wrote.
+     */
+    @Transaction suspend fun insertImportedSession(session: Session, intervalLogs: List<IntervalLog>): Boolean {
+        val ids = session.sourceId?.split(",").orEmpty().filter { it.isNotEmpty() }.toSet()
+        if (importedSourceIds().any { stored -> stored.split(",").any { it in ids } }) return false
+        insertSessionWithLogs(session, emptyList(), intervalLogs)
+        return true
     }
 
     @Query("SELECT * FROM set_logs WHERE sessionId = :sessionId ORDER BY `order`") fun setLogs(sessionId: String): Flow<List<SetLog>>
@@ -209,6 +237,7 @@ interface KhonDao {
 
     @Query("SELECT * FROM interval_logs WHERE sessionId = :sessionId ORDER BY `index`") fun intervalLogs(sessionId: String): Flow<List<IntervalLog>>
     @Query("SELECT * FROM interval_logs") suspend fun intervalLogsOnce(): List<IntervalLog>
+    @Query("SELECT * FROM interval_logs WHERE sessionId = :sessionId ORDER BY `index`") suspend fun intervalLogsFor(sessionId: String): List<IntervalLog>
     @Query("SELECT * FROM interval_logs") fun allIntervalLogs(): Flow<List<IntervalLog>>
     @Upsert suspend fun upsertIntervalLogs(list: List<IntervalLog>)
     @Query("DELETE FROM interval_logs WHERE sessionId = :sessionId") suspend fun deleteIntervalLogsFor(sessionId: String)
@@ -229,7 +258,25 @@ interface KhonDao {
     @Upsert suspend fun upsert(o: DayOverride)
     @Upsert suspend fun upsertOverrides(list: List<DayOverride>)
     @Query("DELETE FROM day_overrides WHERE date = :date") suspend fun deleteOverride(date: String)
-    @Transaction suspend fun saveWeekPlan(frozen: List<DayOverride>, plan: WeekPlan) { upsertOverrides(frozen); upsert(plan) }
+    /**
+     * Changes a weekday in the template. Past dates of that weekday first get auto overrides with the old value, so
+     * history keeps its plan. Read and written in one transaction: a dated change saved meanwhile stays as it is.
+     */
+    @Transaction suspend fun saveWeekPlan(weekday: Int, itemType: String, itemId: String?, today: LocalDate) {
+        val old = weekPlanOnce().find { it.weekday == weekday }
+        if ((old?.itemType ?: ItemType.REST) == itemType && old?.itemId == itemId) return
+        val overrides = overridesOnce()
+        val first = PlanRules.freezeFrom(sessionsOnce().map { it.date } + stretchSessionsOnce().map { it.date } + bodyweightsOnce().map { it.date } + windowDaysOnce().map { it.date } + overrides.map { it.date }, today)
+        val frozen = PlanRules.datesToFreeze(weekday, first, today, overrides.map { it.date }.toSet()).map { DayOverride(it.iso(), old?.itemType ?: ItemType.REST, old?.itemId, auto = true) }
+        upsertOverrides(frozen); upsert(WeekPlan(weekday, itemType, itemId))
+    }
+    /** Two dates trade what they hold, each resolved from the plan as stored in the same transaction. */
+    @Transaction suspend fun swapDays(a: LocalDate, b: LocalDate) {
+        val data = KhonRepository.PlanData(weekPlanOnce(), overridesOnce(), programsOnce(), exercisesOnce())
+        val ia = data.itemFor(a); val ib = data.itemFor(b)
+        upsert(DayOverride(a.iso(), ib.itemType, ib.program?.id ?: ib.cardio?.id))
+        upsert(DayOverride(b.iso(), ia.itemType, ia.program?.id ?: ia.cardio?.id))
+    }
 
     // stretching
     @Query("SELECT * FROM stretches ORDER BY name") fun stretches(): Flow<List<Stretch>>
@@ -267,6 +314,12 @@ interface KhonDao {
     @Query("SELECT * FROM window_days WHERE date = :date") suspend fun windowDay(date: String): WindowDay?
     @Upsert suspend fun upsert(d: WindowDay)
     @Upsert suspend fun upsertWindowDays(list: List<WindowDay>)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertWindowDayIfMissing(d: WindowDay)
+    @Query("UPDATE window_days SET openedAt = :at, closedAt = NULL WHERE date = :date") suspend fun setWindowOpened(date: String, at: Long)
+    @Query("UPDATE window_days SET closedAt = :at WHERE date = :date") suspend fun setWindowClosed(date: String, at: Long)
+    // Open now and Close now write their own columns onto the day row as it is now: a note or an import stays.
+    @Transaction suspend fun openWindowNow(date: String, now: Long) { insertWindowDayIfMissing(WindowDay(date)); setWindowOpened(date, now) }
+    @Transaction suspend fun closeWindowNow(date: String, now: Long) { insertWindowDayIfMissing(WindowDay(date)); setWindowClosed(date, now) }
 
     // wipe
     @Query("DELETE FROM stretches") suspend fun clearStretches()
@@ -286,6 +339,13 @@ interface KhonDao {
     @Query("DELETE FROM bodyweights") suspend fun clearBodyweights()
     @Query("DELETE FROM week_plan") suspend fun clearWeekPlan()
     @Query("DELETE FROM day_overrides") suspend fun clearOverrides()
+
+    // seeds: each check runs in the transaction that writes, so data saved meanwhile is never seeded over
+    @Transaction suspend fun seedIfEmpty() { if (programsOnce().isEmpty() && exercisesOnce().isEmpty()) Seed.apply(this); seedStretchesIfEmpty() }
+    /** Older installs have no stretches yet; the routine arrives on first start after the update. */
+    @Transaction suspend fun seedStretchesIfEmpty() { if (stretchesOnce().isEmpty()) Seed.applyStretches(this) }
+    /** Wipe and built-in data: all or nothing, so a failed reset keeps the old data. */
+    @Transaction suspend fun resetToSeed() { clearAll(); Seed.apply(this); Seed.applyStretches(this) }
 
     @Query("SELECT id FROM programs WHERE active = 1 ORDER BY sortOrder, name LIMIT 1") suspend fun firstActiveProgramId(): String?
     @Query("SELECT id FROM programs ORDER BY sortOrder, name LIMIT 1") suspend fun firstProgramId(): String?

@@ -40,8 +40,8 @@ class ProgramWritesTest {
         dao.upsertPrograms(listOf(Program("push", "Push", active = true, sortOrder = 0), Program("pull", "Pull", sortOrder = 1)))
         dao.upsertBlocks(listOf(Block("b1", "push", 0), Block("b2", "push", 1), Block("b3", "pull", 0)))
         dao.upsertBlockExercises(listOf(BlockExercise("e1", "b1", 0, "bench"), BlockExercise("e2", "b1", 1, "fly"), BlockExercise("e3", "b2", 0, "dip"), BlockExercise("e4", "b3", 0, "row")))
-        dao.saveWeekPlan(emptyList(), WeekPlan(1, ItemType.PROGRAM, "push"))
-        dao.saveWeekPlan(emptyList(), WeekPlan(2, ItemType.PROGRAM, "pull"))
+        dao.upsert(WeekPlan(1, ItemType.PROGRAM, "push"))
+        dao.upsert(WeekPlan(2, ItemType.PROGRAM, "pull"))
         dao.upsert(DayOverride("2026-11-05", ItemType.PROGRAM, "push"))
     }
 
@@ -182,5 +182,24 @@ class ProgramWritesTest {
         repo.moveBlock("b2", -1)
         assertEquals(listOf("b2", "b1"), dao.blocksFor("push").map { it.id })
         assertEquals(0, dao.blocksFor("pull").single().sortOrder)
+    }
+
+    // ---- slot picks
+
+    @Test fun `a slot row saved after the screen read its list gets the pick, not a second row`() = runBlocking {
+        seed()
+        dao.blockExercisesFor("b2") // what the screen held: only slot 0
+        dao.upsert(BlockExercise("e5", "b2", 1, "fly", sets = 4)) // slot 1 saved meanwhile
+        repo.setSlotExercise("b2", 1, "pullover", newRowId = "new")
+        assertEquals(listOf(BlockExercise("e3", "b2", 0, "dip"), BlockExercise("e5", "b2", 1, "pullover", sets = 4)), dao.blockExercisesFor("b2"))
+    }
+
+    @Test fun `a pick for an empty slot adds its row, and for a deleted block writes nothing`() = runBlocking {
+        seed()
+        repo.setSlotExercise("b2", 1, "fly", newRowId = "new")
+        assertEquals(BlockExercise("new", "b2", 1, "fly"), dao.blockExercisesFor("b2").last())
+        repo.deleteBlock("b2")
+        repo.setSlotExercise("b2", 0, "dip", newRowId = "late")
+        assertEquals(emptyList<BlockExercise>(), dao.blockExercisesFor("b2"))
     }
 }

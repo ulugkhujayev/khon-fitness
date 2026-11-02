@@ -196,6 +196,7 @@ show one row per work interval for manual entry.
   and Mi Fitness both write session, heart rate, and distance. Neither is
   confirmed to write swim laps or interval splits, so those fields stay manual.
   Nothing is saved until the user confirms a draft.
+  A draft that is already imported saves nothing, so a second tap adds no copy.
 
 ## Day plan
 

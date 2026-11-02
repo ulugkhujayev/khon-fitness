@@ -6,7 +6,6 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -65,6 +64,22 @@ fun mergeExerciseEdits(current: Exercise, opened: Exercise, edited: Exercise): E
     )
 }
 
+/**
+ * The cardio form's interval edits merged onto [current], the rows as they are now, the same way as [mergeCardioEdits]:
+ * per interval id, a field takes [edited]'s value when it differs from [opened]'s, else keeps [current]'s. Returns only
+ * the rows that change; an interval deleted meanwhile, or not in [opened], is left out.
+ */
+fun mergeIntervalEdits(current: List<IntervalLog>, opened: List<IntervalLog>, edited: List<IntervalLog>): List<IntervalLog> {
+    val was = opened.associateBy { it.id }
+    val now = current.associateBy { it.id }
+    return edited.mapNotNull { e ->
+        val o = was[e.id] ?: return@mapNotNull null
+        val c = now[e.id] ?: return@mapNotNull null
+        fun <T> pick(field: (IntervalLog) -> T): T = if (field(e) != field(o)) field(e) else field(c)
+        c.copy(avgHr = pick { it.avgHr }, watts = pick { it.watts }).takeIf { it != c }
+    }
+}
+
 /** The modality editor's edits (name, color) merged onto [current] the same way as [mergeExerciseEdits]. */
 fun mergeModalityEdits(current: Modality, opened: Modality, edited: Modality): Modality {
     fun <T> pick(field: (Modality) -> T): T = if (field(edited) != field(opened)) field(edited) else field(current)
@@ -107,8 +122,8 @@ class KhonRepository(private val dao: KhonDao) {
     suspend fun saveEatingWindow(w: EatingWindow) = dao.upsert(w.copy(id = 1))
     suspend fun eatingWindowOnce(): EatingWindow = dao.eatingWindowOnce() ?: EatingWindow()
     suspend fun windowDay(date: String): WindowDay? = dao.windowDay(date)
-    suspend fun openWindowNow(date: String, now: Long) { dao.upsert((dao.windowDay(date) ?: WindowDay(date)).copy(openedAt = now, closedAt = null)) }
-    suspend fun closeWindowNow(date: String, now: Long) { dao.upsert((dao.windowDay(date) ?: WindowDay(date)).copy(closedAt = now)) }
+    suspend fun openWindowNow(date: String, now: Long) = dao.openWindowNow(date, now)
+    suspend fun closeWindowNow(date: String, now: Long) = dao.closeWindowNow(date, now)
 
     fun setLogs(sessionId: String): Flow<List<SetLog>> = dao.setLogs(sessionId)
     fun session(sessionId: String): Flow<Session?> = dao.sessionFlow(sessionId)
@@ -166,28 +181,18 @@ class KhonRepository(private val dao: KhonDao) {
     suspend fun deleteBlock(id: String) = dao.deleteBlockFully(id)
     suspend fun saveBlockExercise(be: BlockExercise) = dao.upsert(be)
     suspend fun setBlockExerciseExercise(id: String, exerciseId: String) = dao.setBlockExerciseExercise(id, exerciseId)
+    /** A block editor pick for [slot], resolved against the stored rows ([KhonDao.setSlotExercise]). */
+    suspend fun setSlotExercise(blockId: String, slot: Int, exerciseId: String, newRowId: String = newId()) = dao.setSlotExercise(blockId, slot, exerciseId, newRowId)
     suspend fun setBlockExerciseSets(id: String, sets: Int) = dao.setBlockExerciseSets(id, sets)
     suspend fun setBlockExerciseMinReps(id: String, reps: Int) = dao.setBlockExerciseMinReps(id, reps)
     suspend fun setBlockExerciseMaxReps(id: String, reps: Int) = dao.setBlockExerciseMaxReps(id, reps)
     suspend fun deleteBlockExercise(id: String) = dao.deleteBlockExercise(id)
 
-    /** Changes a weekday in the template. Past dates of that weekday first get auto overrides with the old value, so history keeps its plan. */
-    suspend fun saveWeekPlan(weekday: Int, itemType: String, itemId: String?, today: LocalDate = LocalDate.now()) {
-        val old = dao.weekPlanOnce().find { it.weekday == weekday }
-        if ((old?.itemType ?: ItemType.REST) == itemType && old?.itemId == itemId) return
-        val overrides = dao.overridesOnce()
-        val first = PlanRules.freezeFrom(dao.sessionsOnce().map { it.date } + dao.stretchSessionsOnce().map { it.date } + dao.bodyweightsOnce().map { it.date } + dao.windowDaysOnce().map { it.date } + overrides.map { it.date }, today)
-        val frozen = PlanRules.datesToFreeze(weekday, first, today, overrides.map { it.date }.toSet()).map { DayOverride(it.iso(), old?.itemType ?: ItemType.REST, old?.itemId, auto = true) }
-        dao.saveWeekPlan(frozen, WeekPlan(weekday, itemType, itemId))
-    }
+    /** Changes a weekday in the template; past dates keep their plan ([KhonDao.saveWeekPlan]). */
+    suspend fun saveWeekPlan(weekday: Int, itemType: String, itemId: String?, today: LocalDate = LocalDate.now()) = dao.saveWeekPlan(weekday, itemType, itemId, today)
     suspend fun saveOverride(date: String, itemType: String, itemId: String?) = dao.upsert(DayOverride(date, itemType, itemId))
     suspend fun clearOverride(date: String) = dao.deleteOverride(date)
-    suspend fun swapDays(a: LocalDate, b: LocalDate) {
-        val data = planData.first()
-        val ia = data.itemFor(a); val ib = data.itemFor(b)
-        saveOverride(a.iso(), ib.itemType, ib.program?.id ?: ib.cardio?.id)
-        saveOverride(b.iso(), ia.itemType, ia.program?.id ?: ia.cardio?.id)
-    }
+    suspend fun swapDays(a: LocalDate, b: LocalDate) = dao.swapDays(a, b)
 
     suspend fun saveBodyweight(date: String, kg: Double) = dao.upsert(Bodyweight(date, kg))
 
@@ -209,7 +214,7 @@ class KhonRepository(private val dao: KhonDao) {
         // prefill from last time
         val previous = previousLogsByKey(programId, session.id)
         val filled = logs.map { l -> previous[l.key()]?.let { p -> l.copy(weightKg = p.weightKg, reps = p.reps) } ?: l.copy(reps = l.minReps) }
-        dao.upsert(session); dao.upsertSetLogs(filled)
+        dao.insertSessionWithLogs(session, filled, emptyList())
         return session
     }
 
@@ -230,17 +235,17 @@ class KhonRepository(private val dao: KhonDao) {
 
     suspend fun startCardioSession(exercise: Exercise, date: LocalDate = LocalDate.now()): Session {
         val session = Session(id = newId(), date = date.iso(), startedAt = System.currentTimeMillis(), itemType = ItemType.CARDIO, exerciseId = exercise.id, exerciseName = exercise.name)
-        dao.upsert(session)
-        if (exercise.intervals) dao.upsertIntervalLogs((0 until exercise.rounds).map { IntervalLog(newId(), session.id, it) })
+        val intervals = if (exercise.intervals) (0 until exercise.rounds).map { IntervalLog(newId(), session.id, it) } else emptyList()
+        dao.insertSessionWithLogs(session, emptyList(), intervals)
         return session
     }
 
     suspend fun setSetStatus(id: String, status: String) = dao.setSetStatus(id, status)
     suspend fun setSetWeight(id: String, weightKg: Double?) = dao.setSetWeight(id, weightKg)
     suspend fun setSetReps(id: String, reps: Int?) = dao.setSetReps(id, reps)
-    /** The cardio form's Save: only what the user changed since [opened] is written, in one transaction with the intervals. */
-    suspend fun saveCardioEdits(opened: Session, edited: Session, intervals: List<IntervalLog>, now: Long = System.currentTimeMillis()) =
-        dao.saveCardioEdits(opened, edited, intervals, now)
+    /** The cardio form's Save: only what the user changed since [opened] and [openedIntervals] is written, in one transaction. */
+    suspend fun saveCardioEdits(opened: Session, edited: Session, openedIntervals: List<IntervalLog>, editedIntervals: List<IntervalLog>, now: Long = System.currentTimeMillis()) =
+        dao.saveCardioEdits(opened, edited, openedIntervals, editedIntervals, now)
     // Single fields of a session edited in place (session page, finish sheet, timer): each writes its own column only.
     suspend fun setSessionDate(sessionId: String, date: LocalDate) = dao.setSessionDate(sessionId, date.iso())
     suspend fun setSessionEffort(sessionId: String, effort: Int?) = dao.setSessionEffort(sessionId, effort)
@@ -256,7 +261,10 @@ class KhonRepository(private val dao: KhonDao) {
 
     suspend fun importedSourceIds(): List<String> = dao.importedSourceIds().flatMap { it.split(",") }
 
-    /** Creates a finished cardio session from a Health Connect draft, with per-interval heart rate when the exercise has intervals. */
+    /**
+     * Creates a finished cardio session from a Health Connect draft, with per-interval heart rate when the exercise has
+     * intervals. A draft already imported writes nothing ([KhonDao.insertImportedSession]).
+     */
     suspend fun importDraft(d: dev.mirzohidkhon.khonfitness.health.ImportDraft, ex: Exercise) {
         val fields = ex.fieldList
         val pool = d.poolLength ?: 25
@@ -267,9 +275,8 @@ class KhonRepository(private val dao: KhonDao) {
             laps = laps, poolLength = if (laps != null) pool else null, sourceId = d.mergedIds.joinToString(","),
             note = if (d.origins.size > 1) "From " + d.originLabel else "",
         )
-        dao.upsert(session)
         val hrs = dev.mirzohidkhon.khonfitness.health.HealthImport.intervalHeartRates(d, ex)
-        if (hrs.isNotEmpty()) dao.upsertIntervalLogs(hrs.mapIndexed { i, hr -> IntervalLog(newId(), session.id, i, avgHr = hr) })
+        dao.insertImportedSession(session, hrs.mapIndexed { i, hr -> IntervalLog(newId(), session.id, i, avgHr = hr) })
     }
 
     suspend fun exportJson(): String {
@@ -293,10 +300,9 @@ class KhonRepository(private val dao: KhonDao) {
     /** Merges or replaces from a backup in one transaction ([KhonDao.importBackup]). Throws when the file is not a Khon backup. */
     suspend fun importJson(text: String, replace: Boolean) = dao.importBackup(Json { ignoreUnknownKeys = true }.decodeFromString<Backup>(text), replace)
 
-    suspend fun seedIfEmpty() { if (dao.programsOnce().isEmpty() && dao.exercisesOnce().isEmpty()) Seed.apply(dao); seedStretchesIfEmpty() }
-    /** Older installs have no stretches yet; the routine arrives on first start after the update. */
-    suspend fun seedStretchesIfEmpty() { if (dao.stretchesOnce().isEmpty()) Seed.applyStretches(dao) }
-    suspend fun resetToSeed() { dao.clearAll(); Seed.apply(dao); Seed.applyStretches(dao) }
+    suspend fun seedIfEmpty() = dao.seedIfEmpty()
+    suspend fun seedStretchesIfEmpty() = dao.seedStretchesIfEmpty()
+    suspend fun resetToSeed() = dao.resetToSeed()
 }
 
 object PlanRules {

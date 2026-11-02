@@ -13,7 +13,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -73,24 +79,29 @@ fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val kind = st?.phase?.kind ?: PhaseKind.WARMUP
     val bg by animateColorAsState(when { st == null || st.done || st.awaitingStart || st.preparing || st.paused -> K.Bg; kind == PhaseKind.WORK -> Color(0xFF14532D); kind == PhaseKind.REST -> Color(0xFF1E3A5F); else -> Color(0xFF3A3A40) }, label = "phase")
     Column(Modifier.fillMaxSize().background(bg).padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        // Equal 64 dp sides keep the title centered.
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton("Stop", color = Color.White) { TimerService.send(context, TimerService.ACTION_STOP) }
-            Text(st?.title ?: ex?.name ?: "", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            Spacer(Modifier.width(48.dp))
+            Box(Modifier.width(64.dp), contentAlignment = Alignment.CenterStart) { TextButton("Stop", color = Color.White) { TimerService.send(context, TimerService.ACTION_STOP) } }
+            Text(
+                st?.title ?: ex?.name ?: "", color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).semantics { heading() }, textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.width(64.dp))
         }
         Spacer(Modifier.weight(1f))
         val label = when { st == null -> "Starting"; st.done -> "Done"; st.awaitingStart -> "Ready"; st.preparing -> "Get ready"; st.paused -> "Paused"; kind == PhaseKind.WARMUP -> "Warm-up"; kind == PhaseKind.WORK -> "Work"; else -> "Rest" }
-        Text(label, color = Color.White.copy(alpha = .75f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-        Text(if (st?.preparing == true) kotlin.math.ceil(st.preparation).toInt().toString() else mmss(st?.remaining ?: 0.0), color = Color.White, fontSize = 96.sp, fontWeight = FontWeight.Bold, letterSpacing = (-5).sp, lineHeight = 112.sp, modifier = Modifier.padding(vertical = 8.dp))
-        if (st != null && !st.done && kind != PhaseKind.WARMUP) Text("Round ${st.phase.round} of ${st.rounds}", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+        // The phase word is spoken when it changes; the countdown is not, as it changes every second.
+        Text(label, color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+        Text(if (st?.preparing == true) kotlin.math.ceil(st.preparation).toInt().toString() else mmss(st?.remaining ?: 0.0), color = Color.White, fontSize = 96.sp, fontWeight = FontWeight.Bold, letterSpacing = (-5).sp, lineHeight = 112.sp, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), modifier = Modifier.padding(vertical = 8.dp))
+        if (st != null && !st.done && kind != PhaseKind.WARMUP) Text("Round ${st.phase.round} of ${st.rounds}", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, lineHeight = 30.sp)
         if (st != null && !st.done) {
             val next = st.phases.getOrNull(st.index + 1)
-            Text(if (next == null) "Last one" else "Next: " + (when (next.kind) { PhaseKind.WORK -> "work"; PhaseKind.REST -> "rest"; else -> "warm-up" }) + " " + mmss(next.seconds.toDouble()), color = Color.White.copy(alpha = .75f), fontSize = 17.sp, modifier = Modifier.padding(top = 10.dp))
-            Text("Elapsed ${mmss(st.elapsed)} of ${mmss(st.total.toDouble())}", color = Color.White.copy(alpha = .6f), fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
+            Text(if (next == null) "Last one" else "Next: " + (when (next.kind) { PhaseKind.WORK -> "work"; PhaseKind.REST -> "rest"; else -> "warm-up" }) + " " + mmss(next.seconds.toDouble()), color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 10.dp))
+            Text("Elapsed ${mmss(st.elapsed)} of ${mmss(st.total.toDouble())}", color = Color.White.copy(alpha = .6f), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), modifier = Modifier.padding(top = 4.dp))
         }
         Spacer(Modifier.weight(1f))
         if (!batteryOk) {
-            Text("Samsung may pause the timer when the screen is off. Allow it to run in the background once.", color = Color.White.copy(alpha = .8f), fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(bottom = 10.dp))
+            Text("Samsung may pause the timer when the screen is off. Allow it to run in the background once.", color = Color.White.copy(alpha = .8f), fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 10.dp))
             TextButton("Allow background", color = Color.White) { batteryLauncher.launch(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:" + context.packageName))) }
             Spacer(Modifier.height(12.dp))
         }

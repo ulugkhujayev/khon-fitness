@@ -213,6 +213,16 @@ an import exactly one program is active when any exists: merge keeps this
 phone's active program; replace takes the backup's first active program in
 list order, or the first program when none is active.
 
+Routines get the same treatment, with at most one active. A merge keeps this
+phone's active routine and clears the mark on imported ones. A replace, or a
+merge onto a phone with no active routine, keeps the backup's first active
+routine by sortOrder, or none. Every import also repairs three things in the
+same transaction. It deletes routine rows whose routine or stretch is missing.
+It creates the eating-window settings row with defaults when neither the
+backup nor the phone has one. It writes the backup's stretch sessions over the
+phone's, the one case where a recorded session changes. After an import, a
+restore or a reset, the app re-arms the window alarms and redraws the widgets.
+
 ## Update
 
 Settings has Check for update, and Today checks once on open and shows an
@@ -234,12 +244,31 @@ notification as the interval timer. The end writes a session and returns to
 Today. Programs has a Stretching row: routines (one active), a stretch
 library with 3D thumbnails and step guides. Custom stretches pick a guide from the set.
 
+Routines and their rows sort by sortOrder, then id. A new routine goes after
+the highest sortOrder. Turning a routine on makes it the only active one;
+turning it off leaves none active, and then Today falls back to the first
+routine and the widget shows no routine. A stretch can be deleted only when it
+is not built in and no routine row uses it at the moment Delete runs. Deleting
+a routine deletes its rows and keeps its stretch sessions, which hold the
+routine name and totals.
+
+A run's session is written once per session id, and a second write of the same
+id changes nothing. A run that finishes in the live service after its routine
+was deleted still records one session with the name it started with. Two
+limits are accepted. First, a session deleted from History, by a replace or by
+a reset comes back if a stale timer snapshot of the same run is recorded
+again; the timer clears its snapshot after it records, so only such a replay
+can do this. Second, a snapshot restored after process death is dropped when
+its routine was deleted meanwhile, and that run records no session.
+
 ## Eating window (phase 3)
 
 Fixed daily hours, for example 12:00 to 20:00. The state is open inside the
 hours, or after an open-early tap, and closed after a close-late tap. Today
 shows the state and the time left. A small home-screen widget shows the same.
 Exact alarms at the boundaries refresh the widget and post the reminders.
+Each setting writes only its own column. An opening or closing time that
+would leave the hours shorter than one hour, or cross midnight, is refused.
 History shows one cell per day, filled when the window was kept.
 
 ## Out of scope

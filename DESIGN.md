@@ -311,6 +311,15 @@ Two lines, 88 px total, hairline between rows.
   Plow places feet beyond the head; 90/90 shows both knee bends.
 - Beeps and speech use Android media audio and its selected output. The
   notification is silent. Disconnecting headphones pauses active playback.
+- A run's result is written once. A session the user deleted can come back
+  only from a stale timer snapshot replayed after the delete. A run restored
+  after process death whose routine was deleted meanwhile records nothing.
+  Both are accepted limits (`SPEC.md`, Stretching).
+- With no active routine (the user turned it off, or an import brought none),
+  Today shows the first routine and the widget shows no routine.
+- After an import the app shows the repaired data: at most one active routine,
+  no routine row without its routine or stretch, and a settings row for the
+  eating window (`SPEC.md`, Backup).
 
 ## Eating window
 

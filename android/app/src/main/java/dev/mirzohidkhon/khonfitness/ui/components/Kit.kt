@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -196,27 +197,36 @@ fun ProgressBar(done: Int, total: Int, label: String, modifier: Modifier = Modif
     }
 }
 
-/** An on/off setting as an editor row: its label and a switch in the app's colors. [enabled] off fixes it where it is. */
+/**
+ * An on/off setting as an editor row: its label and a switch in the app's colors. The label takes all the width the
+ * switch leaves, so it does not wrap the way a [FieldRow] label column would. [enabled] off fixes it where it is.
+ */
 @Composable
 fun ToggleRow(label: String, checked: Boolean, divider: Boolean = true, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
-    FieldRow(label, divider = divider) {
-        Switch(
-            checked, onChange, enabled = enabled, modifier = Modifier.semantics { contentDescription = label },
-            colors = SwitchDefaults.colors(
-                checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3,
-                uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent,
-                disabledCheckedTrackColor = K.Green.copy(alpha = 0.45f), disabledCheckedThumbColor = Color.White,
-                disabledUncheckedTrackColor = K.Surface3, disabledUncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                disabledUncheckedBorderColor = Color.Transparent,
-            ),
-        )
+    Column(Modifier.fillMaxWidth()) {
+        if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = K.Text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
+            Spacer(Modifier.width(12.dp))
+            Switch(
+                checked, onChange, enabled = enabled, modifier = Modifier.semantics { contentDescription = label },
+                colors = SwitchDefaults.colors(
+                    checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3,
+                    uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent,
+                    disabledCheckedTrackColor = K.Green.copy(alpha = 0.45f), disabledCheckedThumbColor = Color.White,
+                    disabledUncheckedTrackColor = K.Surface3, disabledUncheckedThumbColor = Color.White.copy(alpha = 0.6f),
+                    disabledUncheckedBorderColor = Color.Transparent,
+                ),
+            )
+        }
     }
 }
 
 /** A select's value on the right of a [FieldRow]: in Text with a chevron, or muted with a small lock when it cannot change. */
 @Composable
-fun FieldValue(text: String, locked: Boolean = false, maxLines: Int = 1) {
-    Text(text, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = if (locked) K.Muted else K.Text, maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
+fun RowScope.FieldValue(text: String, locked: Boolean = false, maxLines: Int = 1) {
+    // The text yields width first, so a long value wraps or ends in an ellipsis and the chevron stays.
+    Text(text, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = if (locked) K.Muted else K.Text, maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End, modifier = Modifier.weight(1f, fill = false))
     if (locked) Icon(Icons.Lock, contentDescription = "Locked", tint = K.Dim, modifier = Modifier.padding(start = 6.dp).size(13.dp))
     else Chevron()
 }

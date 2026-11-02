@@ -1,5 +1,6 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
+import androidx.compose.runtime.saveable.SaverScope
 import dev.mirzohidkhon.khonfitness.data.Exercise
 import dev.mirzohidkhon.khonfitness.data.ItemType
 import dev.mirzohidkhon.khonfitness.data.KhonRepository
@@ -21,9 +22,9 @@ class EditorRulesTest {
     @Test fun `a new program left without Done writes nothing and shows no Delete`() {
         val d = ProgramDraft(isNew = true)
         d.name = "Push"
+        assertTrue(d.isDraft)
         assertFalse(d.showDelete(programCount = 3))
         assertNull(d.programId("new"))
-        assertNull(d.dropOnLeave())
     }
 
     @Test fun `Done on a new program creates it once with the typed name and the chosen Active`() {
@@ -33,7 +34,6 @@ class EditorRulesTest {
         assertEquals(Program("p1", "Push", active = true), save.create)
         assertEquals("p1", d.programId("new"))
         assertNull(d.done("p2", saved = Program("p1", "Push", active = true), onlyProgram = false).create)
-        assertNull(d.dropOnLeave())
     }
 
     @Test fun `an empty name falls back and Active is on by default only for the first program`() {
@@ -41,39 +41,48 @@ class EditorRulesTest {
         assertEquals(Program("b", NEW_PROGRAM_NAME, active = false), ProgramDraft(true).done("b", null, onlyProgram = false).create)
     }
 
-    @Test fun `Add block saves the program once, active only when it is the only one`() {
+    @Test fun `Add block saves the program once, as Done would, with the typed name and the Active choice`() {
         val d = ProgramDraft(isNew = true)
-        d.activeChoice = true
-        assertEquals(Program("p1", NEW_PROGRAM_NAME, active = false), d.programForBlock("p1", onlyProgram = false))
+        d.name = " Legs "; d.activeChoice = true
+        assertEquals(Program("p1", "Legs", active = true), d.programForBlock("p1", onlyProgram = false))
         assertNull(d.programForBlock("p2", onlyProgram = false))
         assertEquals("p1", d.programId("new"))
         assertEquals(Program("solo", NEW_PROGRAM_NAME, active = true), ProgramDraft(true).programForBlock("solo", onlyProgram = true))
+        assertEquals(Program("other", NEW_PROGRAM_NAME, active = false), ProgramDraft(true).programForBlock("other", onlyProgram = false))
     }
 
-    @Test fun `a program saved by Add block is dropped when left without Done`() {
+    @Test fun `a program saved by Add block is a saved program from then on`() {
         val d = ProgramDraft(isNew = true)
         d.programForBlock("p1", onlyProgram = false)
-        assertEquals("p1", d.dropOnLeave())
-    }
-
-    @Test fun `Done on a program saved by Add block keeps it, renames it and applies the waiting Active choice`() {
-        val d = ProgramDraft(isNew = true)
-        d.activeChoice = true
-        d.programForBlock("p1", onlyProgram = false)
+        assertFalse(d.isDraft)
+        assertTrue(d.showDelete(programCount = 2))
+        assertTrue(d.activeLocked(savedActive = true, onlyProgram = false))
+        assertTrue(d.shownActive(savedActive = true, onlyProgram = false))
         d.name = "Legs"
-        val save = d.done("unused", saved = Program("p1", NEW_PROGRAM_NAME, active = false), onlyProgram = false)
-        assertEquals(ProgramSave(rename = "Legs", activate = true), save)
-        assertNull(d.dropOnLeave())
+        assertEquals(ProgramSave(rename = "Legs"), d.done("unused", saved = Program("p1", NEW_PROGRAM_NAME), onlyProgram = false))
     }
 
-    @Test fun `an existing program saves only a changed name and is never dropped`() {
+    @Test fun `the saved state keeps the saved id, the typed name and the Active choice`() {
+        val d = ProgramDraft(isNew = true)
+        d.name = "Legs"; d.activeChoice = false
+        d.programForBlock("p1", onlyProgram = false)
+        val r = d.restored()
+        assertEquals("p1", r.programId("new"))
+        assertEquals("Legs", r.name)
+        assertEquals(false, r.activeChoice)
+        assertFalse(r.isDraft)
+        val untouched = ProgramDraft(isNew = true).restored()
+        assertTrue(untouched.isDraft)
+        assertNull(untouched.name)
+    }
+
+    @Test fun `an existing program saves only a changed name`() {
         val d = ProgramDraft(isNew = false)
         assertEquals(ProgramSave(), d.done("x", Program("p", "Push", active = false), onlyProgram = false))
         d.name = "Push"
         assertEquals(ProgramSave(), d.done("x", Program("p", "Push"), onlyProgram = false))
         d.name = "Pull"
         assertEquals(ProgramSave(rename = "Pull"), d.done("x", Program("p", "Push"), onlyProgram = false))
-        assertNull(d.dropOnLeave())
         assertTrue(d.showDelete(2)); assertFalse(d.showDelete(1))
     }
 
@@ -83,27 +92,6 @@ class EditorRulesTest {
         assertFalse(saved.activeLocked(savedActive = false, onlyProgram = false))
         assertTrue(ProgramDraft(true).activeLocked(savedActive = false, onlyProgram = true))
         assertFalse(ProgramDraft(true).activeLocked(savedActive = false, onlyProgram = false))
-    }
-
-    @Test fun `the draft model drops the provisional program when the editor leaves the stack`() {
-        val model = ProgramDraftModel()
-        val dropped = mutableListOf<String>()
-        model.drop = { dropped += it }
-        model.draft(isNew = true).programForBlock("p1", onlyProgram = false)
-        assertTrue(model.draft(isNew = true) === model.draft(isNew = true))
-        model.onCleared()
-        assertEquals(listOf("p1"), dropped)
-    }
-
-    @Test fun `the draft model drops nothing after Done`() {
-        val model = ProgramDraftModel()
-        val dropped = mutableListOf<String>()
-        model.drop = { dropped += it }
-        val d = model.draft(isNew = true)
-        d.programForBlock("p1", onlyProgram = false)
-        d.done("x", Program("p1", NEW_PROGRAM_NAME), onlyProgram = false)
-        model.onCleared()
-        assertEquals(emptyList<String>(), dropped)
     }
 
     // ---- block draft (contract rows 9 and 10)
@@ -199,5 +187,11 @@ class EditorRulesTest {
         assertEquals("Downloading 42%", updateStatus(available, 0.42f).value)
         val failedDownload = updateStatus(available, null, downloadError = "Download failed")
         assertEquals("Download failed", failedDownload.note); assertTrue(failedDownload.error)
+    }
+
+    /** The draft as a process restart brings it back: through [ProgramDraft.Saver]. */
+    private fun ProgramDraft.restored(): ProgramDraft {
+        val saved = with(ProgramDraft.Saver) { SaverScope { true }.save(this@restored) }!!
+        return ProgramDraft.Saver.restore(saved)!!
     }
 }

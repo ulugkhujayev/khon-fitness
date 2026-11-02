@@ -119,10 +119,11 @@ Sessions store a snapshot of the program, so editing the program later never
 changes what history shows.
 
 Editors save drafts late. A new program is written on Done, or when Add
-block needs it as the block's home. A program saved for a block and left
-without Done and without a block is deleted again, and its Active choice
-waits for Done. A new block is written together with its first exercise;
-leaving before that writes nothing.
+block needs it as the block's home; Add block saves it as Done would, with
+its name and Active choice, and from then on it stays when left without
+Done. A new program left before Done or Add block writes nothing. A new
+block is written together with its first exercise; leaving before that
+writes nothing.
 
 Every delete or remove asks first: an exercise, a program, a block, an
 exercise taken out of a block. Deleting a program deletes its blocks and

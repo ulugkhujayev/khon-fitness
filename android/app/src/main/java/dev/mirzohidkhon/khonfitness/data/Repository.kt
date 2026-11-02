@@ -136,7 +136,6 @@ class KhonRepository(private val dao: KhonDao) {
     suspend fun setProgramName(id: String, name: String) = dao.setProgramName(id, name)
     suspend fun setActiveProgram(id: String) = dao.setActiveProgram(id)
     suspend fun deleteProgram(id: String) = dao.deleteProgramFully(id)
-    suspend fun dropProgramIfEmpty(id: String) = dao.dropProgramIfEmpty(id)
     suspend fun saveBlock(b: Block) = dao.upsert(b)
     suspend fun saveBlocks(list: List<Block>) = dao.upsertBlocks(list)
     suspend fun createBlock(b: Block, first: BlockExercise) = dao.createBlock(b, first)

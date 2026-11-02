@@ -13,7 +13,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,8 +44,8 @@ fun EditorScaffold(back: String, title: String, onBack: () -> Unit, onDone: (() 
 
 /**
  * Program editor: name, Active and what it does, the numbered blocks with Add block, Delete. A new program
- * (`new`) is a draft ([ProgramDraft]): nothing is saved until Done, or Add block, which saves it first so the
- * block has a home; saved that way it is dropped again when left without Done and without a block.
+ * (`new`) is a draft ([ProgramDraft]): nothing is saved until Done, or Add block, which saves it as Done would so
+ * the block has a home; from then on it is a saved program, kept when left without Done.
  */
 @Composable
 fun ProgramEditorScreen(vm: AppViewModel, nav: NavHostController, programId: String) {
@@ -54,9 +53,7 @@ fun ProgramEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Str
     val blocks by vm.blocks.collectAsStateWithLifecycle()
     val blockExercises by vm.blockExercises.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
-    val model: ProgramDraftModel = viewModel()
-    val draft = model.draft(isNew = programId == "new")
-    model.drop = { id -> vm.run { vm.repo.dropProgramIfEmpty(id) } }
+    val draft = rememberSaveable(saver = ProgramDraft.Saver) { ProgramDraft(isNew = programId == "new") }
     val id = draft.programId(programId)
     val program = id?.let { pid -> programs.find { it.id == pid } }
     if (!draft.isNew && program == null) return
@@ -70,7 +67,6 @@ fun ProgramEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Str
         vm.run {
             save.create?.let { vm.repo.createProgram(it) }
             save.rename?.let { vm.repo.setProgramName(target, it) }
-            if (save.activate) vm.repo.setActiveProgram(target)
         }
         nav.popBackStack()
     }
@@ -78,12 +74,12 @@ fun ProgramEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Str
         draft.programForBlock(newId(), onlyProgram)?.let { p -> vm.run { vm.repo.createProgram(p) } }
         draft.programId(programId)?.let { nav.navigate(Routes.block(it, "new")) }
     }
-    EditorScaffold("Programs", if (draft.isNew) "New program" else program!!.name, onBack = { nav.popBackStack() }, onDone = ::done) {
+    EditorScaffold("Programs", program?.name ?: "New program", onBack = { nav.popBackStack() }, onDone = ::done) {
         GroupedList {
             FieldRow("Name", divider = false) { InlineTextField(draft.name ?: program?.name ?: "", { draft.name = it }, placeholder = "Program name", label = "Name") }
             // A saved active program stays on: turning another one on is what moves the mark.
             ToggleRow("Active", draft.shownActive(savedActive, onlyProgram), enabled = !draft.activeLocked(savedActive, onlyProgram)) { on ->
-                if (draft.isNew) draft.activeChoice = on else if (on && id != null) vm.run { vm.repo.setActiveProgram(id) }
+                if (draft.isDraft) draft.activeChoice = on else if (on && id != null) vm.run { vm.repo.setActiveProgram(id) }
             }
         }
         GroupFooter("One program is active: the one you train now. Turning another one on moves it there.")

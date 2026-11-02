@@ -4,7 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
 import dev.mirzohidkhon.khonfitness.data.Block
 import dev.mirzohidkhon.khonfitness.data.BlockExercise
 import dev.mirzohidkhon.khonfitness.data.Exercise
@@ -18,15 +17,15 @@ import dev.mirzohidkhon.khonfitness.update.Updater
 /** The name a new program gets when its Name field is left empty. */
 const val NEW_PROGRAM_NAME = "New program"
 
-/** What the program editor's Done writes: a new program, or a changed name and a waiting Active choice. */
-data class ProgramSave(val create: Program? = null, val rename: String? = null, val activate: Boolean = false)
+/** What the program editor's Done writes: a new program, or a changed name. */
+data class ProgramSave(val create: Program? = null, val rename: String? = null)
 
 /**
- * A program editor's draft (DESIGN.md, Editors). A new program ([isNew]) is not saved until Done, so leaving
- * without Done writes nothing and there is no Delete. Add block saves it first so the block has a home
- * ([programForBlock]); saved that way it stays provisional: left without Done it is dropped again unless it
- * holds a block by then ([dropOnLeave]; the database decides that), and its Active choice waits for Done.
- * The typed [name] and a new program's [activeChoice] live here, so the trip to a block editor keeps them.
+ * A program editor's draft (DESIGN.md, Editors). A new program ([isNew]) stays a draft ([isDraft]) until Done or
+ * Add block saves it: leaving before that writes nothing and there is no Delete. Add block saves it exactly as Done
+ * would ([programForBlock]), so the block has a home; from then on the screen edits a saved program, with Delete,
+ * and leaving without Done keeps it. [Saver] keeps the saved id, the typed [name] and a new program's
+ * [activeChoice] over a trip to a block editor, a rotation and process death, so a restored editor edits the same row.
  */
 class ProgramDraft(val isNew: Boolean) {
     /** The id the new program is saved under (by Add block or Done), or null while nothing is saved. */
@@ -36,62 +35,43 @@ class ProgramDraft(val isNew: Boolean) {
     var name: String? by mutableStateOf(null)
     /** A new program's Active switch, null until touched. */
     var activeChoice: Boolean? by mutableStateOf(null)
-    private var kept = false
+
+    /** A new program that nothing has saved yet. */
+    val isDraft: Boolean get() = isNew && savedId == null
 
     /** The program the screen edits: the route's, or a new program's once saved; null while it is only a draft. */
     fun programId(routeId: String): String? = if (isNew) savedId else routeId
 
     /** Delete shows on a saved program only, and never on the last one: Today always plans from a program. */
-    fun showDelete(programCount: Int): Boolean = !isNew && programCount > 1
+    fun showDelete(programCount: Int): Boolean = !isDraft && programCount > 1
 
-    /** The Active switch's state: a new program's choice, by default on only when it is the only program. */
+    /** The Active switch's state: a draft's choice, by default on only when it is the only program. */
     fun shownActive(savedActive: Boolean, onlyProgram: Boolean): Boolean =
-        if (isNew) activeChoice ?: onlyProgram else savedActive
+        if (isDraft) activeChoice ?: onlyProgram else savedActive
 
     /** Fixed on for the active program (turning another one on moves the mark) and for the only program. */
-    fun activeLocked(savedActive: Boolean, onlyProgram: Boolean): Boolean = onlyProgram || (!isNew && savedActive)
+    fun activeLocked(savedActive: Boolean, onlyProgram: Boolean): Boolean = onlyProgram || (!isDraft && savedActive)
 
-    /**
-     * Add block: the program to save first, or null when it is saved already (or not new). It is saved active only
-     * when it is the only program; a chosen Active waits for Done.
-     */
-    fun programForBlock(id: String, onlyProgram: Boolean): Program? {
-        if (!isNew || savedId != null) return null
+    /** Add block: the program to save first, as Done would save it; null once it is saved (or not new). */
+    fun programForBlock(id: String, onlyProgram: Boolean): Program? = if (isDraft) save(id, onlyProgram) else null
+
+    /** Done: a draft's program to create, else a saved program's changed name. [saved] is the stored row. */
+    fun done(newId: String, saved: Program?, onlyProgram: Boolean): ProgramSave =
+        if (isDraft) ProgramSave(create = save(newId, onlyProgram))
+        else ProgramSave(rename = name?.trim()?.takeIf { it.isNotEmpty() && it != saved?.name })
+
+    /** The new program with the typed name (or [NEW_PROGRAM_NAME]) and the Active choice; the editor edits it from here on. */
+    private fun save(id: String, onlyProgram: Boolean): Program {
         savedId = id
-        return Program(id, nameOf(name), active = onlyProgram)
+        return Program(id, name?.trim()?.takeIf { it.isNotEmpty() } ?: NEW_PROGRAM_NAME, active = activeChoice ?: onlyProgram)
     }
 
-    /**
-     * Done: what to write. [saved] is the stored row (null while nothing is saved or it has not loaded). The program
-     * is kept from here on, and a second Done never creates it twice.
-     */
-    fun done(newId: String, saved: Program?, onlyProgram: Boolean): ProgramSave {
-        kept = true
-        val active = shownActive(saved?.active ?: false, onlyProgram)
-        if (isNew && savedId == null) { savedId = newId; return ProgramSave(create = Program(newId, nameOf(name), active = active)) }
-        val rename = name?.trim()?.takeIf { it.isNotEmpty() && it != saved?.name }
-        return ProgramSave(rename = rename, activate = isNew && active && saved?.active == false)
+    companion object {
+        val Saver = listSaver<ProgramDraft, Any?>(
+            save = { listOf(it.isNew, it.savedId, it.name, it.activeChoice) },
+            restore = { ProgramDraft(it[0] as Boolean).apply { savedId = it[1] as String?; name = it[2] as String?; activeChoice = it[3] as Boolean? } },
+        )
     }
-
-    /** The program to drop when the screen goes away: one Add block saved, left without Done. */
-    fun dropOnLeave(): String? = if (isNew && !kept) savedId else null
-
-    private fun nameOf(typed: String?) = typed?.trim()?.takeIf { it.isNotEmpty() } ?: NEW_PROGRAM_NAME
-}
-
-/**
- * Holds a [ProgramDraft] for as long as the program editor is on the back stack: a rotation and a trip to a block
- * editor keep it, and when the editor leaves the stack by any path (Back, Done, the system back, a jump to another
- * tab) [drop] gets the program to drop.
- */
-class ProgramDraftModel : ViewModel() {
-    private var draft: ProgramDraft? = null
-    /** Drops a provisional program; set by the screen, so it runs on the app's scope, not this model's. */
-    var drop: ((String) -> Unit)? = null
-
-    fun draft(isNew: Boolean): ProgramDraft = draft ?: ProgramDraft(isNew).also { draft = it }
-
-    public override fun onCleared() { draft?.dropOnLeave()?.let { id -> drop?.invoke(id) } }
 }
 
 /**

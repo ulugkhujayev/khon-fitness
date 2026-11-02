@@ -1,6 +1,7 @@
 package dev.mirzohidkhon.khonfitness.data
 
 import android.app.Application
+import androidx.compose.runtime.saveable.SaverScope
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.ui.screens.BlockDraft
@@ -55,41 +56,51 @@ class ProgramWritesTest {
         assertEquals(listOf("arms"), dao.programsOnce().filter { it.active }.map { it.id })
     }
 
-    @Test fun `Add block then leave without a block drops the program again`() = runBlocking {
+    @Test fun `a new program left with no Add block and no Done writes nothing`() = runBlocking {
         seed()
         val draft = ProgramDraft(isNew = true)
-        repo.createProgram(draft.programForBlock("legs", onlyProgram = false)!!)
-        assertEquals(3, dao.programsOnce().size)
-        draft.dropOnLeave()?.let { repo.dropProgramIfEmpty(it) }
-        assertNull(dao.program("legs"))
+        draft.name = "Legs"; draft.activeChoice = true
+        // Leaving the editor runs no code: there is nothing to undo.
+        assertNull(draft.programId("new"))
+        assertEquals(listOf("pull", "push"), dao.programsOnce().map { it.id }.sorted())
         assertEquals("push", dao.activeProgram()!!.id)
     }
 
-    @Test fun `Add block then a block saved, leave without Done keeps the program and the old active mark`() = runBlocking {
+    @Test fun `Add block then leave keeps one program with that block, saved as Done would`() = runBlocking {
         seed()
         val draft = ProgramDraft(isNew = true)
-        draft.activeChoice = true
+        draft.name = "Legs"; draft.activeChoice = true
         repo.createProgram(draft.programForBlock("legs", onlyProgram = false)!!)
         val block = BlockDraft(isNew = true)
         val (b, first) = block.firstPick("b9", "legs", superset = true, exerciseRowId = "e9", slot = 0, exerciseId = "squat")!!
         repo.createBlock(b, first)
-        draft.dropOnLeave()?.let { repo.dropProgramIfEmpty(it) }
-        assertEquals("New program", dao.program("legs")!!.name)
-        assertEquals("push", dao.activeProgram()!!.id) // the Active choice waited for a Done that never came
-    }
-
-    @Test fun `Done on a program saved by Add block renames it and moves the active mark`() = runBlocking {
-        seed()
-        val draft = ProgramDraft(isNew = true)
-        draft.activeChoice = true
-        repo.createProgram(draft.programForBlock("legs", onlyProgram = false)!!)
-        draft.name = "Legs"
-        val save = draft.done("unused", dao.program("legs"), onlyProgram = false)
-        save.rename?.let { repo.setProgramName("legs", it) }
-        if (save.activate) repo.setActiveProgram("legs")
-        assertNull(draft.dropOnLeave())
+        // Leave without Done: nothing runs.
         assertEquals(Program("legs", "Legs", active = true, sortOrder = 2), dao.program("legs"))
         assertEquals(listOf("legs"), dao.programsOnce().filter { it.active }.map { it.id })
+        assertEquals(listOf("b9"), dao.blocksFor("legs").map { it.id })
+        assertEquals(3, dao.programsOnce().size)
+    }
+
+    @Test fun `Add block then leave before the first exercise still keeps the program`() = runBlocking {
+        seed()
+        val draft = ProgramDraft(isNew = true)
+        repo.createProgram(draft.programForBlock("legs", onlyProgram = false)!!)
+        assertEquals(Program("legs", "New program", active = false, sortOrder = 2), dao.program("legs"))
+        assertEquals("push", dao.activeProgram()!!.id)
+    }
+
+    @Test fun `Add block, then a restored editor and Done updates the same row`() = runBlocking {
+        seed()
+        val draft = ProgramDraft(isNew = true)
+        repo.createProgram(draft.programForBlock("legs", onlyProgram = false)!!)
+        // Process death: the editor comes back from its saved state.
+        val restored = with(ProgramDraft.Saver) { SaverScope { true }.save(draft) }!!.let { ProgramDraft.Saver.restore(it)!! }
+        restored.name = "Legs"
+        val save = restored.done("other", dao.program("legs"), onlyProgram = false)
+        assertNull(save.create)
+        save.rename?.let { repo.setProgramName(restored.programId("new")!!, it) }
+        assertEquals(listOf("legs", "pull", "push"), dao.programsOnce().map { it.id }.sorted())
+        assertEquals("Legs", dao.program("legs")!!.name)
     }
 
     @Test fun `a new block left before its first exercise writes nothing, the first exercise saves both`() = runBlocking {

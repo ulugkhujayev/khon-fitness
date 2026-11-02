@@ -67,7 +67,6 @@ interface KhonDao {
     @Query("UPDATE blocks SET superset = :superset WHERE id = :id") suspend fun setBlockSuperset(id: String, superset: Boolean)
     @Query("UPDATE blocks SET sortOrder = :sortOrder WHERE id = :id") suspend fun setBlockOrder(id: String, sortOrder: Int)
     @Query("SELECT COALESCE(MAX(sortOrder) + 1, 0) FROM blocks WHERE programId = :programId") suspend fun nextBlockOrder(programId: String): Int
-    @Query("SELECT COUNT(*) FROM blocks WHERE programId = :programId") suspend fun blockCountFor(programId: String): Int
     @Query("UPDATE block_exercises SET exerciseId = :exerciseId WHERE id = :id") suspend fun setBlockExerciseExercise(id: String, exerciseId: String)
     @Query("UPDATE block_exercises SET sets = :sets WHERE id = :id") suspend fun setBlockExerciseSets(id: String, sets: Int)
     /** Min reps, with max raised to it when lower, both against the stored row. */
@@ -95,9 +94,6 @@ interface KhonDao {
         deleteBlockExercisesOfProgram(id); deleteBlocksFor(id); deleteProgram(id)
         restPlanDaysOf(id); restOverridesOf(id); keepOneActiveProgram()
     }
-
-    /** Deletes a program saved only so its first block had a home, unless it holds a block by now. */
-    @Transaction suspend fun dropProgramIfEmpty(id: String) { if (blockCountFor(id) == 0) deleteProgramFully(id) }
 
     /** A new block with its first exercise, after its program's other blocks, so no block is ever saved empty. */
     @Transaction suspend fun createBlock(b: Block, first: BlockExercise) {

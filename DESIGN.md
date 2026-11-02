@@ -172,9 +172,10 @@ padded cards, per-item buttons, "Updated" lines.
   an exercise, a program, a block and an exercise taken out of a block.
 - A new program or block is a draft. Nothing is saved, and there is no
   Delete, until Done saves the program or the first exercise saves the
-  block. Add block on a new program saves it so the block has a home.
-  Left without Done and without a block, that program is deleted again,
-  and its Active choice waits for Done.
+  block. Add block on a new program saves it as Done would (the typed
+  name or "New program", and its Active choice) so the block has a home.
+  From then on it is a saved program: it shows Delete, and leaving
+  without Done keeps it.
 - The bar keeps its title centered and shows a hairline once content
   scrolls under it, fading in over the first 16 px.
 

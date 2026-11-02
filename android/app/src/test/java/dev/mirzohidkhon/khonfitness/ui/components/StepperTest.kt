@@ -151,25 +151,43 @@ class StepperTest {
         assertEquals(listOf(120.0), remind.saves)
     }
 
-    @Test fun parseTypedReadsOnlyCleanNumbersInsideTheBounds() {
+    @Test fun cleanTypedLeavesOnlyEmptyOrANumber() {
+        assertEquals("5.", cleanTyped("5..", 1))
+        assertEquals("5.2", cleanTyped("5.2.", 1))
+        assertEquals("0.", cleanTyped(".", 1))
+        assertEquals("12.5", cleanTyped("12,5", 1))
+        assertEquals("125", cleanTyped("12.5", 0))
+        assertEquals("80", cleanTyped("8a0 ", 0))
+        assertEquals("", cleanTyped("-.", 0))
+        // Every cleaned text is empty or reads as a number.
+        for (raw in listOf("5..", ".", "..", ",", "1.2.3", "-", "007", "")) for (d in 0..2) {
+            val t = cleanTyped(raw, d)
+            assertTrue("'$raw' -> '$t'", t.isEmpty() || typedNumber(t) != null)
+        }
+    }
+
+    @Test fun parseTypedReadsCleanTextInsideTheBounds() {
         val sets = Stepper(1.0, 1.0, 10.0)
-        assertNull(sets.parseTyped("5.."))
-        assertNull(sets.parseTyped("."))
         assertNull(sets.parseTyped(""))
+        assertEquals(5.0, sets.parseTyped(cleanTyped("5..", 0))!!, 0.0)
         assertEquals(8.0, sets.parseTyped("8.")!!, 0.0)
         assertEquals(1.0, sets.parseTyped("0")!!, 0.0)
         assertEquals(10.0, sets.parseTyped("15")!!, 0.0)
         assertEquals(12.5, Stepper(0.5).parseTyped("12.5")!!, 0.0)
-        assertEquals(0.0, Stepper(0.5).parseTyped("0")!!, 0.0)
+        assertEquals(0.0, Stepper(0.5).parseTyped(cleanTyped(".", 1))!!, 0.0)
     }
 
-    @Test fun saveAndBlurReadTypedTextTheSameWay() {
-        // NumberField saves parseTyped and, on blur, shows parseTyped or else the saved value.
-        val sets = Stepper(1.0, 1.0, 10.0)
-        val saved = 1.0
-        assertNull(sets.parseTyped("5.."))
-        assertEquals(saved, sets.parseTyped("5..") ?: saved, 0.0)
-        assertEquals(10.0, sets.parseTyped("12") ?: saved, 0.0)
+    @Test fun outsideNullReplacesTypedText() {
+        val kg = Stepper(0.1)
+        for (raw in listOf("5..", ".", "5.", "75")) {
+            val t = cleanTyped(raw, 1)
+            assertTrue("'$t' must give way to an outside null", kg.showsOutside(null, t, focused = true))
+            assertTrue("'$t' must give way to an outside null", kg.showsOutside(null, t, focused = false))
+        }
+        // The text already means the value: no sync, the cursor stays.
+        assertTrue(!kg.showsOutside(5.0, "5.", focused = true))
+        // A focused field the user cleared stays empty.
+        assertTrue(!kg.showsOutside(0.0, "", focused = true))
     }
 
     @Test fun lateSaveIsShownAndALaterOutsideValueToo() {

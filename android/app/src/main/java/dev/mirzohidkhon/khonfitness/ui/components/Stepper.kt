@@ -8,7 +8,21 @@ private val PLAIN_NUMBER = Regex("""\d+(\.\d+)?""")
 /** The number a placeholder shows ("75", "62.5"), or null when it is not a plain number ("1–10"). */
 fun placeholderNumber(placeholder: String?): Double? = placeholder?.takeIf { PLAIN_NUMBER.matches(it) }?.toDouble()
 
-/** The number a field's cleaned text stands for: "80." is 80, empty is null. */
+/**
+ * What a number field keeps of a keystroke: a comma reads as a dot, only digits and one dot stay (none when the field
+ * has no [decimals]), and a leading dot gets its 0. So the text is always empty or a number [typedNumber] can read.
+ */
+fun cleanTyped(raw: String, decimals: Int): String {
+    val out = StringBuilder()
+    var dot = false
+    for (c in raw.replace(',', '.')) when {
+        c.isDigit() -> out.append(c)
+        c == '.' && decimals > 0 && !dot -> { dot = true; if (out.isEmpty()) out.append('0'); out.append('.') }
+    }
+    return out.toString()
+}
+
+/** The number a field's cleaned text ([cleanTyped]) stands for: "80." is 80, empty is null. */
 fun typedNumber(text: String): Double? = text.trimEnd('.').toDoubleOrNull()
 
 /**
@@ -43,8 +57,8 @@ class Stepper(var step: Double, var min: Double = 0.0, var max: Double = Double.
      */
     fun release(): Double? = held?.let { held = null; bounded(it) }
 
-    /** The number typed [text] stands for, bounded, to save and show on blur; null when unreadable ("", ".", "5.."). */
-    fun parseTyped(text: String): Double? = text.toDoubleOrNull()?.let(::bounded)
+    /** The number cleaned [text] ([cleanTyped]) stands for, bounded, to save and show on blur; null when empty. */
+    fun parseTyped(text: String): Double? = typedNumber(text)?.let(::bounded)
 
     /** [v] inside this stepper's bounds. */
     fun bounded(v: Double): Double = bound(v, min, max)

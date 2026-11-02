@@ -269,10 +269,10 @@ fun NumberField(
         BasicTextField(
             value = text,
             onValueChange = { new ->
-                val cleaned = new.text.replace(',', '.').filter { it.isDigit() || it == '.' }
+                val cleaned = cleanTyped(new.text, decimals)
                 text = new.copy(text = cleaned)
-                // A cleared field clears the value; text that cannot be read ("5..") saves nothing.
-                if (cleaned.isEmpty()) onValueChange(null) else stepper.parseTyped(cleaned)?.let(onValueChange)
+                // Cleaned text is empty or a number: a cleared field clears the value.
+                onValueChange(stepper.parseTyped(cleaned))
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = if (decimals > 0) KeyboardType.Decimal else KeyboardType.Number),
@@ -291,7 +291,7 @@ fun NumberField(
                         scope.launch { delay(120); bringIntoView.bringIntoView(); delay(300); bringIntoView.bringIntoView() }
                     }
                     // On leaving, show what the field saved: the typed number inside the bounds (its save may not have
-                    // come back yet), or the value when the text cannot be read or the field was left empty.
+                    // come back yet), or the value when the field was left empty.
                     if (!st.isFocused && hasFocus) {
                         val shown = fmt(stepper.parseTyped(text.text) ?: value, decimals)
                         if (shown != text.text) text = TextFieldValue(shown)

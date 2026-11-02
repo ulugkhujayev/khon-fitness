@@ -137,6 +137,37 @@ class NewRoutineScreenTest {
         assertEquals(1, added().size)
     }
 
+    @Test fun `a second tap after Stretching was rebuilt while the save runs makes no second routine`() {
+        val restore = StateRestorationTester(compose)
+        openStretching(restore)
+        val hold = Hold()
+        tapPlus()
+        restore.emulateSavedInstanceStateRestore()
+        compose.waitForIdle()
+        tapPlus()
+        hold.release()
+        settled { added().isNotEmpty() }
+        assertEquals(1, added().size)
+    }
+
+    @Test fun `an editor with no routine row shows Back, also for a back stack saved as routine new`() {
+        val content: @androidx.compose.runtime.Composable () -> Unit = {
+            KhonTheme {
+                val nav = rememberNavController()
+                NavHost(nav, "programs") {
+                    composable("programs") { Text("Programs screen") }
+                    composable("routine/{id}") { e -> RoutineEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                }
+                androidx.compose.runtime.LaunchedEffect(Unit) { if (nav.currentDestination?.route == "programs") nav.navigate(Routes.routine("new")) }
+            }
+        }
+        compose.setContent(content)
+        waitFor { named("Stretching") }
+        compose.onNodeWithContentDescription("Stretching").performClick()
+        waitFor { shows("Programs screen") }
+        assertTrue(routines().isEmpty())
+    }
+
     @Test fun `leaving Stretching before the save ends keeps the routine and opens no editor`() {
         openStretching()
         val hold = Hold()

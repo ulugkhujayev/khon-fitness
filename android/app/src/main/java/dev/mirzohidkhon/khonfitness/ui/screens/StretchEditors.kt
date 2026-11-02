@@ -29,17 +29,16 @@ fun RoutinesScreen(vm: AppViewModel, nav: NavHostController) {
     val routines by vm.stretchRoutines.collectAsStateWithLifecycle()
     val routineStretches by vm.routineStretches.collectAsStateWithLifecycle()
     val stretches by vm.stretches.collectAsStateWithLifecycle()
-    // This screen's back stack entry; while its create is written, "+" does nothing, so a double tap makes one routine.
+    // This screen's back stack entry; the editor opens only if it is still on top when the create ends.
     val self = LocalLifecycleOwner.current
-    var creating by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
         EditorTopBar("Programs", "Stretching", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New routine") {
-            if (!creating) {
-                creating = true
+            if (!vm.creatingRoutine) {
+                vm.creatingRoutine = true
                 val id = newId()
                 vm.run {
-                    try { vm.repo.createNewRoutine(id) } finally { creating = false }
+                    try { vm.repo.createNewRoutine(id) } finally { vm.creatingRoutine = false }
                     if (nav.currentBackStackEntry === self) nav.navigate(Routes.routine(id))
                 }
             }
@@ -70,7 +69,9 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
     val routines by vm.stretchRoutines.collectAsStateWithLifecycle()
     val routineStretches by vm.routineStretches.collectAsStateWithLifecycle()
     val stretches by vm.stretches.collectAsStateWithLifecycle()
-    val routine = routines.find { it.id == id } ?: return
+    val routine = routines.find { it.id == id }
+    // No row: not loaded yet, deleted elsewhere, or a back stack saved before 0.5.0 ("routine/new"). Back still works.
+    if (routine == null) { EditorScaffold("Stretching", "", onBack = { nav.popBackStack() }, onDone = null) {}; return }
     val mine = routineStretches.filter { it.routineId == id }.sortedWith(compareBy({ it.sortOrder }, { it.id }))
     var picking by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }

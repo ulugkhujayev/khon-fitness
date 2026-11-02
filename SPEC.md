@@ -116,7 +116,8 @@ changes what history shows.
   show all sets of A, then all sets of B.
 - Each set row shows last time's weight and reps, prefilled. Tap the check to
   log as shown. Tap weight or reps to edit: the field takes keyboard input
-  and has +/- steppers on both sides. The rep range shows as a hint.
+  and has +/- steppers on both sides. A tap steps once; a held stepper
+  repeats faster and saves once on release. The rep range shows as a hint.
 - When you beat last time, the row shows the delta in green next to the
   value, for example "+2.5" or "+1 rep".
 - After a check, focus moves to the next set's kg field so you can type or

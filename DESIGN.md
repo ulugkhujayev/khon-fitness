@@ -21,27 +21,38 @@ padded cards, per-item buttons, "Updated" lines.
   secondary label #8E8E93, tertiary #636366. Accent systemOrange #FF9F0A,
   green #30D158, blue #0A84FF, red #FF453A. Label on an accent fill is white.
 - Navigation bar: 56 pt, a round 36 pt Back button with a chevron and no
-  text, the title centered in Headline, the primary action trailing as a
-  34 pt accent capsule ("Done") or a round symbol button ("+").
-- Large title: 34 bold on the leading edge at the top of a scrolling tab
-  screen; bar items trailing as round symbol buttons.
+  text, the title centered in Headline between two equal 88 pt sides, the
+  primary action trailing as a 34 pt accent capsule ("Done") or a round
+  symbol button ("+"). A hairline fades in on its bottom edge over the
+  first 16 pt of scroll.
+- Large title: 34 bold on the leading edge at the top of a tab screen;
+  bar items trailing as round symbol buttons. It stays at the top and
+  folds as the content scrolls: over the first 12 pt the bar's bottom edge
+  rises with the content (60 pt to 48), over the first 40 pt the title
+  shrinks toward its leading edge to about 20 pt, and a hairline fades in
+  once content passes under it. At a large font scale the title row grows
+  to the title's line height and the fold distance stays 12 pt.
 - Tab bar: a floating capsule 60 pt tall, 24 pt from the sides, 10 pt above
   the bottom edge, group surface with a 1 pt hairline and a soft shadow;
   three items with filled symbols and 11 pt labels; the selected item sits
-  on a #2C2C2E capsule tinted accent.
+  on a #2C2C2E capsule tinted accent. The capsule slides to the tab tapped
+  on a quick spring (damping 20, stiffness 240, mass 0.8) with a light
+  haptic click, and the screens shift 50 pt sideways and fade over 150 ms
+  as they swap. Segmented controls slide and click the same way.
 - Inset grouped lists: radius 20 pt, rows 48 pt minimum with 17 pt Body,
   hairline separators inset to the text, values in secondary label on the
   right, a small chevron symbol in tertiary label. Section headers are
   Footnote in secondary label, sentence case, inset 16 pt. Field labels in
   editors are Body in label color, values on the right.
 - Buttons: one prominent button per screen, a 50 pt full-width capsule in
-  accent with white 17 semibold text. Other actions are plain accent text.
-  Destructive is red. Nothing else has a fill.
+  accent with white 17 semibold text. Other actions are plain accent text,
+  tinted capsules or action rows (see Buttons and Editors). Destructive is
+  red.
 - Sheets: top radius 24, a 36x5 grabber in tertiary label, the sheet on
   #1C1C1E, groups inside on the elevated #2C2C2E. Swipe to dismiss.
 - Toggles: 51x31 with systemGreen on, #3A3A3C off, white thumb.
 - Materials: Android 9 has no live blur, so bars are opaque group surface
-  instead of Liquid Glass. Content does not scroll under them.
+  instead of Liquid Glass. Content does not show through them.
 - Minimum tap target 44x44. Screen margin 16. Rhythm 8.
 
 ## Grid
@@ -80,25 +91,52 @@ padded cards, per-item buttons, "Updated" lines.
   editor screen, at the bottom, as text buttons.
 - Add is a single "+" text button at the right of the section title.
 - No dates on list rows unless the row IS a date (history).
-- Empty state: one muted line, no illustration.
+- Rows that open a part of the app lead with a 30 px icon tile like iOS
+  Settings: a white 17 px symbol on a rounded square (radius 7) of its
+  color. The tile is decorative; the row names it.
+- Empty state: one muted line, no illustration. Where a screen has nothing
+  to show yet and an action fixes it, a card shows a 32 px symbol, a title
+  in Headline, a muted 15 line and the action (iOS content-unavailable
+  view).
+- A search that finds nothing, on a screen or in a pick sheet, shows the
+  no-results view in the list's card: a 32 px magnifying glass in muted,
+  "No Results for “row”" in Headline, "Check the spelling or try a new
+  search." in muted 15, centered.
 
 ## Editors
 
 - Full screen, title at top, Back "‹" at left, Done at right.
 - Fields are rows: label on the left in muted 14, value on the right in
   16. Text fields edit inline in the row. Selects open a bottom sheet
-  with a checklist. Multi-select is a checklist too.
+  with a checklist. Multi-select is a checklist too. A long pick list
+  (exercises, stretches) has a search field over it, empty each time the
+  sheet opens, that filters as you type.
+- Fields sit in groups with section titles, so no label wraps. A muted
+  footnote under a group says what its setting does, or why a value
+  cannot change.
 - Numbers use the number widget: minus button, value with unit suffix,
-  plus button. No caption above it. No native spinner.
-- Bottom of the editor: Archive, Merge into…, Delete as text buttons,
-  Delete in red, disabled with a one-line reason when not allowed.
+  plus button. No caption above it. No native spinner. A tap on − or +
+  steps once with a light haptic click; held past 350 ms it repeats,
+  160 ms apart and 15 ms faster each step down to 50, and saves once on
+  release. The eating-window time steppers do the same.
+- Bottom of the editor: actions as rows in grouped lists, like the
+  actions at the end of an iOS contact: a 20 px symbol and the name in
+  accent (Archive, Merge into…, Move up, Move down), the destructive one
+  in red in a group of its own, both dim when off, the reason as a muted
+  footnote under the groups, 32 px below the fields, groups 20 px apart.
+- Every delete or remove asks first in a confirm sheet: what is deleted,
+  a red full-width button, Cancel. Cancel changes nothing.
+- The bar keeps its title centered and shows a hairline once content
+  scrolls under it, fading in over the first 16 px.
 
 ## Buttons
 
-- One primary button per screen at most: 52 px tall, full width, accent
-  fill, dark text. Start, Finish, Done.
+- One primary button per screen at most: 50 px tall, full width, accent
+  fill, white text. Start, Finish, Done.
 - All other actions are text buttons, 44 px tap height, no fill, no
-  border.
+  border. Exception: an action that must read as a button without
+  competing with the primary one is a 44 px tinted capsule, its color as
+  text on that color at 20 percent (accent; red for a destructive one).
 - Icon buttons only in the top bar or the set-row check. Never floating
   inside a row.
 
@@ -190,4 +228,8 @@ Every chart has: dashed grid lines at round values with a label on the
 left, a marker on every point, a value label on every point when there
 are seven or fewer (else on the last and the highest), the last point
 filled in accent with its unit, and dates along the bottom. A line
-without markers and labels is a defect.
+without markers and labels is a defect. Every chart is 190 px tall
+(Today and History alike). Axis and date labels 12/500 in muted; value
+labels 12/500 muted, the last one 13/700 in white. The value axis is as
+wide as its widest label plus 8 px, the right inset 8 px, so the chart
+sits even between the screen margins.

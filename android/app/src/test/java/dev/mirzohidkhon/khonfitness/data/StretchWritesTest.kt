@@ -300,6 +300,36 @@ class StretchWritesTest {
         assertEquals(listOf("r2"), activeIds()) // sortOrder 8 comes before 10
     }
 
+    @Test fun `row 18 merging an export after the active routine was turned off keeps none active`() = runBlocking {
+        seed()
+        val export = repo.exportJson() // am active
+        repo.setRoutineActive("am", false)
+        merge(export)
+        assertTrue(activeIds().isEmpty())
+    }
+
+    @Test fun `row 18 replace with a backup without routines leaves the seeded routine off`() = runBlocking {
+        seed()
+        repo.importJson(backup(), replace = true)
+        assertTrue(dao.stretchRoutinesOnce().any { it.id == "daily" }) // the seed ran
+        assertTrue(activeIds().isEmpty())
+    }
+
+    @Test fun `row 18 a merge onto a phone with B active keeps B over the backup's active routine`() = runBlocking {
+        seed()
+        repo.setRoutineActive("pm", true)
+        merge(backup(routines = listOf(StretchRoutine("x", "Imported", active = true, sortOrder = 0), StretchRoutine("am", "Morning", active = true, sortOrder = 0))))
+        assertEquals(listOf("pm"), activeIds())
+    }
+
+    @Test fun `row 18 a merge onto a phone with no routine takes the backup's first active by sortOrder, then id`() = runBlocking {
+        merge(backup(stretches = listOf(fold), routines = listOf(
+            StretchRoutine("r0", "R0", sortOrder = 0), StretchRoutine("rb", "Rb", active = true, sortOrder = 1),
+            StretchRoutine("ra", "Ra", active = true, sortOrder = 1), StretchRoutine("rc", "Rc", active = true, sortOrder = 2),
+        )))
+        assertEquals(listOf("ra"), activeIds())
+    }
+
     @Test fun `D3 a round trip through merge and replace keeps the stretch tables and the settings equal`() = runBlocking {
         seedRows()
         repo.recordStretchSession(StretchSession("am:s1", "am", "Morning", "2026-11-01", 5L, 600, 1, 0))

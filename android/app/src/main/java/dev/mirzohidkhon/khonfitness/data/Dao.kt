@@ -302,7 +302,8 @@ interface KhonDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertStretchRoutine(r: StretchRoutine): Long
     @Query("UPDATE stretch_routines SET active = (id = :id)") suspend fun setActiveRoutine(id: String)
     @Query("UPDATE stretch_routines SET active = 0 WHERE id = :id") suspend fun clearRoutineActive(id: String)
-    @Query("UPDATE stretch_routines SET active = 0") suspend fun clearActiveRoutines()
+    /** [id] alone active, or none when null: the import's one routine-mark write. */
+    @Query("UPDATE stretch_routines SET active = (id IS :id)") suspend fun setOnlyActiveRoutine(id: String?)
     @Query("SELECT id FROM stretch_routines WHERE active = 1 ORDER BY sortOrder, id LIMIT 1") suspend fun firstActiveRoutineId(): String?
     @Query("SELECT COALESCE(MAX(sortOrder) + 1, 0) FROM stretch_routines") suspend fun nextRoutineOrder(): Int
     @Query("DELETE FROM stretch_routines WHERE id = :id") suspend fun deleteStretchRoutine(id: String)
@@ -456,14 +457,16 @@ interface KhonDao {
      * A backup written in one transaction, after a wipe when [replace]. Afterwards exactly one program is active when
      * any exists: a merge keeps this phone's active program and clears the mark on imported ones; a replace (or a
      * merge onto a phone with none) takes the backup's first active program in list order, else the first program.
-     * Routines: at most one is active. A merge keeps this phone's active routine and clears the mark on imported ones;
-     * a replace (or a merge onto a phone with none active) keeps the backup's first active routine by sortOrder, else none. Routine
-     * rows whose routine or stretch is missing go, and the eating-window settings row exists afterwards. Stretch
-     * sessions take the backup's rows, the one overwrite of a recorded session.
+     * Routines: at most one is active, picked before any write. A merge onto a phone with routines keeps this phone's
+     * active routine, or none when none is active; a replace, or a merge onto a phone with no routine, takes the backup's
+     * first active routine by sortOrder, id, else none. One statement after every write (the seed too) marks only that
+     * one. Routine rows whose routine or stretch is missing go, and the eating-window settings row exists afterwards.
+     * Stretch sessions take the backup's rows, the one overwrite of a recorded session.
      */
     @Transaction suspend fun importBackup(b: Backup, replace: Boolean) {
         val kept = if (replace) null else firstActiveProgramId()
-        val keptRoutine = if (replace) null else firstActiveRoutineId()
+        val backupRoutine = b.stretchRoutines.filter { it.active }.minWithOrNull(compareBy({ it.sortOrder }, { it.id }))?.id
+        val routineWinner = if (!replace && stretchRoutinesOnce().isNotEmpty()) firstActiveRoutineId() else backupRoutine
         if (replace) clearAll()
         upsertModalities(b.modalities); upsertExercises(b.exercises); upsertPrograms(b.programs); upsertBlocks(b.blocks)
         upsertBlockExercises(b.blockExercises); upsertSessions(b.sessions); upsertSetLogs(b.setLogs); upsertIntervalLogs(b.intervalLogs)
@@ -472,8 +475,7 @@ interface KhonDao {
         upsertStretchSessions(b.stretchSessions); b.eatingWindow?.let { upsert(it) }; upsertWindowDays(b.windowDays)
         if (replace && stretchesOnce().isEmpty()) Seed.applyStretches(this)
         (kept ?: firstActiveProgramId() ?: firstProgramId())?.let { setActiveProgram(it) }
-        val activeRoutine = keptRoutine ?: firstActiveRoutineId()
-        if (activeRoutine != null) setActiveRoutine(activeRoutine) else clearActiveRoutines()
+        setOnlyActiveRoutine(routineWinner)
         deleteOrphanRoutineStretches()
         insertEatingWindowIfMissing()
     }

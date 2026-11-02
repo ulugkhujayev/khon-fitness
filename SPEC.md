@@ -213,10 +213,12 @@ an import exactly one program is active when any exists: merge keeps this
 phone's active program; replace takes the backup's first active program in
 list order, or the first program when none is active.
 
-Routines get the same treatment, with at most one active. A merge keeps this
-phone's active routine and clears the mark on imported ones. A replace, or a
-merge onto a phone with no active routine, keeps the backup's first active
-routine by sortOrder, or none. Every import also repairs three things in the
+Routines keep at most one active, chosen before the import writes anything.
+A merge onto a phone that has routines keeps this phone's active routine and
+clears the mark on imported ones; when no routine is active on the phone, none
+is active afterwards. A replace, or a merge onto a phone with no routine,
+keeps the backup's first active routine by sortOrder, or none. A built-in
+routine that the import seeds is never active. Every import also repairs three things in the
 same transaction. It deletes routine rows whose routine or stretch is missing.
 It creates the eating-window settings row with defaults when neither the
 backup nor the phone has one. It writes the backup's stretch sessions over the

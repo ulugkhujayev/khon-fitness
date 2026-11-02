@@ -120,6 +120,7 @@ class BackupTest {
         val export = repo.exportJson()
         val original = parse(export)
         assertTrue(original.sessions.size == 2 && original.setLogs.size == 1 && original.stretchSessions.size == 1)
+        assertTrue(original.stretchRoutines.single { it.id == "daily" }.active) // the empty phone takes the backup's active routine
 
         val (dao2, repo2) = newRepo()
         repo2.importJson(export, replace = false)

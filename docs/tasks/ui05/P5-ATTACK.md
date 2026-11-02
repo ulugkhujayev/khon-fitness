@@ -44,3 +44,13 @@ are listed in the task file's "Attack cases"; C1, C2 and W2 are covered by
 P4-FIX2; C3 and the demo became rows 21 and 22. W3 (alarm delivered while
 disabled) is already safe: the receiver checks `enabled`
 (`window/WindowScheduler.kt:77`).
+
+# Round 2 (Sol, 2026-11-02)
+
+Verdict: **open-ended**. The command table closed the screen edits; import,
+seed, ordering ties, activation order, a missing settings row, import
+versus insert-once, orphan routine rows, alarms after import, and restored
+snapshots of a deleted routine were still unspecified. The lead added
+rules for each (task file: "Ordering", "Activation", "Import and seed",
+"Guard", attack cases E7-E11, D1, D4-D6, P2, P4, W1, W5, row 20, and a
+coverage list) and runs the attack again.

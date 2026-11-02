@@ -101,8 +101,10 @@ padded cards, per-item buttons, "Updated" lines.
   editor screen, at the bottom, as action rows (see Editors).
 - Add on a list screen is a round "+" in the bar. Inside an editor it is
   a full-width 44 px tinted "Add …" button 12 px under its list (Add
-  block, Add exercise, Add second exercise). A program's blocks are
+  block, Add exercise, Add second exercise, Add stretch). A program's blocks are
   numbered like a session's: the index in a 24 px accent-tinted circle.
+  A routine's order rows carry up, down and remove as bare symbols on
+  44 px targets (remove in red; up off on the first row, down on the last).
 - No dates on list rows unless the row IS a date (history).
 - Rows that open a part of the app lead with a 30 px icon tile like iOS
   Settings: a white 17 px symbol on a rounded square (radius 7) of its
@@ -169,13 +171,29 @@ padded cards, per-item buttons, "Updated" lines.
   footnote under the groups, 32 px below the fields, groups 20 px apart.
 - Every delete or remove asks first in a confirm sheet: what is deleted,
   a red full-width button, Cancel. Cancel changes nothing. That covers
-  an exercise, a program, a block and an exercise taken out of a block.
+  an exercise, a program, a block, an exercise taken out of a block, a
+  stretch, a routine and a stretch taken out of a routine.
 - A new program or block is a draft. Nothing is saved, and there is no
   Delete, until Done saves the program or the first exercise saves the
   block. Add block on a new program saves it as Done would (the typed
   name or "New program", and its Active choice) so the block has a home.
   From then on it is a saved program: it shows Delete, and leaving
   without Done keeps it.
+- A new routine is a draft the same way: "+" on Stretching opens its
+  editor and writes nothing. Done saves it (the typed name or "New
+  routine", and its Active choice, on by default only when there is no
+  routine yet), and so does its first stretch, which becomes its first
+  row. From then on it is a saved routine: each edit writes at once, it
+  shows Delete, and leaving without Done keeps it. A draft survives a
+  rotation and process death, and a restored editor edits the same
+  routine. The routine's Active has a footnote that says what it does;
+  turning it off leaves no routine active.
+- The stretch editor groups its fields: name and guide; Timing (Per
+  side, Reps, Rep count, Hold or Time); Details (Muscles, Cue, Link);
+  Watch the reference once there is a link. Delete is off with the reason
+  as a footnote for a built-in stretch and for one a routine row uses
+  ("In use by 2 routine rows."), counted once the stretch is on screen;
+  a delete refused at confirm time keeps the editor open with the reason.
 - The bar keeps its title centered and shows a hairline once content
   scrolls under it, fading in over the first 16 px.
 
@@ -293,12 +311,34 @@ Two lines, 88 px total, hairline between rows.
   stretching. State is also shown in text.
 - Screen margins are 16 dp. Top Stop and Skip controls have equal 64 dp
   widths and at least 48 dp tap targets. The routine title is centered.
+  Stop (an X) and Skip (forward-end) are 40 px round controls, a white
+  symbol on white at 18 percent, readable on black and on green; Skip is
+  dim when there is nothing to skip. 10 px under the bar, the run's
+  progress: one 3 px segment per stretch and side, 3 px apart (done white
+  at 60 percent, the current one white, the rest white at 18 percent) and
+  "3 of 12 · 6:30 remaining" in footnote under it. The line under the
+  stretch's name carries its length ("Left · Hold · 0:40", "10 reps ·
+  1:00"); a ready screen shows no status line of its own, and the running
+  states say Get ready, Hold, Move or Paused. Debug builds keep a ×20
+  button under Start to test a routine quickly.
 - One primary action stays at the bottom: Start, Pause, or Resume. Content
   scrolls above it on short screens or with large text. Controls never overlap.
 - The stretch name and side appear above an offline 3D human demonstration.
   Before Start, the guide automatically plays setup, movement, and hold steps.
   Numbered steps pause on a position. Play demo restarts the lesson. Change
   view switches between two camera angles. Each step has a plain instruction.
+  Play/Pause and Change view are 40 px round controls over the image's
+  bottom corners, 10 px in, a white symbol on black at 45 percent, like a
+  video player's. The steps are a timeline: 26 px numbered nodes on a
+  3 px line, each title under its node in footnote muted. Nodes before
+  the shown step are accent with white numbers, the shown one also sits
+  in a 34 px accent-tinted halo with its title white and semibold, later
+  ones are Surface3 with muted numbers. The line runs between the first
+  and the last node in Surface2 and fills in accent as far as the demo
+  has come, moving on as the pose moves into each step. A tap on a step
+  holds its pose. During the stretch the steps are hidden and the
+  instruction follows the nearest step. The same demonstration heads the
+  stretch editor.
 - Demo playback does not start the exercise clock. A new stretch or side
   opens with its demonstration playing. The Start button stays fixed below
   the scrollable guide, timer, and routine progress.

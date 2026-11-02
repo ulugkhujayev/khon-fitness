@@ -123,7 +123,12 @@ block needs it as the block's home; Add block saves it as Done would, with
 its name and Active choice, and from then on it stays when left without
 Done. A new program left before Done or Add block writes nothing. A new
 block is written together with its first exercise; leaving before that
-writes nothing.
+writes nothing. A new routine is written on Done, or together with its
+first stretch as its first row, with its name ("New routine" when left
+empty) and Active choice; from then on each edit writes at once and it
+stays when left without Done. A new routine left before Done or a stretch
+writes nothing. A draft and the id it was saved under survive a rotation
+and process death, so a restored editor never writes a second routine.
 
 Every delete or remove asks first: an exercise, a program, a block, an
 exercise taken out of a block. Deleting a program deletes its blocks and

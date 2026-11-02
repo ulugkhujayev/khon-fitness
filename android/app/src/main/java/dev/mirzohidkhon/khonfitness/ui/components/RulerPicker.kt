@@ -80,7 +80,7 @@ private const val LABEL_TOP = TICK_MAJOR + 4
  * element that steps a tick at a time.
  */
 @Composable
-fun RulerPicker(ruler: Ruler, value: () -> Double, onChange: (Double) -> Unit, label: String, unit: String, surface: Color, modifier: Modifier = Modifier) {
+fun RulerPicker(ruler: Ruler, value: () -> Double, onChange: (Double) -> Unit, label: String, unit: String, surface: Color, modifier: Modifier = Modifier, stopKey: Int = 0) {
     val density = LocalDensity.current
     val focus = LocalFocusManager.current
     val tick = rememberTick()
@@ -99,8 +99,17 @@ fun RulerPicker(ruler: Ruler, value: () -> Double, onChange: (Double) -> Unit, l
         offset = motion.offset
     }
 
+    /** The user took the value elsewhere: stop any fling, even when the value did not change. */
+    fun stop(v: Double) {
+        moving?.cancel(); moving = null
+        motion.stop(v)
+        offset = motion.offset
+    }
+
     val current = value()
     LaunchedEffect(current) { takeOutside(current) }
+    // A new [stopKey] (the typed figure got focus) stops the ruler where it shows.
+    LaunchedEffect(stopKey) { if (stopKey != 0) stop(value()) }
 
     /** One frame of gesture [id]; false once it lost the ruler. */
     fun step(id: Int, to: Float): Boolean {
@@ -157,7 +166,7 @@ fun RulerPicker(ruler: Ruler, value: () -> Double, onChange: (Double) -> Unit, l
                 // A screen reader adjust is the user's own pick: it stops any fling, ends typing and reports once.
                 setProgress { target ->
                     val v = ruler.tickValue(ruler.tickIndex(target.toDouble()))
-                    takeOutside(v)
+                    stop(v)
                     focus.clearFocus()
                     change(v)
                     true
@@ -191,7 +200,7 @@ fun RulerPicker(ruler: Ruler, value: () -> Double, onChange: (Double) -> Unit, l
  * save button can turn off; leaving the field shows the value again and reports true.
  */
 @Composable
-fun FigureField(value: Double, onChange: (Double) -> Unit, unit: String, label: String, modifier: Modifier = Modifier, decimals: Int = 1, onValid: (Boolean) -> Unit = {}) {
+fun FigureField(value: Double, onChange: (Double) -> Unit, unit: String, label: String, modifier: Modifier = Modifier, decimals: Int = 1, onValid: (Boolean) -> Unit = {}, onFocus: () -> Unit = {}) {
     var text by remember { mutableStateOf(TextFieldValue(fmt(value, decimals))) }
     var focused by remember { mutableStateOf(false) }
     val current by rememberUpdatedState(value)
@@ -216,7 +225,7 @@ fun FigureField(value: Double, onChange: (Double) -> Unit, unit: String, label: 
             modifier = Modifier.width(IntrinsicSize.Min).widthIn(min = 44.dp).alignByBaseline()
                 .semantics { contentDescription = label }
                 .onFocusChanged { st ->
-                    if (st.isFocused && !focused) text = text.copy(selection = TextRange(0, text.text.length))
+                    if (st.isFocused && !focused) { text = text.copy(selection = TextRange(0, text.text.length)); onFocus() }
                     // The picker may have moved the value since, and "0" was never taken.
                     if (!st.isFocused && focused) { text = TextFieldValue(fmt(current, decimals)); onValid(true) }
                     focused = st.isFocused

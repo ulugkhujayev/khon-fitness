@@ -13,6 +13,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -152,5 +153,20 @@ class TodayRulesTest {
         assertNull(updateRow(null, null))
         assertNull(updateRow(Updater.Result.UpToDate("0.5.0"), null))
         assertNull(updateRow(Updater.Result.Failed("offline"), null))
+    }
+
+    @Test fun `a second install tap while the first download starts does nothing`() {
+        var progress: Float? = null
+        var downloads = 0
+        // runUpdate's order: check, then set progress, then launch the download.
+        fun tap() { if (startsUpdate(available, progress)) { progress = 0f; downloads++ } }
+        tap(); tap()
+        assertEquals(1, downloads)
+        // After a failure the progress clears and a new tap starts again.
+        progress = null
+        tap()
+        assertEquals(2, downloads)
+        assertFalse(startsUpdate(null, null))
+        assertFalse(startsUpdate(Updater.Result.UpToDate("0.5.0"), null))
     }
 }

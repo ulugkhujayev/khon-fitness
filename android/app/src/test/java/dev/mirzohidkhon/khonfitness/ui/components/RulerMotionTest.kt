@@ -114,4 +114,32 @@ class RulerMotionTest {
         assertEquals(80.0, typedFigure("80.")!!, 0.0)
         assertEquals(80.6, typedFigure("80.6")!!, 0.0)
     }
+
+    @Test fun `focus on the figure during a fling on the same value stops it`() {
+        val p = Parent(80.0)
+        val m = RulerMotion(r, 80.0)
+        val id = m.start()
+        frame(m, p, id, 6010f)
+        assertEquals(80.1, p.kg, 0.0)
+        // The user pastes the value the ruler already shows: focus came first and stopped the fling.
+        m.stop(p.kg)
+        assertFalse(m.owns(id))
+        frame(m, p, id, 6030f)
+        assertEquals(80.1, p.kg, 0.0)
+        assertEquals(r.offsetOf(80.1), m.offset, 0f)
+    }
+
+    @Test fun `a screen reader adjust to the shown value stops the fling and no later frame reports`() {
+        val p = Parent(80.0)
+        val m = RulerMotion(r, 80.0)
+        val id = m.start()
+        frame(m, p, id, 6010f)
+        m.stop(80.1); p.kg = 80.1
+        assertNull(m.move(id, 6020f, p.kg))
+        assertFalse(m.owns(id))
+        // A new drag takes the ruler again.
+        val next = m.start()
+        assertTrue(m.owns(next))
+        assertEquals(80.2, m.move(next, r.offsetOf(80.1) + 10f, p.kg)!!, 1e-9)
+    }
 }

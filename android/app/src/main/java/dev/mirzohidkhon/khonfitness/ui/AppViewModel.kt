@@ -48,7 +48,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     /** Download and install in one go. The system relaunches the app when the install is done. */
     fun runUpdate(context: android.content.Context, onNeedPermission: () -> Unit, onError: (String) -> Unit) {
-        val u = update.value as? dev.mirzohidkhon.khonfitness.update.Updater.Result.Available ?: return
+        // One download at a time: a second tap before the screen shows the progress starts nothing.
+        if (!dev.mirzohidkhon.khonfitness.ui.screens.startsUpdate(update.value, updateProgress.value)) return
+        val u = update.value as dev.mirzohidkhon.khonfitness.update.Updater.Result.Available
         updateProgress.value = 0f
         viewModelScope.launch {
             runCatching { dev.mirzohidkhon.khonfitness.update.Updater.download(context, u.apk) { updateProgress.value = it } }

@@ -84,6 +84,9 @@ fun updateRow(result: Updater.Result?, progress: Float?): UpdateRow? {
     return UpdateRow("Update to ${u.release.tag_name}", if (progress == null) "Tap to install" else "Downloading ${(progress * 100).toInt()}%", progress != null)
 }
 
+/** Whether a tap on install starts a download: a newer release is there and no download runs yet. */
+fun startsUpdate(result: Updater.Result?, progress: Float?): Boolean = result is Updater.Result.Available && progress == null
+
 /** Today's bodyweight ruler: 20 to 250 kg in 0.1 kg ticks 10 dp apart, a label on every kilogram. */
 val BODYWEIGHT_RULER = Ruler(min = 20.0, max = 250.0, step = 0.1, gap = 10f, majorEvery = 10)
 

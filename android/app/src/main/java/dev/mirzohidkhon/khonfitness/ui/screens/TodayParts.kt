@@ -203,17 +203,19 @@ fun BodyweightEntry(today: LocalDate, bodyweights: List<Bodyweight>, onSave: (Do
     // The entries load after the first frame: start at the latest one until the user picks a value.
     LaunchedEffect(bodyweights.lastOrNull()) { if (!touched) kg = startKg(bodyweights) }
     var valid by remember { mutableStateOf(true) }
+    // Focus on the typed figure stops the ruler, so a fling never writes over typing.
+    var stopRuler by remember { mutableIntStateOf(0) }
     val pick: (Double) -> Unit = { kg = it; touched = true }
     val change = changeSince(bodyweights, today, kg)
     val action = entryAction(bodyweights, today, kg, valid)
     Column(Modifier.padding(top = 24.dp).fillMaxWidth().clip(GroupShape).background(K.Surface).padding(vertical = 14.dp)) {
-        FigureField(kg, pick, "kg", "Bodyweight in kilograms", Modifier.padding(horizontal = 16.dp), onValid = { valid = it })
+        FigureField(kg, pick, "kg", "Bodyweight in kilograms", Modifier.padding(horizontal = 16.dp), onValid = { valid = it }, onFocus = { stopRuler++ })
         if (change.isNotEmpty()) Text(
             change, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         )
         // The ruler runs to the card's edges and fades into it.
-        RulerPicker(BODYWEIGHT_RULER, { kg }, pick, "Bodyweight ruler", "kg", K.Surface, Modifier.padding(top = 10.dp))
+        RulerPicker(BODYWEIGHT_RULER, { kg }, pick, "Bodyweight ruler", "kg", K.Surface, Modifier.padding(top = 10.dp), stopKey = stopRuler)
         TintedButton(action.text, Modifier.padding(top = 12.dp).padding(horizontal = 16.dp), enabled = action.enabled, description = SPOKEN[action.text]) { if (action.enabled) onSave(kg) }
     }
 }

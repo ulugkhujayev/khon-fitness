@@ -93,6 +93,16 @@ class RulerMotion(private val ruler: Ruler, value: Double) {
         return v
     }
 
+    /**
+     * The user took the value elsewhere (focus on the typed figure, a screen reader adjust to [value]): any gesture
+     * loses the ruler even when the value equals the one shown, and the ruler rests on [value]'s tick.
+     */
+    fun stop(value: Double = shown) {
+        owner = 0
+        shown = value
+        offset = ruler.offsetOf(value)
+    }
+
     /** A value from outside. When it is new, any gesture loses the ruler and the ruler moves to it; returns whether it moved. */
     fun outside(value: Double): Boolean {
         if (value == shown) return false

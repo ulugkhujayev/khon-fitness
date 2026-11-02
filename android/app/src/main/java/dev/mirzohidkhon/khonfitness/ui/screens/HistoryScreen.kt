@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -25,6 +26,7 @@ import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
+import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.time.DayOfWeek
@@ -75,18 +77,18 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
     val loggedIds = allLogs.filter { it.status == SetStatus.DONE }.map { it.exerciseId }.toSet()
     val chosenId = exerciseId ?: strength.firstOrNull { it.id in loggedIds }?.id ?: strength.firstOrNull()?.id
 
-    TabScreen("History", trailing = { TextButton("Import") { nav.navigate(Routes.IMPORT) } }) {
+    TabScreen("History", trailing = { BarCircleButton(Icons.Download, "Import workouts") { nav.navigate(Routes.IMPORT) } }) {
         Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton("‹", description = "Previous month") { month = month.minusMonths(1) }
             Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy")), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
             TextButton("›", description = "Next month") { month = month.plusMonths(1) }
         }
-        Row(Modifier.fillMaxWidth().clearAndSetSemantics {}) { listOf("M", "T", "W", "T", "F", "S", "S").forEach { Text(it, color = K.Dim, fontSize = 12.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f)) } }
+        Row(Modifier.fillMaxWidth().clearAndSetSemantics {}) { listOf("M", "T", "W", "T", "F", "S", "S").forEach { Text(it, color = K.Muted, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f).padding(bottom = 4.dp)) } }
         val first = month.atDay(1).with(DayOfWeek.MONDAY).let { if (it > month.atDay(1)) it.minusWeeks(1) else it }
         val largeText = androidx.compose.ui.platform.LocalConfiguration.current.fontScale >= 1.5f
-        val daySize = if (largeText) 34.dp else 26.dp
-        val dayHeight = if (largeText) 56.dp else 46.dp
-        val cellShape = RoundedCornerShape(10.dp)
+        // A tile with the number and its dots, 3 dp inside its cell so tiles sit 6 dp apart.
+        val dayHeight = if (largeText) 64.dp else 52.dp
+        val cellShape = DayTileShape
         val haptics = LocalHapticFeedback.current
         val cellBounds = remember(month) { HashMap<LocalDate, Rect>() }
         var dragFrom by remember { mutableStateOf<LocalDate?>(null) }
@@ -149,23 +151,29 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
                             }
                             .clearAndSetSemantics { contentDescription = dateDescription; if (isSelected) this.selected = true; customActions = actions },
                     ) {
-                        Column(
-                            Modifier.fillMaxSize()
+                        val isToday = date == today
+                        // On today's accent tile every mark turns white, as on the week strip.
+                        fun tint(c: Color) = if (isToday) K.AccentInk else c
+                        Box(
+                            Modifier.fillMaxSize().padding(3.dp)
                                 .graphicsLayer { if (lifted) { translationX = dragOffset.x; translationY = dragOffset.y; scaleX = 1.12f; scaleY = 1.12f; shadowElevation = 8.dp.toPx(); shape = cellShape; clip = true } }
-                                .clip(cellShape).background(if (lifted) K.Surface3 else if (target) K.AccentSoft else if (isSelected) K.Surface2 else Color.Transparent)
-                                .then(if (target) Modifier.border(2.dp, K.Accent, cellShape) else Modifier).padding(top = 6.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
+                                .clip(cellShape)
+                                .background(when { lifted -> K.Surface3; target -> K.AccentSoft; isToday -> K.Accent; isSelected -> K.Surface3; inMonth -> K.Surface; else -> Color.Transparent })
+                                .then(if (target) Modifier.border(2.dp, K.Accent, cellShape) else Modifier),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Box {
-                                Box(Modifier.size(daySize).clip(CircleShape).background(if (date == today) K.Accent else Color.Transparent), contentAlignment = Alignment.Center) {
-                                    Text(date.dayOfMonth.toString(), fontSize = 15.sp, fontWeight = if (date == today) FontWeight.Bold else FontWeight.Normal, color = if (date == today) K.AccentInk else if (inMonth) K.Text else K.Dim)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    date.dayOfMonth.toString(), style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), maxLines = 1, softWrap = false,
+                                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium, color = if (isToday) K.AccentInk else if (inMonth) K.Text else K.Dim,
+                                )
+                                Row(Modifier.padding(top = 3.dp).height(8.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    if (dots.isNotEmpty()) dots.forEach { s -> if (s == null) Dot(tint(K.Green), true, size = 7) else sessionColor(s, exercises, modalities).let { Dot(tint(it.first), it.second, size = 7) } }
+                                    else if (planned != null) Box(Modifier.alpha(0.4f)) { Dot(tint(planned.first), planned.second, size = 5) }
                                 }
-                                if (item.overridden) Box(Modifier.align(Alignment.TopEnd).offset(x = 3.dp, y = (-1).dp).size(5.dp).clip(CircleShape).background(K.Muted))
                             }
-                            Row(Modifier.padding(top = 4.dp).height(8.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                if (dots.isNotEmpty()) dots.forEach { s -> if (s == null) Dot(K.Green, true, size = 7) else sessionColor(s, exercises, modalities).let { Dot(it.first, it.second, size = 7) } }
-                                else if (planned != null) Box(Modifier.alpha(0.4f)) { Dot(planned.first, planned.second, size = 5) }
-                            }
+                            // The plan of this date was changed by hand.
+                            if (item.overridden) Box(Modifier.align(Alignment.TopEnd).padding(top = 5.dp, end = 5.dp).size(5.dp).clip(CircleShape).background(if (isToday) K.AccentInk else K.Muted))
                         }
                     }
                     d = d.plusDays(1)
@@ -227,27 +235,7 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController) {
 
         // ---- Sets per muscle, this week against last week
         Spacer(Modifier.height(28.dp))
-        Text("Sets per muscle", style = MaterialTheme.typography.titleMedium, color = K.Muted)
-        Text("This week, with last week in grey. Secondary muscles count half.", color = K.Dim, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
-        val volume = remember(allLogs, sessions, exercises, today) { muscleVolume(allLogs, sessions, exercises, today) }
-        if (volume.isEmpty()) Text("No finished sets this week or last.", color = K.Dim, style = MaterialTheme.typography.bodyMedium)
-        else GroupedList {
-            val max = volume.maxOf { maxOf(it.thisWeek, it.lastWeek) }.coerceAtLeast(1.0)
-            volume.forEachIndexed { i, m ->
-                Column(Modifier.fillMaxWidth()) {
-                    if (i > 0) androidx.compose.material3.HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider)
-                    Row(Modifier.fillMaxWidth().padding(16.dp, 10.dp, 16.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(m.muscle.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                        Text(fmt(m.thisWeek, 1), fontWeight = FontWeight.Bold)
-                        Text("  ${fmt(m.lastWeek, 1)}", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
-                    }
-                    Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp)) {
-                        Box(Modifier.fillMaxWidth(fraction = (m.thisWeek / max).toFloat().coerceIn(0.02f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(K.Accent))
-                        Box(Modifier.padding(top = 3.dp).fillMaxWidth(fraction = (m.lastWeek / max).toFloat().coerceIn(0.02f, 1f)).height(4.dp).clip(RoundedCornerShape(2.dp)).background(K.Surface3))
-                    }
-                }
-            }
-        }
+        MuscleVolumeList(remember(allLogs, sessions, exercises, today) { muscleVolume(allLogs, sessions, exercises, today) })
 
         // ---- Cardio trends
         Spacer(Modifier.height(28.dp))
@@ -335,6 +323,44 @@ fun volumeShares(volume: List<MuscleVolume>): List<VolumeShare> {
     val max = maxOf(1.0, volume.maxOfOrNull { maxOf(it.thisWeek, it.lastWeek) } ?: 0.0)
     fun share(v: Double) = if (v <= 0) 0.0 else maxOf(MIN_SHARE, v / max)
     return volume.map { VolumeShare(share(it.thisWeek), share(it.lastWeek)) }
+}
+
+/** A 6 dp track with this week's fill, and a 2 × 14 dp mark where last week ended. */
+private val VOLUME_TRACK = 6.dp
+private val VOLUME_MARK_HEIGHT = 14.dp
+
+/**
+ * Sets per muscle this week against last week: the muscle with this week's count and "last 3", then one track
+ * filled to this week's sets with a white mark where last week's ended, so passing the mark reads as beating last
+ * week.
+ */
+@Composable
+fun MuscleVolumeList(volume: List<MuscleVolume>) {
+    Spacer(Modifier.height(28.dp))
+    Text("Sets per muscle", style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.semantics { heading() })
+    Text("This week; the white mark is last week. Secondary muscles count half.", color = K.Dim, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
+    if (volume.isEmpty()) { Text("No finished sets this week or last.", color = K.Dim, style = MaterialTheme.typography.bodyMedium); return }
+    val shares = volumeShares(volume)
+    GroupedList {
+        volume.forEachIndexed { i, m ->
+            val name = m.muscle.replaceFirstChar { it.uppercase() }
+            if (i > 0) androidx.compose.material3.HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
+            Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = "$name, ${fmt(m.thisWeek)} sets this week, ${fmt(m.lastWeek)} last week" }.padding(16.dp, 10.dp, 16.dp, 12.dp)) {
+                Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+                    Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).alignByBaseline())
+                    Text(fmt(m.thisWeek), style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), fontWeight = FontWeight.Bold, modifier = Modifier.alignByBaseline())
+                    Text("last ${fmt(m.lastWeek)}", style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.alignByBaseline().padding(start = 8.dp))
+                }
+                // As tall as the mark, the track centered in it, so the mark stands above and below the track.
+                BoxWithConstraints(Modifier.fillMaxWidth().height(VOLUME_MARK_HEIGHT), contentAlignment = Alignment.CenterStart) {
+                    Box(Modifier.fillMaxWidth().height(VOLUME_TRACK).clip(RoundedCornerShape(3.dp)).background(K.Surface2)) {
+                        if (shares[i].now > 0) Box(Modifier.fillMaxWidth(shares[i].now.toFloat()).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(K.Accent))
+                    }
+                    if (shares[i].last > 0) Box(Modifier.offset(x = maxWidth * shares[i].last.toFloat() - 1.dp).width(2.dp).fillMaxHeight().clip(RoundedCornerShape(1.dp)).background(K.Text))
+                }
+            }
+        }
+    }
 }
 
 data class ProgressPoint(val date: LocalDate, val e1rm: Double, val topW: Double, val topR: Int)

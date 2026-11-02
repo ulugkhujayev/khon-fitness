@@ -10,6 +10,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
@@ -19,16 +20,29 @@ import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 
-/** Stretching: the routines (the active one filled), then the stretch library. A new routine opens as a draft in its editor. */
+/**
+ * Stretching: the routines (the active one filled), then the stretch library. "+" saves a new routine
+ * ([KhonDao.createNewRoutine]) and then opens it in its editor, if this screen is still the one on top.
+ */
 @Composable
 fun RoutinesScreen(vm: AppViewModel, nav: NavHostController) {
     val routines by vm.stretchRoutines.collectAsStateWithLifecycle()
     val routineStretches by vm.routineStretches.collectAsStateWithLifecycle()
     val stretches by vm.stretches.collectAsStateWithLifecycle()
+    // This screen's back stack entry; while its create is written, "+" does nothing, so a double tap makes one routine.
+    val self = LocalLifecycleOwner.current
+    var creating by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
         EditorTopBar("Programs", "Stretching", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New routine") {
-            nav.navigate(Routes.routine("new"))
+            if (!creating) {
+                creating = true
+                val id = newId()
+                vm.run {
+                    try { vm.repo.createNewRoutine(id) } finally { creating = false }
+                    if (nav.currentBackStackEntry === self) nav.navigate(Routes.routine(id))
+                }
+            }
         }
         Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             SectionTitle("Routines")
@@ -48,93 +62,64 @@ fun RoutinesScreen(vm: AppViewModel, nav: NavHostController) {
 
 /**
  * Routine editor: name, Active and what it does, the stretches with their seconds, Add stretch, their order with up,
- * down and remove, Delete. A saved routine writes each edit as it is made. A new routine (`new`) is a draft
- * ([RoutineDraft]): nothing is saved until Done or its first stretch, so backing out leaves nothing behind.
+ * down and remove, Delete. It edits a saved routine only ("+" on Stretching saves a new one first): each edit is
+ * written as it is made, and Done and Back leave.
  */
 @Composable
-fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
+fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
     val routines by vm.stretchRoutines.collectAsStateWithLifecycle()
     val routineStretches by vm.routineStretches.collectAsStateWithLifecycle()
     val stretches by vm.stretches.collectAsStateWithLifecycle()
-    val draft = rememberSaveable(saver = RoutineDraft.Saver) { RoutineDraft.open(routineId) }
-    val id = draft.id
-    // Saved or draft comes from the database: a new routine is a draft until the list holds its id.
-    val routine = routines.find { it.id == id }
-    if (!draft.isNew && routine == null) return
-    val isDraft = draft.isDraft(routine)
-    val noRoutines = routines.isEmpty()
+    val routine = routines.find { it.id == id } ?: return
     val mine = routineStretches.filter { it.routineId == id }.sortedWith(compareBy({ it.sortOrder }, { it.id }))
     var picking by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val removal = rememberConfirm<RoutineStretch>()
     fun name(rs: RoutineStretch) = stretches.find { it.id == rs.stretchId }?.name ?: "Missing stretch"
-    // While the first stretch's create is pending: no pick (it would race that create), but Name and Active still edit
-    // the draft and queue their write after it, which writes nothing when the create is refused.
-    val pending = id in vm.pendingRoutines
-    fun pick(stretchId: String) {
-        picking = false
-        if (!draft.canPick(pending)) return
-        // In order with Done. Refused when the stretch went meanwhile: nothing is written and the editor stays a draft.
-        draft.forFirstStretch(routine, noRoutines)?.let { r ->
-            vm.pendingRoutines.add(id)
-            vm.runSerial { try { vm.repo.createRoutine(r, stretchId) } finally { vm.pendingRoutines.remove(id) } }
-            return
-        }
-        vm.run { vm.repo.addRoutineStretch(id, stretchId) }
-    }
-    fun done() {
-        // Whichever create wins (a pending first stretch's or this one), the routine ends with the draft's name and Active.
-        draft.done(routine, noRoutines)?.let { r ->
-            vm.runSerial { vm.repo.createRoutine(r); vm.repo.setRoutineName(id, r.name); vm.repo.setRoutineActive(id, r.active) }
-        }
-        nav.popBackStack()
-    }
-    EditorScaffold("Stretching", routine?.name ?: NEW_ROUTINE_NAME, onBack = { nav.popBackStack() }, onDone = ::done) {
+    EditorScaffold("Stretching", routine.name, onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) {
         GroupedList {
             FieldRow("Name", divider = false) {
-                if (isDraft) InlineTextField(draft.name ?: "", { v ->
-                    draft.name = v
-                    if (pending) { val n = draft.savedName; vm.runSerial { vm.repo.setRoutineName(id, n) } }
-                }, placeholder = NEW_ROUTINE_NAME, label = "Routine name")
-                else InlineTextField(routine?.name ?: "", { v -> vm.run { vm.repo.setRoutineName(id, v) } }, placeholder = NEW_ROUTINE_NAME, label = "Routine name")
+                InlineTextField(routine.name, { v -> vm.run { vm.repo.setRoutineName(id, v) } }, placeholder = NEW_ROUTINE_NAME, label = "Routine name")
             }
-            ToggleRow("Active", draft.shownActive(routine, noRoutines)) { on ->
-                if (isDraft) { draft.activeChoice = on; if (pending) vm.runSerial { vm.repo.setRoutineActive(id, on) } } else vm.run { vm.repo.setRoutineActive(id, on) }
-            }
+            ToggleRow("Active", routine.active) { on -> vm.run { vm.repo.setRoutineActive(id, on) } }
         }
         GroupFooter("The active routine is the one Today offers to stretch.")
         SectionTitle("Stretches", Modifier.padding(top = 24.dp))
         GroupedList {
+            // Keyed by row, so a number field's held state stays with its row when rows change under it.
             mine.forEachIndexed { i, rs ->
-                val st = stretches.find { it.id == rs.stretchId }
-                FieldRow(name(rs), divider = i > 0, note = if (st?.sided == true) "per side" else null) {
-                    NumberField((rs.seconds ?: st?.seconds ?: 45).toDouble(), { v -> vm.run { vm.repo.setRoutineStretchSeconds(rs.id, (v ?: 45.0).toInt()) } }, 5.0, "s", width = 176.dp, decimals = 0, height = 38, min = 5.0, max = 600.0)
+                key(rs.id) {
+                    val st = stretches.find { it.id == rs.stretchId }
+                    FieldRow(name(rs), divider = i > 0, note = if (st?.sided == true) "per side" else null) {
+                        NumberField((rs.seconds ?: st?.seconds ?: 45).toDouble(), { v -> vm.run { vm.repo.setRoutineStretchSeconds(rs.id, (v ?: 45.0).toInt()) } }, 5.0, "s", width = 176.dp, decimals = 0, height = 38, min = 5.0, max = 600.0)
+                    }
                 }
             }
             if (mine.isEmpty()) ListRow("No stretches yet", chevron = false, divider = false, titleColor = K.Muted)
         }
-        TintedButton("Add stretch", Modifier.padding(top = 12.dp), enabled = draft.canPick(pending)) { picking = true }
+        TintedButton("Add stretch", Modifier.padding(top = 12.dp)) { picking = true }
         if (mine.isNotEmpty()) {
             SectionTitle("Order", Modifier.padding(top = 24.dp))
             GroupedList {
                 mine.forEachIndexed { i, rs ->
-                    val n = name(rs)
-                    ListRow(n, chevron = false, divider = i > 0, trailing = {
-                        SymbolButton(Icons.ArrowUp, "Move $n up", enabled = i > 0) { vm.run { vm.repo.moveRoutineStretch(rs.id, up = true) } }
-                        SymbolButton(Icons.ArrowDown, "Move $n down", enabled = i < mine.size - 1) { vm.run { vm.repo.moveRoutineStretch(rs.id, up = false) } }
-                        SymbolButton(Icons.Trash, "Remove $n", K.Red) { removal.ask(rs) }
-                    })
+                    key(rs.id) {
+                        val n = name(rs)
+                        ListRow(n, chevron = false, divider = i > 0, trailing = {
+                            SymbolButton(Icons.ArrowUp, "Move $n up", enabled = i > 0) { vm.run { vm.repo.moveRoutineStretch(rs.id, up = true) } }
+                            SymbolButton(Icons.ArrowDown, "Move $n down", enabled = i < mine.size - 1) { vm.run { vm.repo.moveRoutineStretch(rs.id, up = false) } }
+                            SymbolButton(Icons.Trash, "Remove $n", K.Red) { removal.ask(rs) }
+                        })
+                    }
                 }
             }
         }
-        // Nothing to delete before the routine is saved.
-        if (routine != null) EditorActions {
+        EditorActions {
             GroupedList { ActionRow(Icons.Trash, "Delete routine", K.Red, divider = false) { confirmDelete = true } }
         }
     }
-    if (picking && draft.canPick(pending)) ChoiceSheet(
+    if (picking) ChoiceSheet(
         "Add a stretch", stretches.filter { !it.archived }.map { Choice(it.id, it.name) },
-        onPick = ::pick, onDismiss = { picking = false }, isSelected = { s -> mine.any { it.stretchId == s } }, searchable = true,
+        onPick = { s -> picking = false; vm.run { vm.repo.addRoutineStretch(id, s) } }, onDismiss = { picking = false }, isSelected = { s -> mine.any { it.stretchId == s } }, searchable = true,
     )
     ConfirmSheet(removal, title = { "Remove ${name(it)}?" }, body = { "It leaves this routine; the stretch stays in the library." }, action = "Remove") { rs ->
         vm.run { vm.repo.removeRoutineStretch(rs.id) }

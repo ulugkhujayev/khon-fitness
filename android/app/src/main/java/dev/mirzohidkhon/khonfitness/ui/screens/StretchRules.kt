@@ -1,78 +1,11 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.listSaver
-import androidx.compose.runtime.setValue
 import dev.mirzohidkhon.khonfitness.data.RoutineStretch
 import dev.mirzohidkhon.khonfitness.data.Stretch
 import dev.mirzohidkhon.khonfitness.data.StretchMode
-import dev.mirzohidkhon.khonfitness.data.StretchRoutine
-import dev.mirzohidkhon.khonfitness.data.newId
 import dev.mirzohidkhon.khonfitness.timer.Phase
 import dev.mirzohidkhon.khonfitness.timer.TimerState
 import dev.mirzohidkhon.khonfitness.timer.mmss
-
-/** The name a new routine gets when its Name field is left empty. */
-const val NEW_ROUTINE_NAME = "New routine"
-
-/**
- * A routine editor's draft (DESIGN.md, Editors). A new routine ([isNew]) gets its [id] once, when the editor opens, and
- * stays a draft until Done or its first stretch creates a routine with that id: leaving before that writes nothing and
- * there is no Delete. Saved or draft is read from the database, never kept here: the editor edits the saved routine
- * exactly when the routines list holds [id] (`stored`). So a create that is still pending, refused, or lost with the
- * process leaves a draft that saves under the same id. [Saver] keeps the [id], the typed [name] and the [activeChoice]
- * over a rotation and process death.
- */
-class RoutineDraft(val isNew: Boolean, val id: String) {
-    /** The Name field while a draft, null until edited. */
-    var name: String? by mutableStateOf(null)
-    /** A new routine's Active switch, null until touched. */
-    var activeChoice: Boolean? by mutableStateOf(null)
-
-    /** A new routine that the database does not hold yet ([stored] is the listed routine with [id], if any). */
-    fun isDraft(stored: StretchRoutine?): Boolean = isNew && stored == null
-
-    /** The Active switch's state: a draft's choice, by default on only when there is no routine yet (as 0.4.8). */
-    fun shownActive(stored: StretchRoutine?, noRoutines: Boolean): Boolean = if (isDraft(stored)) activeChoice ?: noRoutines else stored?.active == true
-
-    /** The first stretch picked: the routine to create with it while a draft, else null (the pick adds a row). */
-    fun forFirstStretch(stored: StretchRoutine?, noRoutines: Boolean): StretchRoutine? = if (isDraft(stored)) routine(noRoutines) else null
-
-    /** Done: a draft's routine to create, else null (a saved routine wrote each edit as it was made). */
-    fun done(stored: StretchRoutine?, noRoutines: Boolean): StretchRoutine? = if (isDraft(stored)) routine(noRoutines) else null
-
-    /** Add stretch and its sheet: off while the first stretch's create is [pending], so no second pick races it. */
-    fun canPick(pending: Boolean): Boolean = !pending
-
-    /** The name the routine is saved with: the typed one, trimmed, or [NEW_ROUTINE_NAME] when blank. */
-    val savedName: String get() = name?.trim()?.takeIf { it.isNotEmpty() } ?: NEW_ROUTINE_NAME
-
-    /** The new routine with [savedName] and the Active choice. */
-    private fun routine(noRoutines: Boolean) = StretchRoutine(id, savedName, active = activeChoice ?: noRoutines)
-
-    companion object {
-        /** The draft for a route id: `new` makes the new routine's id now, once; any other id is that routine's. */
-        fun open(routeId: String) = if (routeId == "new") RoutineDraft(true, newId()) else RoutineDraft(false, routeId)
-
-        val Saver = listSaver<RoutineDraft, Any?>(
-            save = { listOf(it.isNew, it.id, it.name, it.activeChoice) },
-            restore = { RoutineDraft(it[0] as Boolean, it[1] as String).apply { name = it[2] as String?; activeChoice = it[3] as Boolean? } },
-        )
-    }
-}
-
-/**
- * The new routines whose first-stretch create is still being written, by id, for the process lifetime (as
- * [OpenPicks]): a restored editor sees the same set; after process death it is empty and the database decides.
- * Compose reads it as state.
- */
-class PendingRoutines {
-    private val ids = androidx.compose.runtime.mutableStateMapOf<String, Unit>()
-    operator fun contains(id: String): Boolean = id in ids
-    fun add(id: String) { ids[id] = Unit }
-    fun remove(id: String) { ids.remove(id) }
-}
 
 /** A routine's row on Stretching: "10 min · 9 stretches", "1 min · 1 stretch". */
 fun routineSummary(routineId: String, routineStretches: List<RoutineStretch>, stretches: List<Stretch>): String {

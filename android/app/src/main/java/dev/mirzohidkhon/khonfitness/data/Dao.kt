@@ -351,6 +351,15 @@ interface KhonDao {
         if (firstStretchId != null) insertRoutineStretch(RoutineStretch(rowId ?: newId(), r.id, firstStretchId, 0))
         return true
     }
+    /**
+     * "+" on Stretching: a routine named [NEW_ROUTINE_NAME] after the others in order, with no stretches. It is the only
+     * active one when no routine exists yet, read here and not from a screen's list. An id that exists writes nothing.
+     */
+    @Transaction suspend fun createNewRoutine(id: String) {
+        val first = stretchRoutinesOnce().isEmpty()
+        if (insertStretchRoutine(StretchRoutine(id, NEW_ROUTINE_NAME, active = first, sortOrder = nextRoutineOrder())) == -1L) return
+        if (first) setActiveRoutine(id)
+    }
     @Query("UPDATE stretch_routines SET name = :name WHERE id = :id") suspend fun setRoutineName(id: String, name: String)
     /** On: the only active routine. Off: that routine alone loses the mark, so none may be active. A deleted routine changes nothing. */
     @Transaction suspend fun setRoutineActive(id: String, on: Boolean) {

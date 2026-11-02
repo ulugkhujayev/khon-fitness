@@ -125,6 +125,8 @@ class KhonRepository(private val dao: KhonDao) {
     /** A new routine ([KhonDao.createRoutine]); false when [firstStretchId] is gone, and then nothing is written. */
     suspend fun createRoutine(r: StretchRoutine, firstStretchId: String? = null, rowId: String? = firstStretchId?.let { newId() }): Boolean =
         dao.createRoutine(r, firstStretchId, rowId)
+    /** "+" on Stretching: a saved, empty routine ([KhonDao.createNewRoutine]). */
+    suspend fun createNewRoutine(id: String) = dao.createNewRoutine(id)
     suspend fun setRoutineName(id: String, name: String) = dao.setRoutineName(id, name)
     suspend fun setRoutineActive(id: String, on: Boolean) = dao.setRoutineActive(id, on)
     suspend fun deleteRoutine(id: String) = dao.deleteRoutineWithStretches(id)

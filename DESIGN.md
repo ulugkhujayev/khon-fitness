@@ -187,15 +187,13 @@ padded cards, per-item buttons, "Updated" lines.
   name or "New program", and its Active choice) so the block has a home.
   From then on it is a saved program: it shows Delete, and leaving
   without Done keeps it.
-- A new routine is a draft the same way: "+" on Stretching opens its
-  editor and writes nothing. Done saves it (the typed name or "New
-  routine", and its Active choice, on by default only when there is no
-  routine yet), and so does its first stretch, which becomes its first
-  row. From then on it is a saved routine: each edit writes at once, it
-  shows Delete, and leaving without Done keeps it. While the first
-  stretch's save runs, Add stretch is off; Name and Active still change
-  and are written once the save ends. A draft survives a rotation and
-  process death, and a restored editor edits the same routine. The routine's Active has a footnote that says what it does;
+- A new routine is not a draft. "+" on Stretching saves it at once as
+  "New routine", with no stretches, active only when it is the first
+  routine, and opens it in its editor. "+" does nothing while that save
+  runs, so a double tap makes one routine. The editor edits a saved
+  routine: each edit writes at once, Done and Back leave, and leaving
+  keeps the routine. The user deletes an unwanted one with Delete.
+  The routine's Active has a footnote that says what it does;
   turning it off leaves no routine active.
 - The stretch editor groups its fields: name and guide; Timing (Per
   side, Reps, Rep count, Hold or Time); Details (Muscles, Cue, Link);

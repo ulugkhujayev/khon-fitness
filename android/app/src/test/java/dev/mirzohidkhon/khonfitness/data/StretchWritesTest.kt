@@ -175,6 +175,33 @@ class StretchWritesTest {
         assertEquals(listOf("am"), activeIds())
     }
 
+    // ---- "+" on Stretching (P5B-FIX4): a saved, empty routine at once
+
+    @Test fun `a new routine on an empty table is the one active routine, named New routine`() = runBlocking {
+        repo.createNewRoutine("n1")
+        assertEquals(listOf(StretchRoutine("n1", NEW_ROUTINE_NAME, active = true, sortOrder = 0)), dao.stretchRoutinesOnce())
+        assertTrue(rowsOf("n1").isEmpty())
+    }
+
+    @Test fun `a new routine next to others is not active, the old active one keeps the mark, and it goes last`() = runBlocking {
+        seed()
+        dao.upsert(StretchRoutine("x", "Third", sortOrder = 5))
+        repo.createNewRoutine("n1")
+        assertEquals(StretchRoutine("n1", NEW_ROUTINE_NAME, active = false, sortOrder = 6), dao.stretchRoutine("n1"))
+        assertEquals(listOf("am"), activeIds())
+    }
+
+    @Test fun `a second new routine with the same id writes nothing`() = runBlocking {
+        seed()
+        repo.createNewRoutine("n1")
+        repo.setRoutineName("n1", "Night")
+        repo.setRoutineActive("n1", true)
+        val before = dao.stretchRoutinesOnce().sortedBy { it.id }
+        repo.createNewRoutine("n1")
+        assertEquals(before, dao.stretchRoutinesOnce().sortedBy { it.id })
+        assertEquals(StretchRoutine("n1", "Night", active = true, sortOrder = 2), dao.stretchRoutine("n1"))
+    }
+
     // ---- E6: edits of a routine deleted while its editor is open
 
     @Test fun `E6 add, seconds, order, name and Active of a deleted routine write nothing`() = runBlocking {

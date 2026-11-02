@@ -1,101 +1,18 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
-import androidx.compose.runtime.saveable.SaverScope
 import dev.mirzohidkhon.khonfitness.data.RoutineStretch
 import dev.mirzohidkhon.khonfitness.data.Stretch
 import dev.mirzohidkhon.khonfitness.data.StretchMode
-import dev.mirzohidkhon.khonfitness.data.StretchRoutine
 import dev.mirzohidkhon.khonfitness.timer.Phase
 import dev.mirzohidkhon.khonfitness.timer.PhaseKind
 import dev.mirzohidkhon.khonfitness.timer.TimerState
 import dev.mirzohidkhon.khonfitness.ui.components.RunSegment
 import dev.mirzohidkhon.khonfitness.ui.components.runSegments
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StretchRulesTest {
-    // ---- routine draft (contract rows 3, 4, 16; attack cases E4, E5)
-
-    @Test fun `a new routine gets its id once, when the editor opens, and stays a draft until the list holds it`() {
-        val d = RoutineDraft.open("new")
-        assertTrue(d.isNew)
-        assertTrue(d.id.isNotEmpty())
-        assertTrue(d.isDraft(stored = null))
-        assertFalse(d.isDraft(StretchRoutine(d.id, "Evening")))
-        assertTrue(RoutineDraft.open("new").id != d.id)
-    }
-
-    @Test fun `Done on a draft creates it with its name and Active choice, and on a stored routine creates nothing`() {
-        val d = RoutineDraft(isNew = true, id = "r1")
-        d.name = "  Evening "
-        d.activeChoice = true
-        assertEquals(StretchRoutine("r1", "Evening", active = true), d.done(stored = null, noRoutines = false))
-        assertNull(d.done(StretchRoutine("r1", "Evening", active = true), noRoutines = false))
-    }
-
-    @Test fun `a blank name saves as New routine and Active defaults on only without routines`() {
-        assertEquals(StretchRoutine("r1", NEW_ROUTINE_NAME, active = true), RoutineDraft(true, "r1").also { it.name = " " }.done(null, noRoutines = true))
-        assertEquals(StretchRoutine("r1", NEW_ROUTINE_NAME, active = false), RoutineDraft(true, "r1").done(null, noRoutines = false))
-        assertTrue(RoutineDraft(true, "r1").shownActive(null, noRoutines = true))
-        assertFalse(RoutineDraft(true, "r1").shownActive(null, noRoutines = false))
-    }
-
-    @Test fun `the first stretch creates the routine under the draft's id, and a pick before the list holds it asks the same`() {
-        val d = RoutineDraft(isNew = true, id = "r1")
-        d.name = "Evening"
-        val first = d.forFirstStretch(stored = null, noRoutines = false)
-        assertEquals(StretchRoutine("r1", "Evening", active = false), first)
-        // Nothing local marks it saved: Done while that create is pending asks for the same id, which the database then
-        // ignores when the first create stored it. A second pick is off meanwhile ([RoutineDraft.canPick]).
-        assertEquals(first, d.forFirstStretch(stored = null, noRoutines = false))
-        assertEquals(first, d.done(stored = null, noRoutines = false))
-        assertNull(d.forFirstStretch(first, noRoutines = false))
-    }
-
-    @Test fun `no pick while the first create is pending, and the name saved is the typed one trimmed or New routine`() {
-        val d = RoutineDraft(isNew = true, id = "r1")
-        assertFalse(d.canPick(pending = true))
-        assertTrue(d.canPick(pending = false))
-        assertEquals(NEW_ROUTINE_NAME, d.savedName)
-        d.name = "  "
-        assertEquals(NEW_ROUTINE_NAME, d.savedName)
-        d.name = " Evening "
-        assertEquals("Evening", d.savedName)
-        assertEquals("Evening", d.done(stored = null, noRoutines = false)?.name)
-    }
-
-    @Test fun `a refused or lost create leaves a draft that Done saves under the same id`() {
-        val d = RoutineDraft(isNew = true, id = "r1").apply { name = "Evening" }
-        d.forFirstStretch(stored = null, noRoutines = false)
-        val back = d.restored()
-        assertTrue(back.isDraft(stored = null))
-        assertEquals(StretchRoutine("r1", "Evening", active = false), back.done(stored = null, noRoutines = false))
-    }
-
-    @Test fun `a restored draft keeps its id, typed name and Active choice, and is saved once the list holds the id`() {
-        val d = RoutineDraft.open("new").apply { name = "Evening"; activeChoice = false }
-        val back = d.restored()
-        assertEquals(d.id, back.id)
-        assertTrue(back.isNew)
-        assertEquals(StretchRoutine(d.id, "Evening", active = false), back.done(null, noRoutines = true))
-        assertNull(back.done(StretchRoutine(d.id, "Evening"), noRoutines = true))
-    }
-
-    @Test fun `an existing routine is never a draft and its Active follows the stored row`() {
-        val d = RoutineDraft.open("a")
-        assertFalse(d.isNew)
-        assertEquals("a", d.id)
-        val stored = StretchRoutine("a", "Daily", active = true)
-        assertFalse(d.isDraft(stored))
-        assertNull(d.done(stored, noRoutines = true))
-        assertNull(d.forFirstStretch(stored, noRoutines = true))
-        assertTrue(d.shownActive(stored, noRoutines = false))
-        assertFalse(d.isDraft(stored = null)) // still loading: the screen shows nothing until the row loads
-    }
-
     // ---- lists
 
     @Test fun `routine summary counts minutes and stretches`() {
@@ -154,10 +71,5 @@ class StretchRulesTest {
         assertEquals(listOf(RunSegment.DONE, RunSegment.DONE, RunSegment.CURRENT, RunSegment.AHEAD), runSegments(4, 2))
         assertEquals(listOf(RunSegment.CURRENT, RunSegment.AHEAD), runSegments(2, 0))
         assertEquals(emptyList<RunSegment>(), runSegments(0, 0))
-    }
-
-    private fun RoutineDraft.restored(): RoutineDraft {
-        val saved = with(RoutineDraft.Saver) { SaverScope { true }.save(this@restored) }!!
-        return RoutineDraft.Saver.restore(saved)!!
     }
 }

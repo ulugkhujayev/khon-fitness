@@ -1,13 +1,10 @@
 package dev.mirzohidkhon.khonfitness.data
 
 import android.app.Application
-import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,66 +24,15 @@ class ConcurrentWritesTest {
     private lateinit var db: KhonDatabase
     private lateinit var dao: KhonDao
     private lateinit var repo: KhonRepository
-    private val race = Race { db.inTransaction() }
+    private val race = Race()
 
     @Before fun open() {
-        db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), KhonDatabase::class.java)
-            .setQueryCallback({ sql, _ -> race.onQuery(sql) }, { it.run() })
-            .build()
+        db = raceDatabase(race)
         dao = db.dao()
         repo = KhonRepository(dao)
     }
 
     @After fun close() = db.close()
-
-    /**
-     * Runs a competing write at the first statement that [arm]'s test matches, as another writer on the phone would:
-     * when every statement of the step so far ran inside one open transaction, the other writer waits for the commit,
-     * so the write runs in [finish]; otherwise nothing holds it back, and it runs to the end on another thread right
-     * there, before the matched statement. No timing decides the outcome.
-     */
-    private class Race(private val inTransaction: () -> Boolean) {
-        private var at: ((String) -> Boolean)? = null
-        private var write: (suspend () -> Unit)? = null
-        private var outside = false
-        private var deferred: (suspend () -> Unit)? = null
-        private var ran = false
-
-        @Synchronized fun arm(at: (String) -> Boolean, write: suspend () -> Unit) { this.at = at; this.write = write; outside = false; deferred = null; ran = false }
-
-        fun onQuery(sql: String) {
-            val w = synchronized(this) {
-                val match = at ?: return
-                // A BEGIN is reported before it opens its transaction; every other statement shows where it ran.
-                val held = inTransaction()
-                if (!held && !sql.startsWith("BEGIN")) outside = true
-                if (!match(sql)) return
-                at = null
-                ran = true
-                if (held && !outside) { deferred = write; return }
-                // A late transaction would hold the other writer too: arm at its BEGIN to show the gap before it.
-                check(!held) { "the race point is inside a transaction the step opened late; arm at that BEGIN" }
-                write!!
-            }
-            var failure: Throwable? = null
-            val t = Thread { runCatching { runBlocking { w() } }.onFailure { failure = it } }
-            t.start(); t.join(10_000)
-            check(!t.isAlive) { "the competing write did not finish outside a transaction" }
-            failure?.let { throw it }
-        }
-
-        /** Runs a write held back by the transaction; fails when the matched statement never ran. */
-        fun finish() {
-            if (!ran) fail("the competing write never ran")
-            deferred?.let { d -> deferred = null; runBlocking { d() } }
-        }
-    }
-
-    /** The first BEGIN after a read: on the old code, the gap between a step's read and its own write transaction. */
-    private fun firstBeginAfterRead(): (String) -> Boolean {
-        var read = false
-        return { sql -> if (sql.startsWith("SELECT")) { read = true; false } else read && sql.startsWith("BEGIN") }
-    }
 
     /**
      * A raw write, as an import's: a Room suspend write would queue behind the step's own write on Room's serial
@@ -126,7 +72,7 @@ class ConcurrentWritesTest {
         dao.upsertWeekPlan(listOf(WeekPlan(2, ItemType.PROGRAM, "push"), WeekPlan(3, ItemType.CARDIO, "z2run")))
         val tue = "2026-11-03"; val wed = "2026-11-04"
         // Wednesday gets Pull from the Today sheet after the swap has read the plan, before it writes.
-        race.arm(firstBeginAfterRead()) { repo.saveOverride(wed, ItemType.PROGRAM, "pull") }
+        race.arm(firstWriteAfterRead()) { repo.saveOverride(wed, ItemType.PROGRAM, "pull") }
         repo.swapDays(LocalDate.parse(tue), LocalDate.parse(wed))
         race.finish()
         // The swap, then the change: Tuesday holds the run, Wednesday holds Pull.
@@ -136,21 +82,6 @@ class ConcurrentWritesTest {
 
     // ---- eating window
 
-    /**
-     * Where an import lands between a read of the day row and its write: the first write to `window_days`, or the
-     * BEGIN of a write after a read of it. The import writes raw SQL, so outside a transaction nothing holds it back.
-     */
-    private fun betweenWindowReadAndWrite(): (String) -> Boolean {
-        var read = false
-        return { sql ->
-            when {
-                "window_days" !in sql -> read && sql.startsWith("BEGIN")
-                sql.startsWith("SELECT") -> { read = true; false }
-                else -> true
-            }
-        }
-    }
-
     private fun importDay(date: String, openedAt: Long?, closedAt: Long?, note: String) = db.openHelper.writableDatabase.execSQL(
         "INSERT OR REPLACE INTO window_days (date, openedAt, closedAt, note) VALUES (?, ?, ?, ?)", arrayOf(date, openedAt, closedAt, note),
     )
@@ -158,7 +89,7 @@ class ConcurrentWritesTest {
     @Test fun `open now keeps a day row an import wrote meanwhile`() = runBlocking {
         val date = today.iso()
         dao.upsert(WindowDay(date, note = "old"))
-        race.arm(betweenWindowReadAndWrite()) { importDay(date, null, 7L, "imported") }
+        race.arm(firstWriteAfterRead("window_days")) { importDay(date, null, 7L, "imported") }
         repo.openWindowNow(date, 100L)
         race.finish()
         // Either order is fine; the held copy of the row is never written back.
@@ -169,7 +100,7 @@ class ConcurrentWritesTest {
     @Test fun `close now keeps a day row an import wrote meanwhile`() = runBlocking {
         val date = today.iso()
         dao.upsert(WindowDay(date, openedAt = 50L, note = "old"))
-        race.arm(betweenWindowReadAndWrite()) { importDay(date, 60L, null, "imported") }
+        race.arm(firstWriteAfterRead("window_days")) { importDay(date, 60L, null, "imported") }
         repo.closeWindowNow(date, 100L)
         race.finish()
         val row = dao.windowDay(date)
@@ -241,7 +172,7 @@ class ConcurrentWritesTest {
     // ---- seeds
 
     @Test fun `an exercise saved while the seed writes is not seeded over`() = runBlocking {
-        race.arm(firstBeginAfterRead()) { importExercise("bench", "My bench") }
+        race.arm(firstWriteAfterRead()) { importExercise("bench", "My bench") }
         repo.seedIfEmpty()
         race.finish()
         assertEquals("My bench", dao.exercise("bench")?.name)

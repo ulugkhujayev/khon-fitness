@@ -213,12 +213,15 @@ private fun Settings(vm: AppViewModel) {
     }
     /** Reads the backup ([read]), writes a safety copy of the current data, then merges or replaces. */
     fun applyImport(action: BackupAction, read: () -> String) = vm.run {
-        backupStatus = backupFootnote(action, runCatching {
+        val result = runCatching {
             val text = read()
             val dir = java.io.File(context.getExternalFilesDir(null), "backups").apply { mkdirs() }
             java.io.File(dir, "before-import-${java.time.LocalDateTime.now().withNano(0).toString().replace(':', '-')}.json").writeText(vm.repo.exportJson())
             vm.repo.importJson(text, replace = action != BackupAction.MERGE)
-        })
+        }
+        backupStatus = backupFootnote(action, result)
+        // The imported settings take effect at once: alarms re-armed and widgets redrawn.
+        if (backupChangesData(action, result)) dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context)
         pendingImport = null
     }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -290,6 +293,6 @@ private fun Settings(vm: AppViewModel) {
     }
     if (confirmReset) ConfirmSheet("Reset to built-in data?", "Every session, bodyweight, program and setting goes back to the built-in data.", "Reset", onDismiss = { confirmReset = false }) {
         confirmReset = false
-        vm.run { vm.repo.resetToSeed(); backupStatus = BackupStatus("Reset to built-in data.") }
+        vm.run { vm.repo.resetToSeed(); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context); backupStatus = BackupStatus("Reset to built-in data.") }
     }
 }

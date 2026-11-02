@@ -284,37 +284,133 @@ interface KhonDao {
         upsert(DayOverride(b.iso(), ia.itemType, ia.program?.id ?: ia.cardio?.id))
     }
 
-    // stretching
+    // stretching: every write from the stretch, routine, window and player paths is one of the commands below. Each
+    // reads what it checks inside its own transaction (or is one statement) and writes nothing when its row is gone.
     @Query("SELECT * FROM stretches ORDER BY name") fun stretches(): Flow<List<Stretch>>
     @Query("SELECT * FROM stretches") suspend fun stretchesOnce(): List<Stretch>
+    @Query("SELECT * FROM stretches WHERE id = :id") suspend fun stretch(id: String): Stretch?
     @Upsert suspend fun upsert(s: Stretch)
     @Upsert suspend fun upsertStretches(list: List<Stretch>)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertStretch(s: Stretch): Long
     @Query("DELETE FROM stretches WHERE id = :id") suspend fun deleteStretch(id: String)
     @Query("SELECT COUNT(*) FROM routine_stretches WHERE stretchId = :id") suspend fun routineUseCount(id: String): Int
-    @Query("SELECT * FROM stretch_routines ORDER BY sortOrder, name") fun stretchRoutines(): Flow<List<StretchRoutine>>
+    @Query("SELECT * FROM stretch_routines ORDER BY sortOrder, id") fun stretchRoutines(): Flow<List<StretchRoutine>>
     @Query("SELECT * FROM stretch_routines") suspend fun stretchRoutinesOnce(): List<StretchRoutine>
+    @Query("SELECT * FROM stretch_routines WHERE id = :id") suspend fun stretchRoutine(id: String): StretchRoutine?
     @Upsert suspend fun upsert(r: StretchRoutine)
     @Upsert suspend fun upsertStretchRoutines(list: List<StretchRoutine>)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertStretchRoutine(r: StretchRoutine): Long
     @Query("UPDATE stretch_routines SET active = (id = :id)") suspend fun setActiveRoutine(id: String)
+    @Query("UPDATE stretch_routines SET active = 0 WHERE id = :id") suspend fun clearRoutineActive(id: String)
+    @Query("UPDATE stretch_routines SET active = 0") suspend fun clearActiveRoutines()
+    @Query("SELECT id FROM stretch_routines WHERE active = 1 ORDER BY sortOrder, id LIMIT 1") suspend fun firstActiveRoutineId(): String?
+    @Query("SELECT COALESCE(MAX(sortOrder) + 1, 0) FROM stretch_routines") suspend fun nextRoutineOrder(): Int
     @Query("DELETE FROM stretch_routines WHERE id = :id") suspend fun deleteStretchRoutine(id: String)
-    @Query("SELECT * FROM routine_stretches ORDER BY sortOrder") fun routineStretches(): Flow<List<RoutineStretch>>
+    @Query("SELECT * FROM routine_stretches ORDER BY sortOrder, id") fun routineStretches(): Flow<List<RoutineStretch>>
     @Query("SELECT * FROM routine_stretches") suspend fun routineStretchesOnce(): List<RoutineStretch>
+    @Query("SELECT * FROM routine_stretches WHERE id = :id") suspend fun routineStretch(id: String): RoutineStretch?
+    @Query("SELECT * FROM routine_stretches WHERE routineId = :routineId ORDER BY sortOrder, id") suspend fun routineStretchesFor(routineId: String): List<RoutineStretch>
     @Upsert suspend fun upsert(rs: RoutineStretch)
     @Upsert suspend fun upsertRoutineStretches(list: List<RoutineStretch>)
-    @Query("DELETE FROM routine_stretches WHERE id = :id") suspend fun deleteRoutineStretch(id: String)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertRoutineStretch(rs: RoutineStretch): Long
+    @Query("SELECT COALESCE(MAX(sortOrder) + 1, 0) FROM routine_stretches WHERE routineId = :routineId") suspend fun nextRoutineStretchOrder(routineId: String): Int
+    @Query("UPDATE routine_stretches SET sortOrder = :sortOrder WHERE id = :id") suspend fun setRoutineStretchOrder(id: String, sortOrder: Int)
     @Query("DELETE FROM routine_stretches WHERE routineId = :routineId") suspend fun deleteRoutineStretchesFor(routineId: String)
-    /** A routine with its stretch rows: all or nothing. */
-    @Transaction suspend fun deleteRoutineWithStretches(id: String) { deleteRoutineStretchesFor(id); deleteStretchRoutine(id) }
+    /** Routine rows whose routine or stretch is gone: an import drops them, so no screen shows a row it cannot run. */
+    @Query("DELETE FROM routine_stretches WHERE routineId NOT IN (SELECT id FROM stretch_routines) OR stretchId NOT IN (SELECT id FROM stretches)")
+    suspend fun deleteOrphanRoutineStretches()
     @Query("SELECT * FROM stretch_sessions ORDER BY date DESC, startedAt DESC") fun stretchSessions(): Flow<List<StretchSession>>
     @Query("SELECT * FROM stretch_sessions") suspend fun stretchSessionsOnce(): List<StretchSession>
-    @Upsert suspend fun upsert(s: StretchSession)
     @Upsert suspend fun upsertStretchSessions(list: List<StretchSession>)
     @Query("DELETE FROM stretch_sessions WHERE id = :id") suspend fun deleteStretchSession(id: String)
 
-    // eating window
+    /** A new stretch from the editor; refused (false) when the name is blank or the id is taken. */
+    @Transaction suspend fun createStretch(s: Stretch): Boolean = s.name.isNotBlank() && insertStretch(s) != -1L
+    /** The stretch editor's Done: the fields changed from [opened] to [edited] onto the row as it is now ([mergeStretchEdits]); a deleted stretch writes nothing. */
+    @Transaction suspend fun saveStretchEdits(opened: Stretch, edited: Stretch) {
+        val current = stretch(edited.id) ?: return
+        upsert(mergeStretchEdits(current, opened, edited))
+    }
+    /** Deletes a custom stretch that no routine row uses, checked in the same transaction; returns whether it was not refused. */
+    @Transaction suspend fun deleteStretchIfUnused(id: String): Boolean {
+        val s = stretch(id)
+        if (s?.builtin == true || routineUseCount(id) > 0) return false
+        deleteStretch(id)
+        return true
+    }
+    /**
+     * A new routine after the others in order, the only active one when [StretchRoutine.active], with its first routine
+     * row ([rowId]) when [firstStretchId] is given. That stretch gone: nothing is written and the answer is false. An id
+     * that exists already writes nothing (a replay of the same create).
+     */
+    @Transaction suspend fun createRoutine(r: StretchRoutine, firstStretchId: String?, rowId: String?): Boolean {
+        if (firstStretchId != null && stretch(firstStretchId) == null) return false
+        if (insertStretchRoutine(r.copy(sortOrder = nextRoutineOrder())) == -1L) return true
+        if (r.active) setActiveRoutine(r.id)
+        if (firstStretchId != null) insertRoutineStretch(RoutineStretch(rowId ?: newId(), r.id, firstStretchId, 0))
+        return true
+    }
+    @Query("UPDATE stretch_routines SET name = :name WHERE id = :id") suspend fun setRoutineName(id: String, name: String)
+    /** On: the only active routine. Off: that routine alone loses the mark, so none may be active. A deleted routine changes nothing. */
+    @Transaction suspend fun setRoutineActive(id: String, on: Boolean) {
+        if (stretchRoutine(id) == null) return
+        if (on) setActiveRoutine(id) else clearRoutineActive(id)
+    }
+    /** A routine with its stretch rows: all or nothing. */
+    @Transaction suspend fun deleteRoutineWithStretches(id: String) { deleteRoutineStretchesFor(id); deleteStretchRoutine(id) }
+    /** A stretch added at the end of a routine, the order read here; nothing when the routine or the stretch is gone. */
+    @Transaction suspend fun addRoutineStretch(routineId: String, stretchId: String, rowId: String) {
+        if (stretchRoutine(routineId) == null || stretch(stretchId) == null) return
+        insertRoutineStretch(RoutineStretch(rowId, routineId, stretchId, nextRoutineStretchOrder(routineId)))
+    }
+    @Query("UPDATE routine_stretches SET seconds = :seconds WHERE id = :id") suspend fun setRoutineStretchSeconds(id: String, seconds: Int?)
+    /**
+     * Moves a routine row one place up or down in its routine's stored order (sortOrder, then id): it swaps sortOrder
+     * with its neighbour now, not the one the screen showed. Rows that share a sortOrder are first numbered from 0, so
+     * the swap always changes the order. No neighbour, or the row gone: nothing.
+     */
+    @Transaction suspend fun moveRoutineStretch(id: String, up: Boolean) {
+        val row = routineStretch(id) ?: return
+        var rows = routineStretchesFor(row.routineId)
+        val i = rows.indexOfFirst { it.id == id }
+        val j = if (up) i - 1 else i + 1
+        if (i < 0 || j !in rows.indices) return
+        if (rows.distinctBy { it.sortOrder }.size < rows.size) {
+            rows.forEachIndexed { k, r -> setRoutineStretchOrder(r.id, k) }
+            rows = rows.mapIndexed { k, r -> r.copy(sortOrder = k) }
+        }
+        setRoutineStretchOrder(rows[i].id, rows[j].sortOrder)
+        setRoutineStretchOrder(rows[j].id, rows[i].sortOrder)
+    }
+    @Query("DELETE FROM routine_stretches WHERE id = :id") suspend fun removeRoutineStretch(id: String)
+    /** A run's result, written once: a replay of the same session id never overwrites or re-creates a changed row. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun recordStretchSession(s: StretchSession)
+
+    // eating window: the settings row (id 1) is created with defaults when missing, then each setting writes its column
     @Query("SELECT * FROM eating_window WHERE id = 1") fun eatingWindow(): Flow<EatingWindow?>
     @Query("SELECT * FROM eating_window WHERE id = 1") suspend fun eatingWindowOnce(): EatingWindow?
     @Upsert suspend fun upsert(w: EatingWindow)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertEatingWindowIfMissing(w: EatingWindow = EatingWindow())
+    @Query("UPDATE eating_window SET enabled = :on WHERE id = 1") suspend fun setWindowEnabledColumn(on: Boolean)
+    @Query("UPDATE eating_window SET remindBeforeMin = :min WHERE id = 1") suspend fun setWindowRemindColumn(min: Int)
+    @Query("UPDATE eating_window SET startMinute = :m WHERE id = 1") suspend fun setWindowStartColumn(m: Int)
+    @Query("UPDATE eating_window SET endMinute = :m WHERE id = 1") suspend fun setWindowEndColumn(m: Int)
+    @Transaction suspend fun setWindowEnabled(on: Boolean) { insertEatingWindowIfMissing(); setWindowEnabledColumn(on) }
+    @Transaction suspend fun setWindowRemind(min: Int) { insertEatingWindowIfMissing(); setWindowRemindColumn(min) }
+    /** The opening time, written only when it stays at least an hour before the stored closing time; returns whether it did. */
+    @Transaction suspend fun setWindowStart(m: Int): Boolean {
+        insertEatingWindowIfMissing()
+        if (m !in EatingWindowRules.startRange(eatingWindowOnce()!!.endMinute)) return false
+        setWindowStartColumn(m)
+        return true
+    }
+    /** The closing time, written only when it stays at least an hour after the stored opening time and before midnight. */
+    @Transaction suspend fun setWindowEnd(m: Int): Boolean {
+        insertEatingWindowIfMissing()
+        if (m !in EatingWindowRules.endRange(eatingWindowOnce()!!.startMinute)) return false
+        setWindowEndColumn(m)
+        return true
+    }
     @Query("SELECT * FROM window_days ORDER BY date") fun windowDays(): Flow<List<WindowDay>>
     @Query("SELECT * FROM window_days") suspend fun windowDaysOnce(): List<WindowDay>
     @Query("SELECT * FROM window_days WHERE date = :date") suspend fun windowDay(date: String): WindowDay?
@@ -360,9 +456,14 @@ interface KhonDao {
      * A backup written in one transaction, after a wipe when [replace]. Afterwards exactly one program is active when
      * any exists: a merge keeps this phone's active program and clears the mark on imported ones; a replace (or a
      * merge onto a phone with none) takes the backup's first active program in list order, else the first program.
+     * Routines: at most one is active. A merge keeps this phone's active routine and clears the mark on imported ones;
+     * a replace (or a merge onto a phone with none active) keeps the backup's first active routine by sortOrder, else none. Routine
+     * rows whose routine or stretch is missing go, and the eating-window settings row exists afterwards. Stretch
+     * sessions take the backup's rows, the one overwrite of a recorded session.
      */
     @Transaction suspend fun importBackup(b: Backup, replace: Boolean) {
         val kept = if (replace) null else firstActiveProgramId()
+        val keptRoutine = if (replace) null else firstActiveRoutineId()
         if (replace) clearAll()
         upsertModalities(b.modalities); upsertExercises(b.exercises); upsertPrograms(b.programs); upsertBlocks(b.blocks)
         upsertBlockExercises(b.blockExercises); upsertSessions(b.sessions); upsertSetLogs(b.setLogs); upsertIntervalLogs(b.intervalLogs)
@@ -371,7 +472,20 @@ interface KhonDao {
         upsertStretchSessions(b.stretchSessions); b.eatingWindow?.let { upsert(it) }; upsertWindowDays(b.windowDays)
         if (replace && stretchesOnce().isEmpty()) Seed.applyStretches(this)
         (kept ?: firstActiveProgramId() ?: firstProgramId())?.let { setActiveProgram(it) }
+        val activeRoutine = keptRoutine ?: firstActiveRoutineId()
+        if (activeRoutine != null) setActiveRoutine(activeRoutine) else clearActiveRoutines()
+        deleteOrphanRoutineStretches()
+        insertEatingWindowIfMissing()
     }
+
+    /** Every table read in one transaction, so a backup never holds half of a write that landed while it was read. */
+    @Transaction suspend fun backupSnapshot(): Backup = Backup(
+        exercises = exercisesOnce(), modalities = modalitiesOnce(), programs = programsOnce(), blocks = blocksOnce(),
+        blockExercises = blockExercisesOnce(), sessions = sessionsOnce(), setLogs = allSetLogsOnce(), intervalLogs = intervalLogsOnce(),
+        bodyweights = bodyweightsOnce(), weekPlan = weekPlanOnce(), overrides = overridesOnce(),
+        stretches = stretchesOnce(), stretchRoutines = stretchRoutinesOnce(), routineStretches = routineStretchesOnce(),
+        stretchSessions = stretchSessionsOnce(), eatingWindow = eatingWindowOnce(), windowDays = windowDaysOnce(),
+    )
 
     @Transaction
     suspend fun clearAll() {

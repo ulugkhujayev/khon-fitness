@@ -194,6 +194,13 @@ fun backupFootnote(action: BackupAction, result: Result<*>): BackupStatus? {
 }
 
 /**
+ * Whether [action] ending with [result] changed the stored data (a merge, replace or restore that worked), so the
+ * caller re-arms the window alarms and refreshes the widgets ([dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule]).
+ */
+fun backupChangesData(action: BackupAction, result: Result<*>): Boolean =
+    result.isSuccess && action in setOf(BackupAction.MERGE, BackupAction.REPLACE, BackupAction.RESTORE)
+
+/**
  * The saved copies in [dir], newest first. A folder that does not exist yet holds none; a folder Android cannot list
  * is a failure, so the footnote says so instead of hiding Restore.
  */

@@ -115,7 +115,7 @@ class BackupTest {
         dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 160)))
         dao.upsert(Bodyweight("2026-11-01", 80.5))
         dao.upsert(DayOverride("2026-11-03", ItemType.REST))
-        dao.upsert(StretchSession(id = "st1", routineId = "daily", routineName = "Daily mobility", date = "2026-11-01", startedAt = 5L, totalSec = 600, completed = 9, skipped = 0))
+        dao.recordStretchSession(StretchSession(id = "st1", routineId = "daily", routineName = "Daily mobility", date = "2026-11-01", startedAt = 5L, totalSec = 600, completed = 9, skipped = 0))
         dao.upsert(WindowDay("2026-11-01", openedAt = 6L, closedAt = 7L))
         val export = repo.exportJson()
         val original = parse(export)

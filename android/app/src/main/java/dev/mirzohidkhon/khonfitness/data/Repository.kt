@@ -82,6 +82,19 @@ fun mergeModalityEdits(current: Modality, opened: Modality, edited: Modality): M
     return current.copy(name = pick { it.name }, color = pick { it.color })
 }
 
+/**
+ * The stretch editor's edits merged onto [current] the same way as [mergeExerciseEdits]. A blank name keeps the stored
+ * one. Built-in and archived are not editor fields.
+ */
+fun mergeStretchEdits(current: Stretch, opened: Stretch, edited: Stretch): Stretch {
+    fun <T> pick(field: (Stretch) -> T): T = if (field(edited) != field(opened)) field(edited) else field(current)
+    return current.copy(
+        name = if (edited.name.isBlank()) current.name else pick { it.name }, sided = pick { it.sided }, mode = pick { it.mode },
+        seconds = pick { it.seconds }, reps = pick { it.reps }, figure = pick { it.figure }, muscles = pick { it.muscles },
+        cue = pick { it.cue }, link = pick { it.link },
+    )
+}
+
 class KhonRepository(private val dao: KhonDao) {
     val exercises: Flow<List<Exercise>> = dao.exercises()
     val modalities: Flow<List<Modality>> = dao.modalities()
@@ -102,20 +115,31 @@ class KhonRepository(private val dao: KhonDao) {
     val eatingWindow: Flow<EatingWindow?> = dao.eatingWindow()
     val windowDays: Flow<List<WindowDay>> = dao.windowDays()
 
-    // stretching
-    suspend fun saveStretch(s: Stretch) = dao.upsert(s)
-    suspend fun deleteStretch(id: String) = dao.deleteStretch(id)
+    // stretching: only guarded commands ([KhonDao]); no method here writes a whole row a screen holds, except the
+    // two creates (new ids), the editor's merge, and the run result (written once).
+    suspend fun createStretch(s: Stretch): Boolean = dao.createStretch(s)
+    suspend fun saveStretchEdits(opened: Stretch, edited: Stretch) = dao.saveStretchEdits(opened, edited)
+    /** False when refused: a built-in stretch, or one a routine row uses at this moment. */
+    suspend fun deleteStretchIfUnused(id: String): Boolean = dao.deleteStretchIfUnused(id)
     suspend fun stretchUseCount(id: String) = dao.routineUseCount(id)
-    suspend fun saveRoutine(r: StretchRoutine) { dao.upsert(r); if (r.active) dao.setActiveRoutine(r.id) }
+    /** A new routine ([KhonDao.createRoutine]); false when [firstStretchId] is gone, and then nothing is written. */
+    suspend fun createRoutine(r: StretchRoutine, firstStretchId: String? = null, rowId: String? = firstStretchId?.let { newId() }): Boolean =
+        dao.createRoutine(r, firstStretchId, rowId)
+    suspend fun setRoutineName(id: String, name: String) = dao.setRoutineName(id, name)
+    suspend fun setRoutineActive(id: String, on: Boolean) = dao.setRoutineActive(id, on)
     suspend fun deleteRoutine(id: String) = dao.deleteRoutineWithStretches(id)
-    suspend fun saveRoutineStretch(rs: RoutineStretch) = dao.upsert(rs)
-    suspend fun saveRoutineStretches(list: List<RoutineStretch>) = dao.upsertRoutineStretches(list)
-    suspend fun deleteRoutineStretch(id: String) = dao.deleteRoutineStretch(id)
-    suspend fun saveStretchSession(s: StretchSession) = dao.upsert(s)
+    suspend fun addRoutineStretch(routineId: String, stretchId: String, rowId: String = newId()) = dao.addRoutineStretch(routineId, stretchId, rowId)
+    suspend fun setRoutineStretchSeconds(rowId: String, seconds: Int?) = dao.setRoutineStretchSeconds(rowId, seconds)
+    suspend fun moveRoutineStretch(rowId: String, up: Boolean) = dao.moveRoutineStretch(rowId, up)
+    suspend fun removeRoutineStretch(rowId: String) = dao.removeRoutineStretch(rowId)
+    suspend fun recordStretchSession(s: StretchSession) = dao.recordStretchSession(s)
     suspend fun deleteStretchSession(id: String) = dao.deleteStretchSession(id)
 
     // eating window
-    suspend fun saveEatingWindow(w: EatingWindow) = dao.upsert(w.copy(id = 1))
+    suspend fun setWindowEnabled(on: Boolean) = dao.setWindowEnabled(on)
+    suspend fun setWindowRemind(min: Int) = dao.setWindowRemind(min)
+    suspend fun setWindowStart(minute: Int): Boolean = dao.setWindowStart(minute)
+    suspend fun setWindowEnd(minute: Int): Boolean = dao.setWindowEnd(minute)
     suspend fun eatingWindowOnce(): EatingWindow = dao.eatingWindowOnce() ?: EatingWindow()
     suspend fun windowDay(date: String): WindowDay? = dao.windowDay(date)
     suspend fun openWindowNow(date: String, now: Long) = dao.openWindowNow(date, now)
@@ -275,16 +299,8 @@ class KhonRepository(private val dao: KhonDao) {
         dao.insertImportedSession(session, hrs.mapIndexed { i, hr -> IntervalLog(newId(), session.id, i, avgHr = hr) })
     }
 
-    suspend fun exportJson(): String {
-        val backup = Backup(
-            exercises = dao.exercisesOnce(), modalities = dao.modalitiesOnce(), programs = dao.programsOnce(), blocks = dao.blocksOnce(),
-            blockExercises = dao.blockExercisesOnce(), sessions = dao.sessionsOnce(), setLogs = dao.allSetLogsOnce(), intervalLogs = dao.intervalLogsOnce(),
-            bodyweights = dao.bodyweightsOnce(), weekPlan = dao.weekPlanOnce(), overrides = dao.overridesOnce(),
-            stretches = dao.stretchesOnce(), stretchRoutines = dao.stretchRoutinesOnce(), routineStretches = dao.routineStretchesOnce(),
-            stretchSessions = dao.stretchSessionsOnce(), eatingWindow = dao.eatingWindowOnce(), windowDays = dao.windowDaysOnce(),
-        )
-        return Json { prettyPrint = true }.encodeToString(backup)
-    }
+    /** Every table as one snapshot ([KhonDao.backupSnapshot]), as JSON. */
+    suspend fun exportJson(): String = Json { prettyPrint = true }.encodeToString(dao.backupSnapshot())
 
     /** Parses a backup and describes what it holds. Throws when the file is not a Khon backup. */
     fun describeBackup(text: String): String {

@@ -14,7 +14,10 @@ import dev.mirzohidkhon.khonfitness.MainActivity
 import dev.mirzohidkhon.khonfitness.R
 import dev.mirzohidkhon.khonfitness.data.EatingWindowRules
 import dev.mirzohidkhon.khonfitness.data.iso
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -28,24 +31,30 @@ object WindowScheduler {
     private const val REQ_BOUNDARY = 71
     private const val REQ_REMIND = 72
 
+    // One reschedule at a time, in call order: each waits on the lock from the caller's thread (UNDISPATCHED), so an
+    // older run that read the old settings cannot arm its alarms after a newer one.
+    private val lock = Mutex()
+
     fun reschedule(context: Context) {
         val app = context.applicationContext as KhonApp
-        app.scope.launch {
-            val w = app.repo.eatingWindowOnce()
-            val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val boundary = pi(context, REQ_BOUNDARY, "boundary")
-            val remind = pi(context, REQ_REMIND, "remind")
-            am.cancel(boundary); am.cancel(remind)
-            dev.mirzohidkhon.khonfitness.widget.TodayWidget.refresh(context)
-            dev.mirzohidkhon.khonfitness.widget.WindowWidget.refresh(context)
-            if (!w.enabled) return@launch
-            val now = LocalDateTime.now()
-            val day = app.repo.windowDay(LocalDate.now().iso())
-            val st = EatingWindowRules.state(w, day, now)
-            set(am, st.changesAt.plusSeconds(1), boundary)
-            val remindAt = st.changesAt.minusMinutes(w.remindBeforeMin.toLong())
-            if (w.remindBeforeMin > 0 && remindAt.isAfter(now)) set(am, remindAt, remind)
-        }
+        app.scope.launch(start = CoroutineStart.UNDISPATCHED) { lock.withLock { arm(context, app) } }
+    }
+
+    private suspend fun arm(context: Context, app: KhonApp) {
+        val w = app.repo.eatingWindowOnce()
+        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val boundary = pi(context, REQ_BOUNDARY, "boundary")
+        val remind = pi(context, REQ_REMIND, "remind")
+        am.cancel(boundary); am.cancel(remind)
+        dev.mirzohidkhon.khonfitness.widget.TodayWidget.refresh(context)
+        dev.mirzohidkhon.khonfitness.widget.WindowWidget.refresh(context)
+        if (!w.enabled) return
+        val now = LocalDateTime.now()
+        val day = app.repo.windowDay(LocalDate.now().iso())
+        val st = EatingWindowRules.state(w, day, now)
+        set(am, st.changesAt.plusSeconds(1), boundary)
+        val remindAt = st.changesAt.minusMinutes(w.remindBeforeMin.toLong())
+        if (w.remindBeforeMin > 0 && remindAt.isAfter(now)) set(am, remindAt, remind)
     }
 
     private fun set(am: AlarmManager, at: LocalDateTime, pi: PendingIntent) {

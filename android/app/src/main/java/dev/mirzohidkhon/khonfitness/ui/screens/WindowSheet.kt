@@ -43,17 +43,18 @@ fun WindowSheet(vm: AppViewModel, onDismiss: () -> Unit) {
     val day = days.find { it.date == today.iso() }
     val now = LocalDateTime.now()
     val st = EatingWindowRules.state(w, day, now)
-    fun save(n: EatingWindow) { vm.run { vm.repo.saveEatingWindow(n); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) } }
+    // Each control writes its own setting onto the stored row ([KhonDao.setWindowStart] and the others), then re-arms the alarms.
+    fun save(write: suspend () -> Unit) { vm.run { write(); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) } }
     Sheet("Eating window", onDismiss) {
         GroupedList {
             if (w.enabled) {
                 if (st.open) ListRow("Close now", chevron = false, divider = false, titleColor = K.Accent) { vm.run { vm.repo.closeWindowNow(today.iso(), System.currentTimeMillis()); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) }; onDismiss() }
                 else ListRow("Open now", chevron = false, divider = false, titleColor = K.Accent) { vm.run { vm.repo.openWindowNow(today.iso(), System.currentTimeMillis()); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) }; onDismiss() }
             }
-            FieldRow("Opens", divider = w.enabled) { TimeStepper(w.startMinute, "Opens", 0..(w.endMinute - 60)) { m -> save(w.copy(startMinute = m)) } }
-            FieldRow("Closes") { TimeStepper(w.endMinute, "Closes", (w.startMinute + 60)..(24 * 60 - 1)) { m -> save(w.copy(endMinute = m)) } }
-            FieldRow("Remind before", divider = true) { NumberField(w.remindBeforeMin.toDouble(), { v -> save(w.copy(remindBeforeMin = (v ?: 0.0).toInt())) }, 5.0, "min", Modifier.width(176.dp), 0, 38, max = 120.0) }
-            FieldRow("On") { Switch(w.enabled, { save(w.copy(enabled = it)) }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
+            FieldRow("Opens", divider = w.enabled) { TimeStepper(w.startMinute, "Opens", EatingWindowRules.startRange(w.endMinute)) { m -> save { vm.repo.setWindowStart(m) } } }
+            FieldRow("Closes") { TimeStepper(w.endMinute, "Closes", EatingWindowRules.endRange(w.startMinute)) { m -> save { vm.repo.setWindowEnd(m) } } }
+            FieldRow("Remind before", divider = true) { NumberField(w.remindBeforeMin.toDouble(), { v -> save { vm.repo.setWindowRemind((v ?: 0.0).toInt()) } }, 5.0, "min", Modifier.width(176.dp), 0, 38, max = 120.0) }
+            FieldRow("On") { Switch(w.enabled, { on -> save { vm.repo.setWindowEnabled(on) } }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
         }
         if (w.enabled) {
             Text("Last 28 days", color = K.Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 6.dp))

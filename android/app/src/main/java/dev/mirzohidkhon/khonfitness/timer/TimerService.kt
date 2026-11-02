@@ -389,7 +389,7 @@ class TimerService : Service() {
 /** Stretch runs count only after one completed stretch or 30 s of stretching; skipping through the list is not a session. */
 internal suspend fun recordTimer(app: KhonApp, s: TimerState) = runCatching {
     val elapsed = s.elapsed.toInt()
-    if (s.stretch) { if (s.completed > 0 || s.elapsed >= 30.0) app.repo.saveStretchSession(dev.mirzohidkhon.khonfitness.data.StretchSession(
+    if (s.stretch) { if (s.completed > 0 || s.elapsed >= 30.0) app.repo.recordStretchSession(dev.mirzohidkhon.khonfitness.data.StretchSession(
         id = s.sessionId, routineId = s.sessionId.substringBefore(":"), routineName = s.title, date = java.time.LocalDate.now().format(dev.mirzohidkhon.khonfitness.data.ISO),
         startedAt = s.startedAt, totalSec = elapsed, completed = s.completed, skipped = s.skipped)) }
     else app.repo.setSessionTime(s.sessionId, elapsed) // Only the duration: an effort or note typed meanwhile stays.

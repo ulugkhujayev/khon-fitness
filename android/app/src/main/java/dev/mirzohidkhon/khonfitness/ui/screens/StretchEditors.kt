@@ -35,7 +35,7 @@ fun RoutinesScreen(vm: AppViewModel, nav: NavHostController) {
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
         EditorTopBar("Programs", "Stretching", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+") {
-            val id = newId(); vm.run { vm.repo.saveRoutine(StretchRoutine(id, "New routine", active = routines.isEmpty(), sortOrder = routines.size)) }; nav.navigate(Routes.routine(id))
+            val id = newId(); vm.run { vm.repo.createRoutine(StretchRoutine(id, "New routine", active = routines.isEmpty())) }; nav.navigate(Routes.routine(id))
         }
         Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             GroupedList {
@@ -58,7 +58,7 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
     val routineStretches by vm.routineStretches.collectAsStateWithLifecycle()
     val stretches by vm.stretches.collectAsStateWithLifecycle()
     val routine = routines.find { it.id == routineId } ?: return
-    val mine = routineStretches.filter { it.routineId == routineId }.sortedBy { it.sortOrder }
+    val mine = routineStretches.filter { it.routineId == routineId }.sortedWith(compareBy({ it.sortOrder }, { it.id }))
     var picking by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
@@ -66,8 +66,8 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
         EditorTopBar("Stretching", routine.name, scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }) { nav.popBackStack() }
         Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             GroupedList {
-                FieldRow("Name", divider = false) { InlineTextField(routine.name, { vm.run { vm.repo.saveRoutine(routine.copy(name = it)) } }) }
-                FieldRow("Active") { Switch(routine.active, { on -> vm.run { vm.repo.saveRoutine(routine.copy(active = on)) } }, colors = switchColors) }
+                FieldRow("Name", divider = false) { InlineTextField(routine.name, { vm.run { vm.repo.setRoutineName(routineId, it) } }) }
+                FieldRow("Active") { Switch(routine.active, { on -> vm.run { vm.repo.setRoutineActive(routineId, on) } }, colors = switchColors) }
             }
             SectionTitle("Stretches", Modifier.padding(top = 20.dp)) { PlusButton { picking = true } }
             GroupedList {
@@ -78,7 +78,7 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
                     FieldRow(name, divider = i > 0) {
                         Text(if (st?.sided == true) "per side" else "", color = K.Muted, style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.width(8.dp))
-                        NumberField(sec.toDouble(), { v -> vm.run { vm.repo.saveRoutineStretch(rs.copy(seconds = (v ?: 45.0).toInt())) } }, 5.0, "s", Modifier.width(176.dp), 0, 38, min = 5.0, max = 600.0)
+                        NumberField(sec.toDouble(), { v -> vm.run { vm.repo.setRoutineStretchSeconds(rs.id, (v ?: 45.0).toInt()) } }, 5.0, "s", Modifier.width(176.dp), 0, 38, min = 5.0, max = 600.0)
                     }
                 }
                 if (mine.isEmpty()) ListRow("No stretches yet", chevron = false, divider = false, titleColor = K.Muted)
@@ -89,9 +89,9 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
                     mine.forEachIndexed { i, rs ->
                         val st = stretches.find { it.id == rs.stretchId }
                         ListRow(st?.name ?: "Missing stretch", chevron = false, divider = i > 0, trailing = {
-                            TextButton("↑", enabled = i > 0) { vm.run { vm.repo.saveRoutineStretches(listOf(rs.copy(sortOrder = i - 1), mine[i - 1].copy(sortOrder = i))) } }
-                            TextButton("↓", enabled = i < mine.size - 1) { vm.run { vm.repo.saveRoutineStretches(listOf(rs.copy(sortOrder = i + 1), mine[i + 1].copy(sortOrder = i))) } }
-                            TextButton("Remove", color = K.Red) { vm.run { vm.repo.deleteRoutineStretch(rs.id) } }
+                            TextButton("↑", enabled = i > 0) { vm.run { vm.repo.moveRoutineStretch(rs.id, up = true) } }
+                            TextButton("↓", enabled = i < mine.size - 1) { vm.run { vm.repo.moveRoutineStretch(rs.id, up = false) } }
+                            TextButton("Remove", color = K.Red) { vm.run { vm.repo.removeRoutineStretch(rs.id) } }
                         })
                     }
                 }
@@ -104,7 +104,7 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
         ChoiceList {
             stretches.filter { !it.archived }.forEachIndexed { i, st ->
                 ChoiceRow(st.name, mine.any { it.stretchId == st.id }, divider = i > 0) {
-                    vm.run { vm.repo.saveRoutineStretch(RoutineStretch(newId(), routineId, st.id, mine.size)) }; picking = false
+                    vm.run { vm.repo.addRoutineStretch(routineId, st.id) }; picking = false
                 }
             }
         }
@@ -141,12 +141,14 @@ fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
     val stretches by vm.stretches.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val existing = stretches.find { it.id == id }
+    // What the editor opened with: Done writes only the fields changed since ([KhonDao.saveStretchEdits]).
+    val opened = remember(existing?.id) { existing }
     var draft by remember(existing?.id) { mutableStateOf(existing ?: Stretch(newId(), "", figure = "hipflexor")) }
     var figureSheet by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var useCount by remember { mutableIntStateOf(0) }
     LaunchedEffect(id) { if (existing != null) useCount = vm.repo.stretchUseCount(id) }
-    fun save() { vm.run { vm.repo.saveStretch(draft) } }
+    fun save() { val d = draft; vm.run { if (opened == null) vm.repo.createStretch(d) else vm.repo.saveStretchEdits(opened, d) } }
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
         EditorTopBar("Stretches", if (existing == null) "New stretch" else "Stretch", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }) { save(); nav.popBackStack() }
@@ -174,5 +176,9 @@ fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
     if (figureSheet) Sheet("Guide", { figureSheet = false }) {
         ChoiceList { Figures.keys.forEachIndexed { i, k -> ChoiceRow(Figures.name(k), draft.figure == k, divider = i > 0) { draft = draft.copy(figure = k); figureSheet = false } } }
     }
-    if (confirmDelete) ConfirmSheet("Delete this stretch?", "", "Delete", { confirmDelete = false }) { vm.run { vm.repo.deleteStretch(id) }; nav.popBackStack() }
+    if (confirmDelete) ConfirmSheet("Delete this stretch?", "", "Delete", { confirmDelete = false }) {
+        // Checked again when it runs: a routine may use the stretch by now. A refusal keeps the editor open with the reason.
+        confirmDelete = false
+        vm.run { if (vm.repo.deleteStretchIfUnused(id)) nav.popBackStack() else useCount = vm.repo.stretchUseCount(id) }
+    }
 }

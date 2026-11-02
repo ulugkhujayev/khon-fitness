@@ -236,7 +236,9 @@ class KhonRepository(private val dao: KhonDao) {
         return session
     }
 
-    suspend fun updateSetLog(log: SetLog) = dao.upsert(log)
+    suspend fun setSetStatus(id: String, status: String) = dao.setSetStatus(id, status)
+    suspend fun setSetWeight(id: String, weightKg: Double?) = dao.setSetWeight(id, weightKg)
+    suspend fun setSetReps(id: String, reps: Int?) = dao.setSetReps(id, reps)
     /** The cardio form's Save: only what the user changed since [opened] is written, in one transaction with the intervals. */
     suspend fun saveCardioEdits(opened: Session, edited: Session, intervals: List<IntervalLog>, now: Long = System.currentTimeMillis()) =
         dao.saveCardioEdits(opened, edited, intervals, now)
@@ -249,8 +251,8 @@ class KhonRepository(private val dao: KhonDao) {
     suspend fun finishSession(sessionId: String, now: Long = System.currentTimeMillis()) = dao.finishSession(sessionId, now)
     suspend fun deleteSession(sessionId: String) { dao.deleteSetLogsFor(sessionId); dao.deleteIntervalLogsFor(sessionId); dao.deleteSession(sessionId) }
     suspend fun swapExerciseInSession(sessionId: String, fromExerciseId: String, to: Exercise, updateProgram: Boolean, programId: String?) {
-        val logs = dao.setLogsOnce(sessionId).filter { it.exerciseId == fromExerciseId }.map { it.copy(exerciseId = to.id, exerciseName = to.name, stepKg = to.stepKg) }
-        dao.upsertSetLogs(logs)
+        // Only the exercise columns change: a set's weight, reps or check saved meanwhile stays.
+        dao.swapSetExercise(sessionId, fromExerciseId, to.id, to.name, to.stepKg)
         if (updateProgram && programId != null) {
             dao.blocksFor(programId).forEach { b -> dao.blockExercisesFor(b.id).filter { it.exerciseId == fromExerciseId }.forEach { dao.upsert(it.copy(exerciseId = to.id)) } }
         }

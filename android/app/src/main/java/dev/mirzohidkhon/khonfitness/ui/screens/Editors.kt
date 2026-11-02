@@ -242,7 +242,8 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
             GroupedList {
                 val archived = original!!.archived
                 ActionRow(if (archived) Icons.Unarchive else Icons.Archive, if (archived) "Unarchive" else "Archive", divider = false) {
-                    vm.run { vm.repo.setExerciseArchived(exerciseId, !archived) }; nav.popBackStack()
+                    // Archive keeps the edits made on the page: they save first, then the one column.
+                    vm.run { if (draft.name.isNotBlank()) vm.repo.saveExerciseEdits(opened, draft.copy(name = draft.name.trim())); vm.repo.setExerciseArchived(exerciseId, !archived) }; nav.popBackStack()
                 }
                 ActionRow(Icons.Merge, "Merge into…") { sheet = "merge" }
             }
@@ -299,7 +300,7 @@ fun ModalityEditorScreen(vm: AppViewModel, nav: NavHostController, modalityId: S
             GroupedList {
                 val archived = original!!.archived
                 ActionRow(if (archived) Icons.Unarchive else Icons.Archive, if (archived) "Unarchive" else "Archive", divider = false) {
-                    vm.run { vm.repo.setModalityArchived(modalityId, !archived) }; nav.popBackStack()
+                    vm.run { if (draft.name.isNotBlank()) vm.repo.saveModalityEdits(opened, draft.copy(name = draft.name.trim())); vm.repo.setModalityArchived(modalityId, !archived) }; nav.popBackStack()
                 }
             }
         }

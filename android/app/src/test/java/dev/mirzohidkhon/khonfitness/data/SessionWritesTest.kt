@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -101,5 +102,28 @@ class SessionWritesTest {
             }
             assertEquals(held.copy(effort = i % 10 + 1, note = "note $i", timeSec = i, date = LocalDate.of(2026, 1, 1).plusDays(i.toLong()).iso()), row())
         }
+    }
+
+    @Test fun `a weight typed and then a check tapped from the same row on screen keeps both`() = runBlocking {
+        seed()
+        // The row on screen still holds the old weight when the check is tapped.
+        val onScreen = dao.setLogsOnce("s1").first { it.id == "b" }
+        repo.setSetWeight(onScreen.id, 62.5)
+        repo.setSetStatus(onScreen.id, SetStatus.DONE)
+        repo.setSetReps(onScreen.id, 9)
+        val b = dao.setLogsOnce("s1").first { it.id == "b" }
+        assertEquals(62.5, b.weightKg!!, 0.0)
+        assertEquals(SetStatus.DONE, b.status)
+        assertEquals(9, b.reps)
+    }
+
+    @Test fun `a swap changes only the exercise columns of its sets`() = runBlocking {
+        seed()
+        repo.setSetWeight("b", 70.0)
+        repo.swapExerciseInSession("s1", "bench", Exercise("incline", "Incline Press", Kind.STRENGTH, stepKg = 1.25), updateProgram = false, programId = null)
+        val logs = dao.setLogsOnce("s1")
+        assertTrue(logs.all { it.exerciseId == "incline" && it.exerciseName == "Incline Press" && it.stepKg == 1.25 })
+        assertEquals(70.0, logs.first { it.id == "b" }.weightKg!!, 0.0)
+        assertEquals(listOf(SetStatus.DONE, SetStatus.PENDING, SetStatus.SKIPPED), logs.map { it.status })
     }
 }

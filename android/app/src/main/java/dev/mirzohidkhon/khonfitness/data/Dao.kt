@@ -168,6 +168,13 @@ interface KhonDao {
     @Query("SELECT * FROM set_logs") suspend fun allSetLogsOnce(): List<SetLog>
     @Upsert suspend fun upsert(log: SetLog)
     @Upsert suspend fun upsertSetLogs(list: List<SetLog>)
+    // One field of a set the user edits in the live session: a whole-row write from the row on screen would undo
+    // another field's save that has not come back yet (a weight typed, then the check tapped at once).
+    @Query("UPDATE set_logs SET status = :status WHERE id = :id") suspend fun setSetStatus(id: String, status: String)
+    @Query("UPDATE set_logs SET weightKg = :weightKg WHERE id = :id") suspend fun setSetWeight(id: String, weightKg: Double?)
+    @Query("UPDATE set_logs SET reps = :reps WHERE id = :id") suspend fun setSetReps(id: String, reps: Int?)
+    @Query("UPDATE set_logs SET exerciseId = :toId, exerciseName = :toName, stepKg = :stepKg WHERE sessionId = :sessionId AND exerciseId = :fromId")
+    suspend fun swapSetExercise(sessionId: String, fromId: String, toId: String, toName: String, stepKg: Double)
     @Query("DELETE FROM set_logs WHERE sessionId = :sessionId") suspend fun deleteSetLogsFor(sessionId: String)
 
     @Query("SELECT * FROM interval_logs WHERE sessionId = :sessionId ORDER BY `index`") fun intervalLogs(sessionId: String): Flow<List<IntervalLog>>

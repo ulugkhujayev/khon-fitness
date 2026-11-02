@@ -113,7 +113,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     }
     fun toggleSet(log: SetLog) {
         val next = if (log.status == SetStatus.DONE) SetStatus.PENDING else SetStatus.DONE
-        vm.run { vm.repo.updateSetLog(log.copy(status = next)) }
+        vm.run { vm.repo.setSetStatus(log.id, next) }
         if (next != SetStatus.DONE) return
         val after = afterCheck(blocks, log, live = running) ?: return
         open(after.open)
@@ -134,8 +134,8 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                                 log = log, prev = previous[log.key()], live = live,
                                 pending = pendingFocus,
                                 onToggle = { toggleSet(log) },
-                                onWeight = { w -> vm.run { vm.repo.updateSetLog(log.copy(weightKg = w)) } },
-                                onReps = { r -> vm.run { vm.repo.updateSetLog(log.copy(reps = r?.toInt())) } },
+                                onWeight = { w -> vm.run { vm.repo.setSetWeight(log.id, w) } },
+                                onReps = { r -> vm.run { vm.repo.setSetReps(log.id, r?.toInt()) } },
                                 onSwap = { swapLog = log },
                             )
                         }

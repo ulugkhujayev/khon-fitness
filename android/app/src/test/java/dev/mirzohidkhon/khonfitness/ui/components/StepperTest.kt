@@ -166,6 +166,34 @@ class StepperTest {
         }
     }
 
+    @Test fun cleanTypedDropsDigitsTheParserCannotRead() {
+        // Arabic-Indic, Persian and full-width five.
+        for (five in listOf("\u0665", "\u06F5", "\uFF15")) {
+            assertEquals("", cleanTyped(five, 0))
+            assertEquals("3", cleanTyped("3$five", 1))
+            assertTrue(Stepper(1.0).showsOutside(null, cleanTyped("4$five", 0), focused = true))
+        }
+    }
+
+    @Test fun cleanOffsetMovesTheCursorWithTheCleaning() {
+        // "." becomes "0." with the cursor after the dot, so the next 5 gives 0.5.
+        assertEquals(2, cleanOffset(".", 1, 1))
+        val next = "0." + "5"
+        assertEquals("0.5", cleanTyped(next, 1))
+        // A dropped dot in a whole-number field: "4.5" -> "45", cursor after the 4 and after the 5.
+        assertEquals(1, cleanOffset("4.5", 2, 0))
+        assertEquals(2, cleanOffset("4.5", 3, 0))
+        // A second dot typed in "5.2" at the end: "5.2." -> "5.2", cursor at the end.
+        assertEquals(3, cleanOffset("5.2.", 4, 1))
+        // Paste "1,5 kg" over everything: "1.5", cursor at the end.
+        assertEquals("1.5", cleanTyped("1,5 kg", 1))
+        assertEquals(3, cleanOffset("1,5 kg", 6, 1))
+        // A selection maps both ends; offsets past the text are clamped.
+        assertEquals(0, cleanOffset("a12", 1, 0))
+        assertEquals(2, cleanOffset("a12", 3, 0))
+        assertEquals(2, cleanOffset("a12", 9, 0))
+    }
+
     @Test fun parseTypedReadsCleanTextInsideTheBounds() {
         val sets = Stepper(1.0, 1.0, 10.0)
         assertNull(sets.parseTyped(""))

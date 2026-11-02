@@ -270,7 +270,11 @@ fun NumberField(
             value = text,
             onValueChange = { new ->
                 val cleaned = cleanTyped(new.text, decimals)
-                text = new.copy(text = cleaned)
+                // Cleaning may add or drop characters: move the selection with them, and end any composition.
+                text = if (cleaned == new.text) new else TextFieldValue(
+                    cleaned,
+                    TextRange(cleanOffset(new.text, new.selection.start, decimals), cleanOffset(new.text, new.selection.end, decimals)),
+                )
                 // Cleaned text is empty or a number: a cleared field clears the value.
                 onValueChange(stepper.parseTyped(cleaned))
             },

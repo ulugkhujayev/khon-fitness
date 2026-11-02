@@ -151,7 +151,7 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
                 FieldRow("Intensity", onClick = { sheet = "intensity" }) { Text(cap(draft.intensity ?: "low"), fontWeight = FontWeight.SemiBold); Chevron() }
                 FieldRow("Intervals") { Switch(draft.intervals, { draft = draft.copy(intervals = it, rounds = if (it && draft.rounds == 0) 4 else draft.rounds, workSec = if (it && draft.workSec == 0) 240 else draft.workSec, restSec = if (it && draft.restSec == 0) 180 else draft.restSec) }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
                 if (draft.intervals) {
-                    NumberRow("Warm-up", draft.warmupSec / 60.0, "min", 1.0, 0, true) { draft = draft.copy(warmupSec = ((it ?: 0.0) * 60).toInt()) }
+                    NumberRow("Warm-up", draft.warmupSec / 60.0, "min", 1.0, 0, true) { draft = draft.copy(warmupSec = scaled(it ?: 0.0, 60.0)) }
                     NumberRow("Work", draft.workSec.toDouble(), "s", 10.0, 0, true) { draft = draft.copy(workSec = (it ?: 0.0).toInt()) }
                     NumberRow("Rest", draft.restSec.toDouble(), "s", 10.0, 0, true) { draft = draft.copy(restSec = (it ?: 0.0).toInt()) }
                     NumberRow("Rounds", draft.rounds.toDouble(), "", 1.0, 0, true, min = 1.0, max = 30.0) { draft = draft.copy(rounds = (it ?: 1.0).toInt()) }

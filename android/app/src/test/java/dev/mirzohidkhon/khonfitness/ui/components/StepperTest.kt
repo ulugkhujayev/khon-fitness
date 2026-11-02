@@ -222,6 +222,18 @@ class StepperTest {
         assertEquals(62.5, Stepper(1.25).step(1, true, t, 61.25, null).shown, 1e-9)
     }
 
+    @Test fun scaledRoundsToStoredUnits() {
+        assertEquals(246, scaled(4.1, 60.0))
+        assertEquals(65100, scaled(65.1, 1000.0))
+        assertEquals(300, scaled(5.0, 60.0))
+        // Every one-decimal km and minute value up to the field's limits round-trips.
+        for (tenths in 0..9999) {
+            val v = tenths / 10.0
+            assertEquals(tenths * 100, scaled(v, 1000.0))
+            assertEquals(tenths * 6, scaled(v, 60.0))
+        }
+    }
+
     @Test fun parseTypedReadsCleanTextInsideTheBounds() {
         val sets = Stepper(1.0, 1.0, 10.0)
         assertNull(sets.parseTyped(""))

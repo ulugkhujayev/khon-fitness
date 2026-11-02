@@ -38,6 +38,9 @@ fun cleanOffset(raw: String, offset: Int, decimals: Int): Int = cleanTyped(raw.s
 /** The decimals a field needs to show every step of [step] exactly: 2.5 needs 1, 1.25 needs 2, 5 needs none. */
 fun stepDecimals(step: Double): Int = (0..2).firstOrNull { d -> Math.abs(step * Math.pow(10.0, d.toDouble()) - Math.round(step * Math.pow(10.0, d.toDouble()))) < 1e-9 } ?: 2
 
+/** A field's number in stored units, rounded: 4.1 min is 246 s and 65.1 km is 65100 m (a cast would cut them to 245, 65099). */
+fun scaled(v: Double, factor: Double): Int = Math.round(v * factor).toInt()
+
 /** The number a field's cleaned text ([cleanTyped]) stands for: "80." is 80, empty is null. */
 fun typedNumber(text: String): Double? = text.trimEnd('.').toDoubleOrNull()
 

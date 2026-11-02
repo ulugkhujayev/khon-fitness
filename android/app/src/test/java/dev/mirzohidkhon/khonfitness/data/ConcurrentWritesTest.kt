@@ -58,9 +58,7 @@ class ConcurrentWritesTest {
     @Test fun `a dated change saved while the week plan reads stays manual`() = runBlocking {
         dao.upsert(WeekPlan(1, ItemType.PROGRAM, "push"))
         // After the plan's overrides are read, and before it writes, a dated change lands for last Monday.
-        race.arm({ it == "SELECT * FROM sessions" }) { dao.upsert(DayOverride("2026-10-26", ItemType.CARDIO, "z2run")) }
-        repo.saveWeekPlan(1, ItemType.REST, null, today)
-        race.finish()
+        race.step({ it == "SELECT * FROM sessions" }, { dao.upsert(DayOverride("2026-10-26", ItemType.CARDIO, "z2run")) }) { repo.saveWeekPlan(1, ItemType.REST, null, today) }
         assertEquals(DayOverride("2026-10-26", ItemType.CARDIO, "z2run", auto = false), dao.overridesOnce().find { it.date == "2026-10-26" })
         assertEquals(DayOverride("2026-10-19", ItemType.PROGRAM, "push", auto = true), dao.overridesOnce().find { it.date == "2026-10-19" })
         assertEquals(WeekPlan(1, ItemType.REST), dao.weekPlanOnce().single())
@@ -72,9 +70,7 @@ class ConcurrentWritesTest {
         dao.upsertWeekPlan(listOf(WeekPlan(2, ItemType.PROGRAM, "push"), WeekPlan(3, ItemType.CARDIO, "z2run")))
         val tue = "2026-11-03"; val wed = "2026-11-04"
         // Wednesday gets Pull from the Today sheet after the swap has read the plan, before it writes.
-        race.arm(firstWriteAfterRead()) { repo.saveOverride(wed, ItemType.PROGRAM, "pull") }
-        repo.swapDays(LocalDate.parse(tue), LocalDate.parse(wed))
-        race.finish()
+        race.step(firstWriteAfterRead(), { repo.saveOverride(wed, ItemType.PROGRAM, "pull") }) { repo.swapDays(LocalDate.parse(tue), LocalDate.parse(wed)) }
         // The swap, then the change: Tuesday holds the run, Wednesday holds Pull.
         assertEquals(DayOverride(tue, ItemType.CARDIO, "z2run"), dao.overridesOnce().find { it.date == tue })
         assertEquals(DayOverride(wed, ItemType.PROGRAM, "pull"), dao.overridesOnce().find { it.date == wed })
@@ -89,9 +85,7 @@ class ConcurrentWritesTest {
     @Test fun `open now keeps a day row an import wrote meanwhile`() = runBlocking {
         val date = today.iso()
         dao.upsert(WindowDay(date, note = "old"))
-        race.arm(firstWriteAfterRead("window_days")) { importDay(date, null, 7L, "imported") }
-        repo.openWindowNow(date, 100L)
-        race.finish()
+        race.step(firstWriteAfterRead("window_days"), { importDay(date, null, 7L, "imported") }) { repo.openWindowNow(date, 100L) }
         // Either order is fine; the held copy of the row is never written back.
         val row = dao.windowDay(date)
         assertTrue("$row", row == WindowDay(date, openedAt = 100L, note = "imported") || row == WindowDay(date, closedAt = 7L, note = "imported"))
@@ -100,9 +94,7 @@ class ConcurrentWritesTest {
     @Test fun `close now keeps a day row an import wrote meanwhile`() = runBlocking {
         val date = today.iso()
         dao.upsert(WindowDay(date, openedAt = 50L, note = "old"))
-        race.arm(firstWriteAfterRead("window_days")) { importDay(date, 60L, null, "imported") }
-        repo.closeWindowNow(date, 100L)
-        race.finish()
+        race.step(firstWriteAfterRead("window_days"), { importDay(date, 60L, null, "imported") }) { repo.closeWindowNow(date, 100L) }
         val row = dao.windowDay(date)
         assertTrue("$row", row == WindowDay(date, openedAt = 60L, closedAt = 100L, note = "imported") || row == WindowDay(date, openedAt = 60L, note = "imported"))
     }
@@ -172,9 +164,7 @@ class ConcurrentWritesTest {
     // ---- seeds
 
     @Test fun `an exercise saved while the seed writes is not seeded over`() = runBlocking {
-        race.arm(firstWriteAfterRead()) { importExercise("bench", "My bench") }
-        repo.seedIfEmpty()
-        race.finish()
+        race.step(firstWriteAfterRead(), { importExercise("bench", "My bench") }) { repo.seedIfEmpty() }
         assertEquals("My bench", dao.exercise("bench")?.name)
     }
 

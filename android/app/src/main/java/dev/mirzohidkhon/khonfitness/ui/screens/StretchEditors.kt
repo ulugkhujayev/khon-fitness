@@ -140,18 +140,25 @@ fun StretchLibraryScreen(vm: AppViewModel, nav: NavHostController) {
 fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
     val stretches by vm.stretches.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val existing = stretches.find { it.id == id }
-    // What the editor opened with: Done writes only the fields changed since ([KhonDao.saveStretchEdits]).
-    val opened = remember(existing?.id) { existing }
-    var draft by remember(existing?.id) { mutableStateOf(existing ?: Stretch(newId(), "", figure = "hipflexor")) }
+    // The route alone sets the mode for the screen's whole life: "new" creates, any other id edits that stretch.
+    val isNew = id == "new"
+    val existing = if (isNew) null else stretches.find { it.id == id }
+    // What the editor opened with, kept once seen even when the row goes: Done writes only the fields changed since
+    // ([KhonDao.saveStretchEdits]), which is nothing for a deleted row, and never creates a stretch in edit mode.
+    var opened by remember(id) { mutableStateOf(existing) }
+    var draft by remember(id) { mutableStateOf(existing ?: Stretch(newId(), "", figure = "hipflexor")) }
+    if (opened == null && existing != null) { opened = existing; draft = existing } // the row loaded after the screen opened
     var figureSheet by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var useCount by remember { mutableIntStateOf(0) }
     LaunchedEffect(id) { if (existing != null) useCount = vm.repo.stretchUseCount(id) }
-    fun save() { val d = draft; vm.run { if (opened == null) vm.repo.createStretch(d) else vm.repo.saveStretchEdits(opened, d) } }
+    fun save() {
+        val d = draft; val o = opened
+        if (isNew) vm.run { vm.repo.createStretch(d) } else if (o != null) vm.run { vm.repo.saveStretchEdits(o, d) }
+    }
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
-        EditorTopBar("Stretches", if (existing == null) "New stretch" else "Stretch", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }) { save(); nav.popBackStack() }
+        EditorTopBar("Stretches", if (isNew) "New stretch" else "Stretch", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }) { save(); nav.popBackStack() }
         Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             StretchDemonstration(draft.figure, compact = true, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))
             GroupedList {

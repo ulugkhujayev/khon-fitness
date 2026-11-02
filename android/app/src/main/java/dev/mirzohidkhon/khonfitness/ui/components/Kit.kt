@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -33,7 +34,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -172,4 +175,19 @@ fun Modifier.edgeFade(color: Color, width: Dp = 40.dp): Modifier = drawWithConte
     val w = width.toPx().coerceAtMost(size.width / 2)
     drawRect(Brush.horizontalGradient(listOf(color, Color.Transparent), startX = 0f, endX = w), size = Size(w, size.height))
     drawRect(Brush.horizontalGradient(listOf(Color.Transparent, color), startX = size.width - w, endX = size.width), topLeft = Offset(size.width - w, 0f), size = Size(w, size.height))
+}
+
+/**
+ * A thin progress track: [done] of [total] filled in [color] on Surface2, 5 dp tall and rounded. Screen readers get
+ * [label] and the count.
+ */
+@Composable
+fun ProgressBar(done: Int, total: Int, label: String, modifier: Modifier = Modifier, color: Color = K.Green) {
+    val share = if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else 0f
+    Box(
+        modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(K.Surface2)
+            .clearAndSetSemantics { contentDescription = label; progressBarRangeInfo = ProgressBarRangeInfo(done.toFloat(), 0f..total.coerceAtLeast(1).toFloat()) },
+    ) {
+        if (share > 0f) Box(Modifier.fillMaxWidth(share).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(color))
+    }
 }

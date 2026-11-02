@@ -33,6 +33,25 @@ object Icons {
     val Merge = icon("arrow.triangle.merge") { stroke("M6 4v4a6 6 0 0 0 6 6M18 4v4a6 6 0 0 1-6 6v6M9 17l3 3 3-3") }
     val ArrowUp = icon("arrow.up") { stroke("M12 20V4M5 11l7-7 7 7") }
     val ArrowDown = icon("arrow.down") { stroke("M12 4v16M5 13l7 7 7-7") }
+    /** What a day holds (Today's card, plan sheets): a program, cardio, rest. */
+    val Dumbbell = icon("dumbbell.fill") { fill("M4.5 6.5a1.5 1.5 0 0 1 3 0v11a1.5 1.5 0 0 1-3 0zM16.5 6.5a1.5 1.5 0 0 1 3 0v11a1.5 1.5 0 0 1-3 0zM1.5 9.5a1 1 0 0 1 2 0v5a1 1 0 0 1-2 0zM20.5 9.5a1 1 0 0 1 2 0v5a1 1 0 0 1-2 0z"); stroke("M7.5 12h9") }
+    val Runner = icon("figure.run") { fill("M15.5 2.4a2 2 0 1 0 0 4a2 2 0 1 0 0-4z"); stroke("M6.5 10l3-2.5h4.5l2.5 3.5 3 .5M14 7.5l-2.5 5.5 3.5 2.5-1.5 5M11.5 13l-2.5 3H5") }
+    val Moon = icon("moon.fill") { fill("M20.5 14.6A8.5 8.5 0 1 1 9.4 3.5a7 7 0 0 0 11.1 11.1z") }
+    /** Today's rows: the stretch routine, the eating window, band sessions. */
+    val Stretch = icon("figure.flexibility") { fill("M12 2.2a2 2 0 1 0 0 4a2 2 0 1 0 0-4z"); stroke("M4.5 8l7.5 1.5 7.5-1.5M12 9.5v5M7 21l5-6.5 5 6.5") }
+    val ForkKnife = icon("fork.knife") { stroke("M7 3v18M4.5 3v5a2.5 2.5 0 0 0 5 0V3M17 21V3c-2 1.5-3.5 4-3.5 7.5V14H17") }
+    val Heart = icon("heart.fill") { fill("M12 20.6l-1.4-1.3C5.6 14.8 2.5 12 2.5 8.6 2.5 5.8 4.7 3.6 7.5 3.6c1.6 0 3.1.7 4.5 2 1.4-1.3 2.9-2 4.5-2 2.8 0 5 2.2 5 5 0 3.4-3.1 6.2-8.1 10.7z") }
+    /** History's Import button: an arrow into a tray. */
+    val Download = icon("square.and.arrow.down") { stroke("M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4.5 15v4.5h15V15") }
+    /** Import's empty cards: reading, and all caught up. */
+    val DownloadCircle = icon("arrow.down.circle") { stroke("M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z"); stroke("M12 7.5v8M8.5 12l3.5 3.5 3.5-3.5") }
+    val CheckCircle = icon("checkmark.circle.fill") {
+        addPath(pathData = PathParser().parsePathString("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20zM10.4 16.4l-4.3-4.3 1.4-1.4 2.9 2.9 6.1-6.1 1.4 1.4z").toNodes(), fill = SolidColor(Color.White), pathFillType = androidx.compose.ui.graphics.PathFillType.EvenOdd)
+    }
+    /** The health store, on Import's cards that ask for access. */
+    val HeartSquare = icon("heart.text.square.fill") {
+        addPath(pathData = PathParser().parsePathString("M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zM12 17.2l.9-.8c3-2.7 4.8-4.3 4.8-6.3 0-1.6-1.3-2.9-2.9-2.9-.9 0-1.9.5-2.8 1.3-.9-.8-1.9-1.3-2.8-1.3-1.6 0-2.9 1.3-2.9 2.9 0 2 1.8 3.6 4.8 6.3z").toNodes(), fill = SolidColor(Color.White), pathFillType = androidx.compose.ui.graphics.PathFillType.EvenOdd)
+    }
     /** Clear button of a search field: a filled circle with an x cut out. */
     val ClearFill = icon("xmark.circle.fill") {
         addPath(pathData = PathParser().parsePathString("M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20zM8.5 7.1L12 10.6l3.5-3.5 1.4 1.4-3.5 3.5 3.5 3.5-1.4 1.4-3.5-3.5-3.5 3.5-1.4-1.4 3.5-3.5-3.5-3.5z").toNodes(), fill = SolidColor(Color.White), pathFillType = androidx.compose.ui.graphics.PathFillType.EvenOdd)

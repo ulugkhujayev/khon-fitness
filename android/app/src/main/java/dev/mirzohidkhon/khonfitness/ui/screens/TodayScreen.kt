@@ -1,21 +1,9 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
@@ -25,33 +13,45 @@ import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.timer.TimerService
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
-import java.time.DayOfWeek
 import java.time.LocalDate
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.Role
 
+/** Now, read again at each minute boundary so "34 min" and "closes in" stay right while the screen is open. */
+@Composable
+fun rememberMinuteClock(): Long {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(60_000 - System.currentTimeMillis() % 60_000); now = System.currentTimeMillis() } }
+    return now
+}
+
+/**
+ * Today: the week strip, today's item with Start or Resume, one group of rows (the stretch routine, the eating
+ * window, band sessions waiting for import), and bodyweight with its chart and entry.
+ */
 @Composable
 fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     val plan by vm.planData.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
+    val exercises by vm.exercises.collectAsStateWithLifecycle()
     val blocks by vm.blocks.collectAsStateWithLifecycle()
     val blockExercises by vm.blockExercises.collectAsStateWithLifecycle()
     val bodyweights by vm.bodyweights.collectAsStateWithLifecycle()
     val unfinished by vm.unfinished.collectAsStateWithLifecycle()
+    val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val logs by vm.allSetLogs.collectAsStateWithLifecycle()
     val today = LocalDate.now()
     val item = plan.itemFor(today)
     val loaded = plan.plan.isNotEmpty() || plan.programs.isNotEmpty() || plan.exercises.isNotEmpty()
     var planDate by remember { mutableStateOf<LocalDate?>(null) }
-    var bwDraft by remember { mutableStateOf<Double?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     var pendingBand by remember { mutableIntStateOf(0) }
+    fun start() = vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
+    fun resume(active: Session) = nav.navigate(if (active.itemType == ItemType.PROGRAM) Routes.session(active.id) else if (TimerService.state.value?.sessionId == active.id) Routes.timer(active.id) else Routes.cardio(active.id))
     val startRequested by dev.mirzohidkhon.khonfitness.MainActivity.startRequested.collectAsStateWithLifecycle()
     LaunchedEffect(startRequested, unfinished, item.name, loaded) {
         if (!startRequested || !loaded) return@LaunchedEffect
         dev.mirzohidkhon.khonfitness.MainActivity.startRequested.value = false
         val active = unfinished
-        if (active != null) nav.navigate(if (active.itemType == ItemType.PROGRAM) Routes.session(active.id) else if (TimerService.state.value?.sessionId == active.id) Routes.timer(active.id) else Routes.cardio(active.id))
-        else if (!item.isRest) vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
+        if (active != null) resume(active) else if (!item.isRest) start()
     }
     LaunchedEffect(item.name, unfinished?.id) { dev.mirzohidkhon.khonfitness.widget.TodayWidget.refresh(context) }
     val stretchRoutines by vm.stretchRoutines.collectAsStateWithLifecycle()
@@ -63,12 +63,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     var windowSheet by remember { mutableStateOf(false) }
     val windowRequested by dev.mirzohidkhon.khonfitness.MainActivity.windowRequested.collectAsStateWithLifecycle()
     LaunchedEffect(windowRequested) { if (windowRequested) { dev.mirzohidkhon.khonfitness.MainActivity.windowRequested.value = false; windowSheet = true } }
-    // Tick once a minute so "closes in" stays right while the screen is open.
-    var minuteTick by remember { mutableIntStateOf(0) }
-    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(60_000); minuteTick++ } }
-    val update by vm.update.collectAsStateWithLifecycle()
-    val updateProgress by vm.updateProgress.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { vm.checkUpdate() }
+    val now = rememberMinuteClock()
     val notifLauncher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
     LaunchedEffect(Unit) {
         if (android.os.Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -77,105 +72,38 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
 
     TabScreen("Today", trailing = { BarCircleButton(Icons.Gear, "Settings") { nav.navigate(Routes.SETTINGS) } }) {
         WeekStrip(today, plan, modalities) { planDate = it }
-        Spacer(Modifier.height(24.dp))
-        if (loaded) Column(Modifier.fillMaxWidth().clip(GroupShape).background(K.Surface).padding(20.dp, 18.dp, 20.dp, 18.dp)) {
+        if (loaded) {
             val active = unfinished
-            if (active != null) {
-                Text(active.programName ?: active.exerciseName ?: "Session", style = MaterialTheme.typography.titleLarge)
-                Text("In progress", color = K.Green, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
-                PrimaryButton("Resume") {
-                    val running = TimerService.state.value?.sessionId == active.id
-                    nav.navigate(if (active.itemType == ItemType.PROGRAM) Routes.session(active.id) else if (running) Routes.timer(active.id) else Routes.cardio(active.id))
-                }
-            } else {
-                val sessions by vm.sessions.collectAsStateWithLifecycle()
-                val logs by vm.allSetLogs.collectAsStateWithLifecycle()
-                val doneToday = sessions.filter { it.date == today.iso() && it.finished && ((item.program != null && it.programId == item.program.id) || (item.cardio != null && it.exerciseId == item.cardio.id)) }
-                Text(item.name, style = MaterialTheme.typography.titleLarge)
-                if (doneToday.isNotEmpty()) {
-                    val s = doneToday.first()
-                    val done = logs.filter { it.sessionId == s.id && it.status == SetStatus.DONE }
-                    val line = if (s.itemType == ItemType.PROGRAM) "Done · ${done.size} ${if (done.size == 1) "set" else "sets"} · ${fmt(done.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) } / 1000.0, 1)} t" else "Done · " + listOfNotNull(s.timeSec?.let { "${it / 60} min" }, s.distanceM?.let { "${fmt(it / 1000.0)} km" }).joinToString(" · ")
-                    Text(line, color = K.Green, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
-                    Row { TextButton("Start again") { vm.startItem(item) { s2 -> nav.navigate(when { s2.itemType == ItemType.PROGRAM -> Routes.session(s2.id); item.cardio?.intervals == true -> Routes.timer(s2.id); else -> Routes.cardio(s2.id) }) } } }
-                } else {
-                Text(preview(item, blocks, blockExercises, modalities), color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
-                if (!item.isRest) PrimaryButton("Start") {
-                    vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
-                }
-                }
+            val done = sessions.firstOrNull { it.date == today.iso() && it.finished && ((item.program != null && it.programId == item.program.id) || (item.cardio != null && it.exerciseId == item.cardio.id)) }
+            Spacer(Modifier.height(16.dp))
+            TodayCard(
+                item, preview(item, blocks, blockExercises, modalities), active,
+                progress = active?.takeIf { it.itemType == ItemType.PROGRAM }?.let { setProgress(it.id, logs) },
+                doneText = done?.let { doneLine(it, logs) }, modalities = modalities, exercises = exercises, now = now,
+                onStart = ::start, onResume = ::resume,
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+        GroupedList {
+            val routine = stretchRoutines.find { it.active } ?: stretchRoutines.firstOrNull()
+            if (routine != null) {
+                val stretchedToday = stretchSessions.any { it.date == today.iso() }
+                val summary = routineSummary(routineSeconds(routine.id, routineStretches, stretches), routineStretches.count { it.routineId == routine.id })
+                HomeRow(
+                    Icons.Stretch, K.Green, routine.name, routineLine(summary, stretchedToday), if (stretchedToday) K.Green else K.Muted, divider = false,
+                    trailing = if (stretchedToday) { { DoneCheck() } } else null,
+                ) { nav.navigate(Routes.stretch(routine.id)) }
             }
+            val windowDay = windowDays.find { it.date == today.iso() }
+            val clock = java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(now), java.time.ZoneId.systemDefault())
+            val open = windowSummary(eatingWindow, windowDay, clock).first
+            HomeRow(Icons.ForkKnife, if (open) K.Green else K.Dim, "Eating window", windowStatus(eatingWindow, windowDay, clock), if (open) K.Green else K.Muted, divider = routine != null) { windowSheet = true }
+            if (pendingBand > 0) HomeRow(Icons.Heart, K.Red, pendingTitle(pendingBand), PENDING_LINE, divider = true) { nav.navigate(Routes.IMPORT) }
         }
-        (update as? dev.mirzohidkhon.khonfitness.update.Updater.Result.Available)?.let { u ->
-            Spacer(Modifier.height(16.dp))
-            GroupedList { ListRow("Update to ${u.release.tag_name}", secondary = updateProgress?.let { "${(it * 100).toInt()}%" }, dotColor = K.Accent, divider = false) {
-                if (updateProgress == null) vm.runUpdate(context, onNeedPermission = { nav.navigate(Routes.SETTINGS) }, onError = { })
-            } }
-        }
-        val activeRoutine = stretchRoutines.find { it.active } ?: stretchRoutines.firstOrNull()
-        if (activeRoutine != null) {
-            val doneToday = stretchSessions.any { it.date == today.iso() }
-            val secs = routineSeconds(activeRoutine.id, routineStretches, stretches)
-            val count = routineStretches.count { it.routineId == activeRoutine.id }
-            Spacer(Modifier.height(16.dp))
-            GroupedList { ListRow(activeRoutine.name, secondary = "${(secs + 30) / 60} min · $count stretches", dotColor = K.Green, dotFilled = doneToday, divider = false) { nav.navigate(Routes.stretch(activeRoutine.id)) } }
-        }
-        run {
-            @Suppress("UNUSED_VARIABLE") val tick = minuteTick
-            val (open, text) = windowSummary(eatingWindow, windowDays.find { it.date == today.iso() })
-            Spacer(Modifier.height(16.dp))
-            GroupedList { ListRow("Eating window", secondary = text, dotColor = if (open) K.Green else K.Muted, dotFilled = open, divider = false) { windowSheet = true } }
-        }
-        if (pendingBand > 0) {
-            Spacer(Modifier.height(16.dp))
-            GroupedList { ListRow(if (pendingBand == 1) "1 new session from the band" else "$pendingBand new sessions from the band", dotColor = K.Green, divider = false) { nav.navigate(Routes.IMPORT) } }
-        }
-        Spacer(Modifier.height(28.dp))
-        val latest = bodyweights.lastOrNull()
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Bodyweight", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            Text(if (latest == null) "—" else "${fmt(latest.kg)} kg", fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                modifier = if (latest == null) Modifier.semantics { contentDescription = "No entry yet" } else Modifier)
-        }
-        val start = today.minusDays(29)
-        val recent = bodyweights.filter { it.date.toDate() >= start }
-        if (recent.isNotEmpty()) LineChart(recent.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp))
-        Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            NumberField(bwDraft, { bwDraft = it }, step = 0.1, unit = "kg", modifier = Modifier.weight(1f), placeholder = latest?.let { fmt(it.kg) } ?: "0.0")
-            Spacer(Modifier.width(12.dp))
-            TextButton("Add", enabled = bwDraft != null && bwDraft!! > 0) { vm.run { vm.repo.saveBodyweight(today.iso(), bwDraft!!) }; bwDraft = null }
-        }
+        BodyweightSection(today, bodyweights) { kg -> vm.run { vm.repo.saveBodyweight(today.iso(), kg) } }
     }
     planDate?.let { date -> PlanSheet(vm, date, plan, modalities) { planDate = null } }
     if (windowSheet) WindowSheet(vm) { windowSheet = false }
-}
-
-@Composable
-fun WeekStrip(today: LocalDate, plan: KhonRepository.PlanData, modalities: List<Modality>, onTap: (LocalDate) -> Unit) {
-    val monday = today.with(DayOfWeek.MONDAY)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        for (i in 0 until 7) {
-            val date = monday.plusDays(i.toLong())
-            val item = plan.itemFor(date)
-            val color = itemColor(item, modalities)
-            val isToday = date == today
-            val dateDescription = "${date.format(longDate)}, ${item.name}" + if (isToday) ", today" else ""
-            Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
-                    .clickable(onClickLabel = "Change plan", role = Role.Button) { onTap(date) }
-                    .clearAndSetSemantics { contentDescription = dateDescription }.padding(vertical = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(date.dayOfWeek.name.take(1), fontSize = 12.sp, fontWeight = FontWeight.Medium, color = if (isToday) K.Accent else K.Muted)
-                Box(Modifier.padding(top = 5.dp).size(36.dp).clip(CircleShape).background(if (isToday) K.Accent else androidx.compose.ui.graphics.Color.Transparent), contentAlignment = Alignment.Center) {
-                    Text(date.dayOfMonth.toString(), fontSize = 17.sp, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium, color = if (isToday) K.AccentInk else K.Text)
-                }
-                Box(Modifier.padding(top = 5.dp).height(8.dp), contentAlignment = Alignment.Center) {
-                    if (color != null) Dot(color.first, color.second, size = 7)
-                }
-            }
-        }
-    }
 }
 
 /** Change what a date holds: a program, a cardio exercise, or rest. */

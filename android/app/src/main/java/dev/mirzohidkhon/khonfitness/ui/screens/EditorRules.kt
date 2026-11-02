@@ -165,3 +165,32 @@ fun updateStatus(result: Updater.Result?, progress: Float?, downloadError: Strin
         error = downloadError != null,
     )
 }
+
+/** What the backup footnote says after an export, import or restore; red for an error. */
+data class BackupStatus(val text: String, val error: Boolean = false)
+
+/** A file operation in Settings' Backup group: export, open a file to import, merge or replace from it, restore a saved copy. */
+enum class BackupAction { EXPORT, OPEN, MERGE, REPLACE, RESTORE }
+
+/**
+ * The backup footnote after [action] ended with [result]: every failure is red and names what failed. A file that
+ * reads but does not parse is "Not a Khon backup". A successful open says nothing: the import sheet opens instead.
+ */
+fun backupFootnote(action: BackupAction, result: Result<*>): BackupStatus? {
+    val e = result.exceptionOrNull()
+    fun failed(what: String) = BackupStatus("$what: ${e?.message ?: e?.javaClass?.simpleName}", error = true)
+    return when (action) {
+        BackupAction.EXPORT -> if (e == null) BackupStatus("Backup exported.") else failed("Export failed")
+        BackupAction.OPEN -> when (e) {
+            null -> null
+            is IllegalArgumentException -> failed("Not a Khon backup") // the JSON parser's errors
+            else -> failed("Could not read the file")
+        }
+        BackupAction.MERGE -> if (e == null) BackupStatus("Backup merged.") else failed("Import failed")
+        BackupAction.REPLACE -> if (e == null) BackupStatus("Backup restored: everything was replaced.") else failed("Import failed")
+        BackupAction.RESTORE -> if (e == null) BackupStatus("Backup restored: everything was replaced.") else failed("Restore failed")
+    }
+}
+
+/** The stream Android opened for a backup file; none is an error, so the footnote never reports a write that did not happen. */
+fun <T> T?.orNoFile(): T = this ?: throw java.io.IOException("Android could not open the file")

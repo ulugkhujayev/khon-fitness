@@ -179,9 +179,6 @@ fun SettingsScreen(vm: AppViewModel, nav: NavHostController) {
     }
 }
 
-/** What the backup footnote says after an export, import or restore; red for an error. */
-private data class BackupStatus(val text: String, val error: Boolean = false)
-
 /**
  * Settings in groups with icon tiles, as in iOS Settings: Backup (export, import, restore a saved copy, and what a
  * backup holds or how the last one went), App (version, the APK updater with its state, reopen after updates) and
@@ -204,26 +201,32 @@ private fun Settings(vm: AppViewModel) {
     fun checkUpdate() { downloadError = null; vm.update.value = null; vm.checkUpdate(force = true) }
     var pendingImport by remember { mutableStateOf<Pair<String, String>?>(null) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        // Every file step runs inside runCatching, so a failure shows in the footnote ([backupFootnote]), never escapes.
         if (uri != null) vm.run {
-            val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: return@run
-            runCatching { vm.repo.describeBackup(text) }.onSuccess { pendingImport = text to it }.onFailure { backupStatus = BackupStatus("Not a Khon backup: ${it.message}", error = true) }
+            val read = runCatching {
+                val text = context.contentResolver.openInputStream(uri).orNoFile().bufferedReader().use { it.readText() }
+                text to vm.repo.describeBackup(text)
+            }
+            read.onSuccess { pendingImport = it }
+            backupFootnote(BackupAction.OPEN, read)?.let { backupStatus = it }
         }
     }
-    fun applyImport(text: String, replace: Boolean) = vm.run {
-        runCatching {
+    /** Reads the backup ([read]), writes a safety copy of the current data, then merges or replaces. */
+    fun applyImport(action: BackupAction, read: () -> String) = vm.run {
+        backupStatus = backupFootnote(action, runCatching {
+            val text = read()
             val dir = java.io.File(context.getExternalFilesDir(null), "backups").apply { mkdirs() }
             java.io.File(dir, "before-import-${java.time.LocalDateTime.now().withNano(0).toString().replace(':', '-')}.json").writeText(vm.repo.exportJson())
-            vm.repo.importJson(text, replace)
-        }.onSuccess { backupStatus = BackupStatus(if (replace) "Backup restored: everything was replaced." else "Backup merged.") }
-            .onFailure { backupStatus = BackupStatus("Import failed: ${it.message}", error = true) }
+            vm.repo.importJson(text, replace = action != BackupAction.MERGE)
+        })
         pendingImport = null
     }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) vm.run {
-            runCatching {
+            backupStatus = backupFootnote(BackupAction.EXPORT, runCatching {
                 val json = vm.repo.exportJson()
-                context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
-            }.onSuccess { backupStatus = BackupStatus("Backup exported.") }.onFailure { backupStatus = BackupStatus("Export failed: ${it.message}", error = true) }
+                context.contentResolver.openOutputStream(uri).orNoFile().use { it.write(json.toByteArray()) }
+            })
         }
     }
     val backups = remember(backupStatus) { java.io.File(context.getExternalFilesDir(null), "backups").listFiles()?.filter { it.name.endsWith(".json") }?.sortedByDescending { it.name } ?: emptyList() }
@@ -273,15 +276,15 @@ private fun Settings(vm: AppViewModel) {
         Spacer(Modifier.height(8.dp))
         Text("Merge keeps what is on the phone and adds or updates what the file has. Replace deletes everything on the phone first. Either way a copy of the current data goes to Android/data/${context.packageName}/files/backups.", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(16.dp))
-        PrimaryButton("Merge") { applyImport(text, replace = false) }
+        PrimaryButton("Merge") { applyImport(BackupAction.MERGE) { text } }
         Spacer(Modifier.height(8.dp))
-        PrimaryButton("Replace", color = K.Red, textColor = K.Text) { applyImport(text, replace = true) }
+        PrimaryButton("Replace", color = K.Red, textColor = K.Text) { applyImport(BackupAction.REPLACE) { text } }
         Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) { TextButton("Cancel", color = K.Muted) { pendingImport = null } }
     } }
     if (restoreSheet) Sheet("Restore a saved copy", { restoreSheet = false }) {
         Text("Copies the app wrote before an import. Restoring replaces everything with that copy; a new copy of the current data is written first.", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(12.dp))
-        ChoiceList { backups.forEachIndexed { i, f -> ChoiceRow(f.name.removePrefix("before-import-").removeSuffix(".json").replace('T', ' '), false, divider = i > 0) { restoreSheet = false; applyImport(f.readText(), replace = true) } } }
+        ChoiceList { backups.forEachIndexed { i, f -> ChoiceRow(f.name.removePrefix("before-import-").removeSuffix(".json").replace('T', ' '), false, divider = i > 0) { restoreSheet = false; applyImport(BackupAction.RESTORE) { f.readText() } } } }
     }
     if (confirmReset) ConfirmSheet("Reset to built-in data?", "Every session, bodyweight, program and setting goes back to the built-in data.", "Reset", onDismiss = { confirmReset = false }) {
         confirmReset = false

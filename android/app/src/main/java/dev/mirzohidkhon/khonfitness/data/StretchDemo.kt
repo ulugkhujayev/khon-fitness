@@ -28,6 +28,22 @@ data class StretchDemo(
 
     fun stepAt(frame: Int): Int = steps.indexOfFirst { frame <= it.frame }.let { if (it < 0) steps.lastIndex else it }
 
+    /** During the exercise the steps are hidden; the instruction follows the step nearest the shown frame. */
+    fun nearestStep(frame: Int): Int = steps.indices.minBy { kotlin.math.abs(steps[it].frame - frame) }
+
+    /**
+     * How far the step timeline is filled, 0..1 from the first step's node to the last: every step before the shown
+     * one, and the shown one by how far the pose has moved into it from the step before.
+     */
+    fun timelineFill(frame: Int): Float {
+        val i = stepAt(frame)
+        if (steps.size < 2 || i == 0) return 0f
+        val from = steps[i - 1].frame
+        val to = steps[i].frame
+        val into = if (to > from) ((frame - from).toFloat() / (to - from)).coerceIn(0f, 1f) else 1f
+        return (i - 1 + into) / (steps.size - 1)
+    }
+
     /** Reserve part of each half-cycle for its endpoints. Timed holds stay in the final position. */
     fun exerciseFrame(progress: Float?): Int {
         if (progress == null) return frameCount - 1
@@ -36,6 +52,13 @@ data class StretchDemo(
         return (loopStart + movement * (frameCount - 1 - loopStart)).roundToInt()
     }
 }
+
+/** A node of the step timeline: a step before the shown one, the shown one, or one after it. */
+enum class StepNode { DONE, SHOWN, LATER }
+
+/** The timeline's nodes for [count] steps with step [selected] shown. */
+fun stepNodes(count: Int, selected: Int): List<StepNode> =
+    List(count) { i -> when { i < selected -> StepNode.DONE; i == selected -> StepNode.SHOWN; else -> StepNode.LATER } }
 
 /** Maps vsync times to demo time from one origin, so rounding per frame never accumulates into drift. */
 class DemoClock(private val startMs: Long) {

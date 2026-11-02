@@ -6,9 +6,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -21,7 +19,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -35,6 +32,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.mirzohidkhon.khonfitness.data.DemoClock
 import dev.mirzohidkhon.khonfitness.data.StretchDemo
 import dev.mirzohidkhon.khonfitness.data.forDemoSide
+import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -157,41 +155,26 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
     val exerciseFrame = if (preview) 0 else guide.exerciseFrame(exerciseProgress)
     val frame = { if (!preview) exerciseFrame else if (playing) playFrame else manualFrame }
     val previewStep by remember(guide, mirror) { derivedStateOf { guide.stepAt(if (playing) playFrame else manualFrame) } }
-    val selectedStep = if (preview) previewStep else
-        guide.steps.indices.minBy { kotlin.math.abs(guide.steps[it].frame - exerciseFrame) }
+    val selectedStep = if (preview) previewStep else guide.nearestStep(exerciseFrame)
     val instruction = guide.steps[selectedStep].instruction.forDemoSide(mirror)
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        DemoFrame(figure, guide, view, frame, mirror,
-            Modifier.fillMaxWidth().height(if (compact) 208.dp else 272.dp),
-            description = "${guide.name}. ${guide.steps[selectedStep].title}. $instruction")
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            if (preview) DemoControl(if (playing) "Pause demo" else "Play demo") {
-                if (playing) manualFrame = playFrame else { elapsedMs = 0L; playFrame = guide.previewFrame(0) }
-                playing = !playing
-            } else Spacer(Modifier.width(1.dp))
-            DemoControl("Change view", "Change camera angle. View ${view + 1} of 2") { view = 1 - view }
-        }
-        if (preview) Row(Modifier.fillMaxWidth()) {
-            guide.steps.forEachIndexed { i, step ->
-                Column(Modifier.weight(1f).heightIn(min = 48.dp)
-                    .selectable(selected = selectedStep == i, role = Role.Tab,
-                        onClick = { playing = false; manualFrame = step.frame })
-                    .semantics { contentDescription = "Step ${i + 1}: ${step.title}" },
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween) {
-                    Text("${i + 1}. ${step.title}", color = if (selectedStep == i) K.Accent else Color.White,
-                        minLines = 2, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp))
-                    Box(Modifier.fillMaxWidth().height(2.dp).background(if (selectedStep == i) K.Accent else Color.White.copy(alpha = .2f)))
-                }
+        Box(Modifier.fillMaxWidth()) {
+            DemoFrame(figure, guide, view, frame, mirror,
+                Modifier.fillMaxWidth().height(if (compact) 208.dp else 272.dp),
+                description = "${guide.name}. ${guide.steps[selectedStep].title}. $instruction")
+            // Over the image's bottom corners, 10 dp in, like a video player's controls.
+            Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                if (preview) DemoControl(if (playing) Icons.Pause else Icons.Play, if (playing) "Pause demo" else "Play demo") {
+                    if (playing) manualFrame = playFrame else { elapsedMs = 0L; playFrame = guide.previewFrame(0) }
+                    playing = !playing
+                } else Spacer(Modifier.width(1.dp))
+                DemoControl(Icons.Rotate3d, "Change camera angle. View ${view + 1} of 2") { view = 1 - view }
             }
         }
+        // The fill is read while drawing, so the line runs on with the pose without recomposing the steps.
+        if (preview) StepTimeline(guide.steps.map { it.title }, selectedStep, fill = { guide.timelineFill(frame()) },
+            onSelect = { playing = false; manualFrame = guide.steps[it].frame }, modifier = Modifier.padding(top = 14.dp))
         Text(instruction, color = Color.White.copy(alpha = .9f), style = MaterialTheme.typography.bodyLarge, minLines = 3,
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp), textAlign = TextAlign.Start)
     }
-}
-
-@Composable
-private fun DemoControl(text: String, description: String = text, onClick: () -> Unit) {
-    androidx.compose.material3.TextButton(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp)
-        .semantics { contentDescription = description }, contentPadding = PaddingValues(horizontal = 4.dp),
-        colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) { Text(text, style = MaterialTheme.typography.bodyMedium) }
 }

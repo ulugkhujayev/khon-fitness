@@ -39,7 +39,13 @@ object Icons {
     val Moon = icon("moon.fill") { fill("M20.5 14.6A8.5 8.5 0 1 1 9.4 3.5a7 7 0 0 0 11.1 11.1z") }
     /** Today's rows: the stretch routine, the eating window, band sessions. */
     val Stretch = icon("figure.flexibility") { fill("M12 2.2a2 2 0 1 0 0 4a2 2 0 1 0 0-4z"); stroke("M4.5 8l7.5 1.5 7.5-1.5M12 9.5v5M7 21l5-6.5 5 6.5") }
-    val ForkKnife = icon("fork.knife") { stroke("M7 3v18M4.5 3v5a2.5 2.5 0 0 0 5 0V3M17 21V3c-2 1.5-3.5 4-3.5 7.5V14H17") }
+    /** The stretch player's round controls (Stop, Skip) and the demonstration's (Play, Pause, Change view). */
+    val Close = icon("xmark") { addPath(pathData = PathParser().parsePathString("M6.5 6.5l11 11M17.5 6.5l-11 11").toNodes(), stroke = SolidColor(Color.White), strokeLineWidth = 2.4f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) }
+    val SkipForward = icon("forward.end.fill") { fill("M5 5.6a1 1 0 0 1 1.5-.85l9.3 6.4a1 1 0 0 1 0 1.7l-9.3 6.4A1 1 0 0 1 5 18.4zM17.2 5.5a1.1 1.1 0 0 1 2.2 0v13a1.1 1.1 0 0 1-2.2 0z") }
+    val Play = icon("play.fill") { fill("M7 5.2a1 1 0 0 1 1.5-.86l11 6.8a1 1 0 0 1 0 1.72l-11 6.8A1 1 0 0 1 7 18.8z") }
+    val Pause = icon("pause.fill") { fill("M6 5a1 1 0 0 1 1-1h2.6a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1zM13.4 5a1 1 0 0 1 1-1H17a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-2.6a1 1 0 0 1-1-1z") }
+    val Rotate3d = icon("rotate.3d") { stroke("M12 3.5l6.5 3.7v7.6L12 18.5l-6.5-3.7V7.2z"); stroke("M5.5 7.2L12 11l6.5-3.8M12 11v7.5"); stroke("M3 17.5c2 2.2 5.3 3.5 9 3.5s7-1.3 9-3.5M19 19.6l2-2.1-2.6-.6") }
+    val ForkKnife =icon("fork.knife") { stroke("M7 3v18M4.5 3v5a2.5 2.5 0 0 0 5 0V3M17 21V3c-2 1.5-3.5 4-3.5 7.5V14H17") }
     val Heart = icon("heart.fill") { fill("M12 20.6l-1.4-1.3C5.6 14.8 2.5 12 2.5 8.6 2.5 5.8 4.7 3.6 7.5 3.6c1.6 0 3.1.7 4.5 2 1.4-1.3 2.9-2 4.5-2 2.8 0 5 2.2 5 5 0 3.4-3.1 6.2-8.1 10.7z") }
     /** History's Import button: an arrow into a tray. */
     val Download = icon("square.and.arrow.down") { stroke("M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4.5 15v4.5h15V15") }

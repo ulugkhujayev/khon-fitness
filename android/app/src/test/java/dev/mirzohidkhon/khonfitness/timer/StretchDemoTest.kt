@@ -1,7 +1,9 @@
 package dev.mirzohidkhon.khonfitness.timer
 
 import dev.mirzohidkhon.khonfitness.data.DemoStep
+import dev.mirzohidkhon.khonfitness.data.StepNode
 import dev.mirzohidkhon.khonfitness.data.StretchDemo
+import dev.mirzohidkhon.khonfitness.data.stepNodes
 import dev.mirzohidkhon.khonfitness.data.forDemoSide
 import kotlinx.serialization.json.Json
 import org.junit.Assert.*
@@ -65,5 +67,29 @@ class StretchDemoTest {
         assertEquals("Right hand under your left arm. Stay upright.",
             "Left hand under your right arm. Stay upright.".forDemoSide(true))
         assertEquals("Left hand", "Left hand".forDemoSide(false))
+    }
+    // ---- step timeline (contract row 6)
+
+    @Test fun `timeline nodes before the shown step are done, the shown one stands out, later ones wait`() {
+        assertEquals(listOf(StepNode.SHOWN, StepNode.LATER, StepNode.LATER), stepNodes(3, 0))
+        assertEquals(listOf(StepNode.DONE, StepNode.SHOWN, StepNode.LATER), stepNodes(3, 1))
+        assertEquals(listOf(StepNode.DONE, StepNode.DONE, StepNode.SHOWN), stepNodes(3, 2))
+    }
+    @Test fun `the timeline line fills as the pose moves into each step`() {
+        assertEquals(0f, guide.timelineFill(0), 0f) // at setup
+        assertEquals(0.25f, guide.timelineFill(16), 0.001f) // half way into step 2 of 3
+        assertEquals(0.5f, guide.timelineFill(32), 0f) // at step 2
+        assertEquals(0.75f, guide.timelineFill(48), 0.02f) // half way into step 3
+        assertEquals(1f, guide.timelineFill(63), 0f) // at the last step
+        val frames = (0..63).map(guide::timelineFill)
+        assertTrue(frames.zipWithNext().all { (a, b) -> b >= a })
+    }
+    @Test fun `a one-step guide has no line to fill`() {
+        assertEquals(0f, guide.copy(steps = guide.steps.take(1)).timelineFill(40), 0f)
+    }
+    @Test fun `during the exercise the instruction follows the nearest step`() {
+        assertEquals(0, guide.nearestStep(10))
+        assertEquals(1, guide.nearestStep(40))
+        assertEquals(2, guide.nearestStep(60))
     }
 }

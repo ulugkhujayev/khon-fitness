@@ -20,14 +20,13 @@ fun stepBase(held: Double?, typed: String, value: Double?, placeholder: String?)
 
 /**
  * The saving rule of a number widget's − and +, inside [min]..[max]. A tap steps once and saves. A hold shows each
- * step and saves the last one once, when the hold ends ([release]). Saves whose value has not come back yet are
- * kept, so a late echo of an earlier save does not pull the shown number back ([arrived]).
+ * step and saves the last one once, when the hold ends ([release]). While a hold shows its step, an outside value
+ * waits ([arrived]).
  */
 class Stepper(var step: Double, var min: Double = 0.0, var max: Double = Double.POSITIVE_INFINITY) {
     /** The step a hold shows and has not saved yet. */
     var held: Double? = null
         private set
-    private val sent = ArrayDeque<Double>()
 
     /** One press result: the number to show, and the number to save now (null while a hold only shows it). */
     data class Step(val shown: Double, val save: Double?)
@@ -35,42 +34,37 @@ class Stepper(var step: Double, var min: Double = 0.0, var max: Double = Double.
     /** One step of − ([sign] -1) or + (1) from what the field shows. A tap ([save]) saves it; a hold keeps it. */
     fun step(sign: Int, save: Boolean, typed: String, value: Double?, placeholder: String?): Step {
         val next = stepValue(stepBase(held, typed, value, placeholder), sign, step, min, max)
-        return if (save) { held = null; Step(next, send(next, value)) } else { held = next; Step(next, null) }
+        return if (save) { held = null; Step(next, next) } else { held = next; Step(next, null) }
     }
 
-    /** The hold ended: the number to save once, or null when nothing is held. */
-    fun release(value: Double?): Double? = held?.let { held = null; send(it, value) }
+    /**
+     * The hold ended: the held number inside the current bounds (they may have moved during the hold), to show and
+     * save once; null when nothing is held.
+     */
+    fun release(): Double? = held?.let { held = null; bounded(it) }
 
-    /** A typed number, bounded, to save; null for an empty field. */
-    fun typed(v: Double?, value: Double?): Double? = v?.let { send(bound(it, min, max), value) }
+    /** The number typed [text] stands for, bounded, to save and show on blur; null when unreadable ("", ".", "5.."). */
+    fun parseTyped(text: String): Double? = text.toDoubleOrNull()?.let(::bounded)
 
     /** [v] inside this stepper's bounds. */
     fun bounded(v: Double): Double = bound(v, min, max)
 
+    /** A new value came from outside. False while a hold shows its own step; true otherwise: the field may show it. */
+    fun arrived(): Boolean = held == null
+
     /**
-     * A new [value] came from outside. False while a hold shows its own step, and for the echo of a save made here
-     * (that echo and every older one are done). True for any other value: the field should show it.
+     * A field showing [text] gets [value] from outside: show it unless a hold is in progress or the text already
+     * means it. A [focused] field the user cleared stays empty: the owner may push a minimum back that would prefix
+     * the next digit.
      */
-    fun arrived(value: Double?): Boolean {
-        if (held != null) return false
-        val i = if (value == null) -1 else sent.indexOf(value)
-        if (i < 0) { sent.clear(); return true }
-        repeat(i + 1) { sent.removeFirst() }
-        return false
-    }
-
-    private fun send(v: Double, value: Double?): Double {
-        // A save that equals the stored value changes nothing, so no echo comes back for it.
-        if (v != value) { sent.addLast(v); if (sent.size > MAX_SENT) sent.removeFirst() }
-        return v
-    }
-
-    private companion object { const val MAX_SENT = 16 }
+    fun showsOutside(value: Double?, text: String, focused: Boolean): Boolean =
+        arrived() && parseTyped(text) != value && !(focused && text.isEmpty())
 }
 
 /**
  * What one press of a − or + does as its pointer events come in: a tap when it ends before [REPEAT_AFTER_MS], or a
- * hold that repeats and releases once however it ends (lifted, dragged off, cancelled, or the button left the screen).
+ * hold that repeats and releases once when it ends (lifted, dragged off, or cancelled). A hold whose button left the
+ * screen ([dispose]) saves nothing.
  */
 class PressFlow(private val onTap: () -> Unit, private val onRepeat: () -> Unit, private val onRelease: () -> Unit) {
     private var holding = false
@@ -84,6 +78,9 @@ class PressFlow(private val onTap: () -> Unit, private val onRepeat: () -> Unit,
     /** One repeat of a hold. */
     fun repeat() { if (holding) onRepeat() }
 
-    /** The hold ended in any way: releases once. A press that never became a hold releases nothing. */
+    /** The hold ended on the screen: releases once. A press that never became a hold releases nothing. */
     fun end() { if (holding) { holding = false; onRelease() } }
+
+    /** The button left the screen: the hold stops and saves nothing (its row may be gone). */
+    fun dispose() { holding = false }
 }

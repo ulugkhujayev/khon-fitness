@@ -77,16 +77,17 @@ fun WindowSheet(vm: AppViewModel, onDismiss: () -> Unit) {
 fun TimeStepper(minute: Int, name: String, range: IntRange, onChange: (Int) -> Unit) {
     val tick = dev.mirzohidkhon.khonfitness.ui.components.rememberTick()
     val stepper = androidx.compose.runtime.remember { Stepper(15.0) }.also { it.min = range.first.toDouble(); it.max = range.last.toDouble() }
-    // The time shown while a step is held, and after a save until its value comes back.
+    // The time shown while a step is held, and after a save until a new value comes. A new value shows unless a hold
+    // is in progress.
     var shown by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
-    androidx.compose.runtime.LaunchedEffect(minute) { if (stepper.arrived(minute.toDouble())) shown = null }
+    androidx.compose.runtime.LaunchedEffect(minute) { if (stepper.arrived()) shown = null }
     fun step(sign: Int, save: Boolean) {
         val s = stepper.step(sign, save, shown?.toString() ?: "", minute.toDouble(), null)
         tick(false)
         shown = s.shown.toInt()
         s.save?.let { onChange(it.toInt()) }
     }
-    fun release() { stepper.release(minute.toDouble())?.let { onChange(it.toInt()) } }
+    fun release() { stepper.release()?.let { shown = it.toInt(); onChange(it.toInt()) } }
     Row(Modifier.width(150.dp).height(38.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).background(K.Surface2), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
         Box(Modifier.width(40.dp).fillMaxHeight().repeatPress("$name 15 minutes earlier", { step(-1, true) }, { step(-1, false) }, ::release), contentAlignment = androidx.compose.ui.Alignment.Center) { Text("−", fontWeight = FontWeight.Medium) }
         Text(EatingWindowRules.hhmm(shown ?: minute), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)

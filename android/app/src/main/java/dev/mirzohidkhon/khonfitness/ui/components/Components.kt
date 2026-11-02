@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.rememberUpdatedState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import androidx.compose.ui.semantics.role
@@ -242,12 +243,9 @@ fun NumberField(
     var hasFocus by remember { mutableStateOf(false) }
     val bringIntoView = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
-    // Sync from outside (prefill, another field) only when the typed text does not already mean this value. Keeps the cursor where the user left it.
-    // Not while a hold shows its steps or for the late echo of a save made here ([Stepper.arrived]). While the user
-    // has cleared the field, leave it empty: the owner may push a minimum back that would prefix the next digit.
+    // Sync from outside (prefill, another field, a late save) by [Stepper.showsOutside]. Keeps the cursor where the user left it.
     LaunchedEffect(value) {
-        val typed = typedNumber(text.text)?.let(stepper::bounded)
-        if (stepper.arrived(value) && typed != value && !(hasFocus && text.text.isEmpty())) { val t = fmt(value, decimals); text = TextFieldValue(t, TextRange(t.length)) }
+        if (stepper.showsOutside(value, text.text, hasFocus)) { val t = fmt(value, decimals); text = TextFieldValue(t, TextRange(t.length)) }
     }
     val tick = rememberTick()
     fun stepBy(sign: Int, save: Boolean) {
@@ -257,7 +255,7 @@ fun NumberField(
         tick(false)
         s.save?.let(onValueChange)
     }
-    fun release() { stepper.release(value)?.let(onValueChange) }
+    fun release() { stepper.release()?.let { val t = fmt(it, decimals); text = TextFieldValue(t, TextRange(t.length)); onValueChange(it) } }
     // Narrow slots (two fields per row on a 360 dp phone) drop the unit and slim the steppers so the whole value stays visible.
     androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
     val compact = maxWidth < 176.dp
@@ -273,7 +271,8 @@ fun NumberField(
             onValueChange = { new ->
                 val cleaned = new.text.replace(',', '.').filter { it.isDigit() || it == '.' }
                 text = new.copy(text = cleaned)
-                onValueChange(stepper.typed(cleaned.toDoubleOrNull(), value))
+                // A cleared field clears the value; text that cannot be read ("5..") saves nothing.
+                if (cleaned.isEmpty()) onValueChange(null) else stepper.parseTyped(cleaned)?.let(onValueChange)
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = if (decimals > 0) KeyboardType.Decimal else KeyboardType.Number),
@@ -291,10 +290,10 @@ fun NumberField(
                         // The keyboard is still rising when focus lands. Scroll again once it has settled.
                         scope.launch { delay(120); bringIntoView.bringIntoView(); delay(300); bringIntoView.bringIntoView() }
                     }
-                    // On leaving, show what the field stands for: the typed number inside the bounds (its save may not
-                    // have come back yet), or the value when the field was left empty.
+                    // On leaving, show what the field saved: the typed number inside the bounds (its save may not have
+                    // come back yet), or the value when the text cannot be read or the field was left empty.
                     if (!st.isFocused && hasFocus) {
-                        val shown = fmt(typedNumber(text.text)?.let(stepper::bounded) ?: value, decimals)
+                        val shown = fmt(stepper.parseTyped(text.text) ?: value, decimals)
                         if (shown != text.text) text = TextFieldValue(shown)
                     }
                     hasFocus = st.isFocused
@@ -318,8 +317,8 @@ private fun RowScope.StepButton(glyph: String, label: String, width: Int, onStep
 
 /**
  * Press handling for a − or + button: a tap calls [onTap]; held past [REPEAT_AFTER_MS] it calls [onRepeat] again
- * and again, faster the longer it is held ([repeatDelay]), and [onRelease] once the hold ends ([PressFlow]). A press shows a
- * Surface3 fill. Screen readers get one button that taps.
+ * and again, faster the longer it is held ([repeatDelay]), and [onRelease] once the hold ends on the screen
+ * ([PressFlow]). A press shows a Surface3 fill. Screen readers get one button that taps.
  */
 @Composable
 fun Modifier.repeatPress(label: String, onTap: () -> Unit, onRepeat: () -> Unit, onRelease: () -> Unit): Modifier {
@@ -335,7 +334,6 @@ fun Modifier.repeatPress(label: String, onTap: () -> Unit, onRepeat: () -> Unit,
                     awaitFirstDown()
                     pressed = true
                     val flow = PressFlow({ tap() }, { repeat() }, { release() })
-                    // `finally` also runs when the button leaves the screen mid-hold, so the shown step is saved.
                     try {
                         var ended = false
                         val up = withTimeoutOrNull(REPEAT_AFTER_MS) { waitForUpOrCancellation().also { ended = true } }
@@ -346,10 +344,15 @@ fun Modifier.repeatPress(label: String, onTap: () -> Unit, onRepeat: () -> Unit,
                         }
                         flow.hold()
                         val stepping = launch { var n = 0; while (isActive) { flow.repeat(); delay(repeatDelay(n++)) } }
+                        // Lifted, dragged off or cancelled (null): the hold releases and saves once.
                         try { waitForUpOrCancellation()?.consume() } finally { stepping.cancel() }
+                        flow.end()
+                    } catch (e: CancellationException) {
+                        // The button left the screen mid-hold: save nothing, its row may be gone.
+                        flow.dispose()
+                        throw e
                     } finally {
                         pressed = false
-                        flow.end()
                     }
                 }
             }

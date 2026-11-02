@@ -1,7 +1,6 @@
 package dev.mirzohidkhon.khonfitness.ui.components
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,8 +15,11 @@ class StepperTest {
         fun press(sign: Int) = PressFlow(
             onTap = { show(stepper.step(sign, true, text, value, placeholder)) },
             onRepeat = { show(stepper.step(sign, false, text, value, placeholder)) },
-            onRelease = { stepper.release(value)?.let(saves::add) },
+            onRelease = { stepper.release()?.let { text = show(it); saves.add(it) } },
         )
+
+        /** A new value from outside, as NumberField's LaunchedEffect takes it (field not focused). */
+        fun arrive(v: Double?) { value = v; if (stepper.showsOutside(v, text, focused = false)) text = show(v) }
 
         fun tap(sign: Int) = press(sign).run { endEarly(lifted = true); end() }
 
@@ -112,12 +114,24 @@ class StepperTest {
         assertEquals(listOf(1.0), f.saves)
     }
 
-    @Test fun disposeWhileHeldSavesTheShownStep() {
+    @Test fun disposeWhileHeldSavesNothingAndALaterPressWorks() {
         val f = Field(20.0, 5.0, 5.0, 600.0)
         val p = f.hold(1, 2)
-        // repeatPress calls end from `finally` when the button leaves the screen mid-hold.
+        // repeatPress calls dispose when the button leaves the screen mid-hold: the row may be gone.
+        p.dispose()
         p.end()
-        assertEquals(listOf(30.0), f.saves)
+        p.repeat()
+        assertTrue(f.saves.isEmpty())
+        f.tap(1)
+        assertEquals("35", f.text)
+        assertEquals(listOf(35.0), f.saves)
+    }
+
+    @Test fun holdThenLiftSavesOnce() {
+        val f = Field(20.0, 5.0, 5.0, 600.0)
+        f.hold(-1, 2).run { end(); end(); dispose() }
+        assertEquals("10", f.text)
+        assertEquals(listOf(10.0), f.saves)
     }
 
     @Test fun stepsNeverShowAValuePastTheLimits() {
@@ -137,53 +151,85 @@ class StepperTest {
         assertEquals(listOf(120.0), remind.saves)
     }
 
-    @Test fun typedNumbersAreBounded() {
-        val s = Stepper(1.0, 1.0, 10.0)
-        assertEquals(10.0, s.typed(15.0, 3.0)!!, 0.0)
-        assertEquals(1.0, s.typed(0.0, 3.0)!!, 0.0)
-        assertNull(s.typed(null, 3.0))
-        assertEquals(10.0, s.bounded(15.0), 0.0)
+    @Test fun parseTypedReadsOnlyCleanNumbersInsideTheBounds() {
+        val sets = Stepper(1.0, 1.0, 10.0)
+        assertNull(sets.parseTyped("5.."))
+        assertNull(sets.parseTyped("."))
+        assertNull(sets.parseTyped(""))
+        assertEquals(8.0, sets.parseTyped("8.")!!, 0.0)
+        assertEquals(1.0, sets.parseTyped("0")!!, 0.0)
+        assertEquals(10.0, sets.parseTyped("15")!!, 0.0)
+        assertEquals(12.5, Stepper(0.5).parseTyped("12.5")!!, 0.0)
+        assertEquals(0.0, Stepper(0.5).parseTyped("0")!!, 0.0)
     }
 
-    @Test fun lateDatabaseValueDoesNotPullTheFieldBack() {
+    @Test fun saveAndBlurReadTypedTextTheSameWay() {
+        // NumberField saves parseTyped and, on blur, shows parseTyped or else the saved value.
+        val sets = Stepper(1.0, 1.0, 10.0)
+        val saved = 1.0
+        assertNull(sets.parseTyped("5.."))
+        assertEquals(saved, sets.parseTyped("5..") ?: saved, 0.0)
+        assertEquals(10.0, sets.parseTyped("12") ?: saved, 0.0)
+    }
+
+    @Test fun lateSaveIsShownAndALaterOutsideValueToo() {
+        val f = Field(3.0, 1.0)
+        f.tap(1); f.tap(1); f.tap(-1)
+        assertEquals(listOf(4.0, 5.0, 4.0), f.saves)
+        // Only 4 comes back: the field already shows 4.
+        f.arrive(4.0)
+        assertEquals("4", f.text)
+        // A later outside 5 is shown.
+        f.arrive(5.0)
+        assertEquals("5", f.text)
+    }
+
+    @Test fun sameNumberSavedTwice() {
+        val f = Field(9.0, 1.0, 1.0, 10.0)
+        f.tap(1); f.tap(1)
+        assertEquals(listOf(10.0, 10.0), f.saves)
+        f.arrive(10.0)
+        assertEquals("10", f.text)
+        f.arrive(7.0)
+        assertEquals("7", f.text)
+    }
+
+    @Test fun quickTapsStepFromTheShownTextBeforeTheirSaveComesBack() {
         val f = Field(3.0, 1.0)
         f.tap(1)
         // The write of 4 has not come back: the next tap steps from the shown 4, not the stored 3.
         f.tap(1)
         assertEquals("5", f.text)
         assertEquals(listOf(4.0, 5.0), f.saves)
-        // The echo of 4 arrives late: the field keeps 5.
-        assertFalse(f.stepper.arrived(4.0))
-        assertFalse(f.stepper.arrived(5.0))
-        // A value from somewhere else is shown.
-        assertTrue(f.stepper.arrived(7.0))
     }
 
-    @Test fun lateEchoesAfterAHoldAreSkippedInOrder() {
+    @Test fun outsideValueIsShownWhenNoHoldIsInProgress() {
         val f = Field(3.0, 1.0)
-        f.tap(1)
-        f.hold(1, 2).end()
-        assertEquals(listOf(4.0, 6.0), f.saves)
-        // Only the newest echo comes back (Compose skips the older): it clears both, so a later 4 is an outside value.
-        assertFalse(f.stepper.arrived(6.0))
-        assertTrue(f.stepper.arrived(4.0))
+        f.arrive(7.0)
+        assertEquals("7", f.text)
+        f.arrive(null)
+        assertEquals("", f.text)
     }
 
-    @Test fun outsideValueWaitsWhileAHoldShowsItsStep() {
+    @Test fun outsideValueDuringAHoldIsNotShownAndTheReleaseStillSaves() {
         val f = Field(3.0, 1.0)
-        val p = f.hold(1, 1)
-        assertFalse(f.stepper.arrived(8.0))
+        val p = f.hold(1, 2)
+        f.arrive(8.0)
+        assertEquals("5", f.text)
         p.end()
-        assertEquals(listOf(4.0), f.saves)
-        assertTrue(f.stepper.arrived(null))
+        assertEquals("5", f.text)
+        assertEquals(listOf(5.0), f.saves)
     }
 
-    @Test fun saveOfTheStoredValueWaitsForNoEcho() {
-        val f = Field(10.0, 1.0, 1.0, 10.0)
-        f.tap(1)
-        assertEquals(listOf(10.0), f.saves)
-        // No echo comes for an unchanged value, so a later outside 10 still shows.
-        assertTrue(f.stepper.arrived(10.0))
+    @Test fun releaseBoundsTheHeldNumberWithTheCurrentLimits() {
+        // "Opens" held up to 19:00, then "Closes" moves so Opens may reach only 18:45.
+        val f = Field(1110.0, 15.0, 0.0, 1140.0)
+        val p = f.hold(1, 3)
+        assertEquals("1140", f.text)
+        f.stepper.max = 1125.0
+        p.end()
+        assertEquals(listOf(1125.0), f.saves)
+        assertEquals("1125", f.text)
     }
 
     @Test fun timeStepperKeepsQuarterHoursInsideItsRange() {
@@ -194,7 +240,7 @@ class StepperTest {
         fun press(minute: Int, sign: Int) = PressFlow(
             onTap = { opens.step(sign, true, shown?.toString() ?: "", minute.toDouble(), null).also { shown = it.shown.toInt() }.save?.let(saves::add) },
             onRepeat = { shown = opens.step(sign, false, shown?.toString() ?: "", minute.toDouble(), null).shown.toInt() },
-            onRelease = { opens.release(minute.toDouble())?.let(saves::add) },
+            onRelease = { opens.release()?.let { shown = it.toInt(); saves.add(it) } },
         )
         press(1140, 1).run { endEarly(true); end() }
         assertEquals(1140, shown)
@@ -204,8 +250,7 @@ class StepperTest {
         press(480, 1).let { p -> p.hold(); repeat(3) { p.repeat() }; assertTrue(saves.isEmpty()); p.end() }
         assertEquals(525, shown)
         assertEquals(listOf(525.0), saves)
-        // Its echo comes back: the shown time stays.
-        assertFalse(opens.arrived(525.0))
+        assertTrue(opens.arrived())
 
         shown = null; saves.clear()
         press(15, -1).let { p -> p.hold(); repeat(4) { p.repeat() }; p.end() }

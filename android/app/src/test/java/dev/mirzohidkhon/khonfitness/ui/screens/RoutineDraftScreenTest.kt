@@ -25,22 +25,32 @@ import dev.mirzohidkhon.khonfitness.data.StretchRoutine
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
+import android.os.Looper
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 /**
  * A new routine is a draft (attack cases E4 and E5): the "+" on Stretching writes nothing, leaving the draft writes
  * nothing, Done writes one routine with the typed name and Active, and the first stretch saves the routine once,
- * also when the screen comes back from saved state before Done.
+ * also when the screen comes back from saved state before Done. While that first create is still pending ([Hold]),
+ * the editor stays a draft under the same id: a refused create leaves a draft that Done saves, and Done after a create
+ * that succeeds saves no second routine.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -79,6 +89,45 @@ class RoutineDraftScreenTest {
             }
         }
         waitFor { shows("Daily") }
+    }
+
+    /**
+     * Holds the database's write lock in a transaction on its own thread, so every write the screen asks for waits
+     * (pending) until [release].
+     */
+    private inner class Hold {
+        private val held = CountDownLatch(1)
+        private val ended = CountDownLatch(1)
+        @Volatile private var last: String? = null
+        private val holder = thread { app.db.runInTransaction { held.countDown(); ended.await(); last?.let { app.db.openHelper.writableDatabase.execSQL(it) } } }
+        init { assertTrue("the hold started", held.await(10, TimeUnit.SECONDS)) }
+
+        /** Ends the hold; [sql] runs in it first (for example deleting the first stretch, so the pending create is refused). */
+        fun release(sql: String? = null) { last = sql; ended.countDown(); holder.join(10_000); compose.waitForIdle() }
+    }
+
+    /** A new routine's editor, standalone, with its stretch list loaded. */
+    private fun openNewRoutine(restore: StateRestorationTester) {
+        restore.setContent { KhonTheme { RoutineEditorScreen(vm, rememberNavController(), "new") } }
+        waitFor { shows("Add stretch") && vm.stretches.value.isNotEmpty() }
+    }
+
+    /** Add stretch, then [name] in the sheet, which may still be sliding in. */
+    private fun pick(name: String) {
+        compose.onNodeWithText("Add stretch").performClick()
+        waitFor { shows(name) }
+        compose.onNodeWithText(name).performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+    }
+
+    /**
+     * The queued writes have run: [done] holds, then a short wait shows no later write changes it. It idles the main
+     * thread while it waits, where a queued write resumes after the one before it.
+     */
+    private fun settled(done: () -> Boolean) {
+        val end = System.currentTimeMillis() + 5_000
+        while (!done()) { check(System.currentTimeMillis() < end) { "the writes did not settle in 5 s" }; Thread.sleep(50); compose.waitForIdle() }
+        Thread.sleep(300); compose.waitForIdle()
     }
 
     /** "+" on Stretching, then the name and the Active switch on the new routine. */
@@ -130,5 +179,80 @@ class RoutineDraftScreenTest {
         Thread.sleep(300)
         assertEquals(listOf(id), routines().map { it.id })
         assertEquals(listOf(RoutineStretch(rows().single().id, id, "fold", 0)), rows())
+    }
+
+    @Test fun `a restore while the first stretch's create is pending, then a refusal, leaves a draft that Done saves without stretches`() {
+        io { dao.upsertStretches(listOf(Stretch("fold", "Fold"))) }
+        val restore = StateRestorationTester(compose)
+        openNewRoutine(restore)
+        compose.onNodeWithContentDescription("Routine name").performTextReplacement("Evening")
+        val hold = Hold()
+        pick("Fold")
+
+        restore.emulateSavedInstanceStateRestore()
+        hold.release("DELETE FROM stretches WHERE id = 'fold'")
+        settled { runBlocking(Dispatchers.IO) { dao.stretchesOnce() }.isEmpty() }
+        assertTrue("Add stretch shown", shows("Add stretch"))
+        assertFalse("no Delete before the routine is saved", shows("Delete routine"))
+        assertEquals(emptyList<StretchRoutine>(), routines())
+
+        compose.onAllNodesWithText("Done").onFirst().performClick()
+        settled { routines().isNotEmpty() }
+        assertEquals(listOf("Evening"), routines().map { it.name })
+        assertEquals(emptyList<RoutineStretch>(), rows())
+    }
+
+    @Test fun `a pick after a restore while the first create is pending saves under the same id, so one routine`() {
+        io { dao.upsertStretches(listOf(Stretch("fold", "Fold"), Stretch("reach", "Reach"))) }
+        val restore = StateRestorationTester(compose)
+        openNewRoutine(restore)
+        val hold = Hold()
+        pick("Fold")
+        restore.emulateSavedInstanceStateRestore()
+        pick("Reach") // the restored editor is still a draft: the list does not hold its id yet
+
+        hold.release()
+        settled { routines().isNotEmpty() }
+        val id = routines().single().id
+        assertEquals(listOf(RoutineStretch(rows().single().id, id, "fold", 0)), rows())
+    }
+
+    @Test fun `Done while the first stretch's create is pending, then a refusal, saves the routine without stretches`() {
+        io { dao.upsertStretches(listOf(Stretch("fold", "Fold"))) }
+        openNewRoutine(StateRestorationTester(compose))
+        compose.onNodeWithContentDescription("Routine name").performTextReplacement("Evening")
+        val hold = Hold()
+        pick("Fold")
+        compose.onAllNodesWithText("Done").onFirst().performClick()
+
+        hold.release("DELETE FROM stretches WHERE id = 'fold'")
+        settled { routines().isNotEmpty() }
+        assertEquals(listOf("Evening"), routines().map { it.name })
+        assertEquals(emptyList<RoutineStretch>(), rows())
+    }
+
+    @Test fun `Done while the first stretch's create is pending, then a success, saves one routine with that stretch`() {
+        io { dao.upsertStretches(listOf(Stretch("fold", "Fold"))) }
+        openNewRoutine(StateRestorationTester(compose))
+        val hold = Hold()
+        pick("Fold")
+        compose.onAllNodesWithText("Done").onFirst().performClick()
+
+        hold.release()
+        settled { routines().isNotEmpty() && rows().isNotEmpty() }
+        val id = routines().single().id
+        assertEquals(listOf(RoutineStretch(rows().single().id, id, "fold", 0)), rows())
+    }
+
+    @Test fun `the draft's writes run in the order asked, each after the one before it ends`() {
+        val first = CompletableDeferred<Unit>()
+        val order = mutableListOf<String>()
+        vm.runSerial { first.await(); order += "first stretch" }
+        vm.runSerial { order += "Done" }
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(emptyList<String>(), order)
+        first.complete(Unit)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(listOf("first stretch", "Done"), order)
     }
 }

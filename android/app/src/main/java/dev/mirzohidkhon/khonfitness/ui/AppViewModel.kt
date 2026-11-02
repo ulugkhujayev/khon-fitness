@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     val repo: KhonRepository = (app as KhonApp).repo
@@ -34,6 +36,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val planData = stream(repo.planData, KhonRepository.PlanData(emptyList(), emptyList(), emptyList(), emptyList()))
 
     fun run(block: suspend () -> Unit) { viewModelScope.launch { block() } }
+
+    private val serial = Mutex()
+    /** Writes that land in the order they were asked, one at a time: a new routine's first stretch, then its Done. */
+    fun runSerial(block: suspend () -> Unit) { viewModelScope.launch { serial.withLock { block() } } }
 
     /** The open block of each session, so Back and Resume keep it (process lifetime). */
     val openPicks = dev.mirzohidkhon.khonfitness.ui.screens.OpenPicks()

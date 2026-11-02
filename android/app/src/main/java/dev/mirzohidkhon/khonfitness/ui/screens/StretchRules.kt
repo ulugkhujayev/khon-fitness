@@ -8,6 +8,7 @@ import dev.mirzohidkhon.khonfitness.data.RoutineStretch
 import dev.mirzohidkhon.khonfitness.data.Stretch
 import dev.mirzohidkhon.khonfitness.data.StretchMode
 import dev.mirzohidkhon.khonfitness.data.StretchRoutine
+import dev.mirzohidkhon.khonfitness.data.newId
 import dev.mirzohidkhon.khonfitness.timer.Phase
 import dev.mirzohidkhon.khonfitness.timer.TimerState
 import dev.mirzohidkhon.khonfitness.timer.mmss
@@ -16,49 +17,42 @@ import dev.mirzohidkhon.khonfitness.timer.mmss
 const val NEW_ROUTINE_NAME = "New routine"
 
 /**
- * A routine editor's draft (DESIGN.md, Editors). A new routine ([isNew]) stays a draft ([isDraft]) until Done or its
- * first stretch saves it: leaving before that writes nothing and there is no Delete. The first stretch saves it
- * exactly as Done would, with that stretch as its first row; from then on the screen edits the saved routine, with
- * Delete, and leaving without Done keeps it. [Saver] keeps the saved id, the typed [name] and the [activeChoice]
- * over a rotation and process death, so a restored editor edits the same row and never saves a second routine.
+ * A routine editor's draft (DESIGN.md, Editors). A new routine ([isNew]) gets its [id] once, when the editor opens, and
+ * stays a draft until Done or its first stretch creates a routine with that id: leaving before that writes nothing and
+ * there is no Delete. Saved or draft is read from the database, never kept here: the editor edits the saved routine
+ * exactly when the routines list holds [id] (`stored`). So a create that is still pending, refused, or lost with the
+ * process leaves a draft that saves under the same id. [Saver] keeps the [id], the typed [name] and the [activeChoice]
+ * over a rotation and process death.
  */
-class RoutineDraft(val isNew: Boolean) {
-    /** The id the new routine is saved under (by its first stretch or Done), or null while nothing is saved. */
-    var savedId: String? by mutableStateOf(null)
-        private set
+class RoutineDraft(val isNew: Boolean, val id: String) {
     /** The Name field while a draft, null until edited. */
     var name: String? by mutableStateOf(null)
     /** A new routine's Active switch, null until touched. */
     var activeChoice: Boolean? by mutableStateOf(null)
 
-    /** A new routine that nothing has saved yet. */
-    val isDraft: Boolean get() = isNew && savedId == null
-
-    /** The routine the screen edits: the route's, or a new routine's once saved; null while it is only a draft. */
-    fun routineId(routeId: String): String? = if (isNew) savedId else routeId
+    /** A new routine that the database does not hold yet ([stored] is the listed routine with [id], if any). */
+    fun isDraft(stored: StretchRoutine?): Boolean = isNew && stored == null
 
     /** The Active switch's state: a draft's choice, by default on only when there is no routine yet (as 0.4.8). */
-    fun shownActive(savedActive: Boolean, noRoutines: Boolean): Boolean = if (isDraft) activeChoice ?: noRoutines else savedActive
+    fun shownActive(stored: StretchRoutine?, noRoutines: Boolean): Boolean = if (isDraft(stored)) activeChoice ?: noRoutines else stored?.active == true
 
-    /** The first stretch picked: the routine to save with it, or null once saved (or not new). */
-    fun forFirstStretch(id: String, noRoutines: Boolean): StretchRoutine? = if (isDraft) save(id, noRoutines) else null
+    /** The first stretch picked: the routine to create with it while a draft, else null (the pick adds a row). */
+    fun forFirstStretch(stored: StretchRoutine?, noRoutines: Boolean): StretchRoutine? = if (isDraft(stored)) routine(noRoutines) else null
 
-    /** Done: a draft's routine to save, else null (a saved routine wrote each edit as it was made). */
-    fun done(id: String, noRoutines: Boolean): StretchRoutine? = if (isDraft) save(id, noRoutines) else null
+    /** Done: a draft's routine to create, else null (a saved routine wrote each edit as it was made). */
+    fun done(stored: StretchRoutine?, noRoutines: Boolean): StretchRoutine? = if (isDraft(stored)) routine(noRoutines) else null
 
-    /** The save was refused (its first stretch went meanwhile): nothing was written, so the screen is a draft again. */
-    fun refused(id: String) { if (savedId == id) savedId = null }
-
-    /** The new routine with the typed name (or [NEW_ROUTINE_NAME]) and the Active choice; the editor edits it from here on. */
-    private fun save(id: String, noRoutines: Boolean): StretchRoutine {
-        savedId = id
-        return StretchRoutine(id, name?.trim()?.takeIf { it.isNotEmpty() } ?: NEW_ROUTINE_NAME, active = activeChoice ?: noRoutines)
-    }
+    /** The new routine with the typed name (or [NEW_ROUTINE_NAME]) and the Active choice. */
+    private fun routine(noRoutines: Boolean) =
+        StretchRoutine(id, name?.trim()?.takeIf { it.isNotEmpty() } ?: NEW_ROUTINE_NAME, active = activeChoice ?: noRoutines)
 
     companion object {
+        /** The draft for a route id: `new` makes the new routine's id now, once; any other id is that routine's. */
+        fun open(routeId: String) = if (routeId == "new") RoutineDraft(true, newId()) else RoutineDraft(false, routeId)
+
         val Saver = listSaver<RoutineDraft, Any?>(
-            save = { listOf(it.isNew, it.savedId, it.name, it.activeChoice) },
-            restore = { RoutineDraft(it[0] as Boolean).apply { savedId = it[1] as String?; name = it[2] as String?; activeChoice = it[3] as Boolean? } },
+            save = { listOf(it.isNew, it.id, it.name, it.activeChoice) },
+            restore = { RoutineDraft(it[0] as Boolean, it[1] as String).apply { name = it[2] as String?; activeChoice = it[3] as Boolean? } },
         )
     }
 }

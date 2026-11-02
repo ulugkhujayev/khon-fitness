@@ -56,40 +56,38 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
     val routines by vm.stretchRoutines.collectAsStateWithLifecycle()
     val routineStretches by vm.routineStretches.collectAsStateWithLifecycle()
     val stretches by vm.stretches.collectAsStateWithLifecycle()
-    val draft = rememberSaveable(saver = RoutineDraft.Saver) { RoutineDraft(isNew = routineId == "new") }
-    val id = draft.routineId(routineId)
-    val routine = id?.let { r -> routines.find { it.id == r } }
+    val draft = rememberSaveable(saver = RoutineDraft.Saver) { RoutineDraft.open(routineId) }
+    val id = draft.id
+    // Saved or draft comes from the database: a new routine is a draft until the list holds its id.
+    val routine = routines.find { it.id == id }
     if (!draft.isNew && routine == null) return
-    // Saved by the first stretch but not read back yet: no second pick until it is.
-    val loading = id != null && routine == null
+    val isDraft = draft.isDraft(routine)
     val noRoutines = routines.isEmpty()
-    val mine = if (id == null) emptyList() else routineStretches.filter { it.routineId == id }.sortedWith(compareBy({ it.sortOrder }, { it.id }))
+    val mine = routineStretches.filter { it.routineId == id }.sortedWith(compareBy({ it.sortOrder }, { it.id }))
     var picking by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val removal = rememberConfirm<RoutineStretch>()
     fun name(rs: RoutineStretch) = stretches.find { it.id == rs.stretchId }?.name ?: "Missing stretch"
     fun pick(stretchId: String) {
         picking = false
-        draft.forFirstStretch(newId(), noRoutines)?.let { r ->
-            // Refused when the stretch went meanwhile: nothing was written, so the editor is a draft again.
-            vm.run { if (!vm.repo.createRoutine(r, stretchId)) draft.refused(r.id) }
-            return
-        }
-        if (id == null || loading) return
+        // In order with Done. Refused when the stretch went meanwhile: nothing is written and the editor stays a draft.
+        // A pick while that create is pending finds the id stored and writes nothing.
+        draft.forFirstStretch(routine, noRoutines)?.let { r -> vm.runSerial { vm.repo.createRoutine(r, stretchId) }; return }
         vm.run { vm.repo.addRoutineStretch(id, stretchId) }
     }
     fun done() {
-        draft.done(newId(), noRoutines)?.let { r -> vm.run { vm.repo.createRoutine(r) } }
+        // After a pending first-stretch create: nothing when it saved the routine, the routine without stretches when refused.
+        draft.done(routine, noRoutines)?.let { r -> vm.runSerial { vm.repo.createRoutine(r) } }
         nav.popBackStack()
     }
     EditorScaffold("Stretching", routine?.name ?: NEW_ROUTINE_NAME, onBack = { nav.popBackStack() }, onDone = ::done) {
         GroupedList {
             FieldRow("Name", divider = false) {
-                if (draft.isDraft) InlineTextField(draft.name ?: "", { draft.name = it }, placeholder = NEW_ROUTINE_NAME, label = "Routine name")
-                else InlineTextField(routine?.name ?: draft.name ?: "", { v -> if (id != null) vm.run { vm.repo.setRoutineName(id, v) } }, placeholder = NEW_ROUTINE_NAME, label = "Routine name")
+                if (isDraft) InlineTextField(draft.name ?: "", { draft.name = it }, placeholder = NEW_ROUTINE_NAME, label = "Routine name")
+                else InlineTextField(routine?.name ?: "", { v -> vm.run { vm.repo.setRoutineName(id, v) } }, placeholder = NEW_ROUTINE_NAME, label = "Routine name")
             }
-            ToggleRow("Active", draft.shownActive(routine?.active == true, noRoutines)) { on ->
-                if (draft.isDraft) draft.activeChoice = on else if (id != null) vm.run { vm.repo.setRoutineActive(id, on) }
+            ToggleRow("Active", draft.shownActive(routine, noRoutines)) { on ->
+                if (isDraft) draft.activeChoice = on else vm.run { vm.repo.setRoutineActive(id, on) }
             }
         }
         GroupFooter("The active routine is the one Today offers to stretch.")
@@ -103,7 +101,7 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
             }
             if (mine.isEmpty()) ListRow("No stretches yet", chevron = false, divider = false, titleColor = K.Muted)
         }
-        if (!loading) TintedButton("Add stretch", Modifier.padding(top = 12.dp)) { picking = true }
+        TintedButton("Add stretch", Modifier.padding(top = 12.dp)) { picking = true }
         if (mine.isNotEmpty()) {
             SectionTitle("Order", Modifier.padding(top = 24.dp))
             GroupedList {
@@ -118,7 +116,7 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
             }
         }
         // Nothing to delete before the routine is saved.
-        if (!draft.isDraft && routine != null) EditorActions {
+        if (routine != null) EditorActions {
             GroupedList { ActionRow(Icons.Trash, "Delete routine", K.Red, divider = false) { confirmDelete = true } }
         }
     }
@@ -129,7 +127,7 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
     ConfirmSheet(removal, title = { "Remove ${name(it)}?" }, body = { "It leaves this routine; the stretch stays in the library." }, action = "Remove") { rs ->
         vm.run { vm.repo.removeRoutineStretch(rs.id) }
     }
-    if (confirmDelete && id != null) ConfirmSheet("Delete this routine?", "Its stretch history stays.", "Delete", { confirmDelete = false }) {
+    if (confirmDelete) ConfirmSheet("Delete this routine?", "Its stretch history stays.", "Delete", { confirmDelete = false }) {
         confirmDelete = false
         vm.run { vm.repo.deleteRoutine(id) }; nav.popBackStack()
     }

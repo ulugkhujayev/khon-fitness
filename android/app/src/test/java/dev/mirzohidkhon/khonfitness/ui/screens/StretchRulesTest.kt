@@ -19,70 +19,69 @@ import org.junit.Test
 class StretchRulesTest {
     // ---- routine draft (contract rows 3, 4, 16; attack cases E4, E5)
 
-    @Test fun `a new routine left without Done or a stretch saves nothing`() {
-        val d = RoutineDraft(isNew = true)
-        d.name = "Evening"
-        d.activeChoice = true
-        assertTrue(d.isDraft)
-        assertNull(d.routineId("new"))
+    @Test fun `a new routine gets its id once, when the editor opens, and stays a draft until the list holds it`() {
+        val d = RoutineDraft.open("new")
+        assertTrue(d.isNew)
+        assertTrue(d.id.isNotEmpty())
+        assertTrue(d.isDraft(stored = null))
+        assertFalse(d.isDraft(StretchRoutine(d.id, "Evening")))
+        assertTrue(RoutineDraft.open("new").id != d.id)
     }
 
-    @Test fun `Done saves a draft once with its name and Active choice`() {
-        val d = RoutineDraft(isNew = true)
+    @Test fun `Done on a draft creates it with its name and Active choice, and on a stored routine creates nothing`() {
+        val d = RoutineDraft(isNew = true, id = "r1")
         d.name = "  Evening "
         d.activeChoice = true
-        assertEquals(StretchRoutine("r1", "Evening", active = true), d.done("r1", noRoutines = false))
-        assertEquals("r1", d.routineId("new"))
-        assertNull(d.done("r2", noRoutines = false))
+        assertEquals(StretchRoutine("r1", "Evening", active = true), d.done(stored = null, noRoutines = false))
+        assertNull(d.done(StretchRoutine("r1", "Evening", active = true), noRoutines = false))
     }
 
     @Test fun `a blank name saves as New routine and Active defaults on only without routines`() {
-        assertEquals(StretchRoutine("r1", NEW_ROUTINE_NAME, active = true), RoutineDraft(true).also { it.name = " " }.done("r1", noRoutines = true))
-        assertEquals(StretchRoutine("r1", NEW_ROUTINE_NAME, active = false), RoutineDraft(true).done("r1", noRoutines = false))
-        assertTrue(RoutineDraft(true).shownActive(savedActive = false, noRoutines = true))
-        assertFalse(RoutineDraft(true).shownActive(savedActive = false, noRoutines = false))
+        assertEquals(StretchRoutine("r1", NEW_ROUTINE_NAME, active = true), RoutineDraft(true, "r1").also { it.name = " " }.done(null, noRoutines = true))
+        assertEquals(StretchRoutine("r1", NEW_ROUTINE_NAME, active = false), RoutineDraft(true, "r1").done(null, noRoutines = false))
+        assertTrue(RoutineDraft(true, "r1").shownActive(null, noRoutines = true))
+        assertFalse(RoutineDraft(true, "r1").shownActive(null, noRoutines = false))
     }
 
-    @Test fun `the first stretch saves the routine and later stretches and Done save no second one`() {
-        val d = RoutineDraft(isNew = true)
+    @Test fun `the first stretch creates the routine under the draft's id, and a pick before the list holds it asks the same`() {
+        val d = RoutineDraft(isNew = true, id = "r1")
         d.name = "Evening"
-        assertEquals(StretchRoutine("r1", "Evening", active = false), d.forFirstStretch("r1", noRoutines = false))
-        assertFalse(d.isDraft)
-        assertNull(d.forFirstStretch("r2", noRoutines = false))
-        assertNull(d.done("r3", noRoutines = false))
-        assertEquals("r1", d.routineId("new"))
+        val first = d.forFirstStretch(stored = null, noRoutines = false)
+        assertEquals(StretchRoutine("r1", "Evening", active = false), first)
+        // Nothing local marks it saved: a second pick or Done while that create is pending asks for the same id, which
+        // the database then ignores when the first create stored it.
+        assertEquals(first, d.forFirstStretch(stored = null, noRoutines = false))
+        assertEquals(first, d.done(stored = null, noRoutines = false))
+        assertNull(d.forFirstStretch(first, noRoutines = false))
     }
 
-    @Test fun `a restored draft keeps the saved id, so Done after a restore saves nothing new`() {
-        val d = RoutineDraft(isNew = true)
-        d.forFirstStretch("r1", noRoutines = true)
+    @Test fun `a refused or lost create leaves a draft that Done saves under the same id`() {
+        val d = RoutineDraft(isNew = true, id = "r1").apply { name = "Evening" }
+        d.forFirstStretch(stored = null, noRoutines = false)
         val back = d.restored()
-        assertEquals("r1", back.routineId("new"))
-        assertNull(back.done("r2", noRoutines = true))
+        assertTrue(back.isDraft(stored = null))
+        assertEquals(StretchRoutine("r1", "Evening", active = false), back.done(stored = null, noRoutines = false))
     }
 
-    @Test fun `a restored unsaved draft keeps the typed name and Active choice`() {
-        val d = RoutineDraft(isNew = true).apply { name = "Evening"; activeChoice = false }
+    @Test fun `a restored draft keeps its id, typed name and Active choice, and is saved once the list holds the id`() {
+        val d = RoutineDraft.open("new").apply { name = "Evening"; activeChoice = false }
         val back = d.restored()
-        assertTrue(back.isDraft)
-        assertEquals(StretchRoutine("r1", "Evening", active = false), back.done("r1", noRoutines = true))
-    }
-
-    @Test fun `a refused first stretch makes the editor a draft again`() {
-        val d = RoutineDraft(isNew = true)
-        d.forFirstStretch("r1", noRoutines = false)
-        d.refused("r1")
-        assertTrue(d.isDraft)
-        assertEquals("r2", d.done("r2", noRoutines = false)?.id)
+        assertEquals(d.id, back.id)
+        assertTrue(back.isNew)
+        assertEquals(StretchRoutine(d.id, "Evening", active = false), back.done(null, noRoutines = true))
+        assertNull(back.done(StretchRoutine(d.id, "Evening"), noRoutines = true))
     }
 
     @Test fun `an existing routine is never a draft and its Active follows the stored row`() {
-        val d = RoutineDraft(isNew = false)
-        assertFalse(d.isDraft)
-        assertEquals("a", d.routineId("a"))
-        assertNull(d.done("x", noRoutines = true))
-        assertNull(d.forFirstStretch("x", noRoutines = true))
-        assertTrue(d.shownActive(savedActive = true, noRoutines = false))
+        val d = RoutineDraft.open("a")
+        assertFalse(d.isNew)
+        assertEquals("a", d.id)
+        val stored = StretchRoutine("a", "Daily", active = true)
+        assertFalse(d.isDraft(stored))
+        assertNull(d.done(stored, noRoutines = true))
+        assertNull(d.forFirstStretch(stored, noRoutines = true))
+        assertTrue(d.shownActive(stored, noRoutines = false))
+        assertFalse(d.isDraft(stored = null)) // still loading: the screen shows nothing until the row loads
     }
 
     // ---- lists

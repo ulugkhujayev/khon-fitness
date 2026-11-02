@@ -94,9 +94,13 @@ no native spinner arrows. The accessible name lives in the aria-label.
   Library seeded from a public-domain dataset plus the 14 exercises in
   TP v3 plus the cardio seeds. The user can add, edit, archive, delete
   (only when no session uses it), and merge two exercises into one
-  (history moves to the survivor).
+  (history moves to the survivor). Once a session, a program or the plan
+  uses an exercise, its kind is fixed.
 - Modality: name, color. Seeded bike, run, swim, row. User can add.
-- Program: name, active flag, ordered list of blocks.
+- Program: name, active flag, ordered list of blocks. One program is
+  always active. Turning another program on moves the mark; deleting the
+  active program gives it to the first one left. The last program cannot
+  be deleted.
 - Block: one or two exercises, superset flag (only meaningful with two).
   Per exercise in the block: set count, min reps, max reps.
 - Session: date-time (editable, can be backdated), what was done: a
@@ -113,6 +117,17 @@ no native spinner arrows. The accessible name lives in the aria-label.
 
 Sessions store a snapshot of the program, so editing the program later never
 changes what history shows.
+
+Editors save drafts late. A new program is written on Done, or when Add
+block needs it as the block's home. A program saved for a block and left
+without Done and without a block is deleted again, and its Active choice
+waits for Done. A new block is written together with its first exercise;
+leaving before that writes nothing.
+
+Every delete or remove asks first: an exercise, a program, a block, an
+exercise taken out of a block. Deleting a program deletes its blocks and
+their exercises, and turns plan days and dated changes that held it into
+rest days. Deleting a block deletes its exercises.
 
 ## Live session
 
@@ -185,8 +200,8 @@ show one row per work interval for manual entry.
 
 The weekly template fills future weeks. On the History calendar, long-press a
 day to change its activity, or drag one day onto another to swap the two.
-An overridden date shows a small mark. Template edits never touch past days
-or dates with an override.
+An overridden date shows a small mark. Template edits apply from today on and
+never touch past days or dates with an override.
 
 ## Backup
 

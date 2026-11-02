@@ -98,12 +98,31 @@ padded cards, per-item buttons, "Updated" lines.
   centered on one baseline.
 - Tap the row to open its editor. No buttons inside rows. No x, no
   Open, no Use, no Edit. Destructive and secondary actions live in the
-  editor screen, at the bottom, as text buttons.
-- Add is a single "+" text button at the right of the section title.
+  editor screen, at the bottom, as action rows (see Editors).
+- Add on a list screen is a round "+" in the bar. Inside an editor it is
+  a full-width 44 px tinted "Add …" button 12 px under its list (Add
+  block, Add exercise, Add second exercise). A program's blocks are
+  numbered like a session's: the index in a 24 px accent-tinted circle.
 - No dates on list rows unless the row IS a date (history).
 - Rows that open a part of the app lead with a 30 px icon tile like iOS
   Settings: a white 17 px symbol on a rounded square (radius 7) of its
-  color. The tile is decorative; the row names it.
+  color. The tile is decorative; the row names it. The Programs tab
+  groups them under section titles: Exercises, Stretching and Modalities
+  under Library, Week plan under Plan, Settings on its own. Settings rows
+  carry tiles too.
+- The week plan's section title sums up the template ("5 training days ·
+  2 rest days", "1 training day" in the singular). Each weekday leads
+  with a tile of what it holds in its color (a dumbbell for a program, a
+  runner for cardio, a moon for rest), today's weekday name is in
+  accent, and a footnote says a change applies from today on.
+- The modality list shows how many exercises each modality groups ("2
+  exercises", "No exercises"), a footnote on what modalities are for,
+  and the archived ones in their own group when shown.
+- Settings has three groups: Backup (export, import, restore a saved
+  copy), App (version, the APK updater's state, reopen after updates)
+  and Reset to built-in data in red on its own. A footnote under each
+  says what it holds or does; the backup footnote shows how the last
+  export or import went, red on error.
 - Empty state: one muted line, no illustration. Where a screen has nothing
   to show yet and an action fixes it, a card shows a 32 px symbol, a title
   in Headline, a muted 15 line and the action (iOS content-unavailable
@@ -121,9 +140,19 @@ padded cards, per-item buttons, "Updated" lines.
   with a checklist. Multi-select is a checklist too. A long pick list
   (exercises, stretches) has a search field over it, empty each time the
   sheet opens, that filters as you type.
-- Fields sit in groups with section titles, so no label wraps. A muted
-  footnote under a group says what its setting does, or why a value
-  cannot change.
+- Fields sit in groups with section titles, so no label wraps (an
+  exercise: name and kind; Muscles; Details). A muted footnote under a
+  group says what its setting does, or why a value cannot change. A
+  select that cannot change shows its value muted with a small lock
+  instead of the chevron: an exercise's kind once a session, a program
+  or the plan uses it.
+- A toggle row gives its label all the width the switch leaves. The
+  program's Active and the block's Superset have a footnote that says
+  what they do. The active program's Active is fixed on; turning
+  another program on moves the mark.
+- A modality's color is picked on the page under a Color title: two rows
+  of six 34 px circles on a card, the chosen one in a white ring 2.5 px
+  wide with a 2 px gap, each on a 48 px target.
 - Numbers use the number widget: minus button, value with unit suffix,
   plus button. No caption above it. No native spinner. A tap on − or +
   steps once with a light haptic click; held past 350 ms it repeats,
@@ -139,7 +168,13 @@ padded cards, per-item buttons, "Updated" lines.
   in red in a group of its own, both dim when off, the reason as a muted
   footnote under the groups, 32 px below the fields, groups 20 px apart.
 - Every delete or remove asks first in a confirm sheet: what is deleted,
-  a red full-width button, Cancel. Cancel changes nothing.
+  a red full-width button, Cancel. Cancel changes nothing. That covers
+  an exercise, a program, a block and an exercise taken out of a block.
+- A new program or block is a draft. Nothing is saved, and there is no
+  Delete, until Done saves the program or the first exercise saves the
+  block. Add block on a new program saves it so the block has a home.
+  Left without Done and without a block, that program is deleted again,
+  and its Active choice waits for Done.
 - The bar keeps its title centered and shows a hairline once content
   scrolls under it, fading in over the first 16 px.
 

@@ -27,7 +27,7 @@ class ConcurrentWritesTest {
     private lateinit var db: KhonDatabase
     private lateinit var dao: KhonDao
     private lateinit var repo: KhonRepository
-    private val race = Race()
+    private val race = Race { db.inTransaction() }
 
     @Before fun open() {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), KhonDatabase::class.java)
@@ -40,36 +40,62 @@ class ConcurrentWritesTest {
     @After fun close() = db.close()
 
     /**
-     * Runs a competing write on another thread just before the first statement that [arm]'s test matches, and waits up
-     * to [WAIT_MS] for it. Outside a transaction it lands at once; inside one it waits for the commit, as on the phone.
+     * Runs a competing write at the first statement that [arm]'s test matches, as another writer on the phone would:
+     * when every statement of the step so far ran inside one open transaction, the other writer waits for the commit,
+     * so the write runs in [finish]; otherwise nothing holds it back, and it runs to the end on another thread right
+     * there, before the matched statement. No timing decides the outcome.
      */
-    private class Race {
+    private class Race(private val inTransaction: () -> Boolean) {
         private var at: ((String) -> Boolean)? = null
         private var write: (suspend () -> Unit)? = null
-        private var thread: Thread? = null
-        @Volatile private var failure: Throwable? = null
+        private var outside = false
+        private var deferred: (suspend () -> Unit)? = null
+        private var ran = false
 
-        @Synchronized fun arm(at: (String) -> Boolean, write: suspend () -> Unit) { this.at = at; this.write = write }
+        @Synchronized fun arm(at: (String) -> Boolean, write: suspend () -> Unit) { this.at = at; this.write = write; outside = false; deferred = null; ran = false }
 
         fun onQuery(sql: String) {
             val w = synchronized(this) {
                 val match = at ?: return
+                // A BEGIN is reported before it opens its transaction; every other statement shows where it ran.
+                val held = inTransaction()
+                if (!held && !sql.startsWith("BEGIN")) outside = true
                 if (!match(sql)) return
                 at = null
+                ran = true
+                if (held && !outside) { deferred = write; return }
+                // A late transaction would hold the other writer too: arm at its BEGIN to show the gap before it.
+                check(!held) { "the race point is inside a transaction the step opened late; arm at that BEGIN" }
                 write!!
             }
-            thread = Thread { runCatching { runBlocking { w() } }.onFailure { failure = it } }.also { it.start(); it.join(WAIT_MS) }
-        }
-
-        /** Waits for the competing write; fails when it never ran. */
-        fun finish() {
-            val t = thread ?: run { fail("the competing write never ran"); return }
-            t.join(5_000)
+            var failure: Throwable? = null
+            val t = Thread { runCatching { runBlocking { w() } }.onFailure { failure = it } }
+            t.start(); t.join(10_000)
+            check(!t.isAlive) { "the competing write did not finish outside a transaction" }
             failure?.let { throw it }
         }
 
-        companion object { const val WAIT_MS = 300L }
+        /** Runs a write held back by the transaction; fails when the matched statement never ran. */
+        fun finish() {
+            if (!ran) fail("the competing write never ran")
+            deferred?.let { d -> deferred = null; runBlocking { d() } }
+        }
     }
+
+    /** The first BEGIN after a read: on the old code, the gap between a step's read and its own write transaction. */
+    private fun firstBeginAfterRead(): (String) -> Boolean {
+        var read = false
+        return { sql -> if (sql.startsWith("SELECT")) { read = true; false } else read && sql.startsWith("BEGIN") }
+    }
+
+    /**
+     * A raw write, as an import's: a Room suspend write would queue behind the step's own write on Room's serial
+     * transaction executor, so it could never land in the gap on the old code.
+     */
+    private fun importExercise(id: String, name: String) = db.openHelper.writableDatabase.execSQL(
+        "INSERT OR REPLACE INTO exercises (id, name, kind, notes, archived, builtin, secondaryMuscles, stepKg, intervals, warmupSec, workSec, restSec, rounds, fields) " +
+            "VALUES (?, ?, ?, '', 0, 0, '', 2.5, 0, 0, 0, 0, 0, '')", arrayOf(id, name, Kind.STRENGTH),
+    )
 
     private fun failInserts(table: String) =
         db.openHelper.writableDatabase.execSQL("CREATE TEMP TRIGGER fail_$table BEFORE INSERT ON $table BEGIN SELECT RAISE(ABORT, 'test failure'); END")
@@ -99,8 +125,8 @@ class ConcurrentWritesTest {
         dao.upsert(Exercise("z2run", "Zone 2 run", Kind.CARDIO))
         dao.upsertWeekPlan(listOf(WeekPlan(2, ItemType.PROGRAM, "push"), WeekPlan(3, ItemType.CARDIO, "z2run")))
         val tue = "2026-11-03"; val wed = "2026-11-04"
-        // Wednesday gets Pull from the Today sheet once the swap starts writing.
-        race.arm({ it.startsWith("INSERT") && "`day_overrides`" in it }) { repo.saveOverride(wed, ItemType.PROGRAM, "pull") }
+        // Wednesday gets Pull from the Today sheet after the swap has read the plan, before it writes.
+        race.arm(firstBeginAfterRead()) { repo.saveOverride(wed, ItemType.PROGRAM, "pull") }
         repo.swapDays(LocalDate.parse(tue), LocalDate.parse(wed))
         race.finish()
         // The swap, then the change: Tuesday holds the run, Wednesday holds Pull.
@@ -215,7 +241,7 @@ class ConcurrentWritesTest {
     // ---- seeds
 
     @Test fun `an exercise saved while the seed writes is not seeded over`() = runBlocking {
-        race.arm({ it.startsWith("INSERT") && "`modalities`" in it }) { dao.upsertExercises(listOf(Exercise("bench", "My bench", Kind.STRENGTH))) }
+        race.arm(firstBeginAfterRead()) { importExercise("bench", "My bench") }
         repo.seedIfEmpty()
         race.finish()
         assertEquals("My bench", dao.exercise("bench")?.name)

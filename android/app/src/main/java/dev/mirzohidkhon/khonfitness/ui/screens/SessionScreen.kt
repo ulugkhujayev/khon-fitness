@@ -200,10 +200,23 @@ internal fun rememberOpenPick(picks: OpenPicks, sessionId: String): MutableState
 /** Room above a block card inside its list item: 6 dp for the first, 10 between cards. */
 private fun cardTop(index: Int): Dp = if (index == 0) 6.dp else 10.dp
 
+/**
+ * A set's weight and reps fields, side by side. At font scale 1.5 and up (as [ListRow]) they stack, each the full
+ * width, since half a row cuts a large value.
+ */
+@Composable
+internal fun SetFields(weight: @Composable (Modifier) -> Unit, reps: @Composable (Modifier) -> Unit) {
+    if (androidx.compose.ui.platform.LocalConfiguration.current.fontScale >= 1.5f) {
+        Column(Modifier.fillMaxWidth().padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { weight(Modifier.fillMaxWidth()); reps(Modifier.fillMaxWidth()) }
+    } else {
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { weight(Modifier.weight(1f)); reps(Modifier.weight(1f)) }
+    }
+}
+
 /** Effort 1 to 10 as a number widget: steps and typing stay inside the range. [elevated] inside a sheet. */
 @Composable
 private fun EffortField(effort: Int?, elevated: Boolean = true, onChange: (Int?) -> Unit) {
-    NumberField(effort?.toDouble(), { v -> onChange(v?.toInt()) }, 1.0, "/10", Modifier.width(176.dp), 0, 38, placeholder = "1–10", min = 1.0, max = 10.0, elevated = elevated, label = "Effort, 1 to 10")
+    NumberField(effort?.toDouble(), { v -> onChange(v?.toInt()) }, 1.0, "/10", width = 176.dp, decimals = 0, height = 38, placeholder = "1–10", min = 1.0, max = 10.0, elevated = elevated, label = "Effort, 1 to 10")
 }
 
 /** Date, effort and note of a session: editable while [live], else only what was filled in. Each edit saves its own field. */
@@ -333,16 +346,20 @@ private fun SetRow(
             if (prev != null) Text("$prevKg × ${prev.reps ?: 0}", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
         }
         if (live) {
-            Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Column(Modifier.weight(1f).then(focus.placed)) {
-                    NumberField(log.weightKg, onWeight, step = log.stepKg.takeIf { it > 0 } ?: 1.0, unit = "kg", decimals = decimals, height = 44, focusRequester = focus.requester, placeholder = prevKg, label = "$tag ${log.exerciseName} weight")
-                    Delta(prev?.weightKg, log.weightKg, decimals, suffix = " kg")
-                }
-                Column(Modifier.weight(1f)) {
-                    NumberField(log.reps?.toDouble(), { onReps(it) }, step = 1.0, unit = "reps", decimals = 0, height = 44, placeholder = (prev?.reps ?: log.minReps).toString(), label = "$tag ${log.exerciseName} reps")
-                    Delta(prev?.reps?.toDouble(), log.reps?.toDouble(), 0, suffix = " reps")
-                }
-            }
+            SetFields(
+                weight = { m ->
+                    Column(m.then(focus.placed)) {
+                        NumberField(log.weightKg, onWeight, step = log.stepKg.takeIf { it > 0 } ?: 1.0, unit = "kg", decimals = decimals, height = 44, focusRequester = focus.requester, placeholder = prevKg, label = "$tag ${log.exerciseName} weight")
+                        Delta(prev?.weightKg, log.weightKg, decimals, suffix = " kg")
+                    }
+                },
+                reps = { m ->
+                    Column(m) {
+                        NumberField(log.reps?.toDouble(), { onReps(it) }, step = 1.0, unit = "reps", decimals = 0, height = 44, placeholder = (prev?.reps ?: log.minReps).toString(), label = "$tag ${log.exerciseName} reps")
+                        Delta(prev?.reps?.toDouble(), log.reps?.toDouble(), 0, suffix = " reps")
+                    }
+                },
+            )
         } else {
             Text(if (log.status == SetStatus.SKIPPED) "skipped" else "${fmt(log.weightKg ?: 0.0, decimals)} kg × ${log.reps ?: 0} reps", color = if (log.status == SetStatus.SKIPPED) K.Dim else K.Text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 42.dp, top = 4.dp))
         }

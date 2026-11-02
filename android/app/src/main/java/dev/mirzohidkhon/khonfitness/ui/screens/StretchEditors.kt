@@ -96,7 +96,7 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, routineId: Str
             mine.forEachIndexed { i, rs ->
                 val st = stretches.find { it.id == rs.stretchId }
                 FieldRow(name(rs), divider = i > 0, note = if (st?.sided == true) "per side" else null) {
-                    NumberField((rs.seconds ?: st?.seconds ?: 45).toDouble(), { v -> vm.run { vm.repo.setRoutineStretchSeconds(rs.id, (v ?: 45.0).toInt()) } }, 5.0, "s", Modifier.width(176.dp), 0, 38, min = 5.0, max = 600.0)
+                    NumberField((rs.seconds ?: st?.seconds ?: 45).toDouble(), { v -> vm.run { vm.repo.setRoutineStretchSeconds(rs.id, (v ?: 45.0).toInt()) } }, 5.0, "s", width = 176.dp, decimals = 0, height = 38, min = 5.0, max = 600.0)
                 }
             }
             if (mine.isEmpty()) ListRow("No stretches yet", chevron = false, divider = false, titleColor = K.Muted)

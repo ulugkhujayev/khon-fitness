@@ -82,9 +82,9 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                         val e = edits[iv.id] ?: IntervalEdit()
                         FieldRow("Round ${i + 1}", divider = i > 0) {
                             Column(Modifier.padding(vertical = 8.dp), horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                                NumberField(e.avgHr.or(iv.avgHr)?.toDouble(), { v -> edit(iv.id) { it.copy(avgHr = Edit.Set(v?.toInt())) } }, 1.0, "bpm", Modifier.width(176.dp), 0, 38, label = "Round ${i + 1} heart rate")
+                                NumberField(e.avgHr.or(iv.avgHr)?.toDouble(), { v -> edit(iv.id) { it.copy(avgHr = Edit.Set(v?.toInt())) } }, 1.0, "bpm", width = 176.dp, decimals = 0, height = 38, label = "Round ${i + 1} heart rate")
                                 Spacer(Modifier.height(6.dp))
-                                NumberField(e.watts.or(iv.watts)?.toDouble(), { v -> edit(iv.id) { it.copy(watts = Edit.Set(v?.toInt())) } }, 5.0, "W", Modifier.width(176.dp), 0, 38, label = "Round ${i + 1} watts")
+                                NumberField(e.watts.or(iv.watts)?.toDouble(), { v -> edit(iv.id) { it.copy(watts = Edit.Set(v?.toInt())) } }, 5.0, "W", width = 176.dp, decimals = 0, height = 38, label = "Round ${i + 1} watts")
                             }
                         }
                     }
@@ -92,7 +92,7 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
             }
             SectionTitle("Notes", Modifier.padding(top = 24.dp))
             GroupedList {
-                FieldRow("Effort", divider = false) { NumberField(draft.effort?.toDouble(), { draft = draft.copy(effort = it?.toInt()) }, 1.0, "/10", Modifier.width(176.dp), 0, 38, placeholder = "1–10", min = 1.0, max = 10.0, label = "Effort, 1 to 10") }
+                FieldRow("Effort", divider = false) { NumberField(draft.effort?.toDouble(), { draft = draft.copy(effort = it?.toInt()) }, 1.0, "/10", width = 176.dp, decimals = 0, height = 38, placeholder = "1–10", min = 1.0, max = 10.0, label = "Effort, 1 to 10") }
                 FieldRow("Note") { InlineTextField(draft.note, { draft = draft.copy(note = it) }, placeholder = "Optional", label = "Note") }
             }
             Spacer(Modifier.height(24.dp))
@@ -121,5 +121,5 @@ private fun StrokeSheet(current: String?, onPick: (String) -> Unit, onDismiss: (
 
 @Composable
 fun NumberRow(label: String, value: Double?, unit: String, step: Double, decimals: Int, divider: Boolean, min: Double = 0.0, max: Double = Double.POSITIVE_INFINITY, set: (Double?) -> Unit) {
-    FieldRow(label, divider = divider) { NumberField(value, set, step, unit, Modifier.width(176.dp), decimals, 38, min = min, max = max) }
+    FieldRow(label, divider = divider) { NumberField(value, set, step, unit, width = 176.dp, decimals = decimals, height = 38, min = min, max = max) }
 }

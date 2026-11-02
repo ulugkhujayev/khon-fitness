@@ -73,7 +73,7 @@ fun WindowSheet(vm: AppViewModel, onDismiss: () -> Unit) {
                 FieldRow("Opens") { TimeStepper(w.startMinute, "Opens", EatingWindowRules.startRange(w.endMinute), elevated = true) { m -> save { vm.repo.setWindowStart(m) } } }
                 FieldRow("Closes") { TimeStepper(w.endMinute, "Closes", EatingWindowRules.endRange(w.startMinute), elevated = true) { m -> save { vm.repo.setWindowEnd(m) } } }
                 FieldRow("Remind before") {
-                    NumberField(w.remindBeforeMin.toDouble(), { v -> save { vm.repo.setWindowRemind((v ?: 0.0).toInt()) } }, 5.0, "min", Modifier.width(176.dp), 0, 38, max = 120.0, elevated = true, label = "Remind before, minutes")
+                    NumberField(w.remindBeforeMin.toDouble(), { v -> save { vm.repo.setWindowRemind((v ?: 0.0).toInt()) } }, 5.0, "min", width = 176.dp, decimals = 0, height = 38, max = 120.0, elevated = true, label = "Remind before, minutes")
                 }
             }
             if (w.enabled) {

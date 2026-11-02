@@ -163,7 +163,13 @@ padded cards, per-item buttons, "Updated" lines.
   numbers stay inside the field's limits (effort 1 to 10, sets 1 to 10),
   so the field never shows a number that is not stored. An empty field
   with a numeric placeholder (last time, latest bodyweight) steps from
-  that number, not from zero.
+  that number, not from zero. An editor field row is 176 dp wide at
+  font scale 1.0 and grows with the font scale up to the room it has.
+  At font scale 1.5 and up the field row stacks like a list row: the
+  label on its own line, the widget under it at the end, full width.
+  A value, unit or placeholder that still does not fit shrinks to fit,
+  down to 75 percent, and then the paddings beside it narrow. The unit
+  stays and the value stays on one line.
 - Bottom of the editor: actions as rows in grouped lists, like the
   actions at the end of an iOS contact: a 20 px symbol and the name in
   accent (Archive, Merge into…, Move up, Move down), the destructive one
@@ -232,6 +238,7 @@ Two lines, 88 px total, hairline between rows.
 - Line 2 (40 px): two number widgets side by side, each half the width:
   [ − 60 kg + ] [ − 8 reps + ]. Value 18/600 tabular, inputs at least
   64 px wide so "100" and "12.5" fit. Delta in green 12 under the widget.
+  At font scale 1.5 and up the two widgets stack, each the full width.
 - Blocks: header row 52 px (index in accent, names, sets done of total
   "2 / 6", a chevron or a green check), sets under it. One block is open
   at a time, nothing sticks. Opening and closing animate over 250 ms

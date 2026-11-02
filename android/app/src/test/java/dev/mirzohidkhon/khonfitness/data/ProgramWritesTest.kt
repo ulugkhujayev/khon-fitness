@@ -1,6 +1,7 @@
 package dev.mirzohidkhon.khonfitness.data
 
 import android.app.Application
+import android.os.Looper
 import androidx.compose.runtime.saveable.SaverScope
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -14,6 +15,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
@@ -33,7 +35,11 @@ class ProgramWritesTest {
         repo = KhonRepository(dao)
     }
 
-    @After fun close() = db.close()
+    // The drafts hold snapshot state. Once a Compose test in this JVM has started Compose's global snapshot manager,
+    // a draft write posts the apply notification to the main looper. Run it here: Robolectric drops the queue after
+    // the test, and the dropped message leaves AndroidUiDispatcher marked as scheduled for good, so no later Compose
+    // test gets idle.
+    @After fun close() { db.close(); shadowOf(Looper.getMainLooper()).idle() }
 
     // Two programs, "push" active with two blocks, "pull" with one; Monday plans push, a dated change holds push too.
     private suspend fun seed() {

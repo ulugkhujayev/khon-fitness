@@ -178,16 +178,17 @@ fun Modifier.edgeFade(color: Color, width: Dp = 40.dp): Modifier = drawWithConte
 }
 
 /**
- * A thin progress track: [done] of [total] filled in [color] on Surface2, 5 dp tall and rounded. Screen readers get
- * [label] and the count.
+ * A thin progress track: [done] of [total] filled in [color] on Surface2, 5 dp tall and rounded ([thin]: a 2 dp
+ * square line, the folded session header). Screen readers get [label] and the count.
  */
 @Composable
-fun ProgressBar(done: Int, total: Int, label: String, modifier: Modifier = Modifier, color: Color = K.Green) {
+fun ProgressBar(done: Int, total: Int, label: String, modifier: Modifier = Modifier, color: Color = K.Green, thin: Boolean = false) {
     val share = if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else 0f
+    val corner = RoundedCornerShape(if (thin) 0.dp else 3.dp)
     Box(
-        modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(K.Surface2)
+        modifier.fillMaxWidth().height(if (thin) 2.dp else 5.dp).clip(corner).background(K.Surface2)
             .clearAndSetSemantics { contentDescription = label; progressBarRangeInfo = ProgressBarRangeInfo(done.toFloat(), 0f..total.coerceAtLeast(1).toFloat()) },
     ) {
-        if (share > 0f) Box(Modifier.fillMaxWidth(share).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(color))
+        if (share > 0f) Box(Modifier.fillMaxWidth(share).fillMaxHeight().clip(corner).background(color))
     }
 }

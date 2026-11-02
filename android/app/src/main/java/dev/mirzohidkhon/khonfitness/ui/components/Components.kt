@@ -129,10 +129,10 @@ fun PrimaryButton(
     ) { Text(text, color = if (enabled) textColor else K.Muted, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = if (description != null) Modifier.clearAndSetSemantics {} else Modifier) }
 }
 
-/** iOS-style grouped inset list. Rows draw their own inset dividers. */
+/** iOS-style grouped inset list. Rows draw their own inset dividers. [elevated] inside a sheet. */
 @Composable
-fun GroupedList(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Column(modifier.fillMaxWidth().clip(GroupShape).background(K.Surface)) { content() }
+fun GroupedList(modifier: Modifier = Modifier, elevated: Boolean = false, content: @Composable () -> Unit) {
+    Column(modifier.fillMaxWidth().clip(GroupShape).background(if (elevated) K.Elevated else K.Surface)) { content() }
 }
 
 @Composable
@@ -223,6 +223,7 @@ fun InlineTextField(value: String, onValueChange: (String) -> Unit, placeholder:
  * Hybrid number widget: minus, typed value with unit, plus. Selects all text on focus. A tap on − or + steps once
  * with a light haptic click and saves; held, it repeats faster ([repeatPress]) and saves once on release
  * ([Stepper]). Steps and typed numbers stay inside [min]..[max]; an empty field steps from its numeric placeholder.
+ * [elevated] inside a sheet's elevated group, where the box takes Surface3.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -239,6 +240,7 @@ fun NumberField(
     placeholder: String? = null,
     min: Double = 0.0,
     max: Double = Double.POSITIVE_INFINITY,
+    elevated: Boolean = false,
 ) {
     val stepper = remember { Stepper(step) }.also { it.step = step; it.min = min; it.max = max }
     var text by remember { mutableStateOf(TextFieldValue(fmt(value, decimals))) }
@@ -263,7 +265,7 @@ fun NumberField(
     val compact = maxWidth < 176.dp
     val stepWidth = if (compact) 36 else 44
     Row(
-        Modifier.fillMaxWidth().height(height.dp).bringIntoViewRequester(bringIntoView).clip(RoundedCornerShape(10.dp)).background(K.Surface2),
+        Modifier.fillMaxWidth().height(height.dp).bringIntoViewRequester(bringIntoView).clip(RoundedCornerShape(10.dp)).background(if (elevated) K.Surface3 else K.Surface2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StepButton("−", "Decrease by ${fmt(step, decimals)} $unit".trim(), stepWidth, { stepBy(-1, it) }, ::release)

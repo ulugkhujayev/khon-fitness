@@ -61,3 +61,13 @@ Verdict: **closed**. Every round 2 finding has a rule. Three guard
 conflicts (`saveStretchEdits`, replay through `recordStretchSession`, the
 `.dao()` call in `KhonApp.kt`) and one ordering conflict (renumber only on
 a tie of the two swapped rows versus E9) were fixed in the task file.
+
+# P5B-FIX3 design attack (Sol, 2026-11-02)
+
+Verdict on the first redesign (one `RoutineWriter` per routine with
+phases Draft, Creating, Saved): **open-ended**. Writer reuse, start-up
+values, delete, shared Active state and late callbacks had no rule. The
+root cause was a first save that can fail (E11 on the screen). The lead
+replaced the design: the first stretch commits the draft and cannot fail,
+the phase flips in the click handler, and one queue orders every write of
+the screen (`P5B-FIX3.md`). The attack runs again on it.

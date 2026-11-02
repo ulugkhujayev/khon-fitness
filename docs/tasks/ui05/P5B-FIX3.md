@@ -1,77 +1,83 @@
-# UI05 P5B-FIX3: one ordered writer per new routine (redesign, design alarm)
+# UI05 P5B-FIX3: a new routine commits on its first stretch; one write queue (redesign, design alarm)
 
-Class: Normal (protocol step 6, fixer, after a design alarm), Risky care:
-drafts and stored writes. Read `COMMON.md`, `P5B-stretching.md`,
+Class: Risky (protocol step 6 after a design alarm; it decides every
+write of the routine editor). Read `COMMON.md`, `P5B-stretching.md`,
 `P5B-FIX.md` and `P5B-FIX2.md` in this folder first. Base: `a931162` on
-`ui05-port`. Change only the new-routine draft logic in
-`ui/screens/StretchEditors.kt` (`RoutineEditorScreen`),
-`ui/screens/StretchRules.kt`, `ui/AppViewModel.kt` and their tests; leave
-the look, the P5A commands in `data/Dao.kt`, and the number field alone.
+`ui05-port`. Change only `ui/screens/StretchEditors.kt`
+(`RoutineEditorScreen`), `ui/screens/StretchRules.kt`, `ui/AppViewModel.kt`,
+their tests, and the routine draft text in `DESIGN.md` and `SPEC.md`.
+Leave the look, the P5A commands in `data/Dao.kt` and the number field
+alone.
 
 Paths are under `android/app/src/main/java/dev/mirzohidkhon/khonfitness/`
 unless they start with `android/app/src/test/` or `docs/`.
 
-## Why the last two fixes failed (Sol)
+## Why the last designs failed
 
-The screen decides from values it captured during composition
-(`pending`, `routine`, `isDraft`) and writes through three paths
-(`vm.run`, `vm.runSerial`, and a create queued from a pick). (1) Two picks
-before a recomposition both see "not pending" and both create; with the
-first stretch deleted, the second saves the routine
-(`StretchEditors.kt:73,76,79`). (2) An edit after the routine is saved
-goes through `vm.run` while older draft writes still wait in the serial
-queue, so the older value lands last (`:88,97,99,102`).
+Every failure came from one rule: a first stretch deleted meanwhile made
+the first save fail and the editor return to a draft (attack case E11 on
+the screen). A save that can fail made the phase uncertain while it ran,
+and each fix added another path around that. Decisions were also read
+from values captured during composition, and writes went through several
+paths (`vm.run`, `vm.runSerial`).
 
-## Decision: the writer owns the state and every write
+## Decision (lead)
 
-Add `RoutineWriter` (plain Kotlin in `ui/screens/StretchRules.kt` or its
-own file, testable without Compose), one per routine id, held by the view
-model for the process lifetime (`vm.routineWriter(id, ...)`).
+1. **The first stretch commits the draft, and the commit cannot fail.**
+   Picking the first stretch does what Done does (`createRoutine(r)` with
+   the draft's name and Active, no first stretch), then
+   `addRoutineStretch(id, stretchId)`. If that stretch was deleted
+   meanwhile, the routine is saved with no stretch (the guarded add
+   writes nothing). `createRoutine(r, firstStretchId)` stays in the DAO
+   with its tests (E11 holds for the command); the screen no longer uses
+   it.
+2. **The phase flips at the call.** `RoutineDraft` keeps `committed:
+   Boolean` in saved state with the id, name and Active. The click
+   handler (pick, Done) reads `committed` from the state object at call
+   time, never a value captured in composition, and sets it to true in
+   the same handler before it queues any write. So a second pick, even
+   before a recomposition, sees `committed` and only adds its stretch.
+3. **One ordered queue for every write of this screen.** Create, add
+   stretch, name, Active, seconds, move, remove and delete all go through
+   `vm.runSerial` (one view-model `Mutex`, call order). Remove
+   `pendingRoutines` and the per-phase branches.
+4. **What the screen shows.** Not committed: the draft's name and Active
+   from `RoutineDraft`. Committed: the stored row once it is in the
+   routines list (until then, the draft's values; Add stays on, since the
+   queue orders any add after the create). Edits in committed mode are
+   targeted writes through the queue; a missing row makes them write
+   nothing.
+5. **Done.** Not committed: set `committed`, queue `createRoutine(latest)`,
+   leave. Committed: leave (each edit was written as made). Done never
+   creates for a committed routine, so a routine deleted elsewhere is not
+   re-created.
+6. **Restore after process death.** No write survives the process. If
+   `committed` is true and the database has no row with the id, the
+   editor becomes a draft again (`committed = false`) with the saved name
+   and Active; the first stretch picked before the death is lost, and the
+   user's Done or next pick saves it. Rotation keeps the view model and
+   its queue, so nothing is lost there.
 
-- State, read and changed only under the writer's lock at the moment of a
-  call (never from composition): the latest name and Active, and the
-  phase: `Draft`, `Creating`, `Saved`. The screen shows the writer's
-  name, Active and phase (observable state), and nothing else decides.
-- One ordered queue: every write for this routine (create, add stretch,
-  name, Active, Done) is appended to the writer's single queue and runs in
-  call order on the view model scope. No other path writes this
-  routine's name, Active or its first create; seconds, move, remove and
-  delete keep their own commands (they act on rows, not on the draft).
-- `pick(stretchId)`: under the lock: `Draft` -> phase `Creating`, queue
-  `createRoutine(latest name and Active, stretchId)`; when it returns,
-  phase `Saved` if created, else back to `Draft`. `Creating` -> ignored
-  (returns false; the screen keeps Add off). `Saved` -> queue
-  `addRoutineStretch`.
-- `setName(v)`, `setActive(v)`: under the lock, store the latest value;
-  in `Creating` or `Saved` also queue the targeted write. In `Draft`
-  nothing is written.
-- `done()`: queue `createRoutine(latest)` (writes nothing when the id
-  exists), then `setRoutineName` and `setRoutineActive` with the latest
-  values; the screen leaves at once.
-- Start: a writer for an existing routine (route id, or a restored new
-  routine whose id the database holds) starts `Saved` with the stored
-  values; a new one starts `Draft` with the saved-state name and Active
-  (`rememberSaveable` keeps id, name and Active for process death; after
-  process death no write is in flight and the database decides the
-  phase).
-- Remove `pendingRoutines`, `canPick`, `runSerial` (if nothing else uses
-  it) and the per-field branches in the screen.
+`SPEC.md` and `DESIGN.md`: the first stretch saves the routine, also when
+that stretch was deleted meanwhile (then with no stretch); Add stays on;
+the lost-first-pick case after process death is an accepted limit.
 
 ## Tests
 
-Unit tests of `RoutineWriter` against an in-memory Room database (as
-`test/.../data/EditorWritesTest.kt`), with a gate that holds the queue:
-two picks before the first create ends (the second ignored; with the
-first stretch deleted, no routine); edits in each phase, including after
-`Saved` while older writes wait (the latest values win); Done in each
-phase; a refused create returns to `Draft` and a later pick or Done
-saves. Keep the screen tests in `RoutineDraftScreenTest.kt` passing
-(adapt them to the writer where their setup changes) and add Sol's two
-sequences there. Sol's two sequences fail on `a931162`.
+Room plus Robolectric screen tests (as `RoutineDraftScreenTest.kt`; keep
+its `Hold` helper to hold the queue): two picks before a recomposition
+(one routine, both stretches in order); first stretch deleted before the
+held create runs (one routine, no stretch, latest name and Active); edits
+to Name and Active while the create is held, then Back (stored with the
+edits); a committed routine deleted through the DAO while a held name
+write waits, then Done (no routine); rotation while held; process death
+after `committed` with no row (draft again, same id, Done saves one);
+Done on an uncommitted draft (one routine, latest values). Sol's two
+round 2 sequences (two picks before recomposition; a saved edit behind an
+older queued write) fail on `a931162`.
 
 ## Done
 
-`COMMON.md` checks pass. `DESIGN.md` routine draft text still true (fix
-it if not). Report under 20 lines: commits, the command and the tail of
-its output, the test count, the file:line of each change, and which tests
-fail on the base with their failure lines.
+`COMMON.md` checks pass. Report under 20 lines: commits, the command and
+the tail of its output, the test count, the file:line of each change, and
+which tests fail on the base with their failure lines.

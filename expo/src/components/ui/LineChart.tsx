@@ -1,0 +1,132 @@
+import { useState } from 'react';
+import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
+import { axisWidth, ChartPoint, dateLabelIndices, scaleFor, valueLabelIndices } from '@/domain/chart';
+import { monthDay } from '@/domain/dates';
+import { fmt } from '@/domain/format';
+import { Font, K, Type } from '@/theme';
+
+// Insets: labels above points and dates below; the right one just clears the last marker. The left one is
+// the value axis, sized to its labels (axisWidth) plus AXIS_GAP, so the chart sits even in its margins.
+const PAD = { r: 8, t: 22, b: 24 };
+const AXIS_GAP = 8;
+/** Every chart is this tall (DESIGN.md, Charts), Today's bodyweight and History's alike. */
+const CHART_HEIGHT = 190;
+// Axis and date labels in secondary label at caption 1 (12): tertiary at 11 was too faint to read on black.
+const TICK_SIZE = Type.caption1.fontSize ?? 12;
+const TICK = { fill: K.Muted, fontSize: TICK_SIZE, fontFamily: Font.medium };
+
+type Anchor = 'start' | 'middle' | 'end';
+
+/**
+ * Line chart (DESIGN.md, Charts): dashed grid at round values labelled on the left, a marker on every
+ * point, value labels (all up to seven points, else the highest and the last), the last point filled in
+ * accent with its unit, dates along the bottom. Port of LineChart.kt.
+ */
+export function LineChart({
+  points,
+  unit,
+  decimals = 1,
+  format,
+  style,
+}: {
+  points: ChartPoint[];
+  unit: string;
+  decimals?: number;
+  /** Text for a value on the axis and the labels, e.g. a pace as m:ss. Defaults to the number with `decimals`. */
+  format?: (v: number) => string;
+  style?: ViewStyle;
+}) {
+  const [width, setWidth] = useState(0);
+  return (
+    <View style={[styles.frame, style]} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      {points.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No data yet</Text>
+        </View>
+      ) : width > 0 ? (
+        <Plot points={points} unit={unit} width={width} height={CHART_HEIGHT} label={(v, d) => format?.(v) ?? fmt(v, d ?? decimals)} />
+      ) : null}
+    </View>
+  );
+}
+
+function Plot({
+  points,
+  unit,
+  width,
+  height,
+  label,
+}: {
+  points: ChartPoint[];
+  unit: string;
+  width: number;
+  height: number;
+  /** Value text; the axis passes its own decimals. */
+  label: (v: number, decimals?: number) => string;
+}) {
+  const n = points.length;
+  const values = points.map((p) => p.value);
+  const { yMin, yMax, step, ticks } = scaleFor(values);
+  const tickText = ticks.map((v) => label(v, step < 1 ? 1 : 0));
+  const left = axisWidth(tickText, TICK_SIZE) + AXIS_GAP;
+  const plotW = width - left - PAD.r;
+  const plotH = height - PAD.t - PAD.b;
+  const yFor = (v: number) => PAD.t + ((yMax - v) * plotH) / (yMax - yMin);
+  const xs = points.map((_, i) => (n === 1 ? left + plotW / 2 : left + (i * plotW) / (n - 1)));
+  const ys = values.map(yFor);
+  const line = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x},${ys[i]}`).join(' ');
+  const area = `${line} L${xs[n - 1]},${PAD.t + plotH} L${xs[0]},${PAD.t + plotH} Z`;
+  const labelled = valueLabelIndices(values);
+  // The first label hangs right of its point and the last one left, so neither leaves the plot.
+  const anchor = (i: number): Anchor => (n > 1 && i === 0 ? 'start' : n > 1 && i === n - 1 ? 'end' : 'middle');
+  const radius = (i: number) => (i === n - 1 ? 4.5 : 3.5);
+
+  return (
+    <Svg width={width} height={height}>
+      {ticks.map((v) => (
+        <Line key={`g${v}`} x1={left} x2={width - PAD.r} y1={yFor(v)} y2={yFor(v)} stroke={K.Divider} strokeWidth={1} strokeDasharray="6 8" />
+      ))}
+      {ticks.map((v, i) => (
+        <SvgText key={`t${v}`} x={left - AXIS_GAP} y={yFor(v) + 4} textAnchor="end" {...TICK}>
+          {tickText[i]}
+        </SvgText>
+      ))}
+      <Path d={area} fill={K.Accent} fillOpacity={0.13} />
+      <Path d={line} stroke={K.Accent} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      {points.map((p, i) => {
+        const last = i === n - 1;
+        return (
+          <Circle key={`p${p.date}${i}`} cx={xs[i]} cy={ys[i]} r={radius(i)} fill={last ? K.Accent : K.Bg} stroke={K.Accent} strokeWidth={last ? 0 : 2} />
+        );
+      })}
+      {points.map((p, i) => {
+        if (!labelled.has(i)) return null;
+        const last = i === n - 1;
+        return (
+          <SvgText
+            key={`v${p.date}${i}`}
+            x={xs[i]}
+            y={ys[i] - radius(i) - 5}
+            textAnchor={anchor(i)}
+            fill={last ? K.Text : K.Muted}
+            fontSize={last ? Type.footnote.fontSize : Type.caption1.fontSize}
+            fontFamily={last ? Font.bold : Font.medium}>
+            {label(p.value) + (last && unit ? ` ${unit}` : '')}
+          </SvgText>
+        );
+      })}
+      {dateLabelIndices(n, plotW).map((i) => (
+        <SvgText key={`d${points[i].date}${i}`} x={xs[i]} y={height - 4} textAnchor={anchor(i)} {...TICK}>
+          {monthDay(points[i].date)}
+        </SvgText>
+      ))}
+    </Svg>
+  );
+}
+
+const styles = StyleSheet.create({
+  frame: { height: CHART_HEIGHT },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyText: { ...Type.caption2, fontFamily: Font.medium, color: K.Dim },
+});

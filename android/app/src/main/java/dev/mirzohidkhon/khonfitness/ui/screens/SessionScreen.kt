@@ -289,7 +289,8 @@ private fun BlockCard(index: Int, logs: List<SetLog>, open: Boolean, onToggle: (
 private fun SetRow(log: SetLog, prev: SetLog?, live: Boolean, requester: FocusRequester, onToggle: () -> Unit, onWeight: (Double?) -> Unit, onReps: (Double?) -> Unit, onSwap: () -> Unit) {
     val tag = ('A' + log.slot).toString() + (log.setIndex + 1)
     val isDone = log.status == SetStatus.DONE
-    val decimals = stepDecimals(log.stepKg)
+    // At least one decimal: a 62.5 kg set can be typed on a whole-kg step, as in 0.4.8.
+    val decimals = maxOf(1, stepDecimals(log.stepKg))
     // Rows saved before sets started at 0 kg may hold no weight; they read as 0, and a first set starts there.
     val prevKg = fmt(prev?.weightKg ?: 0.0, decimals)
     Column(Modifier.fillMaxWidth().background(if (isDone) K.Green.copy(alpha = 0.05f) else androidx.compose.ui.graphics.Color.Transparent).padding(start = 10.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)) {

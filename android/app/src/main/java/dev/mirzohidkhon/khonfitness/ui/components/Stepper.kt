@@ -9,9 +9,10 @@ private val PLAIN_NUMBER = Regex("""\d+(\.\d+)?""")
 fun placeholderNumber(placeholder: String?): Double? = placeholder?.takeIf { PLAIN_NUMBER.matches(it) }?.toDouble()
 
 /**
- * What a number field keeps of a keystroke: a comma reads as a dot, only ASCII digits (other digits cannot be read) and one dot stay, at most six digits before the dot and
- * [decimals] after it (the field shows no more) (none when the field
- * has no [decimals]), and a leading dot gets its 0. So the text is always empty or a number [typedNumber] can read.
+ * What a number field keeps of a keystroke: a comma reads as a dot; only ASCII digits (other digits cannot be read)
+ * and one dot stay; at most six digits before the dot and [decimals] after it (the field shows no more, so a whole-
+ * number field keeps "7." and drops what follows); a leading dot gets its 0. So the text is always empty or a number
+ * [typedNumber] can read.
  */
 fun cleanTyped(raw: String, decimals: Int): String {
     val out = StringBuilder()
@@ -21,7 +22,8 @@ fun cleanTyped(raw: String, decimals: Int): String {
     for (c in raw.replace(',', '.')) when {
         c in '0'..'9' && !dot && whole < MAX_WHOLE_DIGITS -> { out.append(c); whole++ }
         c in '0'..'9' && dot && fraction < decimals -> { out.append(c); fraction++ }
-        c == '.' && decimals > 0 && !dot -> { dot = true; if (out.isEmpty()) { out.append('0'); whole++ }; out.append('.') }
+        // A whole-number field keeps the dot too, so a digit typed after it is dropped, not joined: 7, ., 5 stays 7.
+        c == '.' && !dot -> { dot = true; if (out.isEmpty()) { out.append('0'); whole++ }; out.append('.') }
     }
     return out.toString()
 }

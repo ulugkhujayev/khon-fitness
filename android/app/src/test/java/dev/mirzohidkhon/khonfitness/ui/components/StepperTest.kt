@@ -156,9 +156,9 @@ class StepperTest {
         assertEquals("5.2", cleanTyped("5.2.", 1))
         assertEquals("0.", cleanTyped(".", 1))
         assertEquals("12.5", cleanTyped("12,5", 1))
-        assertEquals("125", cleanTyped("12.5", 0))
+        assertEquals("12.", cleanTyped("12.5", 0))
         assertEquals("80", cleanTyped("8a0 ", 0))
-        assertEquals("", cleanTyped("-.", 0))
+        assertEquals("0.", cleanTyped("-.", 0))
         // Every cleaned text is empty or reads as a number.
         for (raw in listOf("5..", ".", "..", ",", "1.2.3", "-", "007", "")) for (d in 0..2) {
             val t = cleanTyped(raw, d)
@@ -181,7 +181,7 @@ class StepperTest {
         val next = "0." + "5"
         assertEquals("0.5", cleanTyped(next, 1))
         // A dropped dot in a whole-number field: "4.5" -> "45", cursor after the 4 and after the 5.
-        assertEquals(1, cleanOffset("4.5", 2, 0))
+        assertEquals(2, cleanOffset("4.5", 2, 0))
         assertEquals(2, cleanOffset("4.5", 3, 0))
         // A second dot typed in "5.2" at the end: "5.2." -> "5.2", cursor at the end.
         assertEquals(3, cleanOffset("5.2.", 4, 1))
@@ -197,7 +197,7 @@ class StepperTest {
     @Test fun cleanTypedKeepsOnlyWhatTheFieldShows() {
         // No more decimals than the field shows: 1.25 cannot be typed where 1.3 would show.
         assertEquals("1.2", cleanTyped("1.25", 1))
-        assertEquals("125", cleanTyped("1.25", 0))
+        assertEquals("1.", cleanTyped("1.25", 0))
         assertEquals("1.25", cleanTyped("1.25", 2))
         // At most six digits before the dot: no huge or infinite numbers.
         assertEquals("120", cleanTyped("1e20", 0))
@@ -342,5 +342,19 @@ class StepperTest {
         press(15, -1).let { p -> p.hold(); repeat(4) { p.repeat() }; p.end() }
         assertEquals(0, shown)
         assertEquals(listOf(0.0), saves)
+    }
+
+    @Test fun wholeNumberFieldsDropDigitsAfterADotInsteadOfJoiningThem() {
+        // Typed one key at a time, as the field cleans each keystroke: 7, then ".", then 5.
+        var t = ""
+        for (k in listOf("7", ".", "5")) t = cleanTyped(t + k, 0)
+        assertEquals("7.", t)
+        assertEquals(7.0, Stepper(1.0).parseTyped(t)!!, 0.0)
+        // Pasted: the same.
+        assertEquals(7.0, typedNumber(cleanTyped("7.5", 0))!!, 0.0)
+        // A weight on a whole-kg step keeps one decimal: 62.5 types as 62.5, not 625.
+        t = ""
+        for (k in "62.5") t = cleanTyped(t + k, maxOf(1, stepDecimals(1.0)))
+        assertEquals("62.5", t)
     }
 }

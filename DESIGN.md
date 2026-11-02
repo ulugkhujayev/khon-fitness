@@ -151,10 +151,22 @@ padded cards, per-item buttons, "Updated" lines.
   border. Exception: an action that must read as a button without
   competing with the primary one is a 44 px tinted capsule, its color as
   text on that color at 20 percent (accent; red for a destructive one).
+  A session's Discard workout or Delete session is that capsule in red,
+  full width at the end of the page.
 - Icon buttons only in the top bar or the set-row check. Never floating
   inside a row.
 
 ## Set row (live session)
+
+- Header: the 56 px navigation bar, Back, the program name in Headline,
+  Finish as the trailing capsule; under it the green progress bar with
+  "12 / 42" in muted 13. It sits over the list and folds as the sets
+  scroll: over the first 28 pt the progress row slides up under the bar
+  with them and fades, and a 2 px green progress line fades in on the
+  bar's bottom edge, so Back, Finish and the progress stay in view.
+  Finish is the only way to finish (no Finish workout at the bottom): it
+  opens the "Workout done" sheet with time, sets done, volume and new
+  bests, then effort and note (the page's own fields too), then Save.
 
 Two lines, 88 px total, hairline between rows.
 - Line 1 (40 px): 32 px check circle, then the set tag "A1" in accent
@@ -163,8 +175,16 @@ Two lines, 88 px total, hairline between rows.
 - Line 2 (40 px): two number widgets side by side, each half the width:
   [ − 60 kg + ] [ − 8 reps + ]. Value 18/600 tabular, inputs at least
   64 px wide so "100" and "12.5" fit. Delta in green 12 under the widget.
-- Blocks: header row 52 px (index in accent, names, sets count,
-  chevron), sets under it.
+- Blocks: header row 52 px (index in accent, names, sets done of total
+  "2 / 6", a chevron or a green check), sets under it. One block is open
+  at a time, nothing sticks. Opening and closing animate over 250 ms
+  (ease in and out): the card grows or shrinks with its sets revealed from
+  the top, they fade in or out, the chevron turns from right to down, and
+  an opened block scrolls to the top of the list. A check keeps its block
+  open while it has a pending set (focus to the next one, else one left
+  behind); after its last set the next block with work opens, wrapping to
+  an earlier one, and with nothing left every block closes.
+- A first set with no last time starts at 0 kg.
 
 ## Today
 

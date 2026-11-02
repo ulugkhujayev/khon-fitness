@@ -116,8 +116,9 @@ changes what history shows.
 
 ## Live session
 
-- One scrolling list. The current block is expanded, others collapsed with a
-  check when done. Tap any header to open it.
+- One scrolling list. One block is open at a time: at first the first block
+  with a pending set, others collapsed with a check when done. Tap any
+  header to open it (the open one closes); tap the open header to close it.
 - Superset blocks show sets in order A1 B1 A2 B2 A3 B3. Non-superset blocks
   show all sets of A, then all sets of B.
 - Each set row shows last time's weight and reps, prefilled. Tap the check to
@@ -126,13 +127,17 @@ changes what history shows.
   repeats faster and saves once on release. The rep range shows as a hint.
 - When you beat last time, the row shows the delta in green next to the
   value, for example "+2.5" or "+1 rep".
-- After a check, focus moves to the next set's kg field so you can type or
-  step at once.
+- After a check, focus moves to the next pending set's kg field in the same
+  block (else one left behind), so you can type or step at once. After a
+  block's last set the next block with a pending set opens, wrapping to an
+  earlier one; with nothing pending every block closes.
 - No progression suggestions. No rest countdown on gym days.
 - Swap: tap the exercise name, pick a replacement from the library or add one,
   then choose scope: this session only, or update the program.
-- Finish shows a summary: sets done, total volume, new bests. Unfinished sets
-  become skipped and stay visible as empty rows in history.
+- Finish sits in the header only. It shows a summary: time since start,
+  sets done, total volume, new bests, then effort and note (the same values
+  as the page's fields), then Save. Save finishes the session: unfinished
+  sets become skipped and stay visible as empty rows in history.
 - History sessions are editable after the fact.
 
 ## Loads

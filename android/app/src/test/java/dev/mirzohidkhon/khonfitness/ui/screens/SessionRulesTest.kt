@@ -4,6 +4,7 @@ import dev.mirzohidkhon.khonfitness.data.SetLog
 import dev.mirzohidkhon.khonfitness.data.SetStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SessionRulesTest {
@@ -40,44 +41,54 @@ class SessionRulesTest {
 
     @Test fun `a check with sets left keeps the block open and focuses the next pending set`() {
         val a3 = set(0, index = 2)
-        val after = afterCheck(groupBlocks(listOf(a1, a2, a3, b1)), a1)
+        val after = afterCheck(groupBlocks(listOf(a1, a2, a3, b1)), a1, live = true)!!
         assertEquals(0, after.open)
         assertEquals(a2.id, after.focus?.id)
     }
 
     @Test fun `with no later pending set in the block, focus goes to one left behind`() {
-        val after = afterCheck(groupBlocks(listOf(a1, a2, b1)), a2)
+        val after = afterCheck(groupBlocks(listOf(a1, a2, b1)), a2, live = true)!!
         assertEquals(0, after.open)
         assertEquals(a1.id, after.focus?.id)
     }
 
     @Test fun `the block's last set opens the next block with work, focus on its first pending set`() {
-        val after = afterCheck(groupBlocks(listOf(done(a1), a2, done(b1), b2, c1, c2)), a2)
+        val after = afterCheck(groupBlocks(listOf(done(a1), a2, done(b1), b2, c1, c2)), a2, live = true)!!
         assertEquals(1, after.open)
         assertEquals(b2.id, after.focus?.id)
     }
 
     @Test fun `a done block is passed over`() {
-        val after = afterCheck(groupBlocks(listOf(done(a1), a2, done(b1), done(b2), c1, c2)), a2)
+        val after = afterCheck(groupBlocks(listOf(done(a1), a2, done(b1), done(b2), c1, c2)), a2, live = true)!!
         assertEquals(2, after.open)
         assertEquals(c1.id, after.focus?.id)
     }
 
     @Test fun `with no later block left it wraps to an earlier one`() {
-        val after = afterCheck(groupBlocks(listOf(a1, a2, done(b1), done(b2), done(c1), c2)), c2)
+        val after = afterCheck(groupBlocks(listOf(a1, a2, done(b1), done(b2), done(c1), c2)), c2, live = true)!!
         assertEquals(0, after.open)
         assertEquals(a1.id, after.focus?.id)
     }
 
     @Test fun `the last set of the workout closes every block`() {
-        val after = afterCheck(groupBlocks(listOf(done(a1), done(a2), done(b1), b2)), b2)
+        val after = afterCheck(groupBlocks(listOf(done(a1), done(a2), done(b1), b2)), b2, live = true)!!
         assertNull(after.open)
         assertNull(after.focus)
     }
 
     @Test fun `skipped sets count as no work`() {
-        val after = afterCheck(groupBlocks(listOf(a1, b1.copy(status = SetStatus.SKIPPED))), a1)
+        val after = afterCheck(groupBlocks(listOf(a1, b1.copy(status = SetStatus.SKIPPED))), a1, live = true)!!
         assertNull(after.open)
+    }
+
+    @Test fun `in History edit mode a check changes the set and nothing else`() {
+        // A saved session's last skipped set, checked while editing: a live session would close every block.
+        val blocks = groupBlocks(listOf(done(a1), done(a2), b1.copy(status = SetStatus.SKIPPED)))
+        assertEquals(AfterCheck(null, null), afterCheck(blocks, b1.copy(status = SetStatus.SKIPPED), live = true))
+        assertNull(afterCheck(blocks, b1.copy(status = SetStatus.SKIPPED), live = false))
+        // With sets left in the block and other blocks with work: still nothing moves, no focus.
+        assertNull(afterCheck(groupBlocks(listOf(a1, a2, b1)), a2, live = false))
+        assertNull(afterCheck(groupBlocks(listOf(done(a1), a2, b1)), a2, live = false))
     }
 
     @Test fun `block header text`() {
@@ -122,6 +133,26 @@ class SessionRulesTest {
         assertEquals(0.5f, sessionLineAlpha(24f), 1e-4f)
         assertEquals(1f, sessionLineAlpha(28f), 0f)
         assertEquals(1f, sessionLineAlpha(Int.MAX_VALUE.toFloat()), 0f)
+    }
+
+    @Test fun `at 160 percent font scale the progress row holds its measured line and folds over the taller row`() {
+        // Footnote 13/18 sp: an 18 dp line at 1.0, 28.8 dp at 1.6.
+        assertEquals(28f, sessionRowHeight(18f), 0f)
+        assertEquals(28f, sessionRowHeight(10f), 0f)
+        val row = sessionRowHeight(18f * 1.6f)
+        assertEquals(38.8f, row, 1e-4f)
+        // The text area (the row less the gap under it) holds the whole line.
+        assertTrue(row - SESSION_ROW_GAP >= 28.8f - 1e-4f)
+        // The fold follows the taller row: the slide ends at 38.8, the fade at 80 percent, the line fades in over the last 8.
+        assertEquals(19.4f, sessionRowShift(19.4f, row), 1e-4f)
+        assertEquals(row, sessionRowShift(100f, row), 1e-4f)
+        assertTrue(sessionRowAlpha(28f, row) > 0f)
+        assertEquals(0f, sessionRowAlpha(row * 0.8f, row), 1e-4f)
+        assertEquals(0f, sessionLineAlpha(row - 8f, row), 1e-4f)
+        assertEquals(0.5f, sessionLineAlpha(row - 4f, row), 1e-4f)
+        assertEquals(1f, sessionLineAlpha(row, row), 1e-4f)
+        // The list starts under the bar and the taller row; an opened block still lands 8 dp under the folded header.
+        assertEquals(56f + row + 10f - 58f - 8f, revealOffset(56f + row, 58f, 10f), 1e-4f)
     }
 
     @Test fun `an opened block lands 8 dp under what the folded header hides`() {

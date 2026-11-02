@@ -160,13 +160,16 @@ padded cards, per-item buttons, "Updated" lines.
 
 - Header: the 56 px navigation bar, Back, the program name in Headline,
   Finish as the trailing capsule; under it the green progress bar with
-  "12 / 42" in muted 13. It sits over the list and folds as the sets
-  scroll: over the first 28 pt the progress row slides up under the bar
-  with them and fades, and a 2 px green progress line fades in on the
+  "12 / 42" in muted 13. The progress row is its measured footnote line
+  plus 10 pt, at least 28 pt (38.8 pt at font scale 1.6). It sits over
+  the list and folds as the sets scroll: over the row's height the
+  progress row slides up under the bar with them and fades, and a 2 px green progress line fades in on the
   bar's bottom edge, so Back, Finish and the progress stay in view.
   Finish is the only way to finish (no Finish workout at the bottom): it
   opens the "Workout done" sheet with time, sets done, volume and new
   bests, then effort and note (the page's own fields too), then Save.
+  The figures and fields scroll above the keyboard; Save stays under
+  them, in reach.
 
 Two lines, 88 px total, hairline between rows.
 - Line 1 (40 px): 32 px check circle, then the set tag "A1" in accent
@@ -183,7 +186,9 @@ Two lines, 88 px total, hairline between rows.
   an opened block scrolls to the top of the list. A check keeps its block
   open while it has a pending set (focus to the next one, else one left
   behind); after its last set the next block with work opens, wrapping to
-  an earlier one, and with nothing left every block closes.
+  an earlier one, and with nothing left every block closes. Focus lands
+  once the target row is on screen. In a History session's edit mode a
+  check moves nothing.
 - A first set with no last time starts at 0 kg.
 
 ## Today

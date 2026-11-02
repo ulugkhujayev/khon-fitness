@@ -33,9 +33,11 @@ data class AfterCheck(val open: Int?, val focus: SetLog?)
  * After [checked] is logged: its block stays open while it has a pending set, and focus goes to the next one (later in
  * the order, else one left behind). A finished block hands over to the next block with a pending set, wrapping to an
  * earlier one, focus on its first pending set; with nothing left every block closes. [blocks] come from [groupBlocks]
- * before the check lands, so [checked] may still be pending in them.
+ * before the check lands, so [checked] may still be pending in them. Only a [live] (running) session moves on; a saved
+ * session edited in History gets null: the check changes the set and nothing else.
  */
-fun afterCheck(blocks: List<List<SetLog>>, checked: SetLog): AfterCheck {
+fun afterCheck(blocks: List<List<SetLog>>, checked: SetLog, live: Boolean): AfterCheck? {
+    if (!live) return null
     fun pending(block: List<SetLog>) = block.filter { it.id != checked.id && it.status == SetStatus.PENDING }
     val here = blocks.indexOfFirst { b -> b.any { it.id == checked.id } }
     val left = if (here >= 0) pending(blocks[here]) else emptyList()
@@ -57,6 +59,12 @@ fun doneCount(logs: List<SetLog>): Int = logs.count { it.status == SetStatus.DON
 fun blockLabel(index: Int, title: String, done: Int, total: Int, blockDone: Boolean): String =
     "Block ${index + 1}, $title, $done of $total ${if (total == 1) "set" else "sets"} done" + if (blockDone) ", block done" else ""
 
+/** The block the user or a check picked: [picked] stays false until then; [chosen] null means none open. */
+data class OpenPick(val picked: Boolean = false, val chosen: Int? = null)
+
+/** Saves an [OpenPick] in the screen's saved state, so leaving a running session and returning keeps its open block. */
+val OpenPickSaver = androidx.compose.runtime.saveable.listSaver<OpenPick, Any?>({ listOf(it.picked, it.chosen) }, { OpenPick(it[0] as Boolean, it[1] as Int?) })
+
 /** The block the session shows open: the one the user or a check picked ([picked]), else [firstOpenBlock]. */
 fun openBlock(blocks: List<List<SetLog>>, picked: Boolean, chosen: Int?): Int? =
     if (picked) chosen else if (blocks.isEmpty()) null else firstOpenBlock(blocks)
@@ -65,6 +73,14 @@ fun openBlock(blocks: List<List<SetLog>>, picked: Boolean, chosen: Int?): Int? =
 const val SESSION_NAV = 56f
 const val SESSION_ROW = 28f
 const val SESSION_LINE = 2f
+/** Room under the progress row's footnote line, in dp. */
+const val SESSION_ROW_GAP = 10f
+
+/**
+ * The progress row's height (dp) for a measured footnote [line] height (dp): the line and [SESSION_ROW_GAP] under it,
+ * at least [SESSION_ROW]. The row folds over this same distance. An 18 dp line gives 28; at font scale 1.6, 28.8 gives 38.8.
+ */
+fun sessionRowHeight(line: Float): Float = maxOf(SESSION_ROW, line + SESSION_ROW_GAP)
 
 /** How far the progress row has slid up under the bar after [y] dp of scroll: with the sets, over the first [row] dp. */
 fun sessionRowShift(y: Float, row: Float = SESSION_ROW): Float = dev.mirzohidkhon.khonfitness.ui.components.fold(y, row, 0f, row)

@@ -138,7 +138,11 @@ changes what history shows.
   sets done, total volume, new bests, then effort and note (the same values
   as the page's fields), then Save. Save finishes the session: unfinished
   sets become skipped and stay visible as empty rows in history.
-- History sessions are editable after the fact.
+- History sessions are editable after the fact. There a check changes the
+  set and nothing else: no block opens or closes and no field takes focus.
+- Each edit of a session's date, effort or note, and the timer's duration,
+  saves only that field, so quick edits in a row, in the page or the
+  summary, never undo each other.
 
 ## Loads
 

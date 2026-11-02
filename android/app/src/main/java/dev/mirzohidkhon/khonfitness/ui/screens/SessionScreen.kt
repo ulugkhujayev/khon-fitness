@@ -30,7 +30,11 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -51,7 +55,6 @@ import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
 import androidx.compose.runtime.remember
@@ -61,9 +64,10 @@ import kotlinx.coroutines.flow.map
 private const val BLOCK_MS = 250
 
 /**
- * A program session: live logging while unfinished, read-only with an Edit toggle after. Every tap saves. One block is
- * open at a time; a check moves focus on, and after a block's last set the next block with work opens ([afterCheck]).
- * A running session's header sits over the list and folds as the sets scroll ([SessionHeader]).
+ * A program session: live logging while unfinished, read-only with an Edit toggle after. Every tap saves; a session
+ * field writes only its own column. One block is open at a time; in a running session a check moves focus on, and after
+ * a block's last set the next block with work opens ([afterCheck]). A running session's header sits over the list and
+ * folds as the sets scroll ([SessionHeader]).
  */
 @Composable
 fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
@@ -75,35 +79,32 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     var previous by remember { mutableStateOf<Map<String, SetLog>>(emptyMap()) }
     var editing by remember { mutableStateOf(false) }
     // The open block: the first with work until the user opens or closes one, or a check moves on.
-    var picked by rememberSaveable(sessionId) { mutableStateOf(false) }
-    var chosen by rememberSaveable(sessionId) { mutableStateOf<Int?>(null) }
-    var focusId by remember { mutableStateOf<String?>(null) }
+    var pick by rememberOpenPick(sessionId)
+    // The set whose kg field takes focus once its row is composed and placed (a wrap target may still be off screen).
+    var pendingFocus by remember { mutableStateOf<String?>(null) }
     var swapLog by remember { mutableStateOf<SetLog?>(null) }
     var summary by remember { mutableStateOf<Summary?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val requesters = remember { mutableMapOf<String, FocusRequester>() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
-    // The bar is 56 dp, taller only when a large font makes its title taller; the progress row holds a footnote line.
+    // The bar is 56 dp, taller only when a large font makes its title taller; the progress row holds a footnote line,
+    // measured so a large font makes the row and its fold taller.
     var navHeight by remember { mutableStateOf(SESSION_NAV.dp) }
-    val rowHeight = with(density) { max(SESSION_ROW.dp, 18.sp.toDp() + 10.dp) }
+    val measurer = rememberTextMeasurer()
+    val footnote = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR)
+    val lineHeight = with(density) { remember(footnote, density) { measurer.measure("0 / 0", footnote).size.height }.toDp() }
+    val rowHeight = sessionRowHeight(lineHeight.value).dp
     val s = session ?: return
 
     LaunchedEffect(s.id, s.programId) { previous = vm.repo.previousLogsByKey(s.programId, s.id) }
     val live = !s.finished || editing
     val running = !s.finished
     val blocks = remember(logs) { groupBlocks(logs) }
-    val expanded = openBlock(blocks, picked, chosen)
+    val expanded = openBlock(blocks, pick.picked, pick.chosen)
     val topPadding = if (running) navHeight + rowHeight else 4.dp
     // What the folded header still hides: the bar and the progress line on its edge.
     val cover = if (running) navHeight + SESSION_LINE.dp else 0.dp
-    LaunchedEffect(focusId) {
-        val id = focusId ?: return@LaunchedEffect
-        delay(60)
-        runCatching { requesters[id]?.requestFocus() }
-        focusId = null
-    }
 
     // Opens block [i] (null: none). An opened block scrolls to the top of the list, under the header.
     fun open(i: Int?) {
@@ -111,16 +112,15 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
             val offset = with(density) { revealOffset(topPadding.value, cover.value, cardTop(i).value).dp.roundToPx() }
             scope.launch { listState.animateScrollToItem(i, offset) }
         }
-        picked = true
-        chosen = i
+        pick = OpenPick(true, i)
     }
     fun toggleSet(log: SetLog) {
         val next = if (log.status == SetStatus.DONE) SetStatus.PENDING else SetStatus.DONE
         vm.run { vm.repo.updateSetLog(log.copy(status = next)) }
         if (next != SetStatus.DONE) return
-        val after = afterCheck(blocks, log)
+        val after = afterCheck(blocks, log, live = running) ?: return
         open(after.open)
-        after.focus?.let { focusId = it.id }
+        pendingFocus = after.focus?.id
     }
     val done = doneCount(logs)
     val openSummary = { summary = summarize(logs, vm.allSetLogs.value, s.id, s.startedAt, System.currentTimeMillis()) }
@@ -130,12 +130,12 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         Box(Modifier.weight(1f)) {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = topPadding, bottom = 24.dp)) {
                 itemsIndexed(blocks, key = { _, b -> b.first().blockIndex }) { bi, blockLogs ->
-                    BlockCard(bi, blockLogs, open = expanded == bi, onToggle = { open(if (expanded == bi) null else bi) }) {
+                    BlockCard(bi, blockLogs, open = expanded == bi, onToggle = { pendingFocus = null; open(if (expanded == bi) null else bi) }) {
                         blockLogs.forEach { log ->
                             HorizontalDivider(color = K.Divider)
                             SetRow(
                                 log = log, prev = previous[log.key()], live = live,
-                                requester = requesters.getOrPut(log.id) { FocusRequester() },
+                                focusNow = pendingFocus == log.id, onFocusTaken = { if (pendingFocus == log.id) pendingFocus = null },
                                 onToggle = { toggleSet(log) },
                                 onWeight = { w -> vm.run { vm.repo.updateSetLog(log.copy(weightKg = w)) } },
                                 onReps = { r -> vm.run { vm.repo.updateSetLog(log.copy(reps = r?.toInt())) } },
@@ -147,13 +147,18 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                 item {
                     // The end of the page: date, effort and note, then the red Discard / Delete. Finish lives in the bar.
                     Column(Modifier.padding(top = 20.dp)) {
-                        SessionDetails(s, live) { vm.run { vm.repo.updateSession(it) } }
+                        SessionDetails(
+                            s, live,
+                            onDate = { d -> vm.run { vm.repo.setSessionDate(s.id, d) } },
+                            onEffort = { v -> vm.run { vm.repo.setSessionEffort(s.id, v) } },
+                            onNote = { n -> vm.run { vm.repo.setSessionNote(s.id, n) } },
+                        )
                         TintedButton(if (s.finished) "Delete session" else "Discard workout", Modifier.padding(top = 20.dp), color = K.Red) { confirmDelete = true }
                     }
                 }
             }
             if (running) SessionHeader(
-                s.programName ?: "Session", done, logs.size, navHeight, rowHeight,
+                s.programName ?: "Session", done, logs.size, navHeight, rowHeight, lineHeight,
                 onNavHeight = { navHeight = max(SESSION_NAV.dp, it) },
                 onBack = { nav.popBackStack() }, onFinish = openSummary, scrollPx = { listState.barOffset() },
             )
@@ -169,20 +174,31 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         onDismiss = { confirmDelete = false },
     ) { confirmDelete = false; vm.run { vm.repo.deleteSession(s.id) }; nav.popBackStack() }
     summary?.let { sum -> Sheet("Workout done", onDismiss = { summary = null }) {
-        // The figures as of opening, then effort and note (the page's own fields, same values) so they are asked for as the workout ends.
-        GroupedList(elevated = true) {
-            ListRow("Time", secondary = sum.time, chevron = false, divider = false)
-            ListRow("Sets done", secondary = "${sum.done} of ${sum.total}", chevron = false)
-            ListRow("Volume", secondary = "${fmt(sum.volume, 0)} kg", chevron = false)
-            ListRow("New bests", secondary = sum.bests.toString(), chevron = false)
+        // The figures as of opening, then effort and note (the page's own fields: both read the session, so an edit in
+        // one shows in the other) so they are asked for as the workout ends. The content scrolls above the keyboard;
+        // Save stays under it, in reach.
+        Column(Modifier.imePadding()) {
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                GroupedList(elevated = true) {
+                    ListRow("Time", secondary = sum.time, chevron = false, divider = false)
+                    ListRow("Sets done", secondary = "${sum.done} of ${sum.total}", chevron = false)
+                    ListRow("Volume", secondary = "${fmt(sum.volume, 0)} kg", chevron = false)
+                    ListRow("New bests", secondary = sum.bests.toString(), chevron = false)
+                }
+                GroupedList(Modifier.padding(top = 12.dp), elevated = true) {
+                    FieldRow("Effort", divider = false) { EffortField(s.effort) { v -> vm.run { vm.repo.setSessionEffort(s.id, v) } } }
+                    FieldRow("Note") { InlineTextField(s.note, { n -> vm.run { vm.repo.setSessionNote(s.id, n) } }, placeholder = "Optional", label = "Note") }
+                }
+            }
+            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { vm.run { vm.repo.finishSession(s.id) }; summary = null; nav.popBackStack() }
         }
-        GroupedList(Modifier.padding(top = 12.dp), elevated = true) {
-            FieldRow("Effort", divider = false) { EffortField(s.effort) { v -> vm.run { vm.repo.updateSession(s.copy(effort = v)) } } }
-            FieldRow("Note") { InlineTextField(s.note, { vm.run { vm.repo.updateSession(s.copy(note = it)) } }, placeholder = "Optional") }
-        }
-        PrimaryButton("Save", Modifier.padding(top = 16.dp)) { vm.run { vm.repo.finishSession(s.id) }; summary = null; nav.popBackStack() }
     } }
 }
+
+/** The open block of a session ([OpenPick]) in saved state: leaving a running session and returning keeps it. */
+@Composable
+internal fun rememberOpenPick(sessionId: String): MutableState<OpenPick> =
+    rememberSaveable(sessionId, stateSaver = OpenPickSaver) { mutableStateOf(OpenPick()) }
 
 /** Room above a block card inside its list item: 6 dp for the first, 10 between cards. */
 private fun cardTop(index: Int): Dp = if (index == 0) 6.dp else 10.dp
@@ -190,17 +206,17 @@ private fun cardTop(index: Int): Dp = if (index == 0) 6.dp else 10.dp
 /** Effort 1 to 10 as a number widget: steps and typing stay inside the range. [elevated] inside a sheet. */
 @Composable
 private fun EffortField(effort: Int?, elevated: Boolean = true, onChange: (Int?) -> Unit) {
-    NumberField(effort?.toDouble(), { v -> onChange(v?.toInt()) }, 1.0, "/10", Modifier.width(176.dp), 0, 38, placeholder = "1–10", min = 1.0, max = 10.0, elevated = elevated)
+    NumberField(effort?.toDouble(), { v -> onChange(v?.toInt()) }, 1.0, "/10", Modifier.width(176.dp), 0, 38, placeholder = "1–10", min = 1.0, max = 10.0, elevated = elevated, label = "Effort, 1 to 10")
 }
 
-/** Date, effort and note of a session: editable while [live], else only what was filled in. */
+/** Date, effort and note of a session: editable while [live], else only what was filled in. Each edit saves its own field. */
 @Composable
-private fun SessionDetails(s: Session, live: Boolean, onChange: (Session) -> Unit) {
+private fun SessionDetails(s: Session, live: Boolean, onDate: (java.time.LocalDate) -> Unit, onEffort: (Int?) -> Unit, onNote: (String) -> Unit) {
     if (live) {
         GroupedList {
-            DateRow(s.date.toDate(), divider = false) { d -> onChange(s.copy(date = d.iso())) }
-            FieldRow("Effort") { EffortField(s.effort, elevated = false) { v -> onChange(s.copy(effort = v)) } }
-            FieldRow("Note") { InlineTextField(s.note, { onChange(s.copy(note = it)) }, placeholder = "Optional") }
+            DateRow(s.date.toDate(), divider = false, onChange = onDate)
+            FieldRow("Effort") { EffortField(s.effort, elevated = false, onChange = onEffort) }
+            FieldRow("Note") { InlineTextField(s.note, onNote, placeholder = "Optional", label = "Note") }
         }
     } else if (s.note.isNotBlank() || s.effort != null) {
         GroupedList {
@@ -218,7 +234,7 @@ private fun SessionDetails(s: Session, live: Boolean, onChange: (Session) -> Uni
  */
 @Composable
 private fun SessionHeader(
-    title: String, done: Int, total: Int, nav: Dp, row: Dp,
+    title: String, done: Int, total: Int, nav: Dp, row: Dp, line: Dp,
     onNavHeight: (Dp) -> Unit, onBack: () -> Unit, onFinish: () -> Unit, scrollPx: () -> Int,
 ) {
     val label = "$done of $total sets done"
@@ -228,7 +244,7 @@ private fun SessionHeader(
         Row(
             Modifier.padding(top = nav).fillMaxWidth().height(row)
                 .graphicsLayer { val y = scrollPx() / density; translationY = -sessionRowShift(y, row.value).dp.toPx(); alpha = sessionRowAlpha(y, row.value) }
-                .background(K.Bg).padding(start = 16.dp, end = 16.dp, bottom = row - 18.dp),
+                .background(K.Bg).padding(start = 16.dp, end = 16.dp, bottom = row - line),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -286,8 +302,15 @@ private fun BlockCard(index: Int, logs: List<SetLog>, open: Boolean, onToggle: (
 }
 
 @Composable
-private fun SetRow(log: SetLog, prev: SetLog?, live: Boolean, requester: FocusRequester, onToggle: () -> Unit, onWeight: (Double?) -> Unit, onReps: (Double?) -> Unit, onSwap: () -> Unit) {
+private fun SetRow(
+    log: SetLog, prev: SetLog?, live: Boolean, focusNow: Boolean, onFocusTaken: () -> Unit,
+    onToggle: () -> Unit, onWeight: (Double?) -> Unit, onReps: (Double?) -> Unit, onSwap: () -> Unit,
+) {
     val tag = ('A' + log.slot).toString() + (log.setIndex + 1)
+    val requester = remember { FocusRequester() }
+    // A pending focus lands once this row has been placed, so its field is attached wherever the list scrolled from.
+    var placed by remember { mutableStateOf(false) }
+    if (focusNow && placed) LaunchedEffect(Unit) { runCatching { requester.requestFocus() }; onFocusTaken() }
     val isDone = log.status == SetStatus.DONE
     // At least one decimal: a 62.5 kg set can be typed on a whole-kg step, as in 0.4.8.
     val decimals = maxOf(1, stepDecimals(log.stepKg))
@@ -316,12 +339,12 @@ private fun SetRow(log: SetLog, prev: SetLog?, live: Boolean, requester: FocusRe
         }
         if (live) {
             Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Column(Modifier.weight(1f)) {
-                    NumberField(log.weightKg, onWeight, step = log.stepKg.takeIf { it > 0 } ?: 1.0, unit = "kg", decimals = decimals, height = 44, focusRequester = requester, placeholder = prevKg)
+                Column(Modifier.weight(1f).onGloballyPositioned { if (!placed) placed = true }) {
+                    NumberField(log.weightKg, onWeight, step = log.stepKg.takeIf { it > 0 } ?: 1.0, unit = "kg", decimals = decimals, height = 44, focusRequester = requester, placeholder = prevKg, label = "$tag ${log.exerciseName} weight")
                     Delta(prev?.weightKg, log.weightKg, decimals, suffix = " kg")
                 }
                 Column(Modifier.weight(1f)) {
-                    NumberField(log.reps?.toDouble(), { onReps(it) }, step = 1.0, unit = "reps", decimals = 0, height = 44, placeholder = (prev?.reps ?: log.minReps).toString())
+                    NumberField(log.reps?.toDouble(), { onReps(it) }, step = 1.0, unit = "reps", decimals = 0, height = 44, placeholder = (prev?.reps ?: log.minReps).toString(), label = "$tag ${log.exerciseName} reps")
                     Delta(prev?.reps?.toDouble(), log.reps?.toDouble(), 0, suffix = " reps")
                 }
             }

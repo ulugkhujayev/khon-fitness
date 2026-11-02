@@ -204,12 +204,13 @@ fun FieldRow(label: String, divider: Boolean = true, note: String? = null, onCli
 }
 
 @Composable
-fun InlineTextField(value: String, onValueChange: (String) -> Unit, placeholder: String = "", modifier: Modifier = Modifier, singleLine: Boolean = true) {
+fun InlineTextField(value: String, onValueChange: (String) -> Unit, placeholder: String = "", modifier: Modifier = Modifier, singleLine: Boolean = true, label: String? = null) {
     BasicTextField(
         value = value, onValueChange = onValueChange, singleLine = singleLine,
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = K.Text, textAlign = TextAlign.End),
         cursorBrush = SolidColor(K.Accent),
-        modifier = modifier.fillMaxWidth().padding(vertical = 14.dp),
+        // [label] is the field's spoken name, for a field whose visible label sits elsewhere in its row.
+        modifier = modifier.fillMaxWidth().padding(vertical = 14.dp).then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier),
         decorationBox = { inner ->
             Box(contentAlignment = Alignment.CenterEnd) {
                 if (value.isEmpty()) Text(placeholder, color = K.Dim, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
@@ -223,7 +224,7 @@ fun InlineTextField(value: String, onValueChange: (String) -> Unit, placeholder:
  * Hybrid number widget: minus, typed value with unit, plus. Selects all text on focus. A tap on − or + steps once
  * with a light haptic click and saves; held, it repeats faster ([repeatPress]) and saves once on release
  * ([Stepper]). Steps and typed numbers stay inside [min]..[max]; an empty field steps from its numeric placeholder.
- * [elevated] inside a sheet's elevated group, where the box takes Surface3.
+ * [elevated] inside a sheet's elevated group, where the box takes Surface3. [label] is the typed field's spoken name.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -241,6 +242,7 @@ fun NumberField(
     min: Double = 0.0,
     max: Double = Double.POSITIVE_INFINITY,
     elevated: Boolean = false,
+    label: String? = null,
 ) {
     val stepper = remember { Stepper(step) }.also { it.step = step; it.min = min; it.max = max }
     var text by remember { mutableStateOf(TextFieldValue(fmt(value, decimals))) }
@@ -291,6 +293,7 @@ fun NumberField(
                 inner()
             } },
             modifier = Modifier.weight(1f).padding(start = 8.dp)
+                .then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier)
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
                 .onFocusChanged { st ->
                     if (st.isFocused && !hasFocus) {

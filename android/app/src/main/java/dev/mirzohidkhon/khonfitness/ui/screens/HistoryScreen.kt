@@ -321,6 +321,22 @@ fun muscleVolume(logs: List<SetLog>, sessions: List<Session>, exercises: List<Ex
     return acc.map { (m, v) -> MuscleVolume(m, v[0], v[1]) }.sortedByDescending { maxOf(it.thisWeek, it.lastWeek) }
 }
 
+/** The shortest bar a week with sets gets, so a small count still shows. */
+private const val MIN_SHARE = 0.02
+
+/** Where a muscle's bar ends, as shares of the track: this week's fill and the mark for last week. */
+data class VolumeShare(val now: Double, val last: Double)
+
+/**
+ * Where the sets-per-muscle bars end, as shares of the biggest count of either week: this week's fill and the mark
+ * for last week. Zero stays zero, so nothing shows for a week without sets.
+ */
+fun volumeShares(volume: List<MuscleVolume>): List<VolumeShare> {
+    val max = maxOf(1.0, volume.maxOfOrNull { maxOf(it.thisWeek, it.lastWeek) } ?: 0.0)
+    fun share(v: Double) = if (v <= 0) 0.0 else maxOf(MIN_SHARE, v / max)
+    return volume.map { VolumeShare(share(it.thisWeek), share(it.lastWeek)) }
+}
+
 data class ProgressPoint(val date: LocalDate, val e1rm: Double, val topW: Double, val topR: Int)
 
 fun progressFor(exerciseId: String?, logs: List<SetLog>, sessions: List<Session>): List<ProgressPoint> {

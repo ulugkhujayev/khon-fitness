@@ -44,6 +44,9 @@ import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import androidx.lifecycle.viewModelScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -78,7 +81,17 @@ class TodayScreenTest {
         vm = AppViewModel(app)
     }
 
-    @After fun close() { app.scope.cancel(); app.db.close() }
+    /** Off at the end: the screens leave composition and stop their queries before the database closes. */
+    private var shown by androidx.compose.runtime.mutableStateOf(true)
+
+    @After fun close() {
+        shown = false
+        compose.waitForIdle()
+        vm.viewModelScope.cancel()
+        app.scope.cancel()
+        compose.waitForIdle()
+        app.db.close()
+    }
 
     private fun <T> io(block: suspend () -> T): T = runBlocking(Dispatchers.IO) { block() }
     private fun shows(text: String) = compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
@@ -101,7 +114,7 @@ class TodayScreenTest {
 
     private fun openToday() {
         compose.setContent {
-            KhonTheme {
+            if (shown) KhonTheme {
                 val nav = rememberNavController()
                 NavHost(nav, Routes.TODAY) {
                     composable(Routes.TODAY) { TodayScreen(vm, nav) }

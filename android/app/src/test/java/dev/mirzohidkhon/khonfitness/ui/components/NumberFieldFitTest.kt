@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
@@ -23,6 +24,8 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.style.TextAlign
@@ -33,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import dev.mirzohidkhon.khonfitness.ui.screens.NumberRow
 import dev.mirzohidkhon.khonfitness.ui.screens.SetFields
 import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -44,7 +48,8 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * Every [NumberField] caller on a 360 dp phone at font scales 1.0, 1.3 and 1.6, filled with the longest value the
  * field accepts and once empty: the value, unit and placeholder fit on one line inside their slot, and each step
- * button keeps its width (44 dp; 36 dp in the compact two-per-row mode of a session set).
+ * button is a 48 x 48 dp tap target, also in the compact two-per-row mode of a session set. A tap on the edge of that
+ * square steps, also where the field's drawn box (38 or 44 dp tall) does not reach.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w360dp-h800dp-xxhdpi")
@@ -154,13 +159,33 @@ class NumberFieldFitTest {
         val field = compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes()[case.index]
         if (value != null) out += fits("value", field)
         val buttons = listOf("Decrease", "Increase").map { compose.onNodeWithContentDescription("$it by ${case.step}").fetchSemanticsNode() }
-        val compact = buttons[0].size.width < 44 * px - 0.5f
+        val compact = case.unit.isNotEmpty() && compose.onAllNodesWithText(case.unit, useUnmergedTree = true).fetchSemanticsNodes().isEmpty()
         if (compact && !case.compactAllowed) out += "unit dropped: the field went compact"
-        val minButton = if (compact) 36 else 44
-        buttons.forEach { if (it.size.width < minButton * px - 0.5f) out += "step button ${it.size.width / px} dp wide" }
+        buttons.forEach {
+            if (it.size.width < 48 * px - 0.5f || it.size.height < 48 * px - 0.5f) out += "step button ${it.size.width / px} x ${it.size.height / px} dp"
+        }
         if (case.unit.isNotEmpty() && !compact) out += fits("unit", text(case.unit))
         if (value == null && case.placeholder != null) out += fits("placeholder", text(case.placeholder))
         return out
+    }
+
+    /**
+     * Each corner of the 48 x 48 dp square around a step button's center steps the field once. The field box is drawn
+     * 38 dp tall (NumberRow), so the top and bottom corners lie outside it.
+     */
+    @Test fun stepButtonEdgesStep() {
+        var value by mutableStateOf<Double?>(10.0)
+        compose.setContent {
+            KhonTheme { Column(Modifier.width(360.dp).padding(horizontal = 16.dp)) { GroupedList { NumberRow("Sets", value, "", 1.0, 0, true) { value = it } } } }
+        }
+        val half = 23.5f * compose.density.density
+        val corners = listOf(-half to -half, half to -half, -half to half, half to half)
+        for ((name, sign) in listOf("Increase" to 1, "Decrease" to -1)) for ((dx, dy) in corners) {
+            val before = compose.runOnIdle { value!! }
+            compose.onNodeWithContentDescription("$name by 1").performTouchInput { click(center + Offset(dx, dy)) }
+            compose.waitForIdle()
+            assertEquals("$name tap at ($dx, $dy) px from center", before + sign, compose.runOnIdle { value!! }, 0.0)
+        }
     }
 
     private fun text(s: String): SemanticsNode = compose.onAllNodesWithText(s, useUnmergedTree = true).fetchSemanticsNodes().first()

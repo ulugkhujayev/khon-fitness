@@ -56,32 +56,36 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import dev.mirzohidkhon.khonfitness.data.Kind
 import dev.mirzohidkhon.khonfitness.ui.screens.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 
 object Routes {
-    const val TODAY = "today"; const val HISTORY = "history"; const val PROGRAMS = "programs"
+    const val TODAY = "today"; const val HISTORY = "history"; const val PROGRAMS = "programs" // the Plan tab; the route id stays
     fun session(id: String) = "session/$id"
     /** A saved session read-only, from Today's Review: no Edit. */
     fun review(sessionId: String) = "review/$sessionId"
-    fun program(id: String) = "program/$id"
+    // A new program, block, exercise or stretch has its own route, never an id inside an edit route: a stored row
+    // (a restored backup) can hold any id, "new" too.
+    fun program(id: String) = "program/$id"; const val NEW_PROGRAM = "program-new"
     fun block(programId: String, blockId: String) = "block/$programId/$blockId"
+    fun newBlock(programId: String) = "block-new/$programId"
     fun exercise(id: String) = "exercise/$id"
-    fun modality(id: String) = "modality/$id"
+    fun newExercise(kind: String) = "exercise-new/$kind"
     fun cardio(sessionId: String) = "cardio/$sessionId"
     fun timer(sessionId: String) = "timer/$sessionId"
     fun stretch(routineId: String) = "stretch/$routineId"
     fun routine(id: String) = "routine/$id"
-    fun stretchEditor(id: String) = "stretcheditor/$id"
+    fun stretchEditor(id: String) = "stretcheditor/$id"; const val NEW_STRETCH = "stretcheditor-new"
     /** An exercise's records and sessions (History, Progress). */
     fun exerciseDetail(id: String) = "lift/$id"
     /** A cardio type's charts and sessions (History, Progress). */
     fun cardioType(id: String) = "cardiotype/$id"
     /** Every strength exercise, searchable; each opens its exercise detail. */
     const val LIFTS = "lifts"
-    const val ROUTINES = "routines"; const val STRETCHES = "stretches"
+    const val STRETCHES = "stretches"
     const val IMPORT = "import"
-    const val LIBRARY = "library"; const val MODALITIES = "modalities"; const val WEEK_PLAN = "weekplan"; const val SETTINGS = "settings"
+    const val LIBRARY = "library"; const val WEEK_PLAN = "weekplan"; const val SETTINGS = "settings"
 }
 
 @Composable
@@ -90,7 +94,7 @@ fun KhonNav() {
     val vm: AppViewModel = viewModel()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: Routes.TODAY
-    val tab = when { route.startsWith(Routes.HISTORY) -> 1; route.startsWith(Routes.PROGRAMS) || route.startsWith("program") || route.startsWith("block") || route.startsWith("exercise") || route.startsWith("modality") || route == Routes.LIBRARY || route == Routes.MODALITIES || route == Routes.WEEK_PLAN || route == Routes.ROUTINES || route == Routes.STRETCHES || route.startsWith("routine") || route.startsWith("stretcheditor") -> 2; route == Routes.IMPORT -> 1; else -> 0 }
+    val tab = when { route.startsWith(Routes.HISTORY) -> 1; route.startsWith(Routes.PROGRAMS) || route.startsWith("program") || route.startsWith("block") || route.startsWith("exercise") || route == Routes.LIBRARY || route == Routes.WEEK_PLAN || route == Routes.STRETCHES || route.startsWith("routine") || route.startsWith("stretcheditor") -> 2; route == Routes.IMPORT -> 1; else -> 0 }
     // Widget and notification requests are consumed by Today. Return there first, or a request that lands on
     // another screen waits and fires later with stale data.
     val startRequested by dev.mirzohidkhon.khonfitness.MainActivity.startRequested.collectAsStateWithLifecycle()
@@ -111,31 +115,32 @@ fun KhonNav() {
     val exit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
         tabShift(initialState.destination.route, targetState.destination.route)?.let { dir -> slideOutHorizontally(shiftSpec) { -dir * shiftPx } + fadeOut(fadeSpec) } ?: ExitTransition.None
     }
-    Scaffold(containerColor = K.Bg, bottomBar = { if (showBar) BottomBar(tab) { i -> nav.navigate(TABS[i]) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true; restoreState = true } } }) { pad ->
+    Scaffold(containerColor = K.Bg, bottomBar = { if (showBar) BottomBar(tab) { i -> nav.openTab(TABS[i]) } }) { pad ->
         Box(Modifier.fillMaxSize().padding(pad).consumeWindowInsets(pad).imePadding()) {
             NavHost(nav, startDestination = Routes.TODAY, enterTransition = enter, exitTransition = exit, popEnterTransition = enter, popExitTransition = exit) {
                 composable(Routes.TODAY) { TodayScreen(vm, nav) }
                 composable(Routes.HISTORY) { HistoryScreen(vm, nav) }
-                composable(Routes.PROGRAMS) { ProgramsScreen(vm, nav) }
+                composable(Routes.PROGRAMS) { PlanScreen(vm, nav) }
                 composable("session/{id}") { e -> SessionScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("review/{id}") { e -> ReviewScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("cardio/{id}") { e -> CardioScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("program/{id}") { e -> ProgramEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                composable(Routes.NEW_PROGRAM) { ProgramEditorScreen(vm, nav, null) }
                 composable("block/{programId}/{blockId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", e.arguments?.getString("blockId") ?: "") }
-                composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
-                composable("modality/{id}") { e -> ModalityEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
+                composable("block-new/{programId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", null) }
+                composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                composable("exercise-new/{kind}") { e -> ExerciseEditorScreen(vm, nav, null, newKind = e.arguments?.getString("kind") ?: Kind.STRENGTH) }
                 composable("timer/{id}") { e -> TimerScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("stretch/{id}") { e -> StretchScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("routine/{id}") { e -> RoutineEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
+                composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                composable(Routes.NEW_STRETCH) { StretchEditorScreen(vm, nav, null) }
                 composable("lift/{id}") { e -> ExerciseDetailScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable(Routes.LIFTS) { LiftListScreen(vm, nav) }
-                composable(Routes.ROUTINES) { RoutinesScreen(vm, nav) }
                 composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
                 composable(Routes.IMPORT) { ImportScreen(vm, nav) }
                 composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }
-                composable(Routes.MODALITIES) { ModalitiesScreen(vm, nav) }
                 composable(Routes.WEEK_PLAN) { WeekPlanScreen(vm, nav) }
                 composable(Routes.SETTINGS) { SettingsScreen(vm, nav) }
             }
@@ -145,6 +150,12 @@ fun KhonNav() {
 }
 
 private val TABS = listOf(Routes.TODAY, Routes.HISTORY, Routes.PROGRAMS)
+
+/**
+ * Opens a tab from the tab bar. The tab left behind keeps its back stack and saved state (its scroll position among
+ * them), and the tab opened gets its own back.
+ */
+fun NavHostController.openTab(route: String) = navigate(route) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true; restoreState = true }
 
 /** Direction a tab switch shifts the screens: 1 toward a tab on the right, -1 toward the left, null when not between tabs. */
 internal fun tabShift(from: String?, to: String?): Int? {
@@ -157,7 +168,7 @@ internal fun tabShift(from: String?, to: String?): Int? {
  * item on a Surface2 capsule tinted accent. The capsule slides to the tab tapped, with a light haptic click.
  */
 @Composable
-private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
+internal fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
     val tick = rememberTick()
     Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(start = 24.dp, end = 24.dp, bottom = 10.dp, top = 6.dp)) {
         SlidingCapsuleRow(
@@ -168,7 +179,7 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
                 .border(1.dp, K.Hairline, RoundedCornerShape(30.dp))
                 .padding(4.dp),
         ) {
-            listOf("Today" to Icons.Today, "History" to Icons.History, "Programs" to Icons.Programs).forEachIndexed { i, (label, icon) ->
+            listOf("Today" to Icons.Today, "History" to Icons.History, "Plan" to Icons.Programs).forEachIndexed { i, (label, icon) ->
                 val active = i == selected
                 Column(
                     Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(26.dp))

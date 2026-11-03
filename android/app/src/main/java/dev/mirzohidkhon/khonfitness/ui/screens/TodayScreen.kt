@@ -13,6 +13,7 @@ import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
+import dev.mirzohidkhon.khonfitness.ui.openTab
 import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.timer.TimerService
 import dev.mirzohidkhon.khonfitness.ui.components.*
@@ -108,7 +109,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
                 onReview = { s -> nav.navigate(Routes.review(s.id)) },
                 // History opens fresh, on this week.
                 onMore = { nav.navigate(Routes.HISTORY) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true } },
-                onSetUp = { nav.navigate(Routes.PROGRAMS) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true; restoreState = true } },
+                onSetUp = { nav.openTab(Routes.PROGRAMS) },
             )
         }
         Spacer(Modifier.height(16.dp))

@@ -110,18 +110,40 @@ padded cards, per-item buttons, "Updated" lines.
 - No dates on list rows unless the row IS a date (history).
 - Rows that open a part of the app lead with a 30 px icon tile like iOS
   Settings: a white 17 px symbol on a rounded square (radius 7) of its
-  color. The tile is decorative; the row names it. The Programs tab
-  groups them under section titles: Exercises, Stretching and Modalities
-  under Library, Week plan under Plan, Settings on its own. Settings rows
-  carry tiles too.
+  color. The tile is decorative; the row names it. The Plan tab's
+  Library holds Exercises and Stretches; Settings opens from the gear on
+  Today. Settings rows carry tiles too.
+- The Plan tab: the large title "Plan" with a round "+" (a 36 px circle
+  on a 48 px target) that opens a sheet of four rows with tiles: Gym
+  program, Cardio workout, Stretch routine, Exercise. Then This week with
+  an accent "Edit" (48 px target) on its section title, over a grid of
+  seven cells of one height, 4 px apart, radius 12: the weekday in 11 px
+  muted, the item's name in 12 px semibold, two lines at most, then "…"
+  (muted for rest), today's cell on AccentSoft with its weekday in
+  accent, and a 5 px accent dot under a day a one-day change set. The
+  cell text grows with the font scale; above 1.15 the week wraps to two
+  rows of four cells (Mon-Thu, Fri-Sun). Each cell speaks its day, full
+  item name, "Today" and "Changed for this day only".
+- Gym programs, cardio workouts and stretch routines are rows with the
+  title over a muted line (up to two lines each), 56 px minimum: a dot
+  (filled = active) for programs and routines, a type pill (11 px text in
+  the type's color on Surface2, radius 9) for cardio workouts. Archived
+  workouts follow under an "Archived" title. An empty list says "No …
+  yet"; with no programs a "Create program" row in accent follows.
+- The Exercises list: search, then strength exercises under muscle
+  section titles in alphabetical order, then one "Archived (n)" row,
+  closed at first, whose chevron turns down when a tap opens the archived
+  exercises in dim text under it. No kind switch and no muscle filter.
 - The week plan's section title sums up the template ("5 training days ·
   2 rest days", "1 training day" in the singular). Each weekday leads
   with a tile of what it holds in its color (a dumbbell for a program, a
   runner for cardio, a moon for rest), today's weekday name is in
   accent, and a footnote says a change applies from today on.
-- The modality list shows how many exercises each modality groups ("2
-  exercises", "No exercises"), a footnote on what modalities are for,
-  and the archived ones in their own group when shown.
+- A cardio workout's editor has a Type row alone in its group, with the
+  footnote "Changes the color and type of past sessions too." (not on a
+  new workout). Type opens a sheet of the live types with their colors
+  and "New type…", which opens a sheet with Name, Color and Add type (off
+  while the name is blank).
 - Settings has three groups: Backup (export, import, restore a saved
   copy), App (version, the APK updater's state, reopen after updates)
   and Reset to built-in data in red on its own. A footnote under each
@@ -154,7 +176,7 @@ padded cards, per-item buttons, "Updated" lines.
   program's Active and the block's Superset have a footnote that says
   what they do. The active program's Active is fixed on; turning
   another program on moves the mark.
-- A modality's color is picked on the page under a Color title: two rows
+- A new type's color is picked in its sheet under a Color title: two rows
   of six 34 px circles on a card, the chosen one in a white ring 2.5 px
   wide with a 2 px gap, each on a 48 px target.
 - Numbers use the number widget: minus button, value with unit suffix,
@@ -165,7 +187,9 @@ padded cards, per-item buttons, "Updated" lines.
   numbers stay inside the field's limits (effort 1 to 10, sets 1 to 10),
   so the field never shows a number that is not stored. An empty field
   with a numeric placeholder (last time, latest bodyweight) steps from
-  that number, not from zero. An editor field row is 176 dp wide at
+  that number, not from zero. Each − and + is a 48 x 48 dp tap
+  target; the box is drawn 38 or 44 dp tall in the middle of that
+  48 dp row, so the look stays slim. An editor field row is 176 dp wide at
   font scale 1.0 and grows with the font scale up to the room it has.
   At font scale 1.5 and up the field row stacks like a list row: the
   label on its own line, the widget under it at the end, full width.
@@ -195,7 +219,7 @@ padded cards, per-item buttons, "Updated" lines.
   name or "New program", and its Active choice) so the block has a home.
   From then on it is a saved program: it shows Delete, and leaving
   without Done keeps it.
-- A new routine is not a draft. "+" on Stretching saves it at once as
+- A new routine is not a draft. "Stretch routine" under "+" on Plan saves it at once as
   "New routine", with no stretches, active only when it is the first
   routine, and opens it in its editor. "+" does nothing while that save
   runs, so a double tap makes one routine. The editor edits a saved
@@ -277,7 +301,7 @@ Two lines, 88 px total, hairline between rows.
   Rest: "Rest day", "Nothing planned. Stretch and recover.", Change, no
   Start. A week of rest days with workouts to pick is a rest day too.
   No program and no cardio workout yet: "No plan for today" with "Set
-  up your week" (opens Programs). While a session runs: "In progress · 3 of 12
+  up your week" (opens Plan). While a session runs: "In progress · 3 of 12
   sets" in accent (cardio: the interval timer's state, "Round 2 of 4 ·
   Work", "Paused · …", or the time since its start), a program adds the
   progress bar in accent with the time since the start, and Resume; no

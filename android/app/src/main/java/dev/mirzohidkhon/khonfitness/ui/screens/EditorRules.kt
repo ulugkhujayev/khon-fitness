@@ -40,7 +40,7 @@ class ProgramDraft(val isNew: Boolean) {
     val isDraft: Boolean get() = isNew && savedId == null
 
     /** The program the screen edits: the route's, or a new program's once saved; null while it is only a draft. */
-    fun programId(routeId: String): String? = if (isNew) savedId else routeId
+    fun programId(routeId: String?): String? = if (isNew) savedId else routeId
 
     /** Delete shows on a saved program only, and never on the last one: Today always plans from a program. */
     fun showDelete(programCount: Int): Boolean = !isDraft && programCount > 1
@@ -83,7 +83,7 @@ class BlockDraft(val isNew: Boolean) {
         private set
 
     /** The block the screen edits: the route's for an existing block, the saved one for a new block, else none yet. */
-    fun blockId(routeId: String): String? = if (isNew) savedId else routeId
+    fun blockId(routeId: String?): String? = if (isNew) savedId else routeId
 
     /** The first pick on a new block: the block and its first exercise to save together, or null once saved. */
     fun firstPick(blockId: String, programId: String, superset: Boolean, exerciseRowId: String, slot: Int, exerciseId: String): Pair<Block, BlockExercise>? {

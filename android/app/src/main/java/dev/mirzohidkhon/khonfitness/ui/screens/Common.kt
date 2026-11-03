@@ -205,6 +205,7 @@ data class Choice(val id: String, val title: String, val dotColor: Color? = null
  * A sheet that lists choices with a check on the selected ones. It never closes by itself: a single select closes
  * in [onPick], a multi select leaves it open. [searchable] adds a search field over the list that narrows it by
  * title, empty each time the sheet opens, and the no-results view in the list's card when nothing matches.
+ * [addLabel] adds a last row that calls [onAdd]; it is an action, not a choice, so no choice id can stand for it.
  */
 @Composable
 fun ChoiceSheet(
@@ -216,6 +217,8 @@ fun ChoiceSheet(
     searchable: Boolean = false,
     header: (@Composable () -> Unit)? = null,
     empty: (@Composable () -> Unit)? = null,
+    addLabel: String? = null,
+    onAdd: () -> Unit = {},
 ) {
     Sheet(title, onDismiss) {
         // The sheet leaves the composition when it closes, so each opening starts with an empty search.
@@ -227,6 +230,7 @@ fun ChoiceSheet(
             ChoiceList {
                 if (shown.isEmpty()) { if (empty != null) empty() else if (searchable) SearchEmpty(query) }
                 shown.forEachIndexed { i, c -> ChoiceRow(c.title, isSelected(c.id), c.dotColor, c.dotFilled, divider = i > 0) { onPick(c.id) } }
+                if (addLabel != null) ChoiceRow(addLabel, false, null, true, divider = shown.isNotEmpty(), onClick = onAdd)
             }
         }
     }

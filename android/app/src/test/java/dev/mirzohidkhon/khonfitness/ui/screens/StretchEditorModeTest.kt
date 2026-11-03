@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.KhonApp
 import dev.mirzohidkhon.khonfitness.data.Stretch
@@ -30,7 +31,7 @@ import org.robolectric.annotation.Config
 
 /**
  * The stretch editor's mode comes from the route alone: an edit of a stretch that is gone, when the editor opens or
- * while it is open, writes nothing on Done, and only the "new" route creates a stretch.
+ * while it is open, writes nothing on Done, and only the new-stretch route (no id) creates a stretch.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -47,7 +48,9 @@ class StretchEditorModeTest {
         vm = AppViewModel(app)
     }
 
-    @After fun close() { app.scope.cancel(); app.db.close() }
+    // The view model's flows outlive the screen by 5 s (WhileSubscribed): stop them before the database closes, or one
+    // queries the closed database and its exception fails the next test.
+    @After fun close() { vm.viewModelScope.cancel(); app.scope.cancel(); app.db.close() }
 
     private fun io(block: suspend () -> Unit) = runBlocking(Dispatchers.IO) { block() }
 
@@ -57,7 +60,7 @@ class StretchEditorModeTest {
      * Opens the editor with the clock held: a blank editor shows the hip flexor guide, which plays without end, so
      * frames run only when the test asks for them ([frame], [until]).
      */
-    private fun openEditor(id: String) {
+    private fun openEditor(id: String?) {
         compose.mainClock.autoAdvance = false
         compose.setContent { KhonTheme { StretchEditorScreen(vm, rememberNavController(), id) } }
         frame()
@@ -104,7 +107,7 @@ class StretchEditorModeTest {
     }
 
     @Test fun `the new route creates the stretch on Done`() {
-        openEditor("new")
+        openEditor(null)
         typeName("Typed")
         done()
         assertEquals(listOf("Typed"), stretches().map { it.name })

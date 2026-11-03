@@ -18,9 +18,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.KhonApp
 import dev.mirzohidkhon.khonfitness.data.NEW_ROUTINE_NAME
@@ -29,6 +31,7 @@ import dev.mirzohidkhon.khonfitness.data.Stretch
 import dev.mirzohidkhon.khonfitness.data.StretchRoutine
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
+import dev.mirzohidkhon.khonfitness.ui.openTab
 import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -49,8 +52,8 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
- * "+" on Stretching saves a new routine at once and opens it (P5B-FIX4): one routine per double tap, no editor when
- * the user left Stretching meanwhile, and the editor edits the saved row, which Back keeps and Delete removes. Each
+ * "Stretch routine" under "+" on Plan saves a new routine at once and opens it (P5B-FIX4): one routine per double tap,
+ * no editor when the user left Plan meanwhile, and the editor edits the saved row, which Back keeps and Delete removes. Each
  * editor row is keyed by its id, so a held stepper never carries over to the row that takes its place.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -68,7 +71,9 @@ class NewRoutineScreenTest {
         vm = AppViewModel(app)
     }
 
-    @After fun close() { app.scope.cancel(); app.db.close() }
+    // The view model's flows outlive the screen by 5 s (WhileSubscribed): stop them before the database closes, or one
+    // queries the closed database and its exception fails the next test.
+    @After fun close() { vm.viewModelScope.cancel(); app.scope.cancel(); app.db.close() }
 
     private val daily = StretchRoutine("daily", "Daily", active = true, sortOrder = 0)
 
@@ -80,18 +85,20 @@ class NewRoutineScreenTest {
     private fun named(label: String) = compose.onAllNodesWithContentDescription(label).fetchSemanticsNodes().isNotEmpty()
     private fun waitFor(shown: () -> Boolean) = compose.waitUntil(5_000) { shown() }
 
-    /** Programs (a stand-in), Stretching and the routine editor in one nav graph, opened on Stretching with "Daily" saved. */
+    private lateinit var nav: NavHostController
+
+    /** Today (a stand-in), Plan and the routine editor in one nav graph, opened on Plan with "Daily" saved. */
     private fun openStretching(restore: StateRestorationTester? = null) {
         io { dao.upsert(daily) }
         val content: @androidx.compose.runtime.Composable () -> Unit = {
             KhonTheme {
-                val nav = rememberNavController()
-                NavHost(nav, "programs") {
-                    composable("programs") { Text("Programs screen") }
-                    composable(Routes.ROUTINES) { RoutinesScreen(vm, nav) }
+                val nav = rememberNavController().also { nav = it }
+                NavHost(nav, Routes.TODAY) {
+                    composable(Routes.TODAY) { Text("Today screen") }
+                    composable(Routes.PROGRAMS) { PlanScreen(vm, nav) }
                     composable("routine/{id}") { e -> RoutineEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 }
-                androidx.compose.runtime.LaunchedEffect(Unit) { if (nav.currentDestination?.route == "programs") nav.navigate(Routes.ROUTINES) }
+                androidx.compose.runtime.LaunchedEffect(Unit) { if (nav.currentDestination?.route == Routes.TODAY) nav.openTab(Routes.PROGRAMS) }
             }
         }
         if (restore != null) restore.setContent(content) else compose.setContent(content)
@@ -114,7 +121,13 @@ class NewRoutineScreenTest {
         Thread.sleep(300); compose.waitForIdle()
     }
 
-    private fun tapPlus() { compose.onNodeWithContentDescription("New routine").performClick(); compose.waitForIdle() }
+    /** "+" on Plan, then "Stretch routine" in its sheet. */
+    private fun tapPlus() {
+        compose.onNodeWithContentDescription("New").performClick()
+        waitFor { shows("Stretch routine") }
+        compose.onNodeWithText("Stretch routine").performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+    }
 
     @Test fun `plus saves one new routine at once and opens its editor`() {
         openStretching()
@@ -137,7 +150,7 @@ class NewRoutineScreenTest {
         assertEquals(1, added().size)
     }
 
-    @Test fun `a second tap after Stretching was rebuilt while the save runs makes no second routine`() {
+    @Test fun `a second tap after Plan was rebuilt while the save runs makes no second routine`() {
         val restore = StateRestorationTester(compose)
         openStretching(restore)
         val hold = Hold()
@@ -155,28 +168,28 @@ class NewRoutineScreenTest {
             KhonTheme {
                 val nav = rememberNavController()
                 NavHost(nav, "programs") {
-                    composable("programs") { Text("Programs screen") }
+                    composable("programs") { Text("Plan screen") }
                     composable("routine/{id}") { e -> RoutineEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 }
                 androidx.compose.runtime.LaunchedEffect(Unit) { if (nav.currentDestination?.route == "programs") nav.navigate(Routes.routine("new")) }
             }
         }
         compose.setContent(content)
-        waitFor { named("Stretching") }
-        compose.onNodeWithContentDescription("Stretching").performClick()
-        waitFor { shows("Programs screen") }
+        waitFor { named("Plan") }
+        compose.onNodeWithContentDescription("Plan").performClick()
+        waitFor { shows("Plan screen") }
         assertTrue(routines().isEmpty())
     }
 
-    @Test fun `leaving Stretching before the save ends keeps the routine and opens no editor`() {
+    @Test fun `leaving Plan before the save ends keeps the routine and opens no editor`() {
         openStretching()
         val hold = Hold()
         tapPlus()
-        compose.onNodeWithContentDescription("Programs").performClick() // Back
+        compose.runOnUiThread { nav.openTab(Routes.TODAY) } // the Today tab
         compose.waitForIdle()
         hold.release()
         settled { added().isNotEmpty() }
-        assertTrue("on Programs", shows("Programs screen"))
+        assertTrue("on Today", shows("Today screen"))
         assertFalse("no editor", named("Routine name"))
         assertEquals(1, added().size)
     }
@@ -185,8 +198,8 @@ class NewRoutineScreenTest {
         openStretching()
         tapPlus()
         waitFor { named("Routine name") }
-        compose.onNodeWithContentDescription("Stretching").performClick() // Back
-        waitFor { shows("Routines") && shows(NEW_ROUTINE_NAME) }
+        compose.onNodeWithContentDescription("Plan").performClick() // Back
+        waitFor { shows("Stretch routines") && shows(NEW_ROUTINE_NAME) }
         assertEquals(listOf(NEW_ROUTINE_NAME), added().map { it.name })
     }
 
@@ -209,7 +222,7 @@ class NewRoutineScreenTest {
         compose.onNodeWithText("Delete").performSemanticsAction(SemanticsActions.OnClick) // in the sheet, which may still be sliding in
         settled { added().isEmpty() }
         assertEquals(listOf(daily), routines())
-        waitFor { shows("Routines") }
+        waitFor { shows("Stretch routines") }
     }
 
     @Test fun `a rotation in the editor keeps the same routine`() {

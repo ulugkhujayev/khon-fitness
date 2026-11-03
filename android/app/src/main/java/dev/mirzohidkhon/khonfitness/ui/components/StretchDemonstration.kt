@@ -122,11 +122,12 @@ fun DemoPoster(figure: String, modifier: Modifier, mirror: Boolean = false) {
 /** A lesson before Start; a timer-driven demonstration during the exercise. */
 @Composable
 fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boolean = true,
-    exerciseProgress: Float? = null, compact: Boolean = false, modifier: Modifier = Modifier) {
+    exerciseProgress: Float? = null, compact: Boolean = false, modifier: Modifier = Modifier, onPhase: Boolean = false) {
     val context = LocalContext.current
     val guide = remember(figure) { DemoCatalog.read(context)[figure] }
     if (guide == null) {
-        Text("No demonstration for this stretch", color = K.Muted, modifier = modifier)
+        // On the player's phase fill the muted gray is too dim (4.1:1 on WorkFill); the player's own muted white is not.
+        Text("No demonstration for this stretch", color = if (onPhase) K.OnPhaseMuted else K.Muted, modifier = modifier)
         return
     }
     var view by rememberSaveable(figure, mirror) { mutableIntStateOf(0) }

@@ -130,7 +130,7 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
                     key(st.sessionId, st.index) {
                         StretchDemonstration(phase.figure, mirror = phase.side == "Right",
                             preview = st.awaitingStart, exerciseProgress = if (phase.reps > 0) motion else null,
-                            compact = compact, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+                            compact = compact, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), onPhase = true)
                     }
                     // A ready screen has no status line: its length is in the line under the name, the button says what comes.
                     playerStatus(st, phase)?.let { status ->

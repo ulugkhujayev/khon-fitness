@@ -128,6 +128,17 @@ val TextPairs: List<TextPair> = buildList {
         add(TextPair("Type #$hex on its pill", c, K.Surface2))
         for ((n, under) in listOf("Bg" to K.Bg, "Surface" to K.Surface)) add(TextPair("Type #$hex on its circle over $n", c, c.copy(alpha = 0.2f).compositeOver(under), large = true))
     }
+    // The player's main button: black on white.
+    add(TextPair("Black on the player's white button", Color.Black, Color.White))
+    // A press on a tinted row or a chip (Surface3), and the Plan grid's today cell (AccentSoft).
+    add(TextPair("Accent on Surface3", K.Accent, K.Surface3))
+    for ((n, under) in listOf("Bg" to K.Bg, "Surface" to K.Surface)) {
+        add(TextPair("Text on AccentSoft over $n", K.Text, K.AccentSoft.compositeOver(under)))
+        add(TextPair("Muted on AccentSoft over $n", K.Muted, K.AccentSoft.compositeOver(under)))
+        // The Log's today row (accent at 12 percent) and a done set row in a session (green at 5 percent).
+        for ((cn, c) in listOf("Text" to K.Text, "Accent" to K.Accent, "Green" to K.Green)) add(TextPair("$cn on the today row over $n", c, K.Accent.copy(alpha = 0.12f).compositeOver(under)))
+        for ((cn, c) in listOf("Text" to K.Text, "Muted" to K.Muted, "Accent" to K.Accent, "Green" to K.Green)) add(TextPair("$cn on a done set row over $n", c, K.Green.copy(alpha = 0.05f).compositeOver(under)))
+    }
     // The demonstration's round controls: a white symbol on black at 45 percent over the light image.
     add(TextPair("Text on the demo glass", K.Text, Color.Black.copy(alpha = 0.45f).compositeOver(Color(0xFFF2F2F2)), large = true))
 }

@@ -49,9 +49,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Every closing action of every editor (Done, Back, Archive, Unarchive, Delete, Merge) takes the screen's one guard
- * ([Once]): two taps in one frame, or two different exits in one frame, write once and pop once (attack cases 14, 15),
- * and a refused action gives the guard back (case 16). Real database and back stack; triggers count the row writes.
+ * Every closing action of every editor (Done, Back, Archive, Unarchive, Delete, Merge, Discard) takes the screen's one
+ * guard ([ExitGuard]): two taps in one frame, or two different exits in one frame, write once and pop once (attack
+ * cases 14, 15), and a refused action gives the guard back (case 16). Real database and back stack; triggers count the row writes.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -73,7 +73,7 @@ class ExitGuardTest {
                 Exercise("a", "Old Bench", Kind.STRENGTH), Exercise("b", "Bench Press", Kind.STRENGTH), Exercise("z", "Shelf Row", Kind.STRENGTH, archived = true),
                 Exercise("run", "Run", Kind.CARDIO, fields = "time"),
             ))
-            dao.upsertModalities(listOf(Modality("m", "Bike", 0xFFB39DFF)))
+            dao.upsertModalities(listOf(Modality("m", "Bike", 0xFFB39DFF), Modality("m2", "Row", 0xFF123456, archived = true)))
             dao.upsertPrograms(listOf(Program("p1", "Push", active = true), Program("p2", "Pull", sortOrder = 1)))
             dao.upsertBlocks(listOf(Block("k0", "p1", 0)))
             dao.upsertBlockExercises(listOf(BlockExercise("r0", "k0", 0, "b")))
@@ -242,6 +242,12 @@ class ExitGuardTest {
         twice(clickByText("Archive"))
         leftOnceWith(mapOf("modalities UPDATE" to 2))
     }
+    @Test fun `modality - Unarchive`() {
+        openEditor("modality/m2", "Color")
+        compose.onNodeWithText("Unarchive").performScrollTo()
+        twice(clickByText("Unarchive"))
+        leftOnceWith(mapOf("modalities UPDATE" to 2))
+    }
 
     // ---- routine editor
 
@@ -263,9 +269,29 @@ class ExitGuardTest {
         confirmTwice("Delete stretch", "Delete this stretch?", "Delete")
         leftOnceWith(mapOf("stretches DELETE" to 1))
     }
+    @Test fun `stretch - a refused Delete gives the guard back, and Done then leaves`() {
+        openEditor("stretcheditor/st2", "Timing")
+        until { shows("Delete stretch") && enabled("Delete stretch") }
+        compose.onNodeWithText("Delete stretch").performScrollTo().performClick()
+        until { shows("Delete this stretch?") }
+        // A routine starts to use the stretch after the confirm opened: the delete is refused when it runs.
+        io { dao.upsert(RoutineStretch("ro-2", "ro", "st2", 1)) }
+        sql.execSQL("DELETE FROM test_writes")
+        compose.runOnUiThread { compose.onAllNodesWithText("Delete").fetchSemanticsNodes().last().config[SemanticsActions.OnClick].action!!() }
+        until { shows("In use by 1 routine rows.") }
+        assertEquals(listOf("home", "stretcheditor/{id}"), routes())
+        typeName("Name", "2")
+        twice(clickByText("Done"))
+        leftOnceWith(mapOf("stretches UPDATE" to 1))
+    }
 
     // ---- cardio form
 
     @Test fun `cardio - Save`() { openEditor("cardio/c1", "Notes"); twice(clickByText("Save")); leftOnceWith(mapOf("sessions UPDATE" to 1)) }
+    @Test fun `cardio - Discard`() {
+        openEditor("cardio/c1", "Notes")
+        confirmTwice("Discard", "Discard this session?", "Discard")
+        leftOnceWith(mapOf("sessions DELETE" to 1))
+    }
     @Test fun `cardio - Back`() { openEditor("cardio/c1", "Notes"); twice(clickByLabel("Today")); leftOnceWith(emptyMap()) }
 }

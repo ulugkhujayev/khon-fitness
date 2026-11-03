@@ -42,8 +42,7 @@ fun summarize(logs: List<SetLog>, all: List<SetLog>, sessionId: String, startedA
 
 /**
  * Runs its action the first time only: a second tap in the same frame, before the screen has left, does nothing.
- * One per screen, taken by every action that leaves it (Done, Save, Archive, Delete, Merge, Discard, Back), so no
- * two of them run or pop the screen under it too. A refused action [release]s it.
+ * Screens use it through their [ExitGuard], which also takes system Back. A refused action [release]s it.
  */
 class Once {
     private var ran = false

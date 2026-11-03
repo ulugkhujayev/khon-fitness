@@ -88,8 +88,9 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     var confirmDelete by remember { mutableStateOf(false) }
     // Sets whose check was refused for a missing weight or reps: their rows say what to enter ([setMissing]).
     var refused by remember { mutableStateOf(emptySet<String>()) }
-    // Save, Discard and Back leave the screen: a second tap in the same frame must not finish twice or pop Today too.
-    val leave = remember { Once() }
+    // Save, Discard, Back and system Back leave the screen ([ExitGuard]): a second exit in the same frame must not finish
+    // twice or pop Today too.
+    val leave = rememberExitGuard(nav)
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -135,7 +136,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val openSummary = { summary = summarize(logs, vm.allSetLogs.value, s.id, s.startedAt, System.currentTimeMillis()) }
 
     Column(Modifier.fillMaxSize()) {
-        if (s.finished) EditorTopBar("History", s.programName ?: "Session", scrollPx = { listState.barOffset() }, onBack = { leave { nav.popBackStack() } }, done = if (editing) "Done" else "Edit") { editing = !editing }
+        if (s.finished) EditorTopBar("History", s.programName ?: "Session", scrollPx = { listState.barOffset() }, onBack = { leave { leave.pop() } }, done = if (editing) "Done" else "Edit") { editing = !editing }
         Box(Modifier.weight(1f)) {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = topPadding, bottom = 24.dp)) {
                 itemsIndexed(blocks, key = { _, b -> b.first().blockIndex }) { bi, blockLogs ->
@@ -169,7 +170,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
             if (running) SessionHeader(
                 s.programName ?: "Session", done, logs.size, navHeight, rowHeight, lineHeight,
                 onNavHeight = { navHeight = max(SESSION_NAV.dp, it) },
-                onBack = { leave { nav.popBackStack() } }, onFinish = openSummary, scrollPx = { listState.barOffset() },
+                onBack = { leave { leave.pop() } }, onFinish = openSummary, scrollPx = { listState.barOffset() },
             )
         }
     }
@@ -186,7 +187,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         if (s.finished) "The sets and the session go away. Charts recompute." else discardBody(done),
         if (s.finished) "Delete" else "Discard",
         onDismiss = { confirmDelete = false },
-    ) { leave { confirmDelete = false; vm.openPicks.drop(s.id); vm.run { vm.repo.deleteSession(s.id) }; nav.popBackStack() } }
+    ) { leave { confirmDelete = false; vm.openPicks.drop(s.id); vm.run { vm.repo.deleteSession(s.id) }; leave.pop() } }
     summary?.let { sum -> Sheet("Workout done", onDismiss = { summary = null }) {
         // The figures as of opening, then effort and note (the page's own fields: both read the session, so an edit in
         // one shows in the other) so they are asked for as the workout ends. The content scrolls above the keyboard;
@@ -204,7 +205,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                     FieldRow("Note") { InlineTextField(s.note, { n -> vm.run { vm.repo.setSessionNote(s.id, n) } }, placeholder = "Optional", label = "Note") }
                 }
             }
-            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { leave { vm.openPicks.drop(s.id); vm.run { vm.repo.finishSession(s.id) }; summary = null; nav.popBackStack() } }
+            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { leave { vm.openPicks.drop(s.id); vm.run { vm.repo.finishSession(s.id) }; summary = null; leave.pop() } }
         }
     } }
 }

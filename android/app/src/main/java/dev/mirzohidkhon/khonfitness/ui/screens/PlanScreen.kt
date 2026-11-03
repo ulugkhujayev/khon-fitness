@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -156,26 +157,32 @@ private fun SectionAction(text: String, description: String, onClick: () -> Unit
 }
 
 /**
- * The week Monday to Sunday in seven cells: the weekday, the item's short name (muted for rest), today's cell tinted
- * accent, and a small accent dot under a day that a one-day change set. Each cell reads as one spoken line.
+ * The week Monday to Sunday in seven cells of one height: the weekday, the item's short name (muted for rest), today's
+ * cell tinted accent, and a small accent dot under a day that a one-day change set. Each cell reads as one spoken
+ * line. The cells are a seventh of the width, so their text grows with the font scale only up to 1.15; the full
+ * names are in the spoken lines and in the rows below.
  */
 @Composable
 private fun WeekGrid(cells: List<WeekCell>, spoken: List<String>) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    val scale = LocalDensity.current.fontScale
+    fun capped(size: Float) = (size * minOf(scale, WEEK_GRID_MAX_SCALE) / scale).sp
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         cells.forEachIndexed { i, c ->
             Column(
-                Modifier.weight(1f).heightIn(min = 68.dp).clip(RoundedCornerShape(12.dp)).background(if (c.today) K.AccentSoft else K.Surface)
+                Modifier.weight(1f).fillMaxHeight().heightIn(min = 64.dp).clip(RoundedCornerShape(12.dp)).background(if (c.today) K.AccentSoft else K.Surface)
                     .clearAndSetSemantics { contentDescription = spoken[i] }.padding(horizontal = 2.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(weekdayShort(c.date.dayOfWeek.value), fontSize = 11.sp, color = if (c.today) K.Accent else K.Muted, maxLines = 1)
-                Text(c.name, fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, color = if (c.rest) K.Muted else K.Text, textAlign = TextAlign.Center,
+                Text(weekdayShort(c.date.dayOfWeek.value), fontSize = capped(11f), color = if (c.today) K.Accent else K.Muted, maxLines = 1)
+                Text(c.name, fontSize = capped(12f), lineHeight = capped(14f), fontWeight = FontWeight.SemiBold, color = if (c.rest) K.Muted else K.Text, textAlign = TextAlign.Center,
                     maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
                 if (c.changed) Box(Modifier.padding(top = 4.dp).size(5.dp).clip(CircleShape).background(K.Accent))
             }
         }
     }
 }
+
+private const val WEEK_GRID_MAX_SCALE = 1.15f
 
 /** A Plan list row: [leading] mark, the title over its muted [line], a chevron. The whole row opens [onClick]. */
 @Composable

@@ -51,9 +51,20 @@ Three tabs.
 - History. Month calendar, one colored dot per session. Tap a day to open
   the session. Below: bodyweight chart, and an exercise picker that shows
   a progress card (see Exercise progress).
-- Programs. Program list (many, one active), exercise library (strength
-  and cardio, filter by kind, muscle, modality), modalities, week plan,
-  settings (export, import, check for update).
+- Plan. A "+" adds a gym program, a cardio workout, a stretch routine or
+  an exercise. This week: Monday to Sunday in seven cells with each day's
+  item (a cardio workout by its type), today tinted, and a dot on a day
+  that a one-day change set; Edit opens the week plan. Then the gym
+  programs (the active one filled; blocks, sets and "Every Tue, Sat" from
+  the week plan, or "Not in the week"), the cardio workouts (type pill,
+  name, plan; archived ones last under Archived), the stretch routines,
+  and the Library: Exercises (strength only, searchable, grouped by
+  muscle, archived last) and Stretches. Settings (export, import, check
+  for update) opens from the gear on Today.
+- A cardio workout's type (bike, run, swim, row, or one the user adds
+  with "New type…" in the workout's editor: name and color) colors it on
+  Today and in History. The type is stored on the workout, so a change
+  also retypes and recolors its past sessions; the editor says so.
 
 ## Exercise progress
 
@@ -96,7 +107,7 @@ no native spinner arrows. The accessible name lives in the aria-label.
   (only when no session uses it), and merge two exercises into one
   (history moves to the survivor). Once a session, a program or the plan
   uses an exercise, its kind is fixed.
-- Modality: name, color. Seeded bike, run, swim, row. User can add.
+- Modality (shown as "Type"): name, color. Seeded bike, run, swim, row. User can add one in a cardio workout's editor.
 - Program: name, active flag, ordered list of blocks. One program is
   always active. Turning another program on moves the mark; deleting the
   active program gives it to the first one left. The last program cannot
@@ -125,7 +136,7 @@ Done. A new program left before Done or Add block writes nothing. A new
 block is written together with its first exercise; leaving before that
 writes nothing.
 
-A new routine is not a draft. "+" on Stretching writes it at once, named
+A new routine is not a draft. "Stretch routine" under "+" on Plan writes it at once, named
 "New routine", with no stretches, after the other routines, and active
 only when no routine existed before it; a second tap while that write
 runs makes nothing. The editor then opens on it. Each edit writes at once,
@@ -209,7 +220,9 @@ show one row per work interval for manual entry.
 The weekly template fills future weeks. On the History calendar, long-press a
 day to change its activity, or drag one day onto another to swap the two.
 An overridden date shows a small mark. Template edits apply from today on and
-never touch past days or dates with an override.
+never touch past days or dates with an override, so a past week keeps its
+planned count. The week plan screen says "Each weekday repeats every week. To
+change one day only, use Change on Today."
 
 ## Backup
 
@@ -249,7 +262,7 @@ switches camera angles. Demo playback is independent of the exercise clock.
 Each stretch and side change waits for the user to start the next one.
 Held poses stay still; repeated movements follow the timer and freeze on pause. Same audio engine and lock-screen
 notification as the interval timer. The end writes a session and returns to
-Today. Programs has a Stretching row: routines (one active), a stretch
+Today. Plan lists the routines (one active) and has a Stretches row in its Library: a stretch
 library with 3D thumbnails and step guides. Custom stretches pick a guide from the set.
 
 Routines and their rows sort by sortOrder, then id. A new routine goes after

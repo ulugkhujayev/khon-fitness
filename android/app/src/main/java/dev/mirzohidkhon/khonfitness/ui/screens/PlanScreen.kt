@@ -78,7 +78,7 @@ fun PlanScreen(vm: AppViewModel, nav: NavHostController) {
     }
     TabScreen("Plan", trailing = { TitleAddButton("New") { adding = true } }) {
         SectionTitle("This week", trailing = { SectionAction("Edit", "Edit week plan") { nav.navigate(Routes.WEEK_PLAN) } })
-        val cells = plan.weekCells(vm.today(), modalities)
+        val cells = plan.weekCells(vm.today())
         WeekGrid(cells, cells.map { it.spoken(plan.itemFor(it.date).name) })
 
         SectionTitle("Gym programs", Modifier.padding(top = 24.dp))
@@ -159,30 +159,40 @@ private fun SectionAction(text: String, description: String, onClick: () -> Unit
 /**
  * The week Monday to Sunday in seven cells of one height: the weekday, the item's short name (muted for rest), today's
  * cell tinted accent, and a small accent dot under a day that a one-day change set. Each cell reads as one spoken
- * line. The cells are a seventh of the width, so their text grows with the font scale only up to 1.15; the full
- * names are in the spoken lines and in the rows below.
+ * line. The text grows with the font scale. Above [WEEK_GRID_ONE_ROW_MAX_SCALE] seven cells are too narrow for it, so
+ * the week wraps to two rows, Monday to Thursday and Friday to Sunday. A name longer than two lines ends in "…"; the
+ * full names are in the spoken lines and in the rows below.
  */
 @Composable
 private fun WeekGrid(cells: List<WeekCell>, spoken: List<String>) {
-    val scale = LocalDensity.current.fontScale
-    fun capped(size: Float) = (size * minOf(scale, WEEK_GRID_MAX_SCALE) / scale).sp
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        cells.forEachIndexed { i, c ->
-            Column(
-                Modifier.weight(1f).fillMaxHeight().heightIn(min = 64.dp).clip(RoundedCornerShape(12.dp)).background(if (c.today) K.AccentSoft else K.Surface)
-                    .clearAndSetSemantics { contentDescription = spoken[i] }.padding(horizontal = 2.dp, vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(weekdayShort(c.date.dayOfWeek.value), fontSize = capped(11f), color = if (c.today) K.Accent else K.Muted, maxLines = 1)
-                Text(c.name, fontSize = capped(12f), lineHeight = capped(14f), fontWeight = FontWeight.SemiBold, color = if (c.rest) K.Muted else K.Text, textAlign = TextAlign.Center,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
-                if (c.changed) Box(Modifier.padding(top = 4.dp).size(5.dp).clip(CircleShape).background(K.Accent))
+    val perRow = if (LocalDensity.current.fontScale > WEEK_GRID_ONE_ROW_MAX_SCALE) 4 else 7
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        cells.indices.chunked(perRow).forEach { row ->
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                row.forEach { i ->
+                    val c = cells[i]
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight().heightIn(min = 64.dp).clip(RoundedCornerShape(12.dp)).background(if (c.today) K.AccentSoft else K.Surface)
+                            .clearAndSetSemantics { contentDescription = spoken[i] }.padding(horizontal = 2.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(weekdayShort(c.date.dayOfWeek.value), fontSize = 11.sp, color = if (c.today) K.Accent else K.Muted, maxLines = 1)
+                        Text(c.name, fontSize = WEEK_CELL_NAME_SP.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, color = if (c.rest) K.Muted else K.Text, textAlign = TextAlign.Center,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                        if (c.changed) Box(Modifier.padding(top = 4.dp).size(5.dp).clip(CircleShape).background(K.Accent))
+                    }
+                }
+                // The short last row keeps the cell width of the rows above it.
+                repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
 }
 
-private const val WEEK_GRID_MAX_SCALE = 1.15f
+/** The largest font scale at which the week grid fits on one row of seven cells. */
+const val WEEK_GRID_ONE_ROW_MAX_SCALE = 1.15f
+/** The week cell's name size, before the font scale. */
+const val WEEK_CELL_NAME_SP = 12f
 
 /** A Plan list row: [leading] mark, the title over its muted [line], a chevron. The whole row opens [onClick]. */
 @Composable

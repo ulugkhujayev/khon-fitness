@@ -4,6 +4,20 @@ import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.material3.Text
+import android.content.res.Configuration
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle as TextStyleC
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsSelected
@@ -71,9 +85,14 @@ class PlanScreenTest {
     private fun tap(node: SemanticsNodeInteraction) { node.performSemanticsAction(SemanticsActions.OnClick); compose.waitForIdle() }
 
     /** Today (a stand-in) and Plan as tabs, with the screens Plan opens, opened on Plan once [shown] text is there. */
-    private fun openPlan(shown: String = "Library") {
+    private fun openPlan(shown: String = "Library", scale: Float = 1f) {
         compose.setContent {
+            val d = LocalDensity.current
+            val config = Configuration(LocalConfiguration.current).apply { fontScale = scale }
+            CompositionLocalProvider(LocalDensity provides Density(d.density, scale), LocalConfiguration provides config) {
             KhonTheme {
+                measurer = rememberTextMeasurer()
+                textStyle = LocalTextStyle.current
                 val nav = rememberNavController().also { nav = it }
                 NavHost(nav, Routes.TODAY) {
                     composable(Routes.TODAY) { Text("Today screen") }
@@ -89,9 +108,12 @@ class PlanScreenTest {
                 }
                 androidx.compose.runtime.LaunchedEffect(Unit) { if (nav.currentDestination?.route == Routes.TODAY) nav.openTab(Routes.PROGRAMS) }
             }
+            }
         }
         waitFor { shows(shown) }
     }
+    private lateinit var measurer: TextMeasurer
+    private lateinit var textStyle: TextStyleC
 
     private fun seed() = io {
         dao.upsertPrograms(listOf(Program("push", "Push", active = true), Program("pull", "Pull", sortOrder = 1)))
@@ -172,6 +194,35 @@ class PlanScreenTest {
         compose.onNode(hasContentDescription("$day, Zone 2 run. Today. Changed for this day only.")).assertExists()
         compose.onNodeWithContentDescription("Edit week plan").performClick()
         waitFor { shows(WEEK_PLAN_NOTE) }
+    }
+
+    /**
+     * At font scales 1.0, 1.3 and 1.6 each week cell holds its name at the full scaled size in two lines at most, with
+     * no "…": above 1.15 the week wraps to rows of four cells.
+     */
+    @Test fun `the week grid names fit their cells at font scale 1_0`() = gridFits(1f)
+    @Test fun `the week grid names fit their cells at font scale 1_3`() = gridFits(1.3f)
+    @Test fun `the week grid names fit their cells at font scale 1_6`() = gridFits(1.6f)
+
+    private fun gridFits(scale: Float) {
+        seed()
+        io {
+            dao.upsert(Exercise("tempo", "Tempo run", Kind.CARDIO, modalityId = "run"))
+            dao.upsertWeekPlan(listOf(WeekPlan(2, ItemType.CARDIO, "z2run"), WeekPlan(3, ItemType.PROGRAM, "pull"), WeekPlan(5, ItemType.CARDIO, "tempo")))
+        }
+        run {
+            openPlan(scale = scale)
+            val px = compose.density.density
+            val names = mapOf("Monday" to "Push", "Tuesday" to "Zone 2 run", "Wednesday" to "Pull", "Thursday" to "Push", "Friday" to "Tempo run", "Saturday" to "Rest")
+            val rows = names.map { (day, name) ->
+                val cell = compose.onNode(hasContentDescription("$day, $name.", substring = true)).fetchSemanticsNode()
+                val style = textStyle.merge(TextStyleC(fontSize = WEEK_CELL_NAME_SP.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center))
+                val text = measurer.measure(name, style, overflow = TextOverflow.Ellipsis, maxLines = 2, constraints = Constraints(maxWidth = cell.size.width - (4 * px).toInt()))
+                assertFalse("x$scale $day \"$name\" does not fit a ${cell.size.width / px} dp cell", text.hasVisualOverflow)
+                cell.positionInRoot.y
+            }
+            assertEquals("x$scale rows of the week", if (scale > WEEK_GRID_ONE_ROW_MAX_SCALE) 2 else 1, rows.distinct().size)
+        }
     }
 
     @Test fun `first use shows no programs, Create program and a week of rest`() {

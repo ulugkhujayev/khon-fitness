@@ -28,22 +28,18 @@ fun cardioLine(ex: Exercise, weekdays: List<Int>): String {
     return "$plan · ${everyLine(weekdays)}"
 }
 
-/** One day of the Plan tab's week grid: the item's short name, whether it is today, and whether a one-day change set it. */
+/** One day of the Plan tab's week grid: the item's name, whether it is today, and whether a one-day change set it. */
 data class WeekCell(val date: LocalDate, val name: String, val rest: Boolean, val today: Boolean, val changed: Boolean)
 
 /**
- * The week of [today], Monday to Sunday, as the plan resolves it: a dated change wins over the template. A cardio
- * workout shows its type ("Run"), which fits the narrow cell; its full name is in the cell's spoken label.
+ * The week of [today], Monday to Sunday, as the plan resolves it: a dated change wins over the template. Each day
+ * shows its item's own name, so two cardio workouts of one type ("Zone 2 run", "Tempo run") stay apart.
  */
-fun KhonRepository.PlanData.weekCells(today: LocalDate, modalities: List<Modality>): List<WeekCell> {
+fun KhonRepository.PlanData.weekCells(today: LocalDate): List<WeekCell> {
     val monday = today.minusDays(today.dayOfWeek.value - 1L)
     return (0L until 7L).map { monday.plusDays(it) }.map { d ->
         val item = itemFor(d)
-        val name = when (item.itemType) {
-            ItemType.CARDIO -> item.cardio?.let { ex -> modalities.find { it.id == ex.modalityId }?.name ?: ex.name } ?: item.name
-            else -> item.name
-        }
-        WeekCell(d, name, item.isRest, d == today, item.overridden)
+        WeekCell(d, item.name, item.isRest, d == today, item.overridden)
     }
 }
 

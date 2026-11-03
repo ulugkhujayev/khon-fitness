@@ -29,10 +29,10 @@ class PlanTabRulesTest {
         assertEquals("Steady · Every Wed, Sun", cardioLine(run, listOf(3, 7)))
     }
 
-    @Test fun `the week grid runs Monday to Sunday, marks today, and shows a cardio workout by its type`() {
-        val cells = plan(listOf(WeekPlan(1, ItemType.PROGRAM, "push"), WeekPlan(3, ItemType.CARDIO, "z2run"), WeekPlan(5, ItemType.CARDIO, "nor"))).weekCells(wednesday, types)
+    @Test fun `the week grid runs Monday to Sunday, marks today, and shows a cardio workout by its name`() {
+        val cells = plan(listOf(WeekPlan(1, ItemType.PROGRAM, "push"), WeekPlan(3, ItemType.CARDIO, "z2run"), WeekPlan(5, ItemType.CARDIO, "nor"))).weekCells(wednesday)
         assertEquals((2..8).map { LocalDate.of(2026, 11, it) }, cells.map { it.date })
-        assertEquals(listOf("Push", "Rest", "Run", "Rest", "Bike", "Rest", "Rest"), cells.map { it.name })
+        assertEquals(listOf("Push", "Rest", "Zone 2 run", "Rest", "Norwegian 4x4", "Rest", "Rest"), cells.map { it.name })
         assertEquals(listOf(false, true, false, true, false, true, true), cells.map { it.rest })
         assertEquals(listOf(wednesday), cells.filter { it.today }.map { it.date })
     }
@@ -41,15 +41,26 @@ class PlanTabRulesTest {
         val cells = plan(
             listOf(WeekPlan(1, ItemType.PROGRAM, "push"), WeekPlan(5, ItemType.PROGRAM, "push")),
             listOf(DayOverride("2026-11-06", ItemType.PROGRAM, "pull"), DayOverride("2026-11-02", ItemType.PROGRAM, "push", auto = true)),
-        ).weekCells(wednesday, types)
+        ).weekCells(wednesday)
         assertEquals("Pull", cells[4].name)
         assertEquals(listOf(false, false, false, false, true, false, false), cells.map { it.changed })
         assertEquals("Friday, Pull. Changed for this day only.", cells[4].spoken("Pull"))
         assertEquals("Wednesday, Rest. Today.", cells[2].spoken("Rest"))
     }
 
+    @Test fun `a one-day change between two cardio workouts of one type shows the other workout's name`() {
+        val tempo = Exercise("tempo", "Tempo run", Kind.CARDIO, modalityId = "run")
+        val cells = KhonRepository.PlanData(
+            listOf(WeekPlan(3, ItemType.CARDIO, "z2run"), WeekPlan(5, ItemType.CARDIO, "z2run")),
+            listOf(DayOverride("2026-11-06", ItemType.CARDIO, "tempo")), listOf(push), listOf(run, tempo),
+        ).weekCells(wednesday)
+        assertEquals("Zone 2 run", cells[2].name)
+        assertEquals("Tempo run", cells[4].name)
+        assertEquals(listOf(false, false, false, false, true, false, false), cells.map { it.changed })
+    }
+
     @Test fun `with no plan every day is rest`() {
-        val cells = KhonRepository.PlanData(emptyList(), emptyList(), emptyList(), emptyList()).weekCells(wednesday, emptyList())
+        val cells = KhonRepository.PlanData(emptyList(), emptyList(), emptyList(), emptyList()).weekCells(wednesday)
         assertEquals(List(7) { "Rest" }, cells.map { it.name })
     }
 

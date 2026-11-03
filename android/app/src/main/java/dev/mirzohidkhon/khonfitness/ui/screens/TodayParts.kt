@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -223,7 +224,8 @@ fun BodyweightCard(today: LocalDate, bodyweights: List<Bodyweight>, onSave: (Dou
                     keyboardActions = KeyboardActions(onDone = { save() }),
                     textStyle = MaterialTheme.typography.headlineMedium.copy(color = K.Text, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, fontFeatureSettings = TABULAR),
                     cursorBrush = SolidColor(K.Accent),
-                    modifier = Modifier.width(IntrinsicSize.Min).widthIn(min = 48.dp).semantics { contentDescription = "Bodyweight in kilograms" }
+                    // Room for "250.0" at this font scale; a narrow row gives it less, never more than it has.
+                    modifier = Modifier.weight(1f, fill = false).width(KG_FIELD_WIDTH.dp * LocalDensity.current.fontScale).semantics { contentDescription = "Bodyweight in kilograms" }
                         .onFocusChanged { if (it.isFocused) text = text.copy(selection = TextRange(0, text.text.length)) },
                 )
                 Text("kg", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = K.Muted, modifier = Modifier.padding(start = 6.dp).clearAndSetSemantics {})
@@ -234,6 +236,9 @@ fun BodyweightCard(today: LocalDate, bodyweights: List<Bodyweight>, onSave: (Dou
         PrimaryButton(action.text, Modifier.padding(top = 12.dp), enabled = action.enabled, description = SPOKEN[action.text]) { save() }
     }
 }
+
+/** The typed value's width at font scale 1.0: "250.0" in Headline bold, right-aligned against "kg". */
+private const val KG_FIELD_WIDTH = 96
 
 /** A 52 dp square − or + in accent: a tap steps once, a hold repeats ([repeatPress]). */
 @Composable

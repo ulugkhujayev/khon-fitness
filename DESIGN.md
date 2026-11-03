@@ -256,26 +256,42 @@ Two lines, 88 px total, hairline between rows.
 ## Today
 
 - No app bar. The screen title is the first thing.
-- Week strip: 7 equal tiles, 6 px apart, each on the group surface,
-  rounded (radius 12): the weekday letter 12 muted, the day number 17,
-  and a 7 px dot for the planned item: modality color (accent for
-  strength), filled for high intensity, ring for low or moderate, none
-  for rest. Past days: number muted, dot at 50 percent. Today's tile is
-  filled in accent, letter, number and dot in white, the number bold.
-  History's month calendar draws its days as the same tiles (weekday
-  letters stay in a row above, 52 px rows, 64 at large text): the number
-  over its dots, the selected day on Surface3, other months' days with
-  no tile and a dim number, the changed-plan mark (5 px, muted) in the
-  tile's top right corner; on today's tile every mark is white.
-- 16 px gap. The item on a group-surface card (16 px padding at the
-  sides, 14 top and bottom): a 40 px circle with the kind's symbol in
-  its color on that color at 20 percent (dumbbell in accent, a runner in
-  the modality color, a moon for rest, a green check once done), then
-  the name 22/700 over its line in muted 15. While a session runs the
-  line is "In progress · 34 min" in accent and a program adds the
-  progress bar in accent with "12 / 42" (green stays for done: the done
-  line and its check); Resume or Start under it, 44 px tall (the compact
-  primary button) to keep the card small.
+- No week strip (UI06). History's month calendar draws its days as
+  tiles on the group surface, rounded (radius 12; weekday letters stay
+  in a row above, 52 px rows, 64 at large text): the number over its
+  dots, the selected day on Surface3, other months' days with no tile
+  and a dim number, the changed-plan mark (5 px, muted) in the tile's
+  top right corner; on today's tile every mark is white.
+- The item on a group-surface card (16 px padding at the sides, 14 top
+  and bottom): a 40 px circle with the kind's symbol in its color on that
+  color at 20 percent (dumbbell in accent, a runner in the modality
+  color, a moon for rest, a green check once done), then the name 22/700
+  over its line in muted 15. A planned day: "6 exercises · 18 sets"
+  (gym) or "Bike · 4 × 4 min, 3 min rest" / "Run · Steady" (cardio),
+  with " · changed for today" while a one-day change holds it; "Change"
+  in accent 600 at the top right on a 48 x 48 px target; Start under it.
+  Rest: "Rest day", "Nothing planned. Stretch and recover.", Change, no
+  Start. No week plan at all: "No plan for today" with "Set up your
+  week" (opens Programs). While a session runs: "In progress · 3 of 12
+  sets" in accent (cardio: the interval timer's state, "Round 2 of 4 ·
+  Work", "Paused · …", or the time since its start), a program adds the
+  progress bar in accent with the time since the start, and Resume; no
+  Change. Saved today: the green check, "Done · 12 sets · 3.1 t · 58
+  min" in green ("3 of 12 sets" when some were skipped; cardio "5.2 km ·
+  30 min · 5:46 /km"), "+1 more today" in accent (48 px target, opens
+  History) when other sessions were saved today, and one tinted
+  "Review"; no Change, no Start again. Buttons on the card are 50 px
+  (the full primary button), so every target is at least 48 px.
+- Change opens a sheet "Today, Tue Nov 3" with "Only today changes. The
+  week plan stays." in muted, then Gym, Cardio and Other (Rest) choice
+  lists with a check on today's item. A pick writes the one-day change;
+  picking the week plan's own item clears it. While a change holds, a
+  tinted "Back to plan: <item>" clears it.
+- Review from Today opens the saved session read-only (a back button, no
+  Edit, no Delete): the date 17/600 over the stats line in muted, then
+  one group per exercise with "Set 1  80 kg × 10" rows, a set not done
+  reading "skipped" in dim; cardio shows its values as label/value rows.
+  History's entry keeps Edit.
 - 16 px gap. One group of 64 px rows sized for the home screen: the
   symbol in a 40 px circle of its color like the item card's, the name
   17/600 over a line of state 15 muted (green when it is good news), a
@@ -288,21 +304,22 @@ Two lines, 88 px total, hairline between rows.
   gray), and band sessions waiting ("2 new sessions", "From the band,
   ready to import", red heart); a row with nothing to say is left out.
   At large text the name and line wrap instead of cutting.
-- 28 px gap. "Bodyweight" 17/600 with the latest value 22/700 on the
-  right, a line chart of the last 30 days with a soft area fill, then
-  24 px gap and the entry on its own group-surface card (radius 20, 16
-  padding at the sides, 14 top and bottom): the picked value 34/700 with
-  "kg" in muted 15 (tap to type), its change since the last day weighed
-  in muted 13 ("+0.2 kg since Oct 5"), a 42 px ruler picker running to
-  the card's edges (ticks 22 / 15 / 9 px, 0.1 kg ticks 10 px apart, a
-  label every kg, an accent center line, edges fading into the card, a
-  haptic click per tick, firmer on a whole kg), and a tinted button (see
-  Buttons): "Add", "Update" when today has another value, "Saved" (off)
-  when the value is today's entry; while the typed text is blank or not
-  above 0 the button is off ("Add" or "Update" dimmed) and saves nothing.
-  The ruler starts at the latest entry, 70 kg before the first. One owner
-  at a time: a typed value, a screen reader adjust or a reset stops a
-  fling and moves the ruler to it, and the fling never writes over it.
+- 16 px gap. Bodyweight on one group-surface card (radius 20, 16 padding
+  at the sides, 14 top and bottom), no chart (History has it):
+  "Bodyweight" 17/600, under it on its own line a status in muted 13:
+  "No entry yet", "Last: 83.4 kg · Oct 30", or "Saved for today · −0.4 kg
+  since Oct 30". Then a row: − and + as 52 px squares (radius 12,
+  Surface2, accent glyph 28) around the value on Surface2 (52 px tall,
+  radius 12): the number 28/700 right-aligned in a 96 px slot (it grows
+  with the font scale) and "kg" in muted 15. A tap steps 0.1 kg, a hold
+  repeats (the shared stepper timing), 20 to 250 kg. Tap the number to
+  type on the decimal keyboard; "83,5" and "83.5" both read. Text that is
+  not a weight stays as typed with "Enter 20-250 kg" in red 13 under the
+  row, and the button off. The button is the primary one: "Save" for a
+  new day, "Update" when today has another value, "Saved" (off) when the
+  value is today's entry. A valid typed value saves with one tap on the
+  button or the keyboard's Done. The entry starts at the latest value,
+  75.0 kg before the first.
 - History's sets per muscle: one row per muscle, the name with this
   week's count bold and "last 3" in muted 13, then a 6 px track filled in
   accent to this week's sets with a 2 x 14 px white mark where last

@@ -33,21 +33,28 @@ Each phase ships as an installable APK.
 
 Three tabs.
 
-- Today. Top: a week strip, Monday to Sunday, one cell per day with the
-  planned item drawn as a colored dot (modality color; strength is the
-  accent color; a high-intensity item has a filled dot, low intensity a
-  ring). Today is highlighted. Tap a day to see or change its item.
-  Middle: today's item name, a one-line preview (7 blocks, 42 sets, or
-  4 x 4 min on bike), one Start button; while a session runs, the time
-  since its start, its sets done, and Resume. Under it one group of rows:
-  a newer release to install (Today checks on open; tap downloads and
-  installs, the row shows the download percent), the stretch routine, the
-  eating window, and band sessions waiting for import. Below: bodyweight as a chart of the last 30 days with the latest
-  value, and an entry card: the value as a big figure (tap to type) over
-  a ruler to drag, its change since the last day weighed, and one button:
-  Add for a new day, Update when today has another value (the save
-  replaces it), Saved (off) when the value is today's entry. While the
-  typed value is blank or not above 0 the button is off.
+- Today. Top: today's item on a card with a one-line preview (6
+  exercises · 18 sets, or Bike · 4 × 4 min, 3 min rest), "Change" and one
+  Start button. Change opens a sheet for today only: a pick writes a
+  one-day change (the week plan stays), picking the week plan's item or
+  "Back to plan" clears it. Change hides while a session runs and after
+  today's session is saved. While a session runs: its sets done or the
+  interval timer's state, and Resume. Once saved: "Done" with sets (d of
+  n when some were skipped), tonnes and minutes (cardio: km, minutes and
+  pace), one Review button that opens the session read-only (no Edit;
+  History keeps Edit), and "+1 more today" to History when other
+  sessions were saved today. With no week plan at all: "No plan for
+  today" and "Set up your week". Under it one group of rows: a newer
+  release to install (Today checks on open; tap downloads and installs,
+  the row shows the download percent), the stretch routine, the eating
+  window, and band sessions waiting for import. Below: a bodyweight card
+  with the last entry or today's save and its change since the day
+  before, − and + that step 0.1 kg (hold repeats, 20 to 250 kg), the value
+  to type (comma or dot), and one button: Save for a new day, Update when
+  today has another value (the save replaces it), Saved (off) when the
+  value is today's entry. Text that is not 20 to 250 kg stays, shows
+  "Enter 20-250 kg", and turns the button off. Today follows the date: a
+  new day shows at the next minute or on resume.
 - History. Month calendar, one colored dot per session. Tap a day to open
   the session. Below: bodyweight chart, and an exercise picker that shows
   a progress card (see Exercise progress).

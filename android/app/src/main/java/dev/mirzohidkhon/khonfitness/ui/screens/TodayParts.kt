@@ -3,6 +3,9 @@ package dev.mirzohidkhon.khonfitness.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -12,26 +15,36 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
-import java.time.DayOfWeek
 import java.time.LocalDate
 
-/** A day as a tile on the group surface: the week strip on Today, the month calendar on History (DESIGN.md, Today). */
+/** A day as a tile on the group surface: the month calendar on History (DESIGN.md, Today). */
 val DayTileShape = RoundedCornerShape(12.dp)
 
 /** Tabular figures, so day numbers and counts keep their width. */
@@ -45,58 +58,34 @@ fun itemIcon(item: PlanItem): ImageVector = when {
 }
 
 /**
- * Monday to Sunday of this week: each day a tile with the weekday letter, the number and a dot for the planned
- * item, past days muted, today filled in accent with a white dot. Tap a day to see or change it.
- */
-@Composable
-fun WeekStrip(today: LocalDate, plan: KhonRepository.PlanData, modalities: List<Modality>, onTap: (LocalDate) -> Unit) {
-    val monday = today.with(DayOfWeek.MONDAY)
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        for (i in 0 until 7) {
-            val date = monday.plusDays(i.toLong())
-            val item = plan.itemFor(date)
-            val c = itemColor(item, modalities)
-            val isToday = date == today
-            val past = date < today
-            val dateDescription = "${date.format(longDate)}, ${item.name}" + if (isToday) ", today" else ""
-            Column(
-                Modifier.weight(1f).fillMaxHeight().clip(DayTileShape).background(if (isToday) K.Accent else K.Surface)
-                    .clickable(onClickLabel = "Change plan", role = Role.Button) { onTap(date) }
-                    .clearAndSetSemantics { contentDescription = dateDescription }.padding(vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(date.dayOfWeek.name.take(1), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = if (isToday) K.AccentInk else K.Muted, maxLines = 1, softWrap = false)
-                Text(
-                    date.dayOfMonth.toString(), style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR),
-                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium, color = when { isToday -> K.AccentInk; past -> K.Muted; else -> K.Text },
-                    maxLines = 1, softWrap = false, modifier = Modifier.padding(top = 2.dp),
-                )
-                Box(Modifier.padding(top = 4.dp).height(8.dp), contentAlignment = Alignment.Center) {
-                    if (c != null) Dot(if (isToday) K.AccentInk else if (past) c.first.copy(alpha = 0.5f) else c.first, c.second, size = 7)
-                }
-            }
-        }
-    }
-}
-
-/**
- * Today's item with its kind as a symbol in its color: a running session with the time since its start, its sets
- * done (a program) and Resume; else the item with Start, or its done line with Start again once today's session
- * is saved. Rest shows its line only. A cardio session whose interval timer has ended ([timerStopped]) offers Save
- * (the form, with the timer's time and rounds) and Discard instead of Resume.
+ * Today's item on its card, with its kind as a symbol in its color. A running session: its line in accent ("In
+ * progress · 3 of 12 sets", or the timer's state) and Resume; a program adds its progress bar with the time since
+ * the start. Saved today: a green check, the done line, Review, and "+1 more today" when other sessions were saved
+ * today; the card names the saved session, whatever the plan held. Otherwise the item with Change at the top right
+ * and Start (Rest has no Start), or, with no program and no cardio workout yet, "No plan for today" with "Set up your
+ * week". Change only shows while nothing runs and nothing is saved today. A cardio session whose interval timer has
+ * ended ([timerStopped]) offers Save (the form, with the timer's time and rounds) and Discard instead of Resume.
  */
 @Composable
 fun TodayCard(
     item: PlanItem,
     line: String,
+    color: Color,
     unfinished: Session?,
+    running: String,
     progress: SetProgress?,
+    elapsed: String,
+    runningColor: Color,
+    done: Session?,
     doneText: String?,
-    modalities: List<Modality>,
-    exercises: List<Exercise>,
-    now: Long,
+    more: Int,
+    noPlan: Boolean,
     onStart: () -> Unit,
     onResume: (Session) -> Unit,
+    onChange: () -> Unit,
+    onReview: (Session) -> Unit,
+    onMore: () -> Unit,
+    onSetUp: () -> Unit,
     timerStopped: Boolean = false,
     onDiscard: (Session) -> Unit = {},
 ) {
@@ -104,41 +93,62 @@ fun TodayCard(
         when {
             unfinished != null -> {
                 CardHead(
-                    if (unfinished.itemType == ItemType.PROGRAM) Icons.Dumbbell else Icons.Runner, sessionColor(unfinished, exercises, modalities).first,
-                    unfinished.programName ?: unfinished.exerciseName ?: "Session",
-                    if (timerStopped) "Timer stopped · " + dev.mirzohidkhon.khonfitness.timer.mmss((unfinished.timeSec ?: 0).toDouble()) else progressLine(unfinished.startedAt, now), K.Accent,
+                    if (unfinished.itemType == ItemType.PROGRAM) Icons.Dumbbell else Icons.Runner, runningColor,
+                    unfinished.programName ?: unfinished.exerciseName ?: "Session", running, K.Accent,
                 )
                 if (progress != null) Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     ProgressBar(progress.done, progress.total, "${progress.done} of ${progress.total} sets done", Modifier.weight(1f), color = K.Accent)
-                    Text("${progress.done} / ${progress.total}", style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(start = 12.dp).clearAndSetSemantics {})
+                    Text(elapsed, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(start = 12.dp))
                 }
                 if (timerStopped) Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PrimaryButton("Save", Modifier.weight(1f), compact = true) { onResume(unfinished) }
-                    TintedButton("Discard", Modifier.weight(1f), color = K.Red) { onDiscard(unfinished) }
-                } else PrimaryButton("Resume", Modifier.padding(top = 14.dp), compact = true) { onResume(unfinished) }
+                    PrimaryButton("Save", Modifier.weight(1f)) { onResume(unfinished) }
+                    PrimaryButton("Discard", Modifier.weight(1f), color = K.Red.copy(alpha = 0.2f), textColor = K.Red) { onDiscard(unfinished) }
+                } else PrimaryButton("Resume", Modifier.padding(top = 14.dp)) { onResume(unfinished) }
             }
-            doneText != null -> CardHead(Icons.Check, K.Green, item.name, doneText, K.Green) {
-                Box(Modifier.padding(top = 2.dp)) { TextButton("Start again", onClick = onStart) }
+            done != null && doneText != null -> {
+                CardHead(Icons.Check, K.Green, done.programName ?: done.exerciseName ?: "Session", doneText, K.Green)
+                if (more > 0) CardLink(moreLine(more), "${moreLine(more)}, open History", Modifier.padding(start = 52.dp), onMore)
+                PrimaryButton("Review", Modifier.padding(top = if (more > 0) 4.dp else 14.dp), color = K.Accent.copy(alpha = 0.2f), textColor = K.Accent, description = "Review today's session") { onReview(done) }
             }
+            noPlan -> {
+                CardHead(Icons.Today, K.Muted, "No plan for today", "Pick a workout for each weekday.")
+                PrimaryButton("Set up your week", Modifier.padding(top = 14.dp), onClick = onSetUp)
+            }
+            item.isRest -> CardHead(Icons.Moon, K.Muted, "Rest day", line, trailing = { ChangeLink(onChange) })
             else -> {
-                CardHead(itemIcon(item), itemColor(item, modalities)?.first ?: K.Muted, item.name, line)
-                if (!item.isRest) PrimaryButton("Start", Modifier.padding(top = 14.dp), compact = true, onClick = onStart)
+                CardHead(itemIcon(item), color, item.name, line, trailing = { ChangeLink(onChange) })
+                PrimaryButton("Start", Modifier.padding(top = 14.dp), onClick = onStart)
             }
         }
     }
 }
 
-/** The symbol, then the name over its line (accent while a session runs, green once done) and anything under them. */
+/** "Change" at the card's top right: accent text on a 48 dp target. */
 @Composable
-private fun CardHead(icon: ImageVector, color: Color, title: String, line: String, lineColor: Color = K.Muted, below: (@Composable ColumnScope.() -> Unit)? = null) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        SymbolCircle(icon, color)
+private fun ChangeLink(onClick: () -> Unit) = CardLink("Change", "Change today's plan", Modifier.padding(start = 4.dp), onClick)
+
+/** A link in accent on a 48 dp target, spoken as [spoken]. */
+@Composable
+private fun CardLink(text: String, spoken: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).clip(RoundedCornerShape(8.dp))
+            .clickable(role = Role.Button, onClick = onClick).clearAndSetSemantics { contentDescription = spoken; role = Role.Button; onClick { onClick(); true } }
+            .padding(horizontal = 4.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) { Text(text, color = K.Accent, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold) }
+}
+
+/** The symbol, then the name over its line (accent while a session runs, green once done), and [trailing] at the top right. */
+@Composable
+private fun CardHead(icon: ImageVector, color: Color, title: String, line: String, lineColor: Color = K.Muted, trailing: (@Composable () -> Unit)? = null) {
+    Row(verticalAlignment = Alignment.Top) {
+        Box(Modifier.padding(top = 4.dp)) { SymbolCircle(icon, color) }
         Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f).padding(top = 2.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(line, style = MaterialTheme.typography.bodyMedium, color = lineColor, modifier = Modifier.padding(top = 1.dp))
-            below?.invoke(this)
         }
+        trailing?.invoke()
     }
 }
 
@@ -174,55 +184,73 @@ fun DoneCheck() {
     Icon(Icons.Check, contentDescription = null, tint = K.Green, modifier = Modifier.padding(start = 6.dp).size(18.dp))
 }
 
-/** The chart covers the last 30 days, today included. */
-private const val CHART_DAYS = 30L
-
-/** Bodyweight on Today: the latest value, a chart of the last 30 days, and the entry with its ruler. */
-@Composable
-fun BodyweightSection(today: LocalDate, bodyweights: List<Bodyweight>, onSave: (Double) -> Unit) {
-    val latest = bodyweights.lastOrNull()
-    Row(Modifier.fillMaxWidth().padding(top = 28.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("Bodyweight", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(end = 12.dp).semantics { heading() })
-        Text(
-            if (latest == null) "—" else "${fmt(latest.kg)} kg", style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = TABULAR),
-            modifier = if (latest == null) Modifier.semantics { contentDescription = "No entry yet" } else Modifier,
-        )
-    }
-    val from = today.minusDays(CHART_DAYS - 1)
-    val recent = bodyweights.filter { it.date.toDate() >= from }
-    if (recent.isNotEmpty()) LineChart(recent.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp))
-    BodyweightEntry(today, bodyweights, onSave)
-}
-
 /** What a screen reader says for each state of the entry button. */
-private val SPOKEN = mapOf("Add" to "Add bodyweight", "Update" to "Update today's bodyweight", "Saved" to "Today's bodyweight is saved")
+private val SPOKEN = mapOf("Save" to "Save bodyweight", "Update" to "Update today's bodyweight", "Saved" to "Today's bodyweight is saved")
 
 /**
- * Today's bodyweight entry on its own card, apart from the chart above: the picked value as a big figure (tap to
- * type), its change since the last day weighed, a ruler to drag, and a tinted Add, Update or Saved. The ruler
- * starts at the latest entry and stays on the saved value after a save. While the typed text is blank or not above 0
- * the button is off, so a tap never saves the value from before.
+ * Bodyweight on Today, one card: the title over its status line ([bodyweightStatus]), then − and + 52 dp squares
+ * around the value (tap it to type; 0.1 kg a step, a hold repeats, 20-250 kg), and Save, Update or Saved (off). A
+ * typed value saves with one tap on the button or the keyboard's Done. Text that is not a weight stays as typed,
+ * with "Enter 20-250 kg" under it and the button off. The entry starts at the latest value, 75 kg before the first.
  */
 @Composable
-fun BodyweightEntry(today: LocalDate, bodyweights: List<Bodyweight>, onSave: (Double) -> Unit) {
-    var kg by remember { mutableDoubleStateOf(startKg(bodyweights)) }
-    var touched by remember { mutableStateOf(false) }
-    // The entries load after the first frame: start at the latest one until the user picks a value.
-    LaunchedEffect(bodyweights.lastOrNull()) { if (!touched) kg = startKg(bodyweights) }
-    var valid by remember { mutableStateOf(true) }
-    // Focus on the typed figure stops the ruler, so a fling never writes over typing.
-    var stopRuler by remember { mutableIntStateOf(0) }
-    val pick: (Double) -> Unit = { kg = it; touched = true }
-    val change = changeSince(bodyweights, today, kg)
-    val action = entryAction(bodyweights, today, kg, valid)
-    Column(Modifier.padding(top = 24.dp).fillMaxWidth().clip(GroupShape).background(K.Surface).padding(vertical = 14.dp)) {
-        FigureField(kg, pick, "kg", "Bodyweight in kilograms", Modifier.padding(horizontal = 16.dp), onValid = { valid = it }, onFocus = { stopRuler++ })
-        if (change.isNotEmpty()) Text(
-            change, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        )
-        // The ruler runs to the card's edges and fades into it.
-        RulerPicker(BODYWEIGHT_RULER, { kg }, pick, "Bodyweight ruler", "kg", K.Surface, Modifier.padding(top = 10.dp), stopKey = stopRuler)
-        TintedButton(action.text, Modifier.padding(top = 12.dp).padding(horizontal = 16.dp), enabled = action.enabled, description = SPOKEN[action.text]) { if (action.enabled) onSave(kg) }
+fun BodyweightCard(today: LocalDate, bodyweights: List<Bodyweight>, onSave: (Double) -> Unit) {
+    var text by remember(today) { mutableStateOf(TextFieldValue(kgText(startKg(bodyweights)))) }
+    var touched by remember(today) { mutableStateOf(false) }
+    // The entries load after the first frame: show the latest one until the user steps or types.
+    LaunchedEffect(today, bodyweights.lastOrNull()) { if (!touched) text = TextFieldValue(kgText(startKg(bodyweights))) }
+    val kg = parseKg(text.text)
+    val action = entryAction(bodyweights, today, kg)
+    val focus = LocalFocusManager.current
+    val tick = rememberTick()
+    fun step(sign: Int) {
+        val t = kgText(stepKg(text.text, sign, startKg(bodyweights)))
+        text = TextFieldValue(t, TextRange(t.length)); touched = true; tick(false)
+    }
+    fun save() {
+        val v = parseKg(text.text) ?: return
+        if (!entryAction(bodyweights, today, v).enabled) return
+        onSave(v)
+        text = TextFieldValue(kgText(v)); focus.clearFocus()
+    }
+    Column(Modifier.padding(top = 16.dp).fillMaxWidth().clip(GroupShape).background(K.Surface).padding(horizontal = 16.dp, vertical = 14.dp)) {
+        Text("Bodyweight", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+        Text(bodyweightStatus(bodyweights, today), style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp))
+        Row(Modifier.padding(top = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            KgStep("−", "Minus 0.1 kg") { step(-1) }
+            Row(
+                Modifier.padding(horizontal = 10.dp).weight(1f).heightIn(min = 52.dp).clip(RoundedCornerShape(12.dp)).background(K.Surface2).padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                BasicTextField(
+                    value = text,
+                    // Every edit stays as typed, so nothing changes silently: text that is not a weight turns Save off.
+                    onValueChange = { new -> text = new; touched = true },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { save() }),
+                    textStyle = MaterialTheme.typography.headlineMedium.copy(color = K.Text, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, fontFeatureSettings = TABULAR),
+                    cursorBrush = SolidColor(K.Accent),
+                    // Room for "250.0" at this font scale; a narrow row gives it less, never more than it has.
+                    modifier = Modifier.weight(1f, fill = false).width(KG_FIELD_WIDTH.dp * LocalDensity.current.fontScale).semantics { contentDescription = "Bodyweight in kilograms" }
+                        .onFocusChanged { if (it.isFocused) text = text.copy(selection = TextRange(0, text.text.length)) },
+                )
+                Text("kg", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = K.Muted, modifier = Modifier.padding(start = 6.dp).clearAndSetSemantics {})
+            }
+            KgStep("+", "Plus 0.1 kg") { step(1) }
+        }
+        if (kg == null) Text(KG_ERROR, style = MaterialTheme.typography.bodySmall, color = K.Red, modifier = Modifier.padding(top = 6.dp))
+        PrimaryButton(action.text, Modifier.padding(top = 12.dp), enabled = action.enabled, description = SPOKEN[action.text]) { save() }
+    }
+}
+
+/** The typed value's width at font scale 1.0: "250.0" in Headline bold, right-aligned against "kg". */
+private const val KG_FIELD_WIDTH = 96
+
+/** A 52 dp square − or + in accent: a tap steps once, a hold repeats ([repeatPress]). */
+@Composable
+private fun KgStep(glyph: String, label: String, onStep: () -> Unit) {
+    Box(Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)).background(K.Surface2).repeatPress(label, onTap = onStep, onRepeat = onStep, onRelease = {}), contentAlignment = Alignment.Center) {
+        Text(glyph, fontSize = 28.sp, fontWeight = FontWeight.Medium, color = K.Accent)
     }
 }

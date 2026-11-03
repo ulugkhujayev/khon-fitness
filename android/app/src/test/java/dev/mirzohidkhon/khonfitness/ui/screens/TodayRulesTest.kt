@@ -84,57 +84,84 @@ class TodayRulesTest {
     private val today = LocalDate.of(2026, 10, 7)
     private val weights = listOf(Bodyweight("2026-10-01", 80.0), Bodyweight("2026-10-05", 80.4))
 
-    @Test fun `weight change compares with the last day before today`() {
-        assertEquals("+0.2 kg since Oct 5", changeSince(weights, today, 80.6))
-        assertEquals("−0.4 kg since Oct 5", changeSince(weights, today, 80.0))
-        assertEquals("Same as Oct 5", changeSince(weights, today, 80.4))
-        // Today's own entry is not the base: an update still compares with the day before.
-        assertEquals("+0.2 kg since Oct 5", changeSince(weights + Bodyweight("2026-10-07", 81.0), today, 80.6))
-        assertEquals("", changeSince(listOf(Bodyweight("2026-10-07", 81.0)), today, 80.6))
+    @Test fun `bodyweight status says no entry, the last entry, or saved for today with the change since the day before`() {
+        assertEquals("No entry yet", bodyweightStatus(emptyList(), today))
+        assertEquals("Last: 80.4 kg · Oct 5", bodyweightStatus(weights, today))
+        assertEquals("Saved for today · +0.2 kg since Oct 5", bodyweightStatus(weights + Bodyweight("2026-10-07", 80.6), today))
+        assertEquals("Saved for today · −0.4 kg since Oct 5", bodyweightStatus(weights + Bodyweight("2026-10-07", 80.0), today))
+        assertEquals("Saved for today · same as Oct 5", bodyweightStatus(weights + Bodyweight("2026-10-07", 80.4), today))
+        assertEquals("Saved for today", bodyweightStatus(listOf(Bodyweight("2026-10-07", 81.0)), today))
     }
 
-    @Test fun `entry button is Add for a new day, Update for another value, Saved when equal`() {
-        assertEquals(EntryAction("Add", true), entryAction(weights, today, 80.6))
+    @Test fun `entry button is Save for a new day, Update for another value, Saved when equal`() {
+        assertEquals(EntryAction("Save", true), entryAction(weights, today, 80.6))
         val withToday = weights + Bodyweight("2026-10-07", 80.6)
         assertEquals(EntryAction("Update", true), entryAction(withToday, today, 80.7))
         assertEquals(EntryAction("Saved", false), entryAction(withToday, today, 80.6))
     }
 
-    @Test fun `ruler starts at the latest entry, or at 70 kg before the first`() {
+    @Test fun `entry starts at the latest entry, or at 75 kg before the first`() {
         assertEquals(80.4, startKg(weights), 0.0)
-        assertEquals(70.0, startKg(emptyList()), 0.0)
+        assertEquals(75.0, startKg(emptyList()), 0.0)
+        assertEquals("75.0", kgText(startKg(emptyList())))
+    }
+
+    @Test fun `typed weight reads a comma or a dot, and only 20 to 250 kg`() {
+        assertEquals(83.5, parseKg("83,5")!!, 0.0)
+        assertEquals(83.5, parseKg("83.5")!!, 0.0)
+        assertEquals(83.0, parseKg("83")!!, 0.0)
+        assertEquals(83.0, parseKg("83.")!!, 0.0)
+        assertEquals(20.0, parseKg("20")!!, 0.0)
+        assertEquals(250.0, parseKg("250")!!, 0.0)
+        for (bad in listOf("", " ", "0", "19", "19.9", "250.1", "251", "abc", "8a", ".", ",", "1e2", "83.5.1", "83.55555", "0083.500", "1234567890")) assertNull(bad, parseKg(bad))
+        // Seven characters is the longest weight: "250.0" and a slip.
+        assertEquals(83.6, parseKg("83.5555")!!, 0.0)
+    }
+
+    @Test fun `entry button is off while the typed text is not a weight`() {
+        assertEquals(EntryAction("Save", false), entryAction(weights, today, parseKg("")))
+        val withToday = weights + Bodyweight("2026-10-07", 80.6)
+        assertEquals(EntryAction("Update", false), entryAction(withToday, today, parseKg("251")))
+        assertEquals(EntryAction("Save", false), entryAction(weights, today, parseKg("0")))
+    }
+
+    @Test fun `minus and plus step 0_1 kg inside 20 to 250`() {
+        assertEquals(83.1, stepKg("83.0", 1, 75.0), 0.0)
+        assertEquals(82.9, stepKg("83,0", -1, 75.0), 0.0)
+        assertEquals(250.0, stepKg("250.0", 1, 75.0), 0.0)
+        assertEquals(20.0, stepKg("20.0", -1, 75.0), 0.0)
+        // A number outside the range steps from the nearer end; text that is no number steps from the fallback.
+        assertEquals(20.1, stepKg("19", 1, 75.0), 0.0)
+        assertEquals(250.0, stepKg("300", 1, 75.0), 0.0)
+        assertEquals(75.1, stepKg("abc", 1, 75.0), 0.0)
+        assertEquals(74.9, stepKg("", -1, 75.0), 0.0)
     }
 
     private fun weighted(id: String, kg: Double, reps: Int, status: String = SetStatus.DONE) =
         SetLog(id, "s", 0, false, 0, 0, 0, "e", "Bench", 8, 12, 2.5, weightKg = kg, reps = reps, status = status)
 
-    @Test fun `done line for a program counts done sets and their volume in tonnes, singular and plural`() {
-        val program = Session("s", "2026-10-07", start, start + 3_600_000, ItemType.PROGRAM, programId = "p")
-        assertEquals("Done · 1 set · 0.8 t", doneLine(program, listOf(weighted("1", 80.0, 10))))
+    @Test fun `done line for a program gives sets, tonnes and minutes, and says d of n when sets were skipped`() {
+        val program = Session("s", "2026-10-07", start, start + 58 * 60_000, ItemType.PROGRAM, programId = "p")
+        assertEquals("Done · 1 set · 0.8 t · 58 min", doneLine(program, listOf(weighted("1", 80.0, 10))))
         val logs = listOf(weighted("1", 80.0, 10), weighted("2", 100.0, 8), weighted("3", 100.0, 8, SetStatus.SKIPPED), weighted("4", 60.0, 10).copy(sessionId = "other"))
-        assertEquals("Done · 2 sets · 1.6 t", doneLine(program, logs))
-        assertEquals("Done · 0 sets · 0 t", doneLine(program, emptyList()))
+        assertEquals("Done · 2 of 3 sets · 1.6 t · 58 min", doneLine(program, logs))
+        assertEquals("Done · 2 sets · 1.6 t · 58 min", doneLine(program, logs.take(2)))
+        val oneOfTwelve = listOf(weighted("1", 80.0, 10)) + (2..12).map { weighted("$it", 80.0, 10, SetStatus.SKIPPED) }
+        assertEquals("Done · 1 of 12 sets · 0.8 t · 58 min", doneLine(program, oneOfTwelve))
+        assertEquals("Done · 0 sets · 0 t · 1 h 5 min", doneLine(program.copy(finishedAt = start + 65 * 60_000), emptyList()))
     }
 
-    @Test fun `done line for cardio gives its time and distance`() {
+    @Test fun `done line for cardio gives distance, time and pace`() {
         val cardio = Session("c", "2026-10-07", start, start + 1_800_000, ItemType.CARDIO, exerciseId = "run", timeSec = 1830, distanceM = 5200)
-        assertEquals("Done · 30 min · 5.2 km", doneLine(cardio, emptyList()))
+        assertEquals("Done · 5.2 km · 30 min · 5:52 /km", doneLine(cardio, emptyList()))
         assertEquals("Done · 30 min", doneLine(cardio.copy(distanceM = null), emptyList()))
         assertEquals("Done · 5.2 km", doneLine(cardio.copy(timeSec = null), emptyList()))
+        assertEquals("Done", doneLine(cardio.copy(timeSec = null, distanceM = null), emptyList()))
     }
 
     @Test fun `done line for stretching says done today with its length, singular and plural`() {
         assertEquals("Done today · 1 min · 1 stretch", routineLine(routineSummary(45, 1), doneToday = true))
         assertEquals("Done today · 12 min · 10 stretches", routineLine(routineSummary(700, 10), doneToday = true))
-    }
-
-    @Test fun `entry button is off while the typed text is blank or not above 0`() {
-        // Clear the figure or type 0 on a new day: Add stays, off, so a tap does not save the value from before.
-        assertEquals(EntryAction("Add", false), entryAction(weights, today, 70.0, valid = false))
-        val withToday = weights + Bodyweight("2026-10-07", 80.6)
-        assertEquals(EntryAction("Update", false), entryAction(withToday, today, 80.6, valid = false))
-        assertEquals(EntryAction("Add", false), entryAction(weights, today, 0.0))
-        assertEquals(EntryAction("Add", true), entryAction(weights, today, 70.0, valid = true))
     }
 
     private val release = Updater.Release("v0.5.0", assets = listOf(Updater.Asset("khon-fitness.apk", "https://example.invalid/khon-fitness.apk")))

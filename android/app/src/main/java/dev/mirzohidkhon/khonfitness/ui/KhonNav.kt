@@ -62,6 +62,8 @@ import dev.mirzohidkhon.khonfitness.ui.theme.K
 object Routes {
     const val TODAY = "today"; const val HISTORY = "history"; const val PROGRAMS = "programs"
     fun session(id: String) = "session/$id"
+    /** A saved session read-only, from Today's Review: no Edit. */
+    fun review(sessionId: String) = "review/$sessionId"
     fun program(id: String) = "program/$id"
     fun block(programId: String, blockId: String) = "block/$programId/$blockId"
     fun exercise(id: String) = "exercise/$id"
@@ -110,6 +112,7 @@ fun KhonNav() {
                 composable(Routes.HISTORY) { HistoryScreen(vm, nav) }
                 composable(Routes.PROGRAMS) { ProgramsScreen(vm, nav) }
                 composable("session/{id}") { e -> SessionScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                composable("review/{id}") { e -> ReviewScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("cardio/{id}") { e -> CardioScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("program/{id}") { e -> ProgramEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("block/{programId}/{blockId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", e.arguments?.getString("blockId") ?: "") }

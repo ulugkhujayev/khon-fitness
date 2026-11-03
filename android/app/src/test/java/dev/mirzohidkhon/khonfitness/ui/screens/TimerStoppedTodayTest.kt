@@ -10,6 +10,7 @@ import dev.mirzohidkhon.khonfitness.data.ItemType
 import dev.mirzohidkhon.khonfitness.data.Kind
 import dev.mirzohidkhon.khonfitness.data.PlanItem
 import dev.mirzohidkhon.khonfitness.data.Session
+import dev.mirzohidkhon.khonfitness.ui.theme.K
 import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -33,6 +34,13 @@ class TimerStoppedTodayTest {
     private fun cardio(timeSec: Int? = null, finishedAt: Long? = null) =
         Session(id = "c1", date = "2026-11-03", startedAt = 1L, finishedAt = finishedAt, itemType = ItemType.CARDIO, exerciseId = "tabata", exerciseName = "Tabata bike", timeSec = timeSec)
 
+    @androidx.compose.runtime.Composable
+    private fun card(s: Session, onResume: (Session) -> Unit = {}, timerStopped: Boolean = false, onDiscard: (Session) -> Unit = {}) = TodayCard(
+        PlanItem(ItemType.CARDIO, cardio = tabata), "", K.Accent, s, runningLine(s, emptyList(), null, 100_000L), null, "", K.Accent,
+        done = null, doneText = null, more = 0, noPlan = false,
+        onStart = {}, onResume = onResume, onChange = {}, onReview = {}, onMore = {}, onSetUp = {}, timerStopped = timerStopped, onDiscard = onDiscard,
+    )
+
     @Test fun `a stopped timer is one whose time is stored while no timer runs for the session`() {
         assertTrue(timerStopped(cardio(timeSec = 95), runningTimer = null)) // after Stop, or after an app restart
         assertTrue(timerStopped(cardio(timeSec = 95), runningTimer = "other"))
@@ -48,10 +56,7 @@ class TimerStoppedTodayTest {
         var discarded: Session? = null
         compose.setContent {
             KhonTheme {
-                TodayCard(
-                    PlanItem(ItemType.CARDIO, cardio = tabata), "", s, null, null, emptyList(), listOf(tabata), now = 100_000L,
-                    onStart = {}, onResume = { saved = it }, timerStopped = timerStopped(s, null), onDiscard = { discarded = it },
-                )
+                card(s, onResume = { saved = it }, timerStopped = timerStopped(s, null), onDiscard = { discarded = it })
             }
         }
         assertTrue(compose.onAllNodesWithText("Resume").fetchSemanticsNodes().isEmpty())
@@ -65,7 +70,7 @@ class TimerStoppedTodayTest {
     @Test fun `a running cardio session keeps Resume`() {
         val s = cardio()
         compose.setContent {
-            KhonTheme { TodayCard(PlanItem(ItemType.CARDIO, cardio = tabata), "", s, null, null, emptyList(), listOf(tabata), now = 100_000L, onStart = {}, onResume = {}) }
+            KhonTheme { card(s) }
         }
         compose.onNodeWithText("Resume").fetchSemanticsNode()
         assertTrue(compose.onAllNodesWithText("Discard").fetchSemanticsNodes().isEmpty())

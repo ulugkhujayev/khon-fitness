@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -101,10 +102,13 @@ private val BAR_SIDE = 88.dp
 /** Scroll offset of a lazy list for [EditorTopBar]: past the first item it counts as scrolled all the way. */
 fun androidx.compose.foundation.lazy.LazyListState.barOffset(): Int = listBarOffset(firstVisibleItemIndex, firstVisibleItemScrollOffset)
 
-/** 36 dp round bar button on the group surface, like a Liquid Glass toolbar item without the blur. */
+/**
+ * 36 dp round bar button on the group surface, like a Liquid Glass toolbar item without the blur. Its target is 48 dp
+ * also in the 44 dp row of a tab's large title, where it reaches 2 dp past the row on each side.
+ */
 @Composable
 fun BarCircleButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.requiredSize(48.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Box(Modifier.size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).background(K.Surface), contentAlignment = Alignment.Center) {
             androidx.compose.material3.Icon(icon, contentDescription = label, tint = K.Accent, modifier = Modifier.size(18.dp))
         }

@@ -37,7 +37,8 @@ D1, swap with "update the program too" (`SwapBySlotTest`, `SessionStartOneStateT
 5. A→B session only, B→C with update, restart, C→D with update: the program row holds D.
 6. Two sessions from one program; update in the first, then in the second: the second refuses.
 7. Import (both modes) or reset while a session runs, also with its origin write pending; swap with update: refused; no origin survives.
-8. Origin removed or unreadable: refused. Finish or discard removes only that session's origin.
+8. Origin removed or unreadable, a value of another type under its key, or a store that fails to read: refused, no crash.
+   Finish or discard removes only that session's origin.
 9. Tied block sortOrder, tied slots, a missing-exercise row: selection by (sortOrder, id) and (slot, id), never a wrong row.
 10. A block edit between session start's program reads waits: logs and fingerprint from one database state.
 11. Only sets or rep limits changed since the start: refused.
@@ -46,10 +47,13 @@ D1, swap with "update the program too" (`SwapBySlotTest`, `SessionStartOneStateT
 D2, merge (`MergeConfirmTest`):
 13. Missing source, missing target, or source = target: refused, nothing written.
 
-D3, one exit guard per editor screen (`ExitGuardTest`):
-14. Two taps in one frame on each closing action (Done, Archive, Unarchive, Delete, Merge, Back) of each editor: one write, one pop.
+D3, one exit guard per editor screen (`ExitGuardTest`, `SystemBackGuardTest`):
+14. Two taps in one frame on each closing action (Done, Archive, Unarchive, Delete, Merge, Discard, Back) of each editor: one write, one pop.
 15. Done and Back in one frame: one pop.
 16. A refused Delete, then Done: Done works.
+16a. System Back takes the same guard on every editor, the cardio form and the session screen: Done (or Save, Back)
+    and system Back in one frame pop once; system Back while a Save, Merge or Delete is pending pops nothing, then the
+    action pops once. An action that completes after its screen left by another way pops nothing.
 
 D4, cardio save (`CardioSaveNeedsTest`):
 17. An exercise with only heart rate and watts: the form shows Time; Save off while empty, on with a time.

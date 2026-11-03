@@ -53,13 +53,13 @@ Three tabs.
   a progress card (see Exercise progress).
 - Plan. A "+" adds a gym program, a cardio workout, a stretch routine or
   an exercise. This week: Monday to Sunday in seven cells with each day's
-  item (a cardio workout by its type), today tinted, and a dot on a day
+  item by name, today tinted, and a dot on a day
   that a one-day change set; Edit opens the week plan. Then the gym
   programs (the active one filled; blocks, sets and "Every Tue, Sat" from
   the week plan, or "Not in the week"), the cardio workouts (type pill,
   name, plan; archived ones last under Archived), the stretch routines,
   and the Library: Exercises (strength only, searchable, grouped by
-  muscle, archived last) and Stretches. Settings (export, import, check
+  muscle, archived ones under one closed "Archived (n)" row) and Stretches. Settings (export, import, check
   for update) opens from the gear on Today.
 - A cardio workout's type (bike, run, swim, row, or one the user adds
   with "New type…" in the workout's editor: name and color) colors it on

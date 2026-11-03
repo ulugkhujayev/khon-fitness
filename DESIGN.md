@@ -116,11 +116,12 @@ padded cards, per-item buttons, "Updated" lines.
   program, Cardio workout, Stretch routine, Exercise. Then This week with
   an accent "Edit" (48 px target) on its section title, over a grid of
   seven cells of one height, 4 px apart, radius 12: the weekday in 11 px
-  muted, the item's short name in 12 px semibold (muted for rest; a
-  cardio workout by its type), today's cell on AccentSoft with its
-  weekday in accent, and a 5 px accent dot under a day a one-day change
-  set. The cell text stops growing at font scale 1.15; each cell speaks
-  its day, full item name, "Today" and "Changed for this day only".
+  muted, the item's name in 12 px semibold, two lines at most, then "…"
+  (muted for rest), today's cell on AccentSoft with its weekday in
+  accent, and a 5 px accent dot under a day a one-day change set. The
+  cell text grows with the font scale; above 1.15 the week wraps to two
+  rows of four cells (Mon-Thu, Fri-Sun). Each cell speaks its day, full
+  item name, "Today" and "Changed for this day only".
 - Gym programs, cardio workouts and stretch routines are rows with the
   title over a muted line (up to two lines each), 56 px minimum: a dot
   (filled = active) for programs and routines, a type pill (11 px text in
@@ -128,8 +129,9 @@ padded cards, per-item buttons, "Updated" lines.
   workouts follow under an "Archived" title. An empty list says "No …
   yet"; with no programs a "Create program" row in accent follows.
 - The Exercises list: search, then strength exercises under muscle
-  section titles in alphabetical order, archived ones last under
-  "Archived" in dim text. No kind switch and no muscle filter.
+  section titles in alphabetical order, then one "Archived (n)" row,
+  closed at first, whose chevron turns down when a tap opens the archived
+  exercises in dim text under it. No kind switch and no muscle filter.
 - The week plan's section title sums up the template ("5 training days ·
   2 rest days", "1 training day" in the singular). Each weekday leads
   with a tile of what it holds in its color (a dumbbell for a program, a

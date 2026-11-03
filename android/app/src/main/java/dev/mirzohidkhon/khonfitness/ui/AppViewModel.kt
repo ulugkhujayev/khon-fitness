@@ -38,17 +38,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** True while "+" on Stretching writes a new routine; a second tap waits, also after Stretching was left or rebuilt. */
     var creatingRoutine = false
 
-    /** The last exercise merge while its Undo shows ([MergeUndoBar]): cleared on Undo, after 10 s, or by the next merge. */
-    val lastMerge = kotlinx.coroutines.flow.MutableStateFlow<MergeDone?>(null)
-    /** Merges [from] into [into] and keeps the snapshot for Undo. */
-    fun mergeExercise(from: String, into: Exercise) = run { repo.mergeExerciseWithUndo(from, into.id)?.let { lastMerge.value = MergeDone(it, into.name) } }
-    /** Undo of [done], once: a second tap finds nothing. */
-    fun undoMerge(done: MergeDone) {
-        if (lastMerge.value !== done) return
-        lastMerge.value = null
-        run { repo.undoMerge(done.snapshot) }
-    }
-
     /** The open block of each session, so Back and Resume keep it (process lifetime). */
     val openPicks = dev.mirzohidkhon.khonfitness.ui.screens.OpenPicks()
 

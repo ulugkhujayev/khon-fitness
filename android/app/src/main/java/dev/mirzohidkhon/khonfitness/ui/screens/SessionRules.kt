@@ -42,11 +42,14 @@ fun summarize(logs: List<SetLog>, all: List<SetLog>, sessionId: String, startedA
 
 /**
  * Runs its action the first time only: a second tap in the same frame, before the screen has left, does nothing.
- * Guards an action that leaves a screen (Save, Discard), so it never runs twice or pops the screen under it too.
+ * One per screen, taken by every action that leaves it (Done, Save, Archive, Delete, Merge, Discard, Back), so no
+ * two of them run or pop the screen under it too. A refused action [release]s it.
  */
 class Once {
     private var ran = false
     operator fun invoke(action: () -> Unit) { if (ran) return; ran = true; action() }
+    /** A refused action gives the guard back, so the next closing action runs. */
+    fun release() { ran = false }
 }
 
 /** Set logs grouped by block, in block order, each block in execution order. */

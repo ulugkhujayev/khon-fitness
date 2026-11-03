@@ -120,6 +120,9 @@ fun canDeleteExercise(usage: Int?): Boolean = usage == 0
 /** A merge the user picked, waiting for its confirm: the target and what moves ([mergeBody]). */
 data class MergeAsk(val into: Exercise, val sets: Int, val sessions: Int)
 
+/** Why a confirmed merge did not run ([dev.mirzohidkhon.khonfitness.data.KhonDao.mergeExercise]). */
+const val MERGE_REFUSED = "Not merged: one of the two exercises is gone."
+
 /** The merge confirm's line: "12 sets and 4 sessions move to Bench Press. Old Bench is deleted." */
 fun mergeBody(from: String, into: String, sets: Int, sessions: Int): String =
     "$sets ${if (sets == 1) "set" else "sets"} and $sessions ${if (sessions == 1) "session" else "sessions"} move to $into. $from is deleted."

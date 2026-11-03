@@ -54,6 +54,8 @@ fun ProgramEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Str
     val blockExercises by vm.blockExercises.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val draft = rememberSaveable(saver = ProgramDraft.Saver) { ProgramDraft(isNew = programId == "new") }
+    // Done, Back and Delete leave: the first one in a frame runs, the others do nothing ([Once]).
+    val leave = remember { Once() }
     val id = draft.programId(programId)
     val program = id?.let { pid -> programs.find { it.id == pid } }
     if (!draft.isNew && program == null) return
@@ -61,9 +63,9 @@ fun ProgramEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Str
     val savedActive = program?.active == true
     val myBlocks = if (id == null) emptyList() else blocks.filter { it.programId == id }.sortedBy { it.sortOrder }
     val confirmDelete = rememberConfirm<Program>()
-    fun done() {
+    fun done() = leave action@{
         val save = draft.done(newId(), program, onlyProgram)
-        val target = draft.programId(programId) ?: return
+        val target = draft.programId(programId) ?: return@action leave.release()
         vm.run {
             save.create?.let { vm.repo.createProgram(it) }
             save.rename?.let { vm.repo.setProgramName(target, it) }
@@ -74,7 +76,7 @@ fun ProgramEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Str
         draft.programForBlock(newId(), onlyProgram)?.let { p -> vm.run { vm.repo.createProgram(p) } }
         draft.programId(programId)?.let { nav.navigate(Routes.block(it, "new")) }
     }
-    EditorScaffold("Programs", program?.name ?: "New program", onBack = { nav.popBackStack() }, onDone = ::done) {
+    EditorScaffold("Programs", program?.name ?: "New program", onBack = { leave { nav.popBackStack() } }, onDone = ::done) {
         GroupedList {
             FieldRow("Name", divider = false) { InlineTextField(draft.name ?: program?.name ?: "", { draft.name = it }, placeholder = "Program name", label = "Name") }
             // A saved active program stays on: turning another one on is what moves the mark.
@@ -99,7 +101,7 @@ fun ProgramEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Str
         }
     }
     ConfirmSheet(confirmDelete, title = { "Delete ${it.name}?" }, body = { "The program and its blocks go away. Past sessions keep their sets." }) { p ->
-        vm.run { vm.repo.deleteProgram(p.id) }; nav.popBackStack()
+        leave { vm.run { vm.repo.deleteProgram(p.id) }; nav.popBackStack() }
     }
 }
 
@@ -115,6 +117,8 @@ fun BlockEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Strin
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val draft = rememberSaveable(saver = BlockDraft.Saver) { BlockDraft(isNew = blockId == "new") }
     var draftSuperset by rememberSaveable { mutableStateOf(true) }
+    // Done, Back and Delete leave: the first one in a frame runs ([Once]).
+    val leave = remember { Once() }
     val id = draft.blockId(blockId)
     val block = id?.let { b -> blocks.find { it.id == b } }
     if (!draft.isNew && block == null) return
@@ -135,7 +139,7 @@ fun BlockEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Strin
         // The stored rows decide, not the list on screen: a slot row saved meanwhile gets the pick, not a second row.
         vm.run { vm.repo.setSlotExercise(id, slot, exerciseId) }
     }
-    EditorScaffold("Program", "Block ${index + 1}", onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) {
+    EditorScaffold("Program", "Block ${index + 1}", onBack = { leave { nav.popBackStack() } }, onDone = { leave { nav.popBackStack() } }) {
         GroupedList {
             ToggleRow("Superset", superset, divider = false) { on -> if (block == null) draftSuperset = on else vm.run { vm.repo.setBlockSuperset(block.id, on) } }
         }
@@ -172,7 +176,7 @@ fun BlockEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Strin
         vm.run { vm.repo.deleteBlockExercise(be.id) }
     }
     ConfirmSheet(confirmDelete, title = { "Delete block ${index + 1}?" }, body = { "Its exercises go with it. Past sessions keep their sets." }) { b ->
-        vm.run { vm.repo.deleteBlock(b.id) }; nav.popBackStack()
+        leave { vm.run { vm.repo.deleteBlock(b.id) }; nav.popBackStack() }
     }
 }
 
@@ -188,6 +192,10 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val isNew = exerciseId == "new"
+    // Done, Back, Archive, Merge and Delete leave: the first one in a frame runs; a refused merge or delete gives it back.
+    val leave = remember { Once() }
+    // Why the last merge was refused, under the actions.
+    var refusal by remember { mutableStateOf<String?>(null) }
     val original = exercises.find { it.id == exerciseId }
     if (!isNew && original == null) return
     // What the editor opened with: Done writes only the fields that differ from it, onto the row as it is then.
@@ -201,8 +209,8 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
     val confirmMerge = rememberConfirm<MergeAsk>()
     val locked = kindLocked(isNew, usage)
     val isStrength = draft.kind == Kind.STRENGTH
-    EditorScaffold("Library", if (isNew) "New exercise" else original!!.name, onBack = { nav.popBackStack() }, onDone = {
-        if (draft.name.isNotBlank()) vm.run { vm.repo.saveExerciseEdits(opened, draft.copy(name = draft.name.trim())) }; nav.popBackStack()
+    EditorScaffold("Library", if (isNew) "New exercise" else original!!.name, onBack = { leave { nav.popBackStack() } }, onDone = {
+        leave { if (draft.name.isNotBlank()) vm.run { vm.repo.saveExerciseEdits(opened, draft.copy(name = draft.name.trim())) }; nav.popBackStack() }
     }) {
         GroupedList {
             FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Exercise name", label = "Name") }
@@ -239,12 +247,12 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
             }
             GroupedList(Modifier.padding(top = 24.dp)) { notes(false) }
         }
-        if (!isNew) EditorActions(note = if ((usage ?: 0) > 0) "Used in a session, program, or plan: archive or merge it instead." else null) {
+        if (!isNew) EditorActions(note = refusal ?: if ((usage ?: 0) > 0) "Used in a session, program, or plan: archive or merge it instead." else null) {
             GroupedList {
                 val archived = original!!.archived
                 ActionRow(if (archived) Icons.Unarchive else Icons.Archive, if (archived) "Unarchive" else "Archive", divider = false) {
                     // Archive keeps the edits made on the page: they save first, then the one column, in one transaction.
-                    vm.run { vm.repo.archiveExerciseWithEdits(opened!!, draft.copy(name = draft.name.trim()), !archived) }; nav.popBackStack()
+                    leave { vm.run { vm.repo.archiveExerciseWithEdits(opened!!, draft.copy(name = draft.name.trim()), !archived) }; nav.popBackStack() }
                 }
                 ActionRow(Icons.Merge, "Merge into…") { sheet = "merge" }
             }
@@ -276,11 +284,13 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
         }, onDismiss = ::close, searchable = true)
     }
     val sourceName = original?.name ?: draft.name
+    // Merge and Delete are checked again when they run ([KhonDao.mergeExercise], [KhonDao.deleteExerciseIfUnused]): the
+    // editor leaves only once one wrote; a refusal keeps it open with the reason.
     ConfirmSheet(confirmMerge, title = { "Merge $sourceName into ${it.into.name}?" }, body = { mergeBody(sourceName, it.into.name, it.sets, it.sessions) }, action = "Merge") { m ->
-        vm.mergeExercise(exerciseId, m.into); nav.popBackStack()
+        leave { vm.run { if (vm.repo.mergeExercise(exerciseId, m.into.id)) nav.popBackStack() else { refusal = MERGE_REFUSED; leave.release() } } }
     }
     ConfirmSheet(confirmDelete, title = { "Delete ${it.name}?" }, body = { "It goes from the library for good." }) { e ->
-        vm.run { vm.repo.deleteExercise(e.id) }; nav.popBackStack()
+        leave { vm.run { if (vm.repo.deleteExercise(e.id)) nav.popBackStack() else { usage = vm.repo.exerciseUsage(exerciseId); leave.release() } } }
     }
 }
 
@@ -293,12 +303,14 @@ fun fieldLabel(f: String) = when (f) { "time" -> "Time"; "distance" -> "Distance
 fun ModalityEditorScreen(vm: AppViewModel, nav: NavHostController, modalityId: String) {
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val isNew = modalityId == "new"
+    // Done, Back and Archive leave: the first one in a frame runs ([Once]).
+    val leave = remember { Once() }
     val original = modalities.find { it.id == modalityId }
     if (!isNew && original == null) return
     val opened = remember(modalityId, original == null) { original }
     var draft by remember(modalityId, original == null) { mutableStateOf(opened ?: Modality(newId(), "", PRESET_COLORS[3])) }
-    EditorScaffold("Modalities", if (isNew) "New modality" else original!!.name, onBack = { nav.popBackStack() }, onDone = {
-        if (draft.name.isNotBlank()) vm.run { vm.repo.saveModalityEdits(opened, draft.copy(name = draft.name.trim())) }; nav.popBackStack()
+    EditorScaffold("Modalities", if (isNew) "New modality" else original!!.name, onBack = { leave { nav.popBackStack() } }, onDone = {
+        leave { if (draft.name.isNotBlank()) vm.run { vm.repo.saveModalityEdits(opened, draft.copy(name = draft.name.trim())) }; nav.popBackStack() }
     }) {
         GroupedList { FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Bike, rowing…", label = "Name") } }
         SectionTitle("Color", Modifier.padding(top = 24.dp))
@@ -307,7 +319,7 @@ fun ModalityEditorScreen(vm: AppViewModel, nav: NavHostController, modalityId: S
             GroupedList {
                 val archived = original!!.archived
                 ActionRow(if (archived) Icons.Unarchive else Icons.Archive, if (archived) "Unarchive" else "Archive", divider = false) {
-                    vm.run { vm.repo.archiveModalityWithEdits(opened!!, draft.copy(name = draft.name.trim()), !archived) }; nav.popBackStack()
+                    leave { vm.run { vm.repo.archiveModalityWithEdits(opened!!, draft.copy(name = draft.name.trim()), !archived) }; nav.popBackStack() }
                 }
             }
         }

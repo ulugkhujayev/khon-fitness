@@ -82,11 +82,13 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     // The set whose kg field takes focus once its row is composed and placed (a wrap target may still be off screen).
     val pendingFocus = remember { PendingFocus() }
     var swapLog by remember { mutableStateOf<SetLog?>(null) }
+    // Why "Update the program too" changed only this workout ([SWAP_REFUSED]), until the sheet closes.
+    var swapNotice by remember { mutableStateOf<String?>(null) }
     var summary by remember { mutableStateOf<Summary?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     // Sets whose check was refused for a missing weight or reps: their rows say what to enter ([setMissing]).
     var refused by remember { mutableStateOf(emptySet<String>()) }
-    // Save and Discard leave the screen: a second tap in the same frame must not finish twice or pop Today too.
+    // Save, Discard and Back leave the screen: a second tap in the same frame must not finish twice or pop Today too.
     val leave = remember { Once() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -133,7 +135,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val openSummary = { summary = summarize(logs, vm.allSetLogs.value, s.id, s.startedAt, System.currentTimeMillis()) }
 
     Column(Modifier.fillMaxSize()) {
-        if (s.finished) EditorTopBar("History", s.programName ?: "Session", scrollPx = { listState.barOffset() }, onBack = { nav.popBackStack() }, done = if (editing) "Done" else "Edit") { editing = !editing }
+        if (s.finished) EditorTopBar("History", s.programName ?: "Session", scrollPx = { listState.barOffset() }, onBack = { leave { nav.popBackStack() } }, done = if (editing) "Done" else "Edit") { editing = !editing }
         Box(Modifier.weight(1f)) {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = topPadding, bottom = 24.dp)) {
                 itemsIndexed(blocks, key = { _, b -> b.first().blockIndex }) { bi, blockLogs ->
@@ -167,12 +169,17 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
             if (running) SessionHeader(
                 s.programName ?: "Session", done, logs.size, navHeight, rowHeight, lineHeight,
                 onNavHeight = { navHeight = max(SESSION_NAV.dp, it) },
-                onBack = { nav.popBackStack() }, onFinish = openSummary, scrollPx = { listState.barOffset() },
+                onBack = { leave { nav.popBackStack() } }, onFinish = openSummary, scrollPx = { listState.barOffset() },
             )
         }
     }
     swapLog?.let { log -> SwapSheet(exercises.filter { it.kind == Kind.STRENGTH && !it.archived }, log, onDismiss = { swapLog = null }) { ex, updateProgram ->
-        vm.run { vm.repo.swapExerciseInSession(log, ex, updateProgram, s.programId) }; swapLog = null
+        swapLog = null
+        vm.run { if (vm.repo.swapExerciseInSession(log, ex, updateProgram) == SwapResult.SessionOnly(refused = true)) swapNotice = SWAP_REFUSED }
+    } }
+    swapNotice?.let { notice -> Sheet("Only this workout changed", { swapNotice = null }) {
+        Text(notice, color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 16.dp).semantics { liveRegion = LiveRegionMode.Polite })
+        PrimaryButton("OK") { swapNotice = null }
     } }
     if (confirmDelete) ConfirmSheet(
         if (s.finished) "Delete this session?" else "Discard this workout?",

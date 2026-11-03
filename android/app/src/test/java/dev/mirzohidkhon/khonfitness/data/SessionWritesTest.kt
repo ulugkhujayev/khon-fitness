@@ -120,28 +120,29 @@ class SessionWritesTest {
     @Test fun `a swap changes only the exercise columns of its sets`() = runBlocking {
         seed()
         repo.setSetWeight("b", 70.0)
-        repo.swapExerciseInSession(dao.setLogsOnce("s1").first(), Exercise("incline", "Incline Press", Kind.STRENGTH, stepKg = 1.25), updateProgram = false, programId = null)
+        repo.swapExerciseInSession(dao.setLogsOnce("s1").first(), Exercise("incline", "Incline Press", Kind.STRENGTH, stepKg = 1.25), updateProgram = false)
         val logs = dao.setLogsOnce("s1")
         assertTrue(logs.all { it.exerciseId == "incline" && it.exerciseName == "Incline Press" && it.stepKg == 1.25 })
         assertEquals(70.0, logs.first { it.id == "b" }.weightKg!!, 0.0)
         assertEquals(listOf(SetStatus.DONE, SetStatus.PENDING, SetStatus.SKIPPED), logs.map { it.status })
     }
 
-    @Test fun `a swap with Update the program too changes only that program's block exercises`() = runBlocking {
+    @Test fun `a swap with Update the program too on a session with no origin changes no program`() = runBlocking {
         seed()
         dao.upsertPrograms(listOf(Program("p1", "Push", active = true), Program("p2", "Pull", sortOrder = 1)))
         dao.upsertBlocks(listOf(Block("b1", "p1", 0), Block("b2", "p2", 0)))
         dao.upsertBlockExercises(listOf(BlockExercise("e1", "b1", 0, "bench", sets = 4), BlockExercise("e2", "b2", 0, "bench")))
-        repo.swapExerciseInSession(dao.setLogsOnce("s1").first(), Exercise("incline", "Incline Press", Kind.STRENGTH), updateProgram = true, programId = "p1")
-        assertEquals(BlockExercise("e1", "b1", 0, "incline", sets = 4), dao.blockExercisesFor("b1").single())
+        repo.swapExerciseInSession(dao.setLogsOnce("s1").first(), Exercise("incline", "Incline Press", Kind.STRENGTH), updateProgram = true)
+        assertEquals(BlockExercise("e1", "b1", 0, "bench", sets = 4), dao.blockExercisesFor("b1").single())
         assertEquals("bench", dao.blockExercisesFor("b2").single().exerciseId)
+        assertTrue(dao.setLogsOnce("s1").all { it.exerciseId == "incline" })
     }
 
     @Test fun `a swap does not re-create a block exercise deleted meanwhile`() = runBlocking {
         seed()
         dao.upsertPrograms(listOf(Program("p1", "Push", active = true)))
         dao.upsertBlocks(listOf(Block("b1", "p1", 0)))
-        repo.swapExerciseInSession(dao.setLogsOnce("s1").first(), Exercise("incline", "Incline Press", Kind.STRENGTH), updateProgram = true, programId = "p1")
+        repo.swapExerciseInSession(dao.setLogsOnce("s1").first(), Exercise("incline", "Incline Press", Kind.STRENGTH), updateProgram = true)
         assertTrue(dao.blockExercisesFor("b1").isEmpty())
     }
 }

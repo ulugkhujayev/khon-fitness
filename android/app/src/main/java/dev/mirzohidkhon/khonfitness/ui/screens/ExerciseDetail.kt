@@ -9,6 +9,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,13 +24,42 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
+import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 
 /**
+ * Every strength exercise, searchable (Progress' "All <n> exercises"): name and record, or "No sets yet". Each row
+ * opens the exercise detail.
+ */
+@Composable
+fun LiftListScreen(vm: AppViewModel, nav: NavHostController) {
+    val exercises by vm.exercises.collectAsStateWithLifecycle()
+    val logs by vm.allSetLogs.collectAsStateWithLifecycle()
+    val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val records = remember(logs, sessions, exercises) { personalRecords(liftHistories(logs, sessions), exercises) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val scroll = rememberScrollState()
+    Column(Modifier.fillMaxSize()) {
+        EditorTopBar("Back", "Exercises", onBack = { nav.popBackStack() }, scrollPx = { scroll.value })
+        Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+            SearchField(query, { query = it })
+            Spacer(Modifier.height(16.dp))
+            val list = liftEntries(records, exercises, query)
+            GroupedList {
+                list.forEachIndexed { i, e ->
+                    ListRow(e.name, secondary = e.record?.let { setText(it.best) } ?: "No sets yet", divider = i > 0) { nav.navigate(Routes.exerciseDetail(e.exerciseId)) }
+                }
+                if (list.isEmpty()) SearchEmpty(query)
+            }
+        }
+    }
+}
+
+/**
  * One exercise's progress: the Best card with the heaviest set per session (records green), then every session
- * newest first with its sets (the record set green), each opening the session. An exercise without sets shows its
- * muscle and "No sets yet".
+ * newest first with every saved set (the record set green, skipped ones marked), each opening the session. An
+ * exercise without sets shows its muscle and "No sets yet".
  */
 @Composable
 fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: String) {
@@ -49,27 +79,34 @@ fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
                 GroupedList { EmptyLine("No sets yet") }
                 return@Column
             }
-            val record = history.last { it.record }
-            Column(Modifier.fillMaxWidth().clip(GroupShape).background(K.Surface).padding(16.dp, 14.dp, 16.dp, 12.dp)) {
+            // Sessions where every set was skipped list below, with no best and no chart point.
+            val record = history.lastOrNull { it.record }
+            val recordBest = record?.best
+            if (record != null && recordBest != null) Column(Modifier.fillMaxWidth().clip(GroupShape).background(K.Surface).padding(16.dp, 14.dp, 16.dp, 12.dp)) {
                 Text("Best", style = MaterialTheme.typography.bodySmall, color = K.Muted)
                 Text(
                     buildAnnotatedString {
-                        append(setText(record.best))
+                        append(setText(recordBest))
                         withStyle(SpanStyle(color = K.Muted, fontWeight = FontWeight.Medium, fontSize = 16.sp)) { append(" · ${monthDay(record.session.date.toDate())}") }
                     },
                     fontSize = 24.sp, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR),
                 )
                 Text("Heaviest set per session", style = MaterialTheme.typography.bodySmall, color = K.Muted, modifier = Modifier.padding(top = 12.dp))
-                LineChart(history.map { ChartPoint(it.session.date.toDate(), it.best.weightKg ?: 0.0, mark = it.record) }, "kg")
+                LineChart(history.mapNotNull { h -> h.best?.let { ChartPoint(h.session.date.toDate(), it.weightKg ?: 0.0, mark = h.record) } }, "kg")
             }
-            SectionTitle("Sessions · newest first", Modifier.padding(top = 24.dp))
+            SectionTitle("Sessions · newest first", Modifier.padding(top = if (record != null) 24.dp else 0.dp))
             GroupedList {
+                val firstRecord = history.firstOrNull { it.record }
                 history.asReversed().forEachIndexed { i, h ->
-                    val first = h === history.first()
+                    val first = h === firstRecord
                     val sets = buildAnnotatedString {
                         h.sets.forEachIndexed { k, l ->
                             if (k > 0) append(" · ")
-                            if (h.record && l === h.best) withStyle(SpanStyle(color = K.Green, fontWeight = FontWeight.SemiBold)) { append(shortSet(l)) } else append(shortSet(l))
+                            when {
+                                h.record && l === h.best -> withStyle(SpanStyle(color = K.Green, fontWeight = FontWeight.SemiBold)) { append(shortSet(l)) }
+                                l.status == SetStatus.SKIPPED -> withStyle(SpanStyle(color = K.Dim)) { append(shortSet(l)) }
+                                else -> append(shortSet(l))
+                            }
                         }
                     }
                     SessionRow(h.session.date.toDate().format(shortDate), sets, chip = if (h.record && !first) "PR" else null, divider = i > 0) { openSession(nav, h.session) }

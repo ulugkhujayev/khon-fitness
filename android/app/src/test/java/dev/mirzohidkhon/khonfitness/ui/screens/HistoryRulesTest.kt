@@ -1,19 +1,27 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
 import dev.mirzohidkhon.khonfitness.data.Bodyweight
+import dev.mirzohidkhon.khonfitness.data.DayOverride
 import dev.mirzohidkhon.khonfitness.data.Exercise
 import dev.mirzohidkhon.khonfitness.data.ItemType
+import dev.mirzohidkhon.khonfitness.data.KhonRepository
 import dev.mirzohidkhon.khonfitness.data.Kind
 import dev.mirzohidkhon.khonfitness.data.PlanItem
 import dev.mirzohidkhon.khonfitness.data.Program
 import dev.mirzohidkhon.khonfitness.data.Session
 import dev.mirzohidkhon.khonfitness.data.SetLog
 import dev.mirzohidkhon.khonfitness.data.SetStatus
+import dev.mirzohidkhon.khonfitness.data.StretchSession
+import dev.mirzohidkhon.khonfitness.data.WeekPlan
 import dev.mirzohidkhon.khonfitness.data.iso
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 /** History rules: the Log week, session lines, records, bodyweight range and cardio types (UI06 P3). */
 class HistoryRulesTest {
@@ -76,7 +84,7 @@ class HistoryRulesTest {
         val w = weekSummary(monday, monday, emptyList(), emptyList(), plan)
         assertEquals(0, w.done); assertEquals(5, w.planned)
         assertEquals("5 to go", weekTail(w))
-        assertEquals("0 sets · 0 t lifted · 0 min cardio · 0 km", weekTotals(w))
+        assertEquals("0 sets · 0 t lifted · 0 min cardio · 0 km · 0 stretches", weekTotals(w))
     }
 
     // ---- Week card
@@ -106,7 +114,113 @@ class HistoryRulesTest {
         val logs = listOf(set("g", 60.0, 10), set("g", 62.5, 8), set("g", 60.0, 8, status = SetStatus.SKIPPED), set("open", 100.0, 10))
         val w = weekSummary(monday, today, sessions, logs, plan)
         assertEquals(2, w.sets)
-        assertEquals("2 sets · 1.1 t lifted · 40 min cardio · 6.2 km", weekTotals(w))
+        assertEquals("2 sets · 1.1 t lifted · 40 min cardio · 6.2 km · 0 stretches", weekTotals(w))
+    }
+
+    // ---- Fix round: deleted items, stretching, saved sets, date bounds, minutes
+
+    private fun planData(plan: List<WeekPlan>, overrides: List<DayOverride> = emptyList(), programs: List<Program> = emptyList(), exercises: List<Exercise> = emptyList()) =
+        KhonRepository.PlanData(plan, overrides, programs, exercises)
+
+    @Test fun `a past day whose program or workout is gone stays planned of its type, today on it is rest`() {
+        // Mon: a gone program in the template; Tue: a gone cardio workout as a one-day change; Wed (today) the gone program.
+        val p = planData(
+            listOf(WeekPlan(1, ItemType.PROGRAM, "gone"), WeekPlan(3, ItemType.PROGRAM, "gone"), WeekPlan(2, ItemType.REST)),
+            listOf(DayOverride(monday.plusDays(1).iso(), ItemType.CARDIO, "goneRun")),
+        )
+        val mon = historyPlanFor(p, monday, today)
+        assertEquals(ItemType.PROGRAM, mon.itemType)
+        assertEquals("Deleted program", planName(mon))
+        val tue = historyPlanFor(p, monday.plusDays(1), today)
+        assertEquals("Deleted workout", planName(tue))
+        assertTrue(tue.overridden)
+        assertTrue(historyPlanFor(p, today, today).isRest)
+        assertEquals("Rest", planName(historyPlanFor(p, monday.plusDays(3), today)))
+        // The week counts both past days as planned: 0 of 2, 2 missed.
+        val w = weekSummary(monday, today, emptyList(), emptyList(), { historyPlanFor(p, it, today) })
+        assertEquals(2, w.planned)
+        assertEquals(2, w.missed)
+    }
+
+    @Test fun `stretch runs give one line each, skipped ones say so, and the week counts them`() {
+        val runs = listOf(
+            StretchSession("b", "r2", "Hips", monday.iso(), 20, 245, 0, 6),
+            StretchSession("a", "r1", "Daily", monday.iso(), 10, 615, 9, 0),
+            StretchSession("c", "r1", "Daily", monday.plusDays(1).iso(), 30, 300, 4, 2),
+            StretchSession("old", "r1", "Daily", monday.minusDays(1).iso(), 30, 300, 4, 0),
+        )
+        assertEquals(listOf("Stretch: Daily · 10 min", "Stretch: Hips · skipped"), stretchLines(monday, runs))
+        assertEquals(listOf("Stretch: Daily · 5 min · 2 skipped"), stretchLines(monday.plusDays(1), runs))
+        val w = weekSummary(monday, today, emptyList(), emptyList(), plan, runs)
+        assertEquals(3, w.stretches)
+        assertTrue(weekTotals(w).endsWith(" · 3 stretches"))
+        assertTrue(weekTotals(w.copy(stretches = 1)).endsWith(" · 1 stretch"))
+    }
+
+    @Test fun `exercise history keeps every saved set, a fully skipped session has no best and is no record`() {
+        val sessions = listOf(gym("a", day(0)), gym("b", day(2)), gym("c", day(4)))
+        val logs = listOf(
+            set("a", 60.0, 8, status = SetStatus.SKIPPED), set("a", 60.0, 8, status = SetStatus.SKIPPED),
+            set("b", 60.0, 8), set("b", 70.0, 3, status = SetStatus.SKIPPED), set("c", 62.5, 6),
+        )
+        val h = liftHistory("bench", logs, sessions)
+        assertEquals(listOf("a", "b", "c"), h.map { it.session.id })
+        assertNull(h[0].best)
+        assertEquals(listOf(false, true, true), h.map { it.record })
+        assertEquals(listOf("60×8", "70×3 skipped"), h[1].sets.map { shortSet(it) })
+        // The first record (b) is not a PR in the Log; c is.
+        val histories = liftHistories(logs, sessions)
+        assertEquals(0, recordCount("b", histories))
+        assertEquals(1, recordCount("c", histories))
+        // Only skipped sets: no record, not in the records list.
+        assertTrue(liftHistories(logs.take(2), sessions).isEmpty())
+    }
+
+    @Test fun `the full exercise list holds every strength exercise, lost ones with records, and filters by name`() {
+        val sessions = listOf(gym("a", day(0)))
+        val logs = listOf(set("a", 60.0, 8, ex = "bench"), set("a", 40.0, 8, ex = "gone").copy(exerciseName = "Old curl"))
+        val library = listOf(
+            Exercise("bench", "Bench press", Kind.STRENGTH), Exercise("squat", "Squat", Kind.STRENGTH),
+            Exercise("arch", "Archived fly", Kind.STRENGTH, archived = true), Exercise("run", "Easy run", Kind.CARDIO),
+        )
+        val records = personalRecords(liftHistories(logs, sessions), library)
+        val all = liftEntries(records, library)
+        assertEquals(listOf("Bench press", "Old curl", "Squat"), all.map { it.name })
+        assertNull(all.single { it.exerciseId == "squat" }.record)
+        assertEquals(listOf("squat"), liftEntries(records, library, " SQU").map { it.exerciseId })
+    }
+
+    @Test fun `ranges stop at today - later sessions and weights count nowhere`() {
+        val future = today.plusDays(2)
+        val ex = listOf(Exercise("bench", "Bench press", Kind.STRENGTH, primaryMuscle = "chest"))
+        val vol = muscleVolume(listOf(set("now", 60.0, 8), set("later", 60.0, 8), set("last", 60.0, 8)), listOf(gym("now", today), gym("later", future), gym("last", monday.minusDays(1))), ex, today)
+        assertEquals(listOf(MuscleVolume("chest", 1.0, 1.0)), vol)
+        val bw = listOf(Bodyweight(today.minusDays(1).iso(), 84.0), Bodyweight(future.iso(), 80.0))
+        assertEquals(listOf(84.0), bodyweightsIn(BodyRange.ALL, bw, today).map { it.kg })
+        assertEquals(84.0, latestBodyweight(bw, today)!!.kg, 0.0)
+        assertTrue(cardioTypes(listOf(cardio("f", future, 600, 1000)), listOf(run.cardio!!), today).isEmpty())
+    }
+
+    @Test fun `cardio lists every type ever used, one without sessions in 30 days says so`() {
+        val types = cardioTypes(listOf(cardio("old", today.minusDays(40), 1800, 5000)), listOf(run.cardio!!), today)
+        assertEquals(listOf("running"), types.map { it.id })
+        assertTrue(types.single().sessions.isEmpty())
+        assertEquals("No sessions in 30 days", cardioLine(types.single()))
+    }
+
+    @Test fun `minutes are summed in seconds, then rounded to the nearest minute`() {
+        // 89.5 min: rounds to 90, so "1 h 30 m" and "90 min cardio".
+        val sessions = listOf(cardio("a", monday, 2685, 5000, start = 1), cardio("b", monday, 2685, 5000, start = 2))
+        assertEquals("2 sessions · 10 km · 1 h 30 m · 8:57 /⁠km", cardioLine(cardioTypes(sessions, listOf(run.cardio!!), today).single()))
+        assertTrue(weekTotals(weekSummary(monday, today, sessions, emptyList(), plan)).contains("90 min cardio"))
+        assertEquals(1, roundMinutes(30))
+        assertEquals(0, roundMinutes(29))
+    }
+
+    @Test fun `the next day begins one second after midnight`() {
+        assertEquals(Duration.ofSeconds(31), untilNextDay(LocalDateTime.of(2026, 11, 4, 23, 59, 30)))
+        assertEquals(Duration.ofHours(24).plusSeconds(1), untilNextDay(LocalDateTime.of(2026, 11, 4, 0, 0)))
+        assertFalse(untilNextDay(LocalDateTime.of(2026, 11, 4, 12, 0)).isNegative)
     }
 
     @Test fun `the bar colors done days, grays open days and darkens rest`() {
@@ -144,7 +258,7 @@ class HistoryRulesTest {
         val logs = listOf(set("a", 60.0, 8), set("a", 62.5, 5), set("b", 62.5, 6), set("c", 60.0, 12))
         val h = liftHistory("bench", logs, sessions)
         assertEquals(listOf(true, true, false), h.map { it.record })
-        assertEquals("62.5 kg × 6", setText(h[1].best))
+        assertEquals("62.5 kg × 6", setText(h[1].best!!))
         assertEquals(1, recordCount("b", liftHistories(logs, sessions)))
         assertEquals(0, recordCount("c", liftHistories(logs, sessions)))
     }
@@ -162,8 +276,9 @@ class HistoryRulesTest {
         val logs = listOf(set("a", 100.0, 0), set("a", 120.0, 5, status = SetStatus.SKIPPED), set("a", 60.0, 8), set("open", 200.0, 5))
         val h = liftHistory("bench", logs, sessions)
         assertEquals(1, h.size)
-        assertEquals("60 kg × 8", setText(h.single().best))
-        assertEquals(1, h.single().sets.size)
+        assertEquals("60 kg × 8", setText(h.single().best!!))
+        // Every saved set shows; only the done set with reps was a candidate.
+        assertEquals(3, h.single().sets.size)
     }
 
     @Test fun `an exercise's first session is not counted as a PR in the Log`() {

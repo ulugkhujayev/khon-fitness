@@ -49,27 +49,34 @@ Three tabs.
   replaces it), Saved (off) when the value is today's entry. While the
   typed value is blank or not above 0 the button is off.
 - History. Two pages, Log (the default) and Progress; each keeps its own
-  scroll position, also across tab switches.
+  scroll position and state (the week shown, the bodyweight range), also
+  across page and tab switches. Today's date is read again on resume and
+  at midnight; every range ends at today, so a later-dated session or
+  weight counts nowhere. A session belongs to the day it started.
   - Log: one week at a time, "‹ Nov 2 – 8, 2026 ›". ‹ stops at the week
     of the first session (this week when none), › at this week. A week
     card: "<done> of <planned> planned done" and "<n> to go" (this week,
     open planned days from today on), else "<n> missed" or "Full week";
     a 7-part bar (done day in its item color, open planned day gray, rest
-    near black); "<sets> sets · <t> lifted · <min> min cardio · <km> km"
-    over the week's finished sessions. Planned = the item each day had:
+    near black); "<sets> sets · <t> lifted · <min> min cardio · <km> km ·
+    <n> stretches" over the week's finished sessions and stretch runs.
+    Minutes are summed in seconds, then rounded to the nearest minute. Planned = the item each day had:
     past days keep theirs, a one-day change counts. Then one row per day,
     Monday to Sunday: a finished session (gym "d of n sets · t · min",
     cardio "km · min · pace", "Health Connect" when imported, "<k> PR"
     in green when the session set records) opens the session with Edit;
-    two sessions on a day give two rows; "Rest" with "Stretch ✓ · 83.0
-    kg" when present; "Skipped · <item>" for a past planned day; "Today:
+    two sessions on a day give two rows; "Rest" with the bodyweight
+    ("83.0 kg") when present; under a day's last row one line per stretch
+    run, "Stretch: Daily · 10 min" ("· 2 skipped" when some were skipped,
+    "Stretch: Daily · skipped" when none was done); "Skipped · <item>" for a past planned day; "Today:
     <item>" opens Today; "In progress · d of n sets" opens the running
     session; "Planned: <item>" for a later day.
   - Progress: personal records, sets per muscle this week / last week,
     bodyweight (1M / 3M / All, the change since the range's first entry),
     cardio of the last 30 days per type (sessions, km, time, pace, a
     sparkline "Distance per session" with the first and last value and
-    date). A type opens its detail: pace, average heart rate, heart rate
+    date). Every type with a session ever has a row; one without sessions
+    in the 30 days says "No sessions in 30 days". A type opens its detail: pace, average heart rate, heart rate
     in work intervals (else time), and its sessions. Each section without
     data shows one line.
 - Programs. Program list (many, one active), exercise library (strength
@@ -85,14 +92,16 @@ and reps keeps the record with the earlier session. Only done sets with
 reps count (a 0-rep set never does). No estimated 1RM is shown.
 
 History's Progress lists every exercise's record, newest first: five
-rows, then "All <n> exercises". "New" marks a record set this week. The
+rows, then "All <n> exercises", a searchable list of every strength
+exercise (its record, or "No sets yet") that opens each one's detail. "New" marks a record set this week. The
 Log's "<k> PR" counts the session's exercises that set a record, not an
 exercise's first session.
 
 An exercise's detail (from a record row) shows the Best card ("62.5 kg × 6
 · Oct 29"), a chart "Heaviest set per session" with record points green,
-and every session newest first with its sets ("60×8 · 62.5×6", the
-record set green), each opening the session. An exercise without sets
+and every session newest first with every saved set ("60×8 · 62.5×6 ·
+60×5 skipped", the record set green, skipped sets dim), each opening the
+session. A session whose sets were all skipped lists with no chart point. An exercise without sets
 shows its muscles and "No sets yet".
 
 ## Copy and chrome
@@ -165,7 +174,10 @@ leaving keeps the routine, and Delete removes an unwanted one.
 Every delete or remove asks first: an exercise, a program, a block, an
 exercise taken out of a block. Deleting a program deletes its blocks and
 their exercises, and turns plan days and dated changes that held it into
-rest days. Deleting a block deletes its exercises.
+rest days from today on. Days before today keep it, so History still
+counts them as planned and names them "Deleted program" ("Deleted
+workout" for a cardio exercise that is gone). Deleting a block deletes
+its exercises.
 
 ## Live session
 

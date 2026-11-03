@@ -311,7 +311,8 @@ Two lines, 88 px total, hairline between rows.
   color; ring for rest, green once stretched or weighed; ring in the item
   color for today's open item; Surface3 for skipped, Surface2 for later),
   the title 17 (muted for rest and skipped, dim for planned) over a muted
-  13 line, "<k> PR" in green 600, a chevron on rows that open. Today's
+  13 line, "<k> PR" in green 600, a chevron on rows that open. Stretch
+  runs add one muted 13 line each under the day's last row. Today's
   row is tinted with the accent at 12 percent.
 - History Progress: section titles in muted 13 over grouped lists.
   Record rows: name over the date (and a green "New" chip), "62.5 kg × 6"
@@ -325,7 +326,9 @@ Two lines, 88 px total, hairline between rows.
   it. Cardio rows: dot, type, the muted line, "Distance per session" dim
   11 over a 28 px sparkline in the type color with the first and last
   value and date in muted 11. A chip is 11/600 on its color at 18 percent.
-- Detail screens (exercise, cardio type) use the editor bar with Back.
+- Detail screens (exercise, cardio type, the full exercise list) use the
+  editor bar with Back. The exercise list: the search field, then list
+  rows with the record or "No sets yet" muted on the right.
   Session rows: the date 15/500 (a green "PR" chip) over the sets or the
   stat line in muted 15. Record points on a chart are green.
 

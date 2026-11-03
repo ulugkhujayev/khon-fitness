@@ -49,23 +49,22 @@ private const val RECORDS_SHOWN = 5
  * bodyweight over a range, and cardio of the last 30 days by type. A section without data shows one line.
  */
 @Composable
-fun HistoryProgress(vm: AppViewModel, nav: NavHostController) {
+fun HistoryProgress(vm: AppViewModel, nav: NavHostController, today: LocalDate) {
     val sessions by vm.sessions.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val logs by vm.allSetLogs.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val bodyweights by vm.bodyweights.collectAsStateWithLifecycle()
-    val today = LocalDate.now()
     val monday = weekOf(today)
 
     // ---- Personal records
     val records = remember(logs, sessions, exercises) { personalRecords(liftHistories(logs, sessions), exercises) }
-    var allRecords by rememberSaveable { mutableStateOf(false) }
+    val lifts = remember(records, exercises) { liftEntries(records, exercises).size }
     ProgressTitle("Personal records · heaviest weight lifted")
     GroupedList {
         if (records.isEmpty()) EmptyLine("No records yet. Save a gym session to see them.")
-        (if (allRecords) records else records.take(RECORDS_SHOWN)).forEachIndexed { i, r ->
-            val isNew = r.session.date.toDate() >= monday
+        records.take(RECORDS_SHOWN).forEachIndexed { i, r ->
+            val isNew = r.session.date.toDate() in monday..today
             val date = monthDay(r.session.date.toDate())
             Column(Modifier.fillMaxWidth()) {
                 if (i > 0) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
@@ -86,10 +85,11 @@ fun HistoryProgress(vm: AppViewModel, nav: NavHostController) {
                 }
             }
         }
-        if (records.size > RECORDS_SHOWN) {
+        // Every strength exercise is one tap away, also one without sets.
+        if (lifts > 0) {
             HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
-            Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button) { allRecords = !allRecords }, contentAlignment = Alignment.Center) {
-                Text(if (allRecords) "Show fewer" else "All ${records.size} exercises", color = K.Accent, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
+            Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button) { nav.navigate(Routes.LIFTS) }, contentAlignment = Alignment.Center) {
+                Text("All $lifts exercises", color = K.Accent, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
             }
         }
     }
@@ -120,7 +120,7 @@ fun HistoryProgress(vm: AppViewModel, nav: NavHostController) {
             }
         }
     }
-    val latest = bodyweights.maxByOrNull { it.date }
+    val latest = latestBodyweight(bodyweights, today)
     Column(Modifier.fillMaxWidth().clip(GroupShape).background(K.Surface).padding(16.dp, 14.dp, 16.dp, 12.dp)) {
         if (latest == null) Text("No entries yet. Add one on Today.", style = MaterialTheme.typography.bodyMedium, color = K.Muted)
         else {
@@ -136,7 +136,7 @@ fun HistoryProgress(vm: AppViewModel, nav: NavHostController) {
         }
     }
 
-    // ---- Cardio by type
+    // ---- Cardio by type: every type ever used, its last 30 days
     val types = cardioTypes(sessions, exercises, today, order = modalities.map { it.id })
     ProgressTitle("Cardio · last 30 days")
     GroupedList {

@@ -75,6 +75,8 @@ object Routes {
     fun exerciseDetail(id: String) = "lift/$id"
     /** A cardio type's charts and sessions (History, Progress). */
     fun cardioType(id: String) = "cardiotype/$id"
+    /** Every strength exercise, searchable; each opens its exercise detail. */
+    const val LIFTS = "lifts"
     const val ROUTINES = "routines"; const val STRETCHES = "stretches"
     const val IMPORT = "import"
     const val LIBRARY = "library"; const val MODALITIES = "modalities"; const val WEEK_PLAN = "weekplan"; const val SETTINGS = "settings"
@@ -125,6 +127,7 @@ fun KhonNav() {
                 composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
                 composable("lift/{id}") { e -> ExerciseDetailScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                composable(Routes.LIFTS) { LiftListScreen(vm, nav) }
                 composable(Routes.ROUTINES) { RoutinesScreen(vm, nav) }
                 composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
                 composable(Routes.IMPORT) { ImportScreen(vm, nav) }

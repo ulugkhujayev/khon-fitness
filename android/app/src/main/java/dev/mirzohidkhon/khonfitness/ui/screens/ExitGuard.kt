@@ -24,9 +24,12 @@ class ExitGuard internal constructor(private val nav: NavController, private val
     fun release() = once.release()
     /** Pops this screen while it is on top; [orElse] runs when it is the last entry, so there is nothing to pop to. */
     fun pop(orElse: () -> Unit = {}) {
-        if (entryId != null && nav.currentBackStackEntry?.id != entryId) return
+        if (!onTop()) return
         if (!nav.popBackStack()) orElse()
     }
+    /** Runs [go], a navigation away from this screen (the timer's to the cardio form), only while this screen is on top. */
+    fun leave(go: () -> Unit) { if (onTop()) go() }
+    private fun onTop() = entryId == null || nav.currentBackStackEntry?.id == entryId
 }
 
 /**

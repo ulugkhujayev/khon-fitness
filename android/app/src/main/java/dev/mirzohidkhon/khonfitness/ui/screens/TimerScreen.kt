@@ -66,12 +66,15 @@ fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
     var batteryOk by remember { mutableStateOf(pm.isIgnoringBatteryOptimizations(context.packageName)) }
     val batteryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { batteryOk = pm.isIgnoringBatteryOptimizations(context.packageName) }
+    // Every exit (the run's end, the safety net, system Back) leaves this screen at most once, and only from the top.
+    val exit = rememberExitGuard(nav)
+    fun toForm() = exit { exit.leave { nav.navigate(Routes.cardio(sessionId)) { popUpTo(Routes.TODAY) } } }
     // The service stores the duration and then posts [finished]; this screen only leaves.
     // Clear the flag after navigating: clearing first changes this effect's key and cancels it mid-way.
     LaunchedEffect(finished) {
         val f = finished ?: return@LaunchedEffect
         if (f.sessionId == sessionId) {
-            nav.navigate(Routes.cardio(sessionId)) { popUpTo(Routes.TODAY) }
+            toForm()
             TimerService.finished.value = null
         }
     }
@@ -79,7 +82,7 @@ fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     var sawRunning by remember { mutableStateOf(false) }
     LaunchedEffect(state?.sessionId) { if (state?.sessionId == sessionId) sawRunning = true }
     LaunchedEffect(sawRunning, state == null) {
-        if (sawRunning && state == null) { delay(1500); if (TimerService.state.value == null) nav.navigate(Routes.cardio(sessionId)) { popUpTo(Routes.TODAY) } }
+        if (sawRunning && state == null) { delay(1500); if (TimerService.state.value == null) toForm() }
     }
 
     val st = state

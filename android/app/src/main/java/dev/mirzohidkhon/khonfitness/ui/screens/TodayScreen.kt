@@ -44,6 +44,8 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     var planDate by remember { mutableStateOf<LocalDate?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     var pendingBand by remember { mutableIntStateOf(0) }
+    val timer by TimerService.state.collectAsStateWithLifecycle()
+    val discard = rememberConfirm<Session>()
     fun start() = vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
     fun resume(active: Session) = nav.navigate(if (active.itemType == ItemType.PROGRAM) Routes.session(active.id) else if (TimerService.state.value?.sessionId == active.id) Routes.timer(active.id) else Routes.cardio(active.id))
     val startRequested by dev.mirzohidkhon.khonfitness.MainActivity.startRequested.collectAsStateWithLifecycle()
@@ -84,6 +86,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
                 progress = active?.takeIf { it.itemType == ItemType.PROGRAM }?.let { setProgress(it.id, logs) },
                 doneText = done?.let { doneLine(it, logs) }, modalities = modalities, exercises = exercises, now = now,
                 onStart = ::start, onResume = ::resume,
+                timerStopped = active != null && timerStopped(active, timer?.sessionId), onDiscard = { discard.ask(it) },
             )
         }
         Spacer(Modifier.height(16.dp))
@@ -112,6 +115,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     }
     planDate?.let { date -> PlanSheet(vm, date, plan, modalities) { planDate = null } }
     if (windowSheet) WindowSheet(vm) { windowSheet = false }
+    ConfirmSheet(discard, title = { "Discard this session?" }, body = { "The timer's time and rounds are not kept." }, action = "Discard") { s -> vm.run { vm.repo.deleteSession(s.id) } }
 }
 
 /** Change what a date holds: a program, a cardio exercise, or rest. */

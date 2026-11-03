@@ -40,6 +40,8 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -82,6 +84,10 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     var swapLog by remember { mutableStateOf<SetLog?>(null) }
     var summary by remember { mutableStateOf<Summary?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    // Sets whose check was refused for a missing weight or reps: their rows say what to enter ([setMissing]).
+    var refused by remember { mutableStateOf(emptySet<String>()) }
+    // Save and Discard leave the screen: a second tap in the same frame must not finish twice or pop Today too.
+    val leave = remember { Once() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -112,12 +118,16 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         pick = OpenPick(true, i)
     }
     fun toggleSet(log: SetLog) {
-        val next = if (log.status == SetStatus.DONE) SetStatus.PENDING else SetStatus.DONE
-        vm.run { vm.repo.setSetStatus(log.id, next) }
-        if (next != SetStatus.DONE) return
-        val after = afterCheck(blocks, log, live = running) ?: return
-        open(after.open)
-        pendingFocus.aim(after.focus?.id)
+        if (log.status == SetStatus.DONE) { vm.run { vm.repo.setSetStatus(log.id, SetStatus.PENDING) }; return }
+        val after = afterCheck(blocks, log, live = running)
+        // The stored set decides ([KhonDao.checkSet]): a refused check leaves it pending and its row says what is missing.
+        vm.run {
+            if (!vm.repo.checkSet(log.id)) { refused = refused + log.id; return@run }
+            refused = refused - log.id
+            if (after == null) return@run
+            open(after.open)
+            pendingFocus.aim(after.focus?.id)
+        }
     }
     val done = doneCount(logs)
     val openSummary = { summary = summarize(logs, vm.allSetLogs.value, s.id, s.startedAt, System.currentTimeMillis()) }
@@ -132,7 +142,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                             HorizontalDivider(color = K.Divider)
                             SetRow(
                                 log = log, prev = previous[log.key()], live = live,
-                                pending = pendingFocus,
+                                pending = pendingFocus, missing = if (log.id in refused) setMissing(log) else emptyList(),
                                 onToggle = { toggleSet(log) },
                                 onWeight = { w -> vm.run { vm.repo.setSetWeight(log.id, w) } },
                                 onReps = { r -> vm.run { vm.repo.setSetReps(log.id, r?.toInt()) } },
@@ -162,14 +172,14 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         }
     }
     swapLog?.let { log -> SwapSheet(exercises.filter { it.kind == Kind.STRENGTH && !it.archived }, log, onDismiss = { swapLog = null }) { ex, updateProgram ->
-        vm.run { vm.repo.swapExerciseInSession(s.id, log.exerciseId, ex, updateProgram, s.programId) }; swapLog = null
+        vm.run { vm.repo.swapExerciseInSession(log, ex, updateProgram, s.programId) }; swapLog = null
     } }
     if (confirmDelete) ConfirmSheet(
         if (s.finished) "Delete this session?" else "Discard this workout?",
-        if (s.finished) "The sets and the session go away. Charts recompute." else "Nothing from today is kept.",
+        if (s.finished) "The sets and the session go away. Charts recompute." else discardBody(done),
         if (s.finished) "Delete" else "Discard",
         onDismiss = { confirmDelete = false },
-    ) { confirmDelete = false; vm.openPicks.drop(s.id); vm.run { vm.repo.deleteSession(s.id) }; nav.popBackStack() }
+    ) { leave { confirmDelete = false; vm.openPicks.drop(s.id); vm.run { vm.repo.deleteSession(s.id) }; nav.popBackStack() } }
     summary?.let { sum -> Sheet("Workout done", onDismiss = { summary = null }) {
         // The figures as of opening, then effort and note (the page's own fields: both read the session, so an edit in
         // one shows in the other) so they are asked for as the workout ends. The content scrolls above the keyboard;
@@ -187,7 +197,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                     FieldRow("Note") { InlineTextField(s.note, { n -> vm.run { vm.repo.setSessionNote(s.id, n) } }, placeholder = "Optional", label = "Note") }
                 }
             }
-            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { vm.openPicks.drop(s.id); vm.run { vm.repo.finishSession(s.id) }; summary = null; nav.popBackStack() }
+            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { leave { vm.openPicks.drop(s.id); vm.run { vm.repo.finishSession(s.id) }; summary = null; nav.popBackStack() } }
         }
     } }
 }
@@ -313,7 +323,7 @@ private fun BlockCard(index: Int, logs: List<SetLog>, open: Boolean, onToggle: (
 
 @Composable
 private fun SetRow(
-    log: SetLog, prev: SetLog?, live: Boolean, pending: PendingFocus,
+    log: SetLog, prev: SetLog?, live: Boolean, pending: PendingFocus, missing: List<String>,
     onToggle: () -> Unit, onWeight: (Double?) -> Unit, onReps: (Double?) -> Unit, onSwap: () -> Unit,
 ) {
     val tag = ('A' + log.slot).toString() + (log.setIndex + 1)
@@ -351,12 +361,14 @@ private fun SetRow(
                     Column(m.then(focus.placed)) {
                         NumberField(log.weightKg, onWeight, step = log.stepKg.takeIf { it > 0 } ?: 1.0, unit = "kg", decimals = decimals, height = 44, focusRequester = focus.requester, placeholder = prevKg, label = "$tag ${log.exerciseName} weight")
                         Delta(prev?.weightKg, log.weightKg, decimals, suffix = " kg")
+                        if ("Enter weight" in missing) MissingLine("Enter weight")
                     }
                 },
                 reps = { m ->
                     Column(m) {
                         NumberField(log.reps?.toDouble(), { onReps(it) }, step = 1.0, unit = "reps", decimals = 0, height = 44, placeholder = (prev?.reps ?: log.minReps).toString(), label = "$tag ${log.exerciseName} reps")
                         Delta(prev?.reps?.toDouble(), log.reps?.toDouble(), 0, suffix = " reps")
+                        if ("Enter reps" in missing) MissingLine("Enter reps")
                     }
                 },
             )
@@ -364,6 +376,12 @@ private fun SetRow(
             Text(if (log.status == SetStatus.SKIPPED) "skipped" else "${fmt(log.weightKg ?: 0.0, decimals)} kg × ${log.reps ?: 0} reps", color = if (log.status == SetStatus.SKIPPED) K.Dim else K.Text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 42.dp, top = 4.dp))
         }
     }
+}
+
+/** Under a set's field after a refused check: what to enter, in red, spoken when it shows. */
+@Composable
+private fun MissingLine(text: String) {
+    Text(text, color = K.Red, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 40.dp, top = 3.dp).semantics { liveRegion = LiveRegionMode.Polite })
 }
 
 @Composable

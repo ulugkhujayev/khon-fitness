@@ -43,12 +43,18 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     fun edit(id: String, change: (IntervalEdit) -> IntervalEdit) { edits = edits + (id to change(edits[id] ?: IntervalEdit())) }
     var strokeSheet by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    // Save and Discard leave the form: a second tap in the same frame must not pop Today too.
+    val leave = remember { Once() }
+    // A new entry saves only with a time or a distance, as the row would read after Save ([mergeCardioEdits]).
+    val missing = if (s.finished) null else cardioMissing(mergeCardioEdits(s, opened, draft, 0L))
 
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
-        EditorTopBar(if (s.finished) "History" else "Today", s.exerciseName ?: "Cardio", scrollPx = { barScroll.value }, onBack = { if (!nav.popBackStack()) nav.navigate(Routes.TODAY) }, done = "Save") {
-            vm.run { vm.repo.saveCardioEdits(opened, draft, edits) }
-            nav.popBackStack()
+        EditorTopBar(if (s.finished) "History" else "Today", s.exerciseName ?: "Cardio", scrollPx = { barScroll.value }, onBack = { if (!nav.popBackStack()) nav.navigate(Routes.TODAY) }, done = "Save", doneEnabled = missing == null) {
+            leave {
+                vm.run { vm.repo.saveCardioEdits(opened, draft, edits) }
+                nav.popBackStack()
+            }
         }
         Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             GroupedList {
@@ -75,6 +81,7 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                     if ((draft.timeSec ?: 0) > 0) { val p = draft.timeSec!! / (dist / 100.0); ComputedRow("Pace", "${(p / 60).toInt()}:${"%02d".format((p % 60).toInt())} /100 m") }
                 }
             }
+            if (missing != null) GroupFooter(missing, Modifier.padding(top = 8.dp))
             if (intervals.isNotEmpty()) {
                 SectionTitle("Intervals", Modifier.padding(top = 24.dp))
                 GroupedList {
@@ -105,7 +112,7 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         if (s.finished) "It goes away from History." else "Nothing is kept.",
         if (s.finished) "Delete" else "Discard",
         onDismiss = { confirmDelete = false },
-    ) { confirmDelete = false; vm.run { vm.repo.deleteSession(s.id) }; if (!nav.popBackStack()) nav.navigate(Routes.TODAY) }
+    ) { leave { confirmDelete = false; vm.run { vm.repo.deleteSession(s.id) }; if (!nav.popBackStack()) nav.navigate(Routes.TODAY) } }
 }
 
 /** A value the form works out from other fields, in Muted: pace, swim distance. */

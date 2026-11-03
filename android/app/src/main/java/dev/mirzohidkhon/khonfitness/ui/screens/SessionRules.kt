@@ -9,13 +9,44 @@ data class Summary(val time: String, val done: Int, val total: Int, val volume: 
 
 private fun e1rm(l: SetLog) = epley(l.weightKg ?: 0.0, l.reps ?: 0)
 
+/** A set that counts as done: checked with reps. A 0-rep set checked by an older version counts as not done. */
+fun countsAsDone(l: SetLog): Boolean = l.status == SetStatus.DONE && (l.reps ?: 0) > 0
+
+/** A set without weight is a bodyweight one when its exercise steps by 0 kg (Push-up, Plank). */
+fun isBodyweight(l: SetLog): Boolean = l.stepKg <= 0.0
+
+/**
+ * What a set still needs before its check: "Enter weight" (a weighted exercise with no weight or 0) and "Enter reps"
+ * (no reps or 0), in field order. Empty: the set can be checked. The same rule guards the write ([dev.mirzohidkhon.khonfitness.data.KhonDao.checkSet]).
+ */
+fun setMissing(l: SetLog): List<String> = listOfNotNull(
+    "Enter weight".takeIf { !isBodyweight(l) && (l.weightKg ?: 0.0) <= 0.0 },
+    "Enter reps".takeIf { (l.reps ?: 0) <= 0 },
+)
+
+/** The Discard confirm's line: "3 checked sets are lost.", or "Nothing is checked yet." with none. */
+fun discardBody(checked: Int): String = when (checked) {
+    0 -> "Nothing is checked yet."
+    1 -> "1 checked set is lost."
+    else -> "$checked checked sets are lost."
+}
+
 /** The finish figures. A new best is an exercise whose best e1RM today beats every earlier done set of it. */
 fun summarize(logs: List<SetLog>, all: List<SetLog>, sessionId: String, startedAt: Long, now: Long): Summary {
-    val done = logs.filter { it.status == SetStatus.DONE }
+    val done = logs.filter(::countsAsDone)
     val volume = done.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }
-    val before = all.filter { it.sessionId != sessionId && it.status == SetStatus.DONE }.groupBy { it.exerciseId }.mapValues { e -> e.value.maxOf(::e1rm) }
+    val before = all.filter { it.sessionId != sessionId && countsAsDone(it) }.groupBy { it.exerciseId }.mapValues { e -> e.value.maxOf(::e1rm) }
     val bests = done.groupBy { it.exerciseId }.count { (ex, ls) -> ls.maxOf(::e1rm) > (before[ex] ?: 0.0) }
     return Summary(workoutTime(startedAt, now), done.size, logs.size, volume, bests)
+}
+
+/**
+ * Runs its action the first time only: a second tap in the same frame, before the screen has left, does nothing.
+ * Guards an action that leaves a screen (Save, Discard), so it never runs twice or pops the screen under it too.
+ */
+class Once {
+    private var ran = false
+    operator fun invoke(action: () -> Unit) { if (ran) return; ran = true; action() }
 }
 
 /** Set logs grouped by block, in block order, each block in execution order. */

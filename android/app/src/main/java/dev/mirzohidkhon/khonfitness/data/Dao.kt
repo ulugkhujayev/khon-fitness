@@ -44,6 +44,40 @@ interface KhonDao {
         moveSetLogs(from, into); moveCardioSessions(from, into); moveBlockExercises(from, into)
         movePlanCardio(from, into); moveOverrideCardio(from, into); deleteExercise(from)
     }
+    @Query("SELECT COUNT(DISTINCT sessionId) FROM set_logs WHERE exerciseId = :id") suspend fun setLogSessionCountFor(id: String): Int
+    @Query("SELECT id FROM set_logs WHERE exerciseId = :id") suspend fun setLogIdsFor(id: String): List<String>
+    @Query("SELECT id FROM sessions WHERE exerciseId = :id") suspend fun cardioSessionIdsFor(id: String): List<String>
+    @Query("SELECT id FROM block_exercises WHERE exerciseId = :id") suspend fun blockExerciseIdsFor(id: String): List<String>
+    @Query("SELECT weekday FROM week_plan WHERE itemType = 'cardio' AND itemId = :id") suspend fun planCardioDaysFor(id: String): List<Int>
+    @Query("SELECT date FROM day_overrides WHERE itemType = 'cardio' AND itemId = :id") suspend fun overrideCardioDatesFor(id: String): List<String>
+    // An undo moves back only the rows the merge moved, and only while they still hold the target.
+    @Query("UPDATE set_logs SET exerciseId = :back WHERE exerciseId = :into AND id IN (:ids)") suspend fun moveSetLogsBack(ids: List<String>, into: String, back: String)
+    @Query("UPDATE sessions SET exerciseId = :back WHERE exerciseId = :into AND id IN (:ids)") suspend fun moveCardioSessionsBack(ids: List<String>, into: String, back: String)
+    @Query("UPDATE block_exercises SET exerciseId = :back WHERE exerciseId = :into AND id IN (:ids)") suspend fun moveBlockExercisesBack(ids: List<String>, into: String, back: String)
+    @Query("UPDATE week_plan SET itemId = :back WHERE itemType = 'cardio' AND itemId = :into AND weekday IN (:days)") suspend fun movePlanCardioBack(days: List<Int>, into: String, back: String)
+    @Query("UPDATE day_overrides SET itemId = :back WHERE itemType = 'cardio' AND itemId = :into AND date IN (:dates)") suspend fun moveOverrideCardioBack(dates: List<String>, into: String, back: String)
+    /**
+     * [mergeExercise] with its undo snapshot, read in the same transaction: the source row and the key of every row
+     * that moves. Null, and nothing written, when either exercise is gone.
+     */
+    @Transaction suspend fun mergeExerciseWithSnapshot(from: String, into: String): MergeSnapshot? {
+        val source = exercise(from) ?: return null
+        if (from == into || exercise(into) == null) return null
+        val snapshot = MergeSnapshot(source, into, setLogIdsFor(from), cardioSessionIdsFor(from), blockExerciseIdsFor(from), planCardioDaysFor(from), overrideCardioDatesFor(from))
+        mergeExercise(from, into)
+        return snapshot
+    }
+    /** Undo of a merge: the source row back, and every row the merge moved back to it, in one transaction. */
+    @Transaction suspend fun undoMerge(s: MergeSnapshot) {
+        val back = s.source.id
+        upsert(s.source)
+        // SQLite takes a few hundred bound values per statement at most; a long history goes in chunks.
+        s.setLogs.chunked(MAX_BOUND).forEach { moveSetLogsBack(it, s.into, back) }
+        s.sessions.chunked(MAX_BOUND).forEach { moveCardioSessionsBack(it, s.into, back) }
+        s.blockExercises.chunked(MAX_BOUND).forEach { moveBlockExercisesBack(it, s.into, back) }
+        if (s.planDays.isNotEmpty()) movePlanCardioBack(s.planDays, s.into, back)
+        s.overrideDates.chunked(MAX_BOUND).forEach { moveOverrideCardioBack(it, s.into, back) }
+    }
     /** Archive (or unarchive) with the page's edits: the changed fields first ([saveExerciseEdits]), then the flag. */
     @Transaction suspend fun archiveExerciseWithEdits(opened: Exercise, edited: Exercise, archived: Boolean) {
         if (edited.name.isNotBlank()) saveExerciseEdits(opened, edited)
@@ -226,14 +260,30 @@ interface KhonDao {
     @Query("UPDATE set_logs SET status = :status WHERE id = :id") suspend fun setSetStatus(id: String, status: String)
     @Query("UPDATE set_logs SET weightKg = :weightKg WHERE id = :id") suspend fun setSetWeight(id: String, weightKg: Double?)
     @Query("UPDATE set_logs SET reps = :reps WHERE id = :id") suspend fun setSetReps(id: String, reps: Int?)
-    @Query("UPDATE set_logs SET exerciseId = :toId, exerciseName = :toName, stepKg = :stepKg WHERE sessionId = :sessionId AND exerciseId = :fromId")
-    suspend fun swapSetExercise(sessionId: String, fromId: String, toId: String, toName: String, stepKg: Double)
-    @Query("UPDATE block_exercises SET exerciseId = :toId WHERE exerciseId = :fromId AND blockId IN (SELECT id FROM blocks WHERE programId = :programId)")
-    suspend fun swapProgramExercise(programId: String, fromId: String, toId: String)
-    /** A swap in a session, and in its program when [programId] is given: only the exercise columns, in one transaction. */
-    @Transaction suspend fun swapExercise(sessionId: String, fromId: String, to: Exercise, programId: String?) {
-        swapSetExercise(sessionId, fromId, to.id, to.name, to.stepKg)
-        if (programId != null) swapProgramExercise(programId, fromId, to.id)
+    /**
+     * The check on a set, written only when the stored set has reps above 0 and, unless it is a bodyweight one (step
+     * 0 kg), a weight above 0 ([dev.mirzohidkhon.khonfitness.ui.screens.setMissing]). Returns whether it wrote. The
+     * stored row decides, so a weight typed just before the check counts: writes run in the order they were sent.
+     */
+    @Query("UPDATE set_logs SET status = 'done' WHERE id = :id AND reps > 0 AND (stepKg <= 0 OR weightKg > 0)") suspend fun checkSet(id: String): Int
+    @Query("UPDATE set_logs SET exerciseId = :toId, exerciseName = :toName, stepKg = :stepKg WHERE sessionId = :sessionId AND blockIndex = :blockIndex AND slot = :slot")
+    suspend fun swapSetExercise(sessionId: String, blockIndex: Int, slot: Int, toId: String, toName: String, stepKg: Double)
+    /**
+     * The program row a session's block [blockIndex] and [slot] came from, found the way [KhonRepository.startProgramSession]
+     * numbered them: blocks in order, then the block's rows in slot order. Null when the program no longer has it.
+     */
+    suspend fun programRowAt(programId: String, blockIndex: Int, slot: Int): BlockExercise? {
+        val block = blocksFor(programId).getOrNull(blockIndex) ?: return null
+        return blockExercisesFor(block.id).getOrNull(slot)
+    }
+    /**
+     * A swap of the sets at [blockIndex] and [slot] of a session, and of the program row at the same place when
+     * [programId] is given (matched by place, not by exercise: an earlier session-only swap leaves the program on the
+     * old one). Only the exercise columns, in one transaction; a program edited since keeps what it has.
+     */
+    @Transaction suspend fun swapExercise(sessionId: String, blockIndex: Int, slot: Int, to: Exercise, programId: String?) {
+        swapSetExercise(sessionId, blockIndex, slot, to.id, to.name, to.stepKg)
+        if (programId != null) programRowAt(programId, blockIndex, slot)?.let { setBlockExerciseExercise(it.id, to.id) }
     }
     /** A session with its set and interval logs: all or nothing. */
     @Transaction suspend fun deleteSessionWithLogs(id: String) { deleteSetLogsFor(id); deleteIntervalLogsFor(id); deleteSession(id) }

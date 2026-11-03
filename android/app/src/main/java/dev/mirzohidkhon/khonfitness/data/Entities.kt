@@ -141,3 +141,20 @@ data class WeekPlan(@PrimaryKey val weekday: Int, val itemType: String, val item
 @Serializable
 @Entity(tableName = "day_overrides")
 data class DayOverride(@PrimaryKey val date: String, val itemType: String, val itemId: String? = null, @ColumnInfo(defaultValue = "0") val auto: Boolean = false)
+
+/**
+ * What an exercise merge moved, held in memory for its Undo (never stored): the deleted [source] row and the key of
+ * every row that moved to [into] (set logs, cardio sessions, program rows, plan weekdays, dated changes).
+ */
+data class MergeSnapshot(
+    val source: Exercise,
+    val into: String,
+    val setLogs: List<String>,
+    val sessions: List<String>,
+    val blockExercises: List<String>,
+    val planDays: List<Int>,
+    val overrideDates: List<String>,
+)
+
+/** Bound values per SQLite statement, kept well under the old 999 limit. */
+const val MAX_BOUND = 500

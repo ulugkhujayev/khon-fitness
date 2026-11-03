@@ -99,7 +99,8 @@ class WriteGuardTest {
 
         /** `.dao` or `::dao`, with any spaces or line breaks between the parts, whether called or only referenced. */
         private val DAO = Regex("""(\.|::)\s*dao\b""")
-        private val CONSTRUCTION = Regex("""KhonRepository\(\s*db\s*\.\s*dao\s*\(\s*\)\s*\)""")
+        // The DAO as the repository's first argument; a further argument (the settings store) may follow.
+        private val CONSTRUCTION = Regex("""KhonRepository\(\s*db\s*\.\s*dao\s*\(\s*\)\s*[,)]""")
 
         fun daoViolations(sources: Map<String, String>): List<String> {
             val found = mutableListOf<String>()

@@ -58,7 +58,7 @@ class CardioIntervalsKeptTest {
     private fun openForm(rounds: List<IntervalLog>) {
         io {
             dao.upsert(Exercise("bike", "Bike", Kind.CARDIO, intervals = true, rounds = rounds.size, fields = "time,watts"))
-            dao.upsert(Session("c1", "2026-11-02", 1000L, itemType = ItemType.CARDIO, exerciseId = "bike", exerciseName = "Bike"))
+            dao.upsert(Session("c1", "2026-11-02", 1000L, itemType = ItemType.CARDIO, exerciseId = "bike", exerciseName = "Bike", timeSec = 960))
             dao.upsertIntervalLogs(rounds)
         }
         compose.setContent { KhonTheme { CardioScreen(vm, rememberNavController(), "c1") } }
@@ -160,8 +160,8 @@ class CardioIntervalsKeptTest {
     @Test fun `another session id starts without the previous interval edits`() {
         io {
             dao.upsert(Exercise("bike", "Bike", Kind.CARDIO, intervals = true, rounds = 1, fields = "time,watts"))
-            dao.upsert(Session("c1", "2026-11-02", 1000L, itemType = ItemType.CARDIO, exerciseId = "bike", exerciseName = "Bike"))
-            dao.upsert(Session("c2", "2026-11-02", 2000L, itemType = ItemType.CARDIO, exerciseId = "bike", exerciseName = "Bike"))
+            dao.upsert(Session("c1", "2026-11-02", 1000L, itemType = ItemType.CARDIO, exerciseId = "bike", exerciseName = "Bike", timeSec = 960))
+            dao.upsert(Session("c2", "2026-11-02", 2000L, itemType = ItemType.CARDIO, exerciseId = "bike", exerciseName = "Bike", timeSec = 960))
             dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200), IntervalLog("j1", "c2", 0, avgHr = 120, watts = 220)))
         }
         val id = mutableStateOf("c1")

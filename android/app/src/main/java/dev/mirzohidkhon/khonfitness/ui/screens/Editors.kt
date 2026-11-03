@@ -198,6 +198,7 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
     var usage by remember { mutableStateOf<Int?>(if (isNew) 0 else null) }
     LaunchedEffect(exerciseId) { if (!isNew) usage = vm.repo.exerciseUsage(exerciseId) }
     val confirmDelete = rememberConfirm<Exercise>()
+    val confirmMerge = rememberConfirm<MergeAsk>()
     val locked = kindLocked(isNew, usage)
     val isStrength = draft.kind == Kind.STRENGTH
     EditorScaffold("Library", if (isNew) "New exercise" else original!!.name, onBack = { nav.popBackStack() }, onDone = {
@@ -269,8 +270,14 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
             draft = draft.copy(fields = (if (on) draft.fieldList - f else draft.fieldList + f).joinToString(","))
         }, onDismiss = ::close, isSelected = { it in draft.fieldList })
         "merge" -> ChoiceSheet("Merge ${draft.name} into", exercises.filter { it.id != exerciseId && it.kind == draft.kind }.map { Choice(it.id, it.name) }, onPick = { into ->
-            close(); vm.run { vm.repo.mergeExercise(exerciseId, into) }; nav.popBackStack()
+            // The target picked, the confirm says what moves before anything is written.
+            close()
+            exercises.find { it.id == into }?.let { target -> vm.run { val (sets, sessions) = vm.repo.mergeCounts(exerciseId); confirmMerge.ask(MergeAsk(target, sets, sessions)) } }
         }, onDismiss = ::close, searchable = true)
+    }
+    val sourceName = original?.name ?: draft.name
+    ConfirmSheet(confirmMerge, title = { "Merge $sourceName into ${it.into.name}?" }, body = { mergeBody(sourceName, it.into.name, it.sets, it.sessions) }, action = "Merge") { m ->
+        vm.mergeExercise(exerciseId, m.into); nav.popBackStack()
     }
     ConfirmSheet(confirmDelete, title = { "Delete ${it.name}?" }, body = { "It goes from the library for good." }) { e ->
         vm.run { vm.repo.deleteExercise(e.id) }; nav.popBackStack()

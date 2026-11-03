@@ -95,7 +95,7 @@ fun mergeStretchEdits(current: Stretch, opened: Stretch, edited: Stretch): Stret
     )
 }
 
-class KhonRepository(private val dao: KhonDao) {
+class KhonRepository(private val dao: KhonDao, private val since: WindowSince? = null) {
     val exercises: Flow<List<Exercise>> = dao.exercises()
     val modalities: Flow<List<Modality>> = dao.modalities()
     val programs: Flow<List<Program>> = dao.programs()
@@ -138,7 +138,15 @@ class KhonRepository(private val dao: KhonDao) {
     suspend fun deleteStretchSession(id: String) = dao.deleteStretchSession(id)
 
     // eating window
-    suspend fun setWindowEnabled(on: Boolean) = dao.setWindowEnabled(on)
+    /** The day the window was first turned on ([WindowSince]); null while none is stored. */
+    val windowSince: Flow<LocalDate?> = since?.date ?: kotlinx.coroutines.flow.flowOf(null)
+    /** The stored start date, or the fallback stored now ([windowSinceFallback]): from then on it stays. */
+    suspend fun keepWindowSince(today: LocalDate = LocalDate.now()): LocalDate? = since?.keepFirst(windowSinceFallback(dao.windowDaysOnce(), today))
+    /** Turning the window on stores its start date the first time ([keepWindowSince]); off and on again keeps it. */
+    suspend fun setWindowEnabled(on: Boolean, today: LocalDate = LocalDate.now()) {
+        if (on) keepWindowSince(today)
+        dao.setWindowEnabled(on)
+    }
     suspend fun setWindowRemind(min: Int) = dao.setWindowRemind(min)
     suspend fun setWindowStart(minute: Int): Boolean = dao.setWindowStart(minute)
     suspend fun setWindowEnd(minute: Int): Boolean = dao.setWindowEnd(minute)
@@ -185,6 +193,11 @@ class KhonRepository(private val dao: KhonDao) {
     suspend fun exerciseUsage(id: String): Int = dao.exerciseUsage(id)
     suspend fun deleteExercise(id: String): Boolean = dao.deleteExerciseIfUnused(id)
     suspend fun mergeExercise(from: String, into: String) = dao.mergeExercise(from, into)
+    /** The merge with its undo snapshot ([KhonDao.mergeExerciseWithSnapshot]); null when nothing was merged. */
+    suspend fun mergeExerciseWithUndo(from: String, into: String): MergeSnapshot? = dao.mergeExerciseWithSnapshot(from, into)
+    suspend fun undoMerge(s: MergeSnapshot) = dao.undoMerge(s)
+    /** What a merge of [id] moves, for its confirm: set logs, and the program and cardio sessions they and it are in. */
+    suspend fun mergeCounts(id: String): Pair<Int, Int> = dao.setLogCountFor(id) to dao.setLogSessionCountFor(id) + dao.cardioSessionCountFor(id)
     /** The modality editor's Done: a new modality ([opened] null) is written whole, an existing one gets only its changed fields. */
     suspend fun saveModalityEdits(opened: Modality?, edited: Modality) = if (opened == null) dao.upsert(edited) else dao.saveModalityEdits(opened, edited)
     suspend fun setModalityArchived(id: String, archived: Boolean) = dao.setModalityArchived(id, archived)
@@ -263,6 +276,8 @@ class KhonRepository(private val dao: KhonDao) {
     }
 
     suspend fun setSetStatus(id: String, status: String) = dao.setSetStatus(id, status)
+    /** Checks a set only when it holds what a check needs ([KhonDao.checkSet]); false when refused. */
+    suspend fun checkSet(id: String): Boolean = dao.checkSet(id) > 0
     suspend fun setSetWeight(id: String, weightKg: Double?) = dao.setSetWeight(id, weightKg)
     suspend fun setSetReps(id: String, reps: Int?) = dao.setSetReps(id, reps)
     /** The cardio form's Save: only what the user changed since [opened] and [openedIntervals] is written, in one transaction. */
@@ -276,9 +291,10 @@ class KhonRepository(private val dao: KhonDao) {
     /** Pending sets become skipped and the session gets its finish time, in one transaction; nothing else is written. */
     suspend fun finishSession(sessionId: String, now: Long = System.currentTimeMillis()) = dao.finishSession(sessionId, now)
     suspend fun deleteSession(sessionId: String) = dao.deleteSessionWithLogs(sessionId)
-    suspend fun swapExerciseInSession(sessionId: String, fromExerciseId: String, to: Exercise, updateProgram: Boolean, programId: String?) {
+    /** The swap from [log]'s row: every set at its block and slot, and the program row there when [updateProgram]. */
+    suspend fun swapExerciseInSession(log: SetLog, to: Exercise, updateProgram: Boolean, programId: String?) {
         // Only the exercise columns change: a set's weight, reps or check saved meanwhile stays.
-        dao.swapExercise(sessionId, fromExerciseId, to, if (updateProgram) programId else null)
+        dao.swapExercise(log.sessionId, log.blockIndex, log.slot, to, if (updateProgram) programId else null)
     }
 
     suspend fun importedSourceIds(): List<String> = dao.importedSourceIds().flatMap { it.split(",") }
@@ -312,11 +328,15 @@ class KhonRepository(private val dao: KhonDao) {
     }
 
     /** Merges or replaces from a backup in one transaction ([KhonDao.importBackup]). Throws when the file is not a Khon backup. */
-    suspend fun importJson(text: String, replace: Boolean) = dao.importBackup(Json { ignoreUnknownKeys = true }.decodeFromString<Backup>(text), replace)
+    /** The window's start date is not in the backup: an import clears it, so the imported window days set it again. */
+    suspend fun importJson(text: String, replace: Boolean) {
+        dao.importBackup(Json { ignoreUnknownKeys = true }.decodeFromString<Backup>(text), replace)
+        since?.clear()
+    }
 
     suspend fun seedIfEmpty() = dao.seedIfEmpty()
     suspend fun seedStretchesIfEmpty() = dao.seedStretchesIfEmpty()
-    suspend fun resetToSeed() = dao.resetToSeed()
+    suspend fun resetToSeed() { dao.resetToSeed(); since?.clear() }
 }
 
 object PlanRules {

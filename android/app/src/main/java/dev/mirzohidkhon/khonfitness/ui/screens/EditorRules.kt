@@ -117,6 +117,13 @@ fun kindLocked(isNew: Boolean, usage: Int?): Boolean = !isNew && (usage == null 
 /** Delete is on only when nothing uses the exercise (counted, not loading). */
 fun canDeleteExercise(usage: Int?): Boolean = usage == 0
 
+/** A merge the user picked, waiting for its confirm: the target and what moves ([mergeBody]). */
+data class MergeAsk(val into: Exercise, val sets: Int, val sessions: Int)
+
+/** The merge confirm's line: "12 sets and 4 sessions move to Bench Press. Old Bench is deleted." */
+fun mergeBody(from: String, into: String, sets: Int, sessions: Int): String =
+    "$sets ${if (sets == 1) "set" else "sets"} and $sessions ${if (sessions == 1) "session" else "sessions"} move to $into. $from is deleted."
+
 /** What a modality groups: "3 exercises", "1 exercise", "No exercises" (archived exercises not counted). */
 fun modalityUse(modalityId: String, exercises: List<Exercise>): String {
     val n = exercises.count { it.kind == Kind.CARDIO && !it.archived && it.modalityId == modalityId }

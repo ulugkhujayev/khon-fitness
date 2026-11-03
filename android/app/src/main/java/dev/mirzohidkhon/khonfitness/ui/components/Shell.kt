@@ -156,10 +156,10 @@ fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     }
 }
 
-/** The trailing bar action as a 34 dp accent capsule: Done, Edit, Save. */
+/** The trailing bar action as a 34 dp accent capsule: Done, Edit, Save. Off ([enabled] false) it turns grey. */
 @Composable
-fun Capsule(text: String, onClick: () -> Unit) {
-    Box(Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(K.Accent).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = K.AccentInk, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1)
+fun Capsule(text: String, onClick: () -> Unit, enabled: Boolean = true) {
+    Box(Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(if (enabled) K.Accent else K.Surface2).clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+        Text(text, color = if (enabled) K.AccentInk else K.Muted, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1)
     }
 }

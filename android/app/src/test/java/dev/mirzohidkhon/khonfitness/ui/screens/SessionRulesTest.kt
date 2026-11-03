@@ -115,11 +115,11 @@ class SessionRulesTest {
             set(0, index = 0, kg = 100.0, reps = 6, exercise = "ex00", status = SetStatus.DONE), // beats 100 x 5
             set(1, index = 0, kg = 80.0, reps = 10, exercise = "ex10", status = SetStatus.DONE), // ties: no best
             set(2, index = 0, kg = 20.0, reps = 10, exercise = "ex20", status = SetStatus.DONE), // first time: a best
-            set(2, index = 1, kg = null, reps = null, exercise = "ex20", status = SetStatus.DONE), // empty reads as 0
+            set(2, index = 1, kg = null, reps = null, exercise = "ex20", status = SetStatus.DONE), // checked by old data with no reps: not done
             set(2, index = 2, kg = 50.0, reps = 10, exercise = "ex20"), // pending: not counted
         )
         val sum = summarize(today, old + today, "s", start, start + 52 * 60_000 + 59_000)
-        assertEquals(Summary("52 min", done = 4, total = 5, volume = 600.0 + 800.0 + 200.0, bests = 2), sum)
+        assertEquals(Summary("52 min", done = 3, total = 5, volume = 600.0 + 800.0 + 200.0, bests = 2), sum)
         assertEquals("1 h 5 min", summarize(today, today, "s", start, start + 65 * 60_000).time)
     }
 

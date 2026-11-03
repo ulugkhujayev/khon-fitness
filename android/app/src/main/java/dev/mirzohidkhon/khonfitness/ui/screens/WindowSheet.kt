@@ -48,6 +48,10 @@ fun WindowSheet(vm: AppViewModel, onDismiss: () -> Unit) {
     val today = now.toLocalDate()
     val day = days.find { it.date == today.iso() }
     val open = w.enabled && EatingWindowRules.state(w, day, now).open
+    // History counts from the first enable date; an existing user with none gets the fallback stored once.
+    val storedSince by vm.repo.windowSince.collectAsState(null)
+    LaunchedEffect(w.enabled) { if (w.enabled) vm.repo.keepWindowSince() }
+    val since = storedSince ?: windowSinceFallback(days, today)
     // Each control writes its own setting onto the stored row ([KhonDao.setWindowStart] and the others), then re-arms the alarms.
     fun save(write: suspend () -> Unit) { vm.run { write(); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) } }
     Sheet("Eating window", onDismiss) {
@@ -77,11 +81,11 @@ fun WindowSheet(vm: AppViewModel, onDismiss: () -> Unit) {
                 }
             }
             if (w.enabled) {
-                val strip = windowStrip(days, today)
-                val summary = stripSummary(strip)
+                val strip = windowStrip(days, today, since)
+                val summary = stripSummary(strip, since)
                 SheetGroupTitle("Last 28 days")
                 WindowWeeks(strip, summary)
-                GroupFooter("$summary A ring is a day opened or closed by hand; today is white.")
+                GroupFooter("$summary A ring is a day opened or closed by hand; today is white." + if (StripCell.BEFORE in strip) " Grey days came before tracking." else "")
             }
         }
     }

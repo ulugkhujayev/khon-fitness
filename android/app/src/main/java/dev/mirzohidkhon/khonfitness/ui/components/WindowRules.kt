@@ -6,25 +6,39 @@ import dev.mirzohidkhon.khonfitness.data.iso
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-/** One cell of the eating window's 28-day strip: kept the fixed hours, changed them by hand, or today (not settled yet). */
-enum class StripCell { KEPT, CHANGED, TODAY }
+/**
+ * One cell of the eating window's 28-day strip: kept the fixed hours, changed them by hand, today (not settled yet),
+ * or a day before the window was first turned on (not counted).
+ */
+enum class StripCell { KEPT, CHANGED, TODAY, BEFORE }
 
-/** The last 28 days, oldest first: a day with no manual open and no manual close kept the hours. */
-fun windowStrip(days: List<WindowDay>, today: LocalDate): List<StripCell> {
+/**
+ * The last 28 days, oldest first: a day with no manual open and no manual close kept the hours. Days before [since]
+ * (the first enable date, [dev.mirzohidkhon.khonfitness.data.WindowSince]) are [StripCell.BEFORE].
+ */
+fun windowStrip(days: List<WindowDay>, today: LocalDate, since: LocalDate? = null): List<StripCell> {
     val byDate = days.associateBy { it.date }
     return (27 downTo 0).map { back ->
-        val d = byDate[today.minusDays(back.toLong()).iso()]
+        val date = today.minusDays(back.toLong())
+        val d = byDate[date.iso()]
         when {
             back == 0 -> StripCell.TODAY
+            since != null && date < since -> StripCell.BEFORE
             d == null || (d.openedAt == null && d.closedAt == null) -> StripCell.KEPT
             else -> StripCell.CHANGED
         }
     }
 }
 
-/** "Kept the hours on 20 of 27 days.": the settled days of the strip, today left out. */
-fun stripSummary(cells: List<StripCell>): String {
-    val settled = cells.filter { it != StripCell.TODAY }
+private val sinceDate: java.time.format.DateTimeFormatter = java.time.format.DateTimeFormatter.ofPattern("MMM d")
+
+/**
+ * "Kept the hours on 20 of 27 days.": the settled days of the strip, today and days before [since] left out. With no
+ * settled day yet it reads "Tracking since Nov 3." (never "0 of 0 days").
+ */
+fun stripSummary(cells: List<StripCell>, since: LocalDate? = null): String {
+    val settled = cells.filter { it == StripCell.KEPT || it == StripCell.CHANGED }
+    if (settled.isEmpty()) return if (since != null) "Tracking since ${since.format(sinceDate)}." else "Tracking from today."
     return "Kept the hours on ${settled.count { it == StripCell.KEPT }} of ${settled.size} days."
 }
 

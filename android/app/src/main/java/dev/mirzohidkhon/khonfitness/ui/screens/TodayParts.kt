@@ -82,7 +82,8 @@ fun WeekStrip(today: LocalDate, plan: KhonRepository.PlanData, modalities: List<
 /**
  * Today's item with its kind as a symbol in its color: a running session with the time since its start, its sets
  * done (a program) and Resume; else the item with Start, or its done line with Start again once today's session
- * is saved. Rest shows its line only.
+ * is saved. Rest shows its line only. A cardio session whose interval timer has ended ([timerStopped]) offers Save
+ * (the form, with the timer's time and rounds) and Discard instead of Resume.
  */
 @Composable
 fun TodayCard(
@@ -96,19 +97,25 @@ fun TodayCard(
     now: Long,
     onStart: () -> Unit,
     onResume: (Session) -> Unit,
+    timerStopped: Boolean = false,
+    onDiscard: (Session) -> Unit = {},
 ) {
     Column(Modifier.fillMaxWidth().clip(GroupShape).background(K.Surface).padding(horizontal = 16.dp, vertical = 14.dp)) {
         when {
             unfinished != null -> {
                 CardHead(
                     if (unfinished.itemType == ItemType.PROGRAM) Icons.Dumbbell else Icons.Runner, sessionColor(unfinished, exercises, modalities).first,
-                    unfinished.programName ?: unfinished.exerciseName ?: "Session", progressLine(unfinished.startedAt, now), K.Accent,
+                    unfinished.programName ?: unfinished.exerciseName ?: "Session",
+                    if (timerStopped) "Timer stopped · " + dev.mirzohidkhon.khonfitness.timer.mmss((unfinished.timeSec ?: 0).toDouble()) else progressLine(unfinished.startedAt, now), K.Accent,
                 )
                 if (progress != null) Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     ProgressBar(progress.done, progress.total, "${progress.done} of ${progress.total} sets done", Modifier.weight(1f), color = K.Accent)
                     Text("${progress.done} / ${progress.total}", style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(start = 12.dp).clearAndSetSemantics {})
                 }
-                PrimaryButton("Resume", Modifier.padding(top = 14.dp), compact = true) { onResume(unfinished) }
+                if (timerStopped) Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PrimaryButton("Save", Modifier.weight(1f), compact = true) { onResume(unfinished) }
+                    TintedButton("Discard", Modifier.weight(1f), color = K.Red) { onDiscard(unfinished) }
+                } else PrimaryButton("Resume", Modifier.padding(top = 14.dp), compact = true) { onResume(unfinished) }
             }
             doneText != null -> CardHead(Icons.Check, K.Green, item.name, doneText, K.Green) {
                 Box(Modifier.padding(top = 2.dp)) { TextButton("Start again", onClick = onStart) }

@@ -120,7 +120,7 @@ class SessionWritesTest {
     @Test fun `a swap changes only the exercise columns of its sets`() = runBlocking {
         seed()
         repo.setSetWeight("b", 70.0)
-        repo.swapExerciseInSession("s1", "bench", Exercise("incline", "Incline Press", Kind.STRENGTH, stepKg = 1.25), updateProgram = false, programId = null)
+        repo.swapExerciseInSession(dao.setLogsOnce("s1").first(), Exercise("incline", "Incline Press", Kind.STRENGTH, stepKg = 1.25), updateProgram = false, programId = null)
         val logs = dao.setLogsOnce("s1")
         assertTrue(logs.all { it.exerciseId == "incline" && it.exerciseName == "Incline Press" && it.stepKg == 1.25 })
         assertEquals(70.0, logs.first { it.id == "b" }.weightKg!!, 0.0)
@@ -132,7 +132,7 @@ class SessionWritesTest {
         dao.upsertPrograms(listOf(Program("p1", "Push", active = true), Program("p2", "Pull", sortOrder = 1)))
         dao.upsertBlocks(listOf(Block("b1", "p1", 0), Block("b2", "p2", 0)))
         dao.upsertBlockExercises(listOf(BlockExercise("e1", "b1", 0, "bench", sets = 4), BlockExercise("e2", "b2", 0, "bench")))
-        repo.swapExerciseInSession("s1", "bench", Exercise("incline", "Incline Press", Kind.STRENGTH), updateProgram = true, programId = "p1")
+        repo.swapExerciseInSession(dao.setLogsOnce("s1").first(), Exercise("incline", "Incline Press", Kind.STRENGTH), updateProgram = true, programId = "p1")
         assertEquals(BlockExercise("e1", "b1", 0, "incline", sets = 4), dao.blockExercisesFor("b1").single())
         assertEquals("bench", dao.blockExercisesFor("b2").single().exerciseId)
     }
@@ -141,7 +141,7 @@ class SessionWritesTest {
         seed()
         dao.upsertPrograms(listOf(Program("p1", "Push", active = true)))
         dao.upsertBlocks(listOf(Block("b1", "p1", 0)))
-        repo.swapExerciseInSession("s1", "bench", Exercise("incline", "Incline Press", Kind.STRENGTH), updateProgram = true, programId = "p1")
+        repo.swapExerciseInSession(dao.setLogsOnce("s1").first(), Exercise("incline", "Incline Press", Kind.STRENGTH), updateProgram = true, programId = "p1")
         assertTrue(dao.blockExercisesFor("b1").isEmpty())
     }
 }

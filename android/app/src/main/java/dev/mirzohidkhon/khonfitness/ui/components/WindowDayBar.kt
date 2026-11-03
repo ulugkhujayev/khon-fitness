@@ -94,7 +94,8 @@ fun WindowWeeks(cells: List<StripCell>, summary: String, modifier: Modifier = Mo
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     week.forEach { cell ->
                         Box(Modifier.size(28.dp, 24.dp), contentAlignment = Alignment.Center) {
-                            Dot(if (cell == StripCell.TODAY) K.Text else K.Green, filled = cell == StripCell.KEPT, size = 12)
+                            if (cell == StripCell.BEFORE) Dot(K.Surface3, filled = true, size = 12)
+                            else Dot(if (cell == StripCell.TODAY) K.Text else K.Green, filled = cell == StripCell.KEPT, size = 12)
                         }
                     }
                 }

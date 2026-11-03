@@ -78,7 +78,7 @@ fun preview(item: PlanItem, blocks: List<Block>, blockExercises: List<BlockExerc
  * bottom edge once content scrolls beneath ([navHairline]). [done] "+" shows a round plus spoken as [addLabel].
  */
 @Composable
-fun EditorTopBar(back: String, title: String, onBack: () -> Unit, done: String = "Done", scrollPx: (() -> Int)? = null, addLabel: String = "Add", onDone: (() -> Unit)? = null) {
+fun EditorTopBar(back: String, title: String, onBack: () -> Unit, done: String = "Done", scrollPx: (() -> Int)? = null, addLabel: String = "Add", doneEnabled: Boolean = true, onDone: (() -> Unit)? = null) {
     Box(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             // 88 wide on each side holds a Done capsule and keeps the title centered; a large font may widen it.
@@ -88,7 +88,7 @@ fun EditorTopBar(back: String, title: String, onBack: () -> Unit, done: String =
                 when {
                     onDone == null -> Unit
                     done == "+" -> BarCircleButton(dev.mirzohidkhon.khonfitness.ui.Icons.Plus, addLabel, onDone)
-                    else -> Capsule(done, onDone)
+                    else -> Capsule(done, onDone, enabled = doneEnabled)
                 }
             }
         }

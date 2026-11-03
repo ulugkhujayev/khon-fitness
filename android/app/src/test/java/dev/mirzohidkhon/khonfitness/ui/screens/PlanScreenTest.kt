@@ -151,7 +151,8 @@ class PlanScreenTest {
     @Test fun `rows say what they hold and open their editors`() {
         seed()
         openPlan()
-        compose.onNode(hasText("Push") and hasText("1 block · 3 sets · Every Mon, Thu")).assertExists()
+        // The rows show once the plan's queries answer.
+        waitFor { compose.onAllNodes(hasText("Push") and hasText("1 block · 3 sets · Every Mon, Thu")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasText("Pull") and hasText("0 blocks · 0 sets · Not in the week")).assertExists()
         compose.onNode(hasText("Run") and hasText("Zone 2 run") and hasText("Steady · Not in the week")).assertExists()
         // The archived workout sits under Archived, after the live one.
@@ -195,7 +196,8 @@ class PlanScreenTest {
         io { dao.upsert(DayOverride(today.toString(), ItemType.CARDIO, "z2run")) }
         openPlan()
         val day = today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
-        compose.onNode(hasContentDescription("$day, Zone 2 run. Today. Changed for this day only.")).assertExists()
+        // The week shows the change once the plan's queries answer.
+        waitFor { compose.onAllNodes(hasContentDescription("$day, Zone 2 run. Today. Changed for this day only.")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("Edit week plan").performClick()
         waitFor { shows(WEEK_PLAN_NOTE) }
     }
@@ -241,6 +243,8 @@ class PlanScreenTest {
         seed()
         io { dao.upsertPrograms((1..12).map { Program("p$it", "Program $it", sortOrder = 10 + it) }) }
         openPlan()
+        // The twelve programs make the page scroll: wait for them, or the scroll below may find a short page.
+        waitFor { shows("Program 12") }
         val unscrolled = top("Gym programs")
         compose.onNodeWithText("Stretches").performScrollTo()
         val scrolled = top("Stretch routines")

@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.KhonApp
@@ -163,6 +164,33 @@ class HistoryShotsTest {
         compose.setContent { KhonTheme { androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) { CardioTypeScreen(vm, rememberNavController(), "run") } } }
         waitFor("Sessions")
         shot("6-cardio-type")
+    }
+
+    @Test fun liftList() {
+        io { seed() }
+        compose.setContent { KhonTheme { androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) { LiftListScreen(vm, rememberNavController()) } } }
+        waitFor("No sets yet")
+        shot("11-lift-list")
+    }
+
+    @Test fun progressCardio() {
+        io { seed() }
+        history()
+        waitFor("planned done")
+        compose.onNodeWithText("Progress").performClick()
+        waitFor("Distance per session")
+        compose.onAllNodesWithText("Distance per session", substring = true)[0].performScrollTo()
+        shot("12-progress-cardio")
+    }
+
+    @Test fun logAfterProgramDelete() {
+        // Legs was missed last Friday: that row keeps its plan as "Skipped · Deleted program".
+        io { seed(); vm.repo.deleteProgram("legs") }
+        history()
+        waitFor("planned done")
+        compose.onNodeWithContentDescription("Previous week").performClick()
+        waitFor("Deleted program")
+        shot("13-log-deleted-program")
     }
 
     @Test @Config(fontScale = 1.6f) fun largeText() {

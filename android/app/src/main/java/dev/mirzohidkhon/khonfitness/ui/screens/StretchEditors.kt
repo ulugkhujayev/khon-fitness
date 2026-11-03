@@ -30,14 +30,16 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
     val routineStretches by vm.routineStretches.collectAsStateWithLifecycle()
     val stretches by vm.stretches.collectAsStateWithLifecycle()
     val routine = routines.find { it.id == id }
+    // Done, Back and Delete leave: the first one in a frame runs ([ExitGuard]).
+    val leave = rememberExitGuard(nav)
     // No row: not loaded yet, deleted elsewhere, or a back stack saved before 0.5.0 ("routine/new"). Back still works.
-    if (routine == null) { EditorScaffold("Plan", "", onBack = { nav.popBackStack() }, onDone = null) {}; return }
+    if (routine == null) { EditorScaffold("Plan", "", onBack = { leave { leave.pop() } }, onDone = null) {}; return }
     val mine = routineStretches.filter { it.routineId == id }.sortedWith(compareBy({ it.sortOrder }, { it.id }))
     var picking by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val removal = rememberConfirm<RoutineStretch>()
     fun name(rs: RoutineStretch) = stretches.find { it.id == rs.stretchId }?.name ?: "Missing stretch"
-    EditorScaffold("Plan", routine.name, onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) {
+    EditorScaffold("Plan", routine.name, onBack = { leave { leave.pop() } }, onDone = { leave { leave.pop() } }) {
         GroupedList {
             FieldRow("Name", divider = false) {
                 InlineTextField(routine.name, { v -> vm.run { vm.repo.setRoutineName(id, v) } }, placeholder = NEW_ROUTINE_NAME, label = "Routine name")
@@ -87,7 +89,7 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
     }
     if (confirmDelete) ConfirmSheet("Delete this routine?", "Its stretch history stays.", "Delete", { confirmDelete = false }) {
         confirmDelete = false
-        vm.run { vm.repo.deleteRoutine(id) }; nav.popBackStack()
+        leave { vm.run { vm.repo.deleteRoutine(id) }; leave.pop() }
     }
 }
 
@@ -125,6 +127,8 @@ fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String?) {
     val context = LocalContext.current
     // The route alone sets the mode for the screen's whole life: no id creates, an id edits that stretch.
     val isNew = id == null
+    // Done, Back and Delete leave: the first one in a frame runs; a refused delete gives it back.
+    val leave = rememberExitGuard(nav)
     val existing = if (isNew) null else stretches.find { it.id == id }
     // What the editor opened with, kept once seen even when the row goes: Done writes only the fields changed since
     // ([KhonDao.saveStretchEdits]), which is nothing for a deleted row, and never creates a stretch in edit mode.
@@ -145,7 +149,7 @@ fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String?) {
         if (isNew) { if (d.name.isNotBlank()) vm.run { vm.repo.createStretch(d.copy(name = d.name.trim())) } }
         else if (o != null) vm.run { vm.repo.saveStretchEdits(o, d) }
     }
-    EditorScaffold("Stretches", if (isNew) "New stretch" else opened?.name ?: "Stretch", onBack = { nav.popBackStack() }, onDone = { save(); nav.popBackStack() }) {
+    EditorScaffold("Stretches", if (isNew) "New stretch" else opened?.name ?: "Stretch", onBack = { leave { leave.pop() } }, onDone = { leave { save(); leave.pop() } }) {
         StretchDemonstration(draft.figure, compact = true, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))
         GroupedList {
             FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Stretch name", label = "Name") }
@@ -181,6 +185,6 @@ fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String?) {
         // Checked again when it runs: a routine may use the stretch by now. A refusal keeps the editor open with the reason.
         confirmDelete = false
         val stretchId = id ?: return@ConfirmSheet
-        vm.run { if (vm.repo.deleteStretchIfUnused(stretchId)) nav.popBackStack() else useCount = vm.repo.stretchUseCount(stretchId) }
+        leave { vm.run { if (vm.repo.deleteStretchIfUnused(stretchId)) leave.pop() else { useCount = vm.repo.stretchUseCount(stretchId); leave.release() } } }
     }
 }

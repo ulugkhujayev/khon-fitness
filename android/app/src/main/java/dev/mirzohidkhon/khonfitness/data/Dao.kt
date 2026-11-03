@@ -39,45 +39,17 @@ interface KhonDao {
         deleteExercise(id)
         return true
     }
-    /** Every use of [from] moves to [into], then [from] goes: all or nothing. */
-    @Transaction suspend fun mergeExercise(from: String, into: String) {
+    /**
+     * Every use of [from] moves to [into], then [from] goes: all or nothing. Refused, with nothing written, when either
+     * exercise is gone or they are the same one, checked in the same transaction. Returns whether it merged.
+     */
+    @Transaction suspend fun mergeExercise(from: String, into: String): Boolean {
+        if (from == into || exercise(from) == null || exercise(into) == null) return false
         moveSetLogs(from, into); moveCardioSessions(from, into); moveBlockExercises(from, into)
         movePlanCardio(from, into); moveOverrideCardio(from, into); deleteExercise(from)
+        return true
     }
     @Query("SELECT COUNT(DISTINCT sessionId) FROM set_logs WHERE exerciseId = :id") suspend fun setLogSessionCountFor(id: String): Int
-    @Query("SELECT id FROM set_logs WHERE exerciseId = :id") suspend fun setLogIdsFor(id: String): List<String>
-    @Query("SELECT id FROM sessions WHERE exerciseId = :id") suspend fun cardioSessionIdsFor(id: String): List<String>
-    @Query("SELECT id FROM block_exercises WHERE exerciseId = :id") suspend fun blockExerciseIdsFor(id: String): List<String>
-    @Query("SELECT weekday FROM week_plan WHERE itemType = 'cardio' AND itemId = :id") suspend fun planCardioDaysFor(id: String): List<Int>
-    @Query("SELECT date FROM day_overrides WHERE itemType = 'cardio' AND itemId = :id") suspend fun overrideCardioDatesFor(id: String): List<String>
-    // An undo moves back only the rows the merge moved, and only while they still hold the target.
-    @Query("UPDATE set_logs SET exerciseId = :back WHERE exerciseId = :into AND id IN (:ids)") suspend fun moveSetLogsBack(ids: List<String>, into: String, back: String)
-    @Query("UPDATE sessions SET exerciseId = :back WHERE exerciseId = :into AND id IN (:ids)") suspend fun moveCardioSessionsBack(ids: List<String>, into: String, back: String)
-    @Query("UPDATE block_exercises SET exerciseId = :back WHERE exerciseId = :into AND id IN (:ids)") suspend fun moveBlockExercisesBack(ids: List<String>, into: String, back: String)
-    @Query("UPDATE week_plan SET itemId = :back WHERE itemType = 'cardio' AND itemId = :into AND weekday IN (:days)") suspend fun movePlanCardioBack(days: List<Int>, into: String, back: String)
-    @Query("UPDATE day_overrides SET itemId = :back WHERE itemType = 'cardio' AND itemId = :into AND date IN (:dates)") suspend fun moveOverrideCardioBack(dates: List<String>, into: String, back: String)
-    /**
-     * [mergeExercise] with its undo snapshot, read in the same transaction: the source row and the key of every row
-     * that moves. Null, and nothing written, when either exercise is gone.
-     */
-    @Transaction suspend fun mergeExerciseWithSnapshot(from: String, into: String): MergeSnapshot? {
-        val source = exercise(from) ?: return null
-        if (from == into || exercise(into) == null) return null
-        val snapshot = MergeSnapshot(source, into, setLogIdsFor(from), cardioSessionIdsFor(from), blockExerciseIdsFor(from), planCardioDaysFor(from), overrideCardioDatesFor(from))
-        mergeExercise(from, into)
-        return snapshot
-    }
-    /** Undo of a merge: the source row back, and every row the merge moved back to it, in one transaction. */
-    @Transaction suspend fun undoMerge(s: MergeSnapshot) {
-        val back = s.source.id
-        upsert(s.source)
-        // SQLite takes a few hundred bound values per statement at most; a long history goes in chunks.
-        s.setLogs.chunked(MAX_BOUND).forEach { moveSetLogsBack(it, s.into, back) }
-        s.sessions.chunked(MAX_BOUND).forEach { moveCardioSessionsBack(it, s.into, back) }
-        s.blockExercises.chunked(MAX_BOUND).forEach { moveBlockExercisesBack(it, s.into, back) }
-        if (s.planDays.isNotEmpty()) movePlanCardioBack(s.planDays, s.into, back)
-        s.overrideDates.chunked(MAX_BOUND).forEach { moveOverrideCardioBack(it, s.into, back) }
-    }
     /** Archive (or unarchive) with the page's edits: the changed fields first ([saveExerciseEdits]), then the flag. */
     @Transaction suspend fun archiveExerciseWithEdits(opened: Exercise, edited: Exercise, archived: Boolean) {
         if (edited.name.isNotBlank()) saveExerciseEdits(opened, edited)
@@ -206,6 +178,27 @@ interface KhonDao {
         moveInOrder(blocksFor(block.programId).map { it.id }, id, delta).forEachIndexed { i, b -> setBlockOrder(b, i) }
     }
 
+    // A program as sessions read it: one total order, so a position always names the same row ([programSnapshot]).
+    @Query("SELECT * FROM blocks WHERE programId = :programId ORDER BY sortOrder, id") suspend fun blocksInOrder(programId: String): List<Block>
+    @Query("SELECT * FROM block_exercises WHERE blockId IN (SELECT id FROM blocks WHERE programId = :programId) ORDER BY slot, id")
+    suspend fun programRowsInOrder(programId: String): List<BlockExercise>
+    /**
+     * The program as a session starts from it ([ProgramSnapshot]), read in one transaction: blocks by (sortOrder, id),
+     * each block's rows by (slot, id), rows whose exercise is gone left out; the fingerprint covers every raw row.
+     * Null when the program is gone. Session start and the swap's "Update the program too" both read only this.
+     */
+    @Transaction suspend fun programSnapshot(programId: String): ProgramSnapshot? {
+        val program = program(programId) ?: return null
+        val blocks = blocksInOrder(programId).sortedWith(compareBy({ it.sortOrder }, { it.id }))
+        val rows = programRowsInOrder(programId)
+        val exercises = exercisesOnce().associateBy { it.id }
+        val byBlock = rows.groupBy { it.blockId }
+        val detail = ProgramDetail(program, blocks.map { b ->
+            BlockDetail(b, byBlock[b.id].orEmpty().sortedWith(compareBy({ it.slot }, { it.id })).mapNotNull { be -> exercises[be.exerciseId]?.let { be to it } })
+        })
+        return ProgramSnapshot(detail, programFingerprint(programId, blocks, rows))
+    }
+
     // sessions
     @Query("SELECT * FROM sessions ORDER BY date DESC, startedAt DESC") fun sessions(): Flow<List<Session>>
     @Query("SELECT * FROM sessions") suspend fun sessionsOnce(): List<Session>
@@ -232,19 +225,44 @@ interface KhonDao {
      * The cardio form's Save: the columns changed from [opened] to [edited] go onto the row as it is now, so a timer
      * write since the form opened stays ([mergeCardioEdits]); then each interval field the user touched, alone, by id
      * ([IntervalEdit]): an untouched field is never written and an interval deleted meanwhile stays deleted.
-     * A deleted session writes nothing.
+     * An unfinished session (a new entry, also after the timer's Stop) saves only when the merged row has a time, a
+     * distance or laps ([cardioMissing]); else it is refused and nothing is written. A finished one (an edit from
+     * History) is not checked. A deleted session writes nothing.
      */
-    @Transaction suspend fun saveCardioEdits(opened: Session, edited: Session, intervalEdits: Map<String, IntervalEdit>, now: Long) {
-        val current = session(edited.id) ?: return
-        upsert(mergeCardioEdits(current, opened, edited, now))
+    @Transaction suspend fun saveCardioEdits(opened: Session, edited: Session, intervalEdits: Map<String, IntervalEdit>, now: Long): CardioSaveResult {
+        val current = session(edited.id) ?: return CardioSaveResult.Saved
+        val merged = mergeCardioEdits(current, opened, edited, now)
+        if (!current.finished) cardioMissing(merged)?.let { return CardioSaveResult.Refused(it) }
+        upsert(merged)
         intervalEdits.forEach { (id, e) ->
             (e.avgHr as? Edit.Set)?.let { setIntervalAvgHr(id, it.value) }
             (e.watts as? Edit.Set)?.let { setIntervalWatts(id, it.value) }
         }
+        return CardioSaveResult.Saved
     }
     /** A new session with its set and interval logs: all or nothing, so no session is ever saved without its logs. */
     @Transaction suspend fun insertSessionWithLogs(session: Session, setLogs: List<SetLog>, intervalLogs: List<IntervalLog>) {
         upsert(session); upsertSetLogs(setLogs); upsertIntervalLogs(intervalLogs)
+    }
+    /**
+     * A program session started from [programSnapshot] in one transaction: the snapshot, its set logs prefilled from
+     * the last done sets ([previousLogsByKey]), and the session with them. Returns the session and the program's
+     * fingerprint the logs came from; null, with nothing written, when the program is gone.
+     */
+    @Transaction suspend fun startProgramSession(programId: String, session: Session): Pair<Session, String>? {
+        val snapshot = programSnapshot(programId) ?: return null
+        val s = session.copy(itemType = ItemType.PROGRAM, programId = programId, programName = snapshot.detail.program.name)
+        insertSessionWithLogs(s, programLogs(s.id, snapshot.detail, previousLogsByKey(programId, s.id)), emptyList())
+        return s to snapshot.fingerprint
+    }
+    /** Last done set for the same exercise and set index, from the most recent finished program session. */
+    suspend fun previousLogsByKey(programId: String?, excludeSessionId: String): Map<String, SetLog> {
+        val sessions = sessionsOnce().filter { it.finished && it.id != excludeSessionId && it.itemType == ItemType.PROGRAM }.sortedByDescending { it.startedAt }
+        val result = HashMap<String, SetLog>()
+        for (s in sessions) {
+            for (l in setLogsOnce(s.id)) if (l.status == SetStatus.DONE && !result.containsKey(l.key())) result[l.key()] = l
+        }
+        return result
     }
     /**
      * A Health Connect import ([insertSessionWithLogs]), written only while none of its source records is imported yet,
@@ -277,21 +295,24 @@ interface KhonDao {
     @Query("UPDATE set_logs SET exerciseId = :toId, exerciseName = :toName, stepKg = :stepKg WHERE sessionId = :sessionId AND blockIndex = :blockIndex AND slot = :slot")
     suspend fun swapSetExercise(sessionId: String, blockIndex: Int, slot: Int, toId: String, toName: String, stepKg: Double)
     /**
-     * The program row a session's block [blockIndex] and [slot] came from, found the way [KhonRepository.startProgramSession]
-     * numbered them: blocks in order, then the block's rows in slot order. Null when the program no longer has it.
+     * A swap of the sets at [blockIndex] and [slot] of a session (only the exercise columns), and, when [updateProgram],
+     * of the program row at the same position of the [programSnapshot], in one transaction. The program changes only
+     * while [origin] still holds: the session is there, unfinished, with the origin's start time and program, and the
+     * program's fingerprint is the origin's (any change to its blocks or rows since refuses), and the position exists.
+     * Else only the session changes, and the result says it was refused.
      */
-    suspend fun programRowAt(programId: String, blockIndex: Int, slot: Int): BlockExercise? {
-        val block = blocksFor(programId).getOrNull(blockIndex) ?: return null
-        return blockExercisesFor(block.id).getOrNull(slot)
-    }
-    /**
-     * A swap of the sets at [blockIndex] and [slot] of a session, and of the program row at the same place when
-     * [programId] is given (matched by place, not by exercise: an earlier session-only swap leaves the program on the
-     * old one). Only the exercise columns, in one transaction; a program edited since keeps what it has.
-     */
-    @Transaction suspend fun swapExercise(sessionId: String, blockIndex: Int, slot: Int, to: Exercise, programId: String?) {
+    @Transaction suspend fun swapExercise(sessionId: String, blockIndex: Int, slot: Int, to: Exercise, updateProgram: Boolean, origin: SessionOrigin?): SwapResult {
         swapSetExercise(sessionId, blockIndex, slot, to.id, to.name, to.stepKg)
-        if (programId != null) programRowAt(programId, blockIndex, slot)?.let { setBlockExerciseExercise(it.id, to.id) }
+        if (!updateProgram) return SwapResult.SessionOnly(refused = false)
+        val refused = SwapResult.SessionOnly(refused = true)
+        if (origin == null) return refused
+        val session = session(sessionId) ?: return refused
+        if (session.finished || session.startedAt != origin.startedAt || session.programId != origin.programId) return refused
+        val snapshot = programSnapshot(origin.programId) ?: return refused
+        if (snapshot.fingerprint != origin.fingerprint) return refused
+        val row = snapshot.detail.blocks.getOrNull(blockIndex)?.exercises?.getOrNull(slot)?.first ?: return refused
+        setBlockExerciseExercise(row.id, to.id)
+        return SwapResult.ProgramUpdated(programSnapshot(origin.programId)?.fingerprint ?: return refused)
     }
     /** A session with its set and interval logs: all or nothing. */
     @Transaction suspend fun deleteSessionWithLogs(id: String) { deleteSetLogsFor(id); deleteIntervalLogsFor(id); deleteSession(id) }

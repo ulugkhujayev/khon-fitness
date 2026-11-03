@@ -3,6 +3,7 @@ package dev.mirzohidkhon.khonfitness
 import android.app.Application
 import dev.mirzohidkhon.khonfitness.data.KhonDatabase
 import dev.mirzohidkhon.khonfitness.data.KhonRepository
+import dev.mirzohidkhon.khonfitness.data.SessionOrigins
 import dev.mirzohidkhon.khonfitness.data.WindowSince
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
@@ -19,9 +20,9 @@ import kotlinx.coroutines.launch
 class KhonApp : Application() {
     val db: KhonDatabase by lazy { KhonDatabase.build(this) }
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    /** App settings outside the database and the backup ([dev.mirzohidkhon.khonfitness.data.WindowSince]); one store per process. */
+    /** App settings outside the database and the backup ([WindowSince], [SessionOrigins]); one store per process. */
     val settings: DataStore<Preferences> by lazy { PreferenceDataStoreFactory.create(scope = scope) { preferencesDataStoreFile("settings") } }
-    val repo: KhonRepository by lazy { KhonRepository(db.dao(), WindowSince(settings)) }
+    val repo: KhonRepository by lazy { KhonRepository(db.dao(), WindowSince(settings), SessionOrigins(settings)) }
 
     override fun onCreate() {
         super.onCreate()

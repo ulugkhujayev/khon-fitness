@@ -141,6 +141,15 @@ class FinishSaveOnceTest {
         until { session() == null }
     }
 
+    @Test fun `a double tap on Back leaves once`() {
+        openSession(listOf(log("a", 0, SetStatus.DONE)))
+        val back = compose.onNodeWithContentDescription("Today").fetchSemanticsNode().config[SemanticsActions.OnClick].action!!
+        compose.runOnUiThread { back(); back() }
+        compose.waitForIdle()
+        assertEquals(listOf("today"), nav.currentBackStack.value.mapNotNull { it.destination.route })
+        assertNotNull(session())
+    }
+
     @Test fun `a check without reps stays pending and the row says Enter reps`() {
         openSession(listOf(log("a", 0, SetStatus.PENDING, reps = null)))
         compose.onNodeWithContentDescription("A1 Bench Press").performClick()

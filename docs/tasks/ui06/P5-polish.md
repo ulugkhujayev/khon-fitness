@@ -9,7 +9,7 @@ Builder: ui-builder. Starts after the lead merged P1-P4. Code: `UI06-COVERAGE.md
 |---|---|---|---|
 | 1 | Any text or icon on an accent fill | Start, Save, chips, checks, segmented control | Dark ink on the accent; contrast 4.5:1 or more. A unit test computes the contrast of each token pair used for text in `Theme.kt` and fails below 4.5:1 (3:1 for 18 sp+ bold). |
 | 2 | Placeholder and hint text | empty fields | Contrast 4.5:1 or more against the field fill (same test). |
-| 3 | Session exercise name | — | A swap icon next to the name (48 dp target, label "Swap <name>") opens the existing swap sheet. The long-press path stays. |
+| 3 | Session exercise name | — | A swap icon next to the name (48 dp target, label "Swap <name>") opens the existing swap sheet. A tap on the name also opens it. |
 | 4 | Stretch demo: tap Skip | stretch 3 of 9 | Goes to stretch 4; a "Back" control returns to stretch 3 with its timer reset. Back is off on stretch 1. |
 | 5 | Stretch routine count | — | "9 stretches · 10 min" (one stretch: "1 stretch"). Same wording everywhere it shows. |
 | 6 | Field labels | font scale 1.0 and 1.6 | Labels in `Components.kt` field rows wrap to a second line, never cut or ellipsize. Compose test at 1.6 checks the full label text is shown. |

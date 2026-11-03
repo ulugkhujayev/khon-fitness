@@ -24,9 +24,12 @@ padded cards, per-item buttons, "Updated" lines.
   #0A84FF, red #FF6961 (increased contrast). Text and symbols on an
   accent, green or red fill are black.
 - Contrast: every text color on every fill it sits on reads at 4.5:1 or
-  more (3:1 for 18 sp bold and up), placeholders included. `TextPairs` in
-  `Theme.kt` lists the pairs and `ContrastTest` checks them. Off controls
-  are exempt.
+  more (3:1 for 18 sp bold and up, and for symbols), placeholders
+  included, the timer's and the stretch player's phase fills too.
+  `TextPairs` in `Theme.kt` lists the pairs and `ContrastTest` checks
+  them; it also fails a raw color (hex, or white or black at an alpha)
+  for text in the screens, so every such color is a token in `K`. Off
+  controls are exempt.
 - Navigation bar: 56 pt, a round 36 pt Back button with a chevron and no
   text on a 48 pt target (the same round button sits in a tab's large
   title, reaching 2 pt past its 44 pt row), the title centered in Headline between two equal 88 pt sides, the
@@ -119,8 +122,9 @@ padded cards, per-item buttons, "Updated" lines.
   48 px targets (remove in red; up off on the first row, down on the last).
 - No dates on list rows unless the row IS a date (history).
 - Rows that open a part of the app lead with a 30 px icon tile like iOS
-  Settings: a white 17 px symbol on a rounded square (radius 7) of its
-  color. The tile is decorative; the row names it. The Plan tab's
+  Settings: a 17 px symbol on a rounded square (radius 7) of its color,
+  black or white, whichever reads better (`inkOn`): black on orange,
+  green, blue and the cardio type colors, white on gray. The tile is decorative; the row names it. The Plan tab's
   Library holds Exercises and Stretches; Settings opens from the gear on
   Today. Settings rows carry tiles too.
 - The Plan tab: the large title "Plan" with a round "+" (a 36 px circle
@@ -421,7 +425,7 @@ Two lines, 88 px total, hairline between rows.
   Skip is dim when there is nothing to skip, Back on the first stretch. 10 px under the bar, the run's
   progress: one 3 px segment per stretch and side, 3 px apart (done white
   at 60 percent, the current one white, the rest white at 18 percent) and
-  "3 of 12 · 6:30 remaining" in footnote under it. The line under the
+  "3 of 12 · 6:30 remaining" in footnote at 75 percent white under it. The line under the
   stretch's name carries its length ("Left · Hold · 0:40", "10 reps ·
   1:00"); a ready screen shows no status line of its own, and the running
   states say Get ready, Hold, Move or Paused. Debug builds keep a ×20
@@ -532,7 +536,10 @@ Two lines, 88 px total, hairline between rows.
 - In the middle: the phase word in headline at 75 percent white (screen
   readers hear it when it changes), the countdown 96 bold with tabular
   figures, "Round 2 of 4" 24 semibold, "Next: rest 0:30" in body, and
-  "Elapsed 1:08 of 4:30" in subheadline at 60 percent white.
+  "Elapsed 1:08 of 4:30" in subheadline at 75 percent white (60 percent
+  read at 4.4:1 on the work green). Every secondary line on the player
+  fills, the battery note included, is white at 75 percent
+  (`K.OnPhaseMuted`).
 - At the bottom, while the phone may stop the app with the screen off:
   "If the timer stops when the screen is off, allow Khon to run in the
   background in battery settings." (no phone maker named) and a

@@ -149,7 +149,7 @@ private fun stretchCount(n: Int) = if (n == 1) "1 stretch" else "$n stretches"
 fun stretchLines(date: LocalDate, stretches: List<StretchSession>): List<String> =
     stretches.filter { it.date == date.iso() }.sortedBy { it.startedAt }.map { s ->
         val done = if (s.completed == 0 && s.skipped > 0) "skipped" else "${s.completed} of ${s.completed + s.skipped}"
-        "Stretch: ${s.routineName} · ${minutes(s.totalSec)} · $done"
+        "Stretch: ${s.routineName} · ${sessionMinutes(s.totalSec)} · $done"
     }
 
 /** One part of the week bar: a done day takes its session's color, an open planned day gray, a rest day near black. */
@@ -196,8 +196,15 @@ fun setsLine(sessionId: String, logs: List<SetLog>): String {
 /** Whole minutes from seconds, rounded to the nearest: the one minute rule of History. Sum seconds first, then round. */
 fun roundMinutes(sec: Int): Int = (sec + 30) / 60
 
-/** A minute count from seconds, rounded: "58 min". */
-private fun minutes(sec: Int) = "${roundMinutes(sec)} min"
+/**
+ * A saved session's time in History and on an import draft: [roundMinutes] of its seconds, "58 min", "65 min"; 3 min
+ * 40 s is "4 min". Today's done line and the finish summary count the same minutes ([sessionTime]). Only a running
+ * session's elapsed time ([workoutTime]) counts whole minutes.
+ */
+fun sessionMinutes(sec: Int) = "${roundMinutes(sec)} min"
+
+/** Seconds from a session's start to [end], never below 0. */
+fun sessionSeconds(startedAt: Long, end: Long): Int = ((end - startedAt) / 1000).toInt().coerceAtLeast(0)
 
 /**
  * The stat line of a finished session in the Log. Gym: "10 of 12 sets · 3.1 t · 58 min". Cardio:
@@ -206,12 +213,12 @@ private fun minutes(sec: Int) = "${roundMinutes(sec)} min"
 fun sessionLine(s: Session, logs: List<SetLog>, ex: Exercise?): String {
     if (s.itemType == ItemType.PROGRAM) {
         val done = logs.filter { it.sessionId == s.id && it.status == SetStatus.DONE }
-        val time = s.finishedAt?.let { minutes(((it - s.startedAt) / 1000).toInt().coerceAtLeast(0)) }
+        val time = s.finishedAt?.let { sessionMinutes(sessionSeconds(s.startedAt, it)) }
         return listOfNotNull(setsLine(s.id, logs), tons(done.sumOf { lifted(it) }), time).joinToString(" · ")
     }
     val m = meters(s)
     return listOfNotNull(
-        m?.let { "${fmt(it / 1000.0, 2)} km" }, s.timeSec?.let { minutes(it) }, pace(s.timeSec, m, isSwim(ex)),
+        m?.let { "${fmt(it / 1000.0, 2)} km" }, s.timeSec?.let { sessionMinutes(it) }, pace(s.timeSec, m, isSwim(ex)),
         if (s.sourceId != null) "Health Connect" else null,
     ).joinToString(" · ").ifEmpty { "Saved" }
 }

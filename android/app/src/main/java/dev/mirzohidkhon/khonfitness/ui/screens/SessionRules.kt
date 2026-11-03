@@ -37,7 +37,7 @@ fun summarize(logs: List<SetLog>, all: List<SetLog>, sessionId: String, startedA
     val volume = done.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }
     val before = all.filter { it.sessionId != sessionId }.groupBy { it.exerciseId }.mapValues { e -> bestSet(e.value) }
     val bests = done.groupBy { it.exerciseId }.count { (ex, ls) -> before[ex]?.let { top -> beats(bestSet(ls), top) } ?: false }
-    return Summary(workoutTime(startedAt, now), done.size, logs.size, volume, bests)
+    return Summary(sessionTime(sessionSeconds(startedAt, now)), done.size, logs.size, volume, bests)
 }
 
 /**

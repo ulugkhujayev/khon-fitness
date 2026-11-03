@@ -34,6 +34,15 @@ fun workoutTime(startedAt: Long, now: Long): String {
     return if (m >= 60) "${m / 60} h ${m % 60} min" else "$m min"
 }
 
+/**
+ * A saved or finishing gym session's time on Today's done line and in the finish summary: the minutes History shows
+ * ([roundMinutes] of the seconds), written as [workoutTime] writes them: "58 min", "1 h 5 min".
+ */
+fun sessionTime(sec: Int): String {
+    val m = roundMinutes(sec)
+    return if (m >= 60) "${m / 60} h ${m % 60} min" else "$m min"
+}
+
 /** Today's card while a cardio session runs without the timer: "In progress · 34 min", no time in its first minute. */
 fun progressLine(startedAt: Long, now: Long): String =
     if (now - startedAt < 60_000) "In progress" else "In progress · ${workoutTime(startedAt, now)}"
@@ -74,7 +83,7 @@ fun importAllLabel(ready: Int, total: Int): String = when {
 
 /** An import row's second line: "Mon, Oct 5 · 32 min · 5.2 km · 141 bpm · Mi Fitness", the app that wrote it last. */
 fun draftStats(d: ImportDraft): String =
-    listOfNotNull(d.date.format(shortDate), "${d.seconds / 60} min", d.distanceM?.let { "${fmt(it / 1000.0)} km" }, d.avgHr?.let { "$it bpm" }, d.originLabel.ifEmpty { null }).joinToString(" · ")
+    listOfNotNull(d.date.format(shortDate), sessionMinutes(d.seconds), d.distanceM?.let { "${fmt(it / 1000.0)} km" }, d.avgHr?.let { "$it bpm" }, d.originLabel.ifEmpty { null }).joinToString(" · ")
 
 /** Today's update row: its name, its line in accent, and whether the APK is downloading (a tap then does nothing). */
 data class UpdateRow(val title: String, val line: String, val downloading: Boolean)
@@ -182,9 +191,9 @@ fun statLine(s: Session, logs: List<SetLog>): String {
         val mine = logs.filter { it.sessionId == s.id }
         val done = mine.filter { it.status == SetStatus.DONE }
         val tons = fmt(done.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) } / 1000.0, 1)
-        return listOfNotNull(setsLine(SetProgress(done.size, mine.size)), "$tons t", s.finishedAt?.let { workoutTime(s.startedAt, it) }).joinToString(" · ")
+        return listOfNotNull(setsLine(SetProgress(done.size, mine.size)), "$tons t", s.finishedAt?.let { sessionTime(sessionSeconds(s.startedAt, it)) }).joinToString(" · ")
     }
-    return listOfNotNull(s.distanceM?.let { "${fmt(it / 1000.0)} km" }, s.timeSec?.let { "${it / 60} min" }, paceLine(s.timeSec, s.distanceM)).joinToString(" · ")
+    return listOfNotNull(s.distanceM?.let { "${fmt(it / 1000.0)} km" }, s.timeSec?.let { sessionMinutes(it) }, paceLine(s.timeSec, s.distanceM)).joinToString(" · ")
 }
 
 /** Green line on Today once today's item is done: "Done · 3 of 12 sets · 3.1 t · 58 min", "Done · 5.2 km · 30 min · 5:46 /km". */

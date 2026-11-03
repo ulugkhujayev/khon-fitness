@@ -42,7 +42,8 @@ Three tabs.
   interval timer's state, and Resume. Once saved: the last session saved
   today under its own name, whatever the plan held, "Done" with sets (d of
   n when some were skipped), tonnes and minutes (cardio: km, minutes and
-  pace), one Review button that opens the session read-only (no Edit;
+  pace; minutes rounded to the nearest, as in History and the finish
+  summary, so 3 min 40 s is 4 min), one Review button that opens the session read-only (no Edit;
   History keeps Edit), and "+1 more today" to History when other
   sessions were saved today. A week of rest days is a rest day with
   Change. With no program and no cardio workout yet: "No plan for today"

@@ -71,14 +71,15 @@ class TodayRulesTest {
         assertEquals("Import 2 matched", importAllLabel(2, 3))
     }
 
+    /** 32 min 40 s reads "33 min", as the session will in History ([sessionMinutes]). */
     @Test fun `import row line gives the date and the numbers it has`() {
         val zone = ZoneId.systemDefault()
         val from = LocalDateTime.of(2026, 10, 5, 7, 0).atZone(zone).toInstant()
         val d = ImportDraft("x", from, from.plusSeconds(32 * 60 + 40), "Running", "run", 5200, 141, emptyList(), listOf("com.xiaomi.wearable"))
-        assertEquals("${LocalDate.of(2026, 10, 5).format(shortDate)} · 32 min · 5.2 km · 141 bpm · Mi Fitness", draftStats(d))
-        assertEquals("${LocalDate.of(2026, 10, 5).format(shortDate)} · 32 min · Mi Fitness", draftStats(d.copy(distanceM = null, avgHr = null)))
+        assertEquals("${LocalDate.of(2026, 10, 5).format(shortDate)} · 33 min · 5.2 km · 141 bpm · Mi Fitness", draftStats(d))
+        assertEquals("${LocalDate.of(2026, 10, 5).format(shortDate)} · 33 min · Mi Fitness", draftStats(d.copy(distanceM = null, avgHr = null)))
         // The 0.4.8 row named the app that wrote the workout; two apps merge into one draft.
-        assertEquals("${LocalDate.of(2026, 10, 5).format(shortDate)} · 32 min · Mi Fitness + Strava", draftStats(d.copy(distanceM = null, avgHr = null, origins = listOf("com.xiaomi.wearable", "com.strava"))))
+        assertEquals("${LocalDate.of(2026, 10, 5).format(shortDate)} · 33 min · Mi Fitness + Strava", draftStats(d.copy(distanceM = null, avgHr = null, origins = listOf("com.xiaomi.wearable", "com.strava"))))
     }
 
     private val today = LocalDate.of(2026, 10, 7)
@@ -153,8 +154,9 @@ class TodayRulesTest {
 
     @Test fun `done line for cardio gives distance, time and pace`() {
         val cardio = Session("c", "2026-10-07", start, start + 1_800_000, ItemType.CARDIO, exerciseId = "run", timeSec = 1830, distanceM = 5200)
-        assertEquals("Done · 5.2 km · 30 min · 5:52 /km", doneLine(cardio, emptyList()))
-        assertEquals("Done · 30 min", doneLine(cardio.copy(distanceM = null), emptyList()))
+        // 30 min 30 s rounds to 31, as History counts it ([sessionMinutes]).
+        assertEquals("Done · 5.2 km · 31 min · 5:52 /km", doneLine(cardio, emptyList()))
+        assertEquals("Done · 31 min", doneLine(cardio.copy(distanceM = null), emptyList()))
         assertEquals("Done · 5.2 km", doneLine(cardio.copy(timeSec = null), emptyList()))
         assertEquals("Done", doneLine(cardio.copy(timeSec = null, distanceM = null), emptyList()))
     }

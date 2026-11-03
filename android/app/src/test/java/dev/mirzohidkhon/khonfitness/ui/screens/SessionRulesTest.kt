@@ -119,7 +119,8 @@ class SessionRulesTest {
             set(2, index = 2, kg = 50.0, reps = 10, exercise = "ex20"), // pending: not counted
         )
         val sum = summarize(today, old + today, "s", start, start + 52 * 60_000 + 59_000)
-        assertEquals(Summary("52 min", done = 3, total = 5, volume = 600.0 + 800.0 + 200.0, bests = 1), sum)
+        // 52 min 59 s rounds to 53, as History counts it ([sessionTime]).
+        assertEquals(Summary("53 min", done = 3, total = 5, volume = 600.0 + 800.0 + 200.0, bests = 1), sum)
         assertEquals("1 h 5 min", summarize(today, today, "s", start, start + 65 * 60_000).time)
     }
 

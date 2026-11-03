@@ -6,9 +6,6 @@ import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 
-/** Exercise id that opens the exercise editor on a new cardio workout (the Plan tab's "+"). */
-const val NEW_CARDIO = "new-cardio"
-
 /** The week plan screen's note on what a weekday change does. */
 const val WEEK_PLAN_NOTE = "Each weekday repeats every week. To change one day only, use Change on Today."
 
@@ -70,9 +67,6 @@ fun libraryGroups(exercises: List<Exercise>, query: String): List<Pair<String, L
 
 /** The cardio workout editor's note under Type: the type is stored on the workout, not on each session. */
 const val TYPE_NOTE = "Changes the color and type of past sessions too."
-
-/** The Type picker's "New type…" row. */
-const val NEW_TYPE = "__new_type"
 
 /** The types the Type picker lists: the live ones, and the workout's own type [current] even when archived. */
 fun typeChoices(types: List<Modality>, current: String?): List<Modality> = types.filter { !it.archived || it.id == current }

@@ -90,7 +90,7 @@ fun PlanScreen(vm: AppViewModel, nav: NavHostController) {
             }
             if (programs.isEmpty()) {
                 ListRow("No programs yet", chevron = false, divider = false, titleColor = K.Muted)
-                ListRow("Create program", titleColor = K.Accent) { nav.navigate(Routes.program("new")) }
+                ListRow("Create program", titleColor = K.Accent) { nav.navigate(Routes.NEW_PROGRAM) }
             }
         }
 
@@ -128,10 +128,10 @@ fun PlanScreen(vm: AppViewModel, nav: NavHostController) {
         Text("What do you want to add?", color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 12.dp))
         ChoiceList {
             fun open(route: String) { adding = false; nav.navigate(route) }
-            ListRow("Gym program", divider = false, leading = { IconTile(Icons.Dumbbell, K.Accent) }) { open(Routes.program("new")) }
-            ListRow("Cardio workout", leading = { IconTile(Icons.Runner, K.Blue) }) { open(Routes.exercise(NEW_CARDIO)) }
+            ListRow("Gym program", divider = false, leading = { IconTile(Icons.Dumbbell, K.Accent) }) { open(Routes.NEW_PROGRAM) }
+            ListRow("Cardio workout", leading = { IconTile(Icons.Runner, K.Blue) }) { open(Routes.newExercise(Kind.CARDIO)) }
             ListRow("Stretch routine", leading = { IconTile(Icons.Stretch, K.Green) }) { adding = false; newRoutine() }
-            ListRow("Exercise", leading = { IconTile(Icons.Dumbbell, K.Dim) }) { open(Routes.exercise("new")) }
+            ListRow("Exercise", leading = { IconTile(Icons.Dumbbell, K.Dim) }) { open(Routes.newExercise(Kind.STRENGTH)) }
         }
     }
 }
@@ -225,7 +225,7 @@ fun LibraryScreen(vm: AppViewModel, nav: NavHostController) {
     var query by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
-        EditorTopBar("Plan", "Exercises", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New exercise") { nav.navigate(Routes.exercise("new")) }
+        EditorTopBar("Plan", "Exercises", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New exercise") { nav.navigate(Routes.newExercise(Kind.STRENGTH)) }
         Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             SearchField(query, { query = it })
             val groups = libraryGroups(exercises, query)

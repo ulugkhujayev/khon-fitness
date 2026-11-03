@@ -3,6 +3,10 @@ package dev.mirzohidkhon.khonfitness.ui.screens
 import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -66,7 +70,7 @@ class PlanEditorsTest {
             val nav = rememberNavController()
             NavHost(nav, Routes.LIBRARY) {
                 composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }
-                composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
+                composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
             }
         }
     }
@@ -132,10 +136,58 @@ class PlanEditorsTest {
 
     @Test fun `a new cardio workout starts as cardio with no note on past sessions`() {
         io { dao.upsert(run) }
-        openEditor(NEW_CARDIO)
+        compose.setContent { KhonTheme { ExerciseEditorScreen(vm, rememberNavController(), null, newKind = Kind.CARDIO) } }
         waitFor { shows("New cardio workout") }
         assertTrue(shows("Type") && shows("Intensity"))
         assertFalse(shows(TYPE_NOTE))
         assertFalse(shows("Primary"))
+    }
+
+    /**
+     * A backup can hold any id, also the ones the editors once read as "create": each opens as the stored row, and a
+     * type with the old "New type…" id is picked like any other type.
+     */
+    @Test fun `rows imported with the old create ids open as themselves`() {
+        io {
+            dao.importBackup(Backup(
+                exercises = listOf(
+                    Exercise("new-cardio", "Tempo run", Kind.CARDIO, modalityId = "run"),
+                    Exercise("new", "Old bench", Kind.STRENGTH, primaryMuscle = "chest"),
+                ),
+                modalities = listOf(run, Modality("__new_type", "Swim", 0xFF7CC8FF)),
+                programs = listOf(Program("new", "Push pull")), blocks = listOf(Block("new", "new", 0)),
+                blockExercises = listOf(BlockExercise("be", "new", 0, "new")), sessions = emptyList(), setLogs = emptyList(),
+                intervalLogs = emptyList(), bodyweights = emptyList(), weekPlan = emptyList(), overrides = emptyList(),
+                stretches = listOf(Stretch("new", "Pigeon")),
+            ), replace = false)
+        }
+        var screen by mutableStateOf("new-cardio")
+        compose.setContent {
+            KhonTheme {
+                val nav = rememberNavController()
+                key(screen) {
+                    when (screen) {
+                        "program" -> ProgramEditorScreen(vm, nav, "new")
+                        "block" -> BlockEditorScreen(vm, nav, "new", "new")
+                        "stretch" -> StretchEditorScreen(vm, nav, "new")
+                        else -> ExerciseEditorScreen(vm, nav, screen)
+                    }
+                }
+            }
+        }
+        waitFor { shows("Tempo run") }
+        assertFalse(shows("New cardio workout"))
+        tap(compose.onNodeWithText("Type"))
+        waitFor { shows("Swim") }
+        tap(compose.onNodeWithText("Swim"))
+        waitFor { !shows("Swim") || shows("Done") }
+        assertFalse("the type opened the new type sheet", shows("Add type"))
+        tap(compose.onNodeWithText("Done"))
+        compose.waitUntil(5_000) { runBlocking(Dispatchers.IO) { dao.exercise("new-cardio") }?.modalityId == "__new_type" }
+
+        for ((name, shown) in listOf("new" to "Old bench", "program" to "Push pull", "block" to "Old bench", "stretch" to "Pigeon")) {
+            compose.runOnIdle { screen = name }
+            waitFor { shows(shown) }
+        }
     }
 }

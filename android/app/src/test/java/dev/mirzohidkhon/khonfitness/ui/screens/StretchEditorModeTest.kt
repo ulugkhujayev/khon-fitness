@@ -30,7 +30,7 @@ import org.robolectric.annotation.Config
 
 /**
  * The stretch editor's mode comes from the route alone: an edit of a stretch that is gone, when the editor opens or
- * while it is open, writes nothing on Done, and only the "new" route creates a stretch.
+ * while it is open, writes nothing on Done, and only the new-stretch route (no id) creates a stretch.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -57,7 +57,7 @@ class StretchEditorModeTest {
      * Opens the editor with the clock held: a blank editor shows the hip flexor guide, which plays without end, so
      * frames run only when the test asks for them ([frame], [until]).
      */
-    private fun openEditor(id: String) {
+    private fun openEditor(id: String?) {
         compose.mainClock.autoAdvance = false
         compose.setContent { KhonTheme { StretchEditorScreen(vm, rememberNavController(), id) } }
         frame()
@@ -104,7 +104,7 @@ class StretchEditorModeTest {
     }
 
     @Test fun `the new route creates the stretch on Done`() {
-        openEditor("new")
+        openEditor(null)
         typeName("Typed")
         done()
         assertEquals(listOf("Typed"), stretches().map { it.name })

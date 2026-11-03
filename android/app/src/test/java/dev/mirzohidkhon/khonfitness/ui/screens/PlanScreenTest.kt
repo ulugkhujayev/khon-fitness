@@ -79,7 +79,9 @@ class PlanScreenTest {
                     composable(Routes.TODAY) { Text("Today screen") }
                     composable(Routes.PROGRAMS) { PlanScreen(vm, nav) }
                     composable("program/{id}") { e -> ProgramEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                    composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
+                    composable(Routes.NEW_PROGRAM) { ProgramEditorScreen(vm, nav, null) }
+                    composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                    composable("exercise-new/{kind}") { e -> ExerciseEditorScreen(vm, nav, null, newKind = e.arguments?.getString("kind") ?: Kind.STRENGTH) }
                     composable("routine/{id}") { e -> Text("Routine ${e.arguments?.getString("id")}") }
                     composable(Routes.WEEK_PLAN) { WeekPlanScreen(vm, nav) }
                     composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }

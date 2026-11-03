@@ -98,7 +98,7 @@ fun StretchLibraryScreen(vm: AppViewModel, nav: NavHostController) {
     var query by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
-        EditorTopBar("Plan", "Stretches", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New stretch") { nav.navigate(Routes.stretchEditor("new")) }
+        EditorTopBar("Plan", "Stretches", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New stretch") { nav.navigate(Routes.NEW_STRETCH) }
         Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             SearchField(query, { query = it })
             Spacer(Modifier.height(16.dp))
@@ -120,11 +120,11 @@ fun StretchLibraryScreen(vm: AppViewModel, nav: NavHostController) {
  * uses cannot be deleted, and the reason shows under Delete.
  */
 @Composable
-fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
+fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String?) {
     val stretches by vm.stretches.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    // The route alone sets the mode for the screen's whole life: "new" creates, any other id edits that stretch.
-    val isNew = id == "new"
+    // The route alone sets the mode for the screen's whole life: no id creates, an id edits that stretch.
+    val isNew = id == null
     val existing = if (isNew) null else stretches.find { it.id == id }
     // What the editor opened with, kept once seen even when the row goes: Done writes only the fields changed since
     // ([KhonDao.saveStretchEdits]), which is nothing for a deleted row, and never creates a stretch in edit mode.
@@ -137,7 +137,7 @@ fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
     // there, which can be a few frames after the screen opens, and again after a refused delete.
     var useCount by remember { mutableStateOf<Int?>(null) }
     val loaded = existing != null
-    LaunchedEffect(id, loaded) { if (loaded) useCount = vm.repo.stretchUseCount(id) }
+    LaunchedEffect(id, loaded) { if (loaded && id != null) useCount = vm.repo.stretchUseCount(id) }
     val reps = draft.mode == StretchMode.REPS
     fun save() {
         val d = draft; val o = opened
@@ -180,6 +180,7 @@ fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
     if (confirmDelete) ConfirmSheet("Delete this stretch?", "It goes from the stretch library for good.", "Delete", { confirmDelete = false }) {
         // Checked again when it runs: a routine may use the stretch by now. A refusal keeps the editor open with the reason.
         confirmDelete = false
-        vm.run { if (vm.repo.deleteStretchIfUnused(id)) nav.popBackStack() else useCount = vm.repo.stretchUseCount(id) }
+        val stretchId = id ?: return@ConfirmSheet
+        vm.run { if (vm.repo.deleteStretchIfUnused(stretchId)) nav.popBackStack() else useCount = vm.repo.stretchUseCount(stretchId) }
     }
 }

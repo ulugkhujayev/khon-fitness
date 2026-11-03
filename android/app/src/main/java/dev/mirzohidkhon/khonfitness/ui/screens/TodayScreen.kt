@@ -1,6 +1,10 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -15,21 +19,27 @@ import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.time.LocalDate
 
-/** Now, read again at each minute boundary so "34 min" and "closes in" stay right while the screen is open. */
+/**
+ * Now, read again at each minute boundary and on each resume, so "34 min", "closes in" and the date stay right while
+ * the screen is open, also across midnight while the app was in the background.
+ */
 @Composable
 fun rememberMinuteClock(): Long {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(60_000 - System.currentTimeMillis() % 60_000); now = System.currentTimeMillis() } }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { now = System.currentTimeMillis(); onPauseOrDispose { } }
     return now
 }
 
 /**
- * Today: the week strip, today's item with Start or Resume, one group of rows (a newer release to install, the
- * stretch routine, the eating window, band sessions waiting for import), and bodyweight with its chart and entry.
+ * Today: today's item with Change, Start, Resume or Review, one group of rows (a newer release to install, the
+ * stretch routine, the eating window, band sessions waiting for import), and the bodyweight card.
  */
 @Composable
 fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
-    val plan by vm.planData.collectAsStateWithLifecycle()
+    // The plan as read from the database: null until it is, so a first-use card never flashes over a real plan.
+    val planRead by remember { vm.repo.planData }.collectAsStateWithLifecycle(null)
+    val plan = planRead ?: KhonRepository.PlanData(emptyList(), emptyList(), emptyList(), emptyList())
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val blocks by vm.blocks.collectAsStateWithLifecycle()
@@ -38,10 +48,12 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     val unfinished by vm.unfinished.collectAsStateWithLifecycle()
     val sessions by vm.sessions.collectAsStateWithLifecycle()
     val logs by vm.allSetLogs.collectAsStateWithLifecycle()
-    val today = LocalDate.now()
+    val timer by TimerService.state.collectAsStateWithLifecycle()
+    val now = rememberMinuteClock()
+    val today = todayOf(now)
     val item = plan.itemFor(today)
-    val loaded = plan.plan.isNotEmpty() || plan.programs.isNotEmpty() || plan.exercises.isNotEmpty()
-    var planDate by remember { mutableStateOf<LocalDate?>(null) }
+    val loaded = planRead != null
+    var changeSheet by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     var pendingBand by remember { mutableIntStateOf(0) }
     fun start() = vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
@@ -63,7 +75,6 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     var windowSheet by remember { mutableStateOf(false) }
     val windowRequested by dev.mirzohidkhon.khonfitness.MainActivity.windowRequested.collectAsStateWithLifecycle()
     LaunchedEffect(windowRequested) { if (windowRequested) { dev.mirzohidkhon.khonfitness.MainActivity.windowRequested.value = false; windowSheet = true } }
-    val now = rememberMinuteClock()
     val update by vm.update.collectAsStateWithLifecycle()
     val updateProgress by vm.updateProgress.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.checkUpdate() }
@@ -74,16 +85,23 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     LaunchedEffect(Unit) { pendingBand = runCatching { dev.mirzohidkhon.khonfitness.health.HealthImport.pendingCount(context, vm.repo.importedSourceIds().toSet()) }.getOrDefault(0) }
 
     TabScreen("Today", trailing = { BarCircleButton(Icons.Gear, "Settings") { nav.navigate(Routes.SETTINGS) } }) {
-        WeekStrip(today, plan, modalities) { planDate = it }
         if (loaded) {
             val active = unfinished
-            val done = sessions.firstOrNull { it.date == today.iso() && it.finished && ((item.program != null && it.programId == item.program.id) || (item.cardio != null && it.exerciseId == item.cardio.id)) }
-            Spacer(Modifier.height(16.dp))
+            val done = doneToday(sessions, item, today)
             TodayCard(
-                item, preview(item, blocks, blockExercises, modalities), active,
+                item, todayLine(item, blocks, blockExercises, modalities), itemColor(item, modalities)?.first ?: K.Muted,
+                unfinished = active,
+                running = active?.let { runningLine(it, logs, timer, now) }.orEmpty(),
                 progress = active?.takeIf { it.itemType == ItemType.PROGRAM }?.let { setProgress(it.id, logs) },
-                doneText = done?.let { doneLine(it, logs) }, modalities = modalities, exercises = exercises, now = now,
-                onStart = ::start, onResume = ::resume,
+                elapsed = active?.let { workoutTime(it.startedAt, now) }.orEmpty(),
+                runningColor = active?.let { sessionColor(it, exercises, modalities).first } ?: K.Accent,
+                done = done.session, doneText = done.session?.let { doneLine(it, logs) }, more = done.more,
+                noPlan = hasNoPlan(plan, today),
+                onStart = ::start, onResume = ::resume, onChange = { changeSheet = true },
+                onReview = { s -> nav.navigate(Routes.review(s.id)) },
+                // History opens fresh, on this week.
+                onMore = { nav.navigate(Routes.HISTORY) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true } },
+                onSetUp = { nav.navigate(Routes.PROGRAMS) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true; restoreState = true } },
             )
         }
         Spacer(Modifier.height(16.dp))
@@ -108,10 +126,43 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
             HomeRow(Icons.ForkKnife, if (open) K.Green else K.Dim, "Eating window", windowStatus(eatingWindow, windowDay, clock), if (open) K.Green else K.Muted, divider = updateRow != null || routine != null) { windowSheet = true }
             if (pendingBand > 0) HomeRow(Icons.Heart, K.Red, pendingTitle(pendingBand), PENDING_LINE, divider = true) { nav.navigate(Routes.IMPORT) }
         }
-        BodyweightSection(today, bodyweights) { kg -> vm.run { vm.repo.saveBodyweight(today.iso(), kg) } }
+        BodyweightCard(today, bodyweights) { kg -> vm.run { vm.repo.saveBodyweight(today.iso(), kg) } }
     }
-    planDate?.let { date -> PlanSheet(vm, date, plan, modalities) { planDate = null } }
+    // A session that starts or saves while the sheet is open closes it: Change only applies before today's session.
+    val canChange = loaded && unfinished == null && doneToday(sessions, item, today).session == null
+    if (changeSheet && canChange) ChangeSheet(today, plan, modalities, onPick = { pick ->
+        vm.run { when (pick) { is ChangePick.Override -> vm.repo.saveOverride(today.iso(), pick.itemType, pick.itemId); ChangePick.BackToPlan -> vm.repo.clearOverride(today.iso()) } }
+        changeSheet = false
+    }) { changeSheet = false }
     if (windowSheet) WindowSheet(vm) { windowSheet = false }
+}
+
+/**
+ * Change today only: "Today, Tue Nov 3", a line that the week plan stays, then Gym, Cardio and Other (Rest) with a
+ * check on today's item. A pick is a one-day change ([changePick]); the week plan's own item clears it. While a change
+ * holds, "Back to plan: <item>" clears it too.
+ */
+@Composable
+fun ChangeSheet(today: LocalDate, plan: KhonRepository.PlanData, modalities: List<Modality>, onPick: (ChangePick) -> Unit, onDismiss: () -> Unit) {
+    val current = plan.itemFor(today)
+    val cardio = plan.exercises.filter { it.kind == Kind.CARDIO && !it.archived }
+    fun pick(type: String, id: String?) = onPick(changePick(plan, today, type, id))
+    Sheet(changeTitle(today), onDismiss) {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            Text("Only today changes. The week plan stays.", style = MaterialTheme.typography.bodyMedium, color = K.Muted, modifier = Modifier.padding(bottom = 4.dp))
+            if (plan.programs.isNotEmpty()) {
+                SheetGroupTitle("Gym")
+                ChoiceList { plan.programs.forEachIndexed { i, p -> ChoiceRow(p.name, current.program?.id == p.id, K.Accent, divider = i > 0) { pick(ItemType.PROGRAM, p.id) } } }
+            }
+            if (cardio.isNotEmpty()) {
+                SheetGroupTitle("Cardio")
+                ChoiceList { cardio.forEachIndexed { i, e -> ChoiceRow(e.name, current.cardio?.id == e.id, exerciseColor(e, modalities), e.intensity == Intensity.HIGH, divider = i > 0) { pick(ItemType.CARDIO, e.id) } } }
+            }
+            SheetGroupTitle("Other")
+            ChoiceList { ChoiceRow("Rest", current.isRest, K.Dim, divider = false) { pick(ItemType.REST, null) } }
+            if (current.overridden) PrimaryButton("Back to plan: ${weekItem(plan, today).name}", Modifier.padding(top = 16.dp), color = K.Accent.copy(alpha = 0.2f), textColor = K.Accent) { onPick(ChangePick.BackToPlan) }
+        }
+    }
 }
 
 /** Change what a date holds: a program, a cardio exercise, or rest. */

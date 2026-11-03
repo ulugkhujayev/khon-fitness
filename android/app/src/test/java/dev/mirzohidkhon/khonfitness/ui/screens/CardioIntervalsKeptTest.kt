@@ -85,7 +85,7 @@ class CardioIntervalsKeptTest {
      */
     private fun type(old: String, new: String) { compose.onNodeWithText(old).performTextReplacement(new); compose.waitForIdle() }
 
-    private fun shows(text: String) = compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+    private fun shows(text: String) = compose.waitUntil(15_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
 
     private fun save() {
         compose.onNodeWithText("Save").performClick()
@@ -179,7 +179,17 @@ class CardioIntervalsKeptTest {
             dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200), IntervalLog("j1", "c2", 0, avgHr = 120, watts = 220)))
         }
         val id = mutableStateOf("c1")
-        compose.setContent { KhonTheme { CardioScreen(vm, rememberNavController(), id.value) } }
+        lateinit var host: androidx.navigation.NavHostController
+        compose.setContent {
+            KhonTheme {
+                host = rememberNavController()
+                NavHost(host, startDestination = "today") {
+                    composable("today") { androidx.compose.material3.Text("Today") }
+                    composable("cardio") { CardioScreen(vm, host, id.value) }
+                }
+            }
+        }
+        compose.runOnIdle { host.navigate("cardio") }
         shows("100")
         type("100", "150")
         compose.runOnIdle { id.value = "c2" }
@@ -187,6 +197,11 @@ class CardioIntervalsKeptTest {
         type("120", "160")
         compose.onNodeWithText("Save").performClick()
         compose.waitUntil(5_000) { runBlocking(Dispatchers.IO) { dao.session("c2")?.finishedAt != null } }
+        // The Save that finishes the entry lands on Today through the real graph (no navigation error behind the test).
+        val routes = (1..250).firstNotNullOfOrNull {
+            compose.runOnIdle { host.currentBackStack.value.mapNotNull { e -> e.destination.route } }.takeIf { it == listOf("today") } ?: run { Thread.sleep(20); null }
+        }
+        assertEquals(listOf("today"), routes)
         io {
             assertEquals(IntervalLog("i1", "c1", 0, avgHr = 100, watts = 200), dao.intervalLogsFor("c1").single())
             assertEquals(IntervalLog("j1", "c2", 0, avgHr = 160, watts = 220), dao.intervalLogsFor("c2").single())

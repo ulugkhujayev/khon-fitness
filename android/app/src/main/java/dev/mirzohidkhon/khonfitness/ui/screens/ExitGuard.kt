@@ -32,9 +32,15 @@ class ExitGuard internal constructor(private val nav: NavController, private val
     fun leave(go: () -> Unit) { if (onTop()) go() }
     /**
      * Leaves for Today, with every screen above it popped: where the Save that finishes a workout lands, also when the
-     * workout was opened from History's "In progress" row. Only while this screen is on top, as [leave].
+     * workout was opened from History's "In progress" row. Only while this screen is on top, as [leave]. This screen
+     * goes first; then Today opens as the tab bar opens it, so the tab under this screen keeps its saved state (its
+     * week, scroll and page) for the next time it opens.
      */
-    fun toToday() = leave { nav.navigate(Routes.TODAY) { popUpTo(Routes.TODAY); launchSingleTop = true } }
+    fun toToday() = leave {
+        if (!nav.popBackStack() || nav.currentDestination?.route != Routes.TODAY) {
+            nav.navigate(Routes.TODAY) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true }
+        }
+    }
     private fun onTop() = entryId == null || nav.currentBackStackEntry?.id == entryId
 }
 

@@ -17,3 +17,14 @@ Builder: ui-builder. Starts after the lead merged P1-P4. Code: `UI06-COVERAGE.md
 | 8 | Tap targets | every screen changed in UI06 | 48 x 48 dp or more. A Compose test per tab asserts `assertTouchHeightIsEqualTo`/min size on its icon buttons. |
 
 List every screen you checked for rows 1, 2 and 8 in the report.
+
+## Decision after the second P5 verify (2026-11-04)
+
+The contrast guarantee is the pair table: `TextPairs` in `Theme.kt` lists every text or symbol color with the fill it
+is drawn on, and `ContrastTest` holds each pair to 4.5:1 (3:1 for large bold text and meaningful symbols).
+`ColorUseCheck` reads the screen sources and fails on a color that is not a pair's text color. It is a lint that
+catches the common mistakes (raw tokens, aliases, split expressions, branches, parameters). A source scan cannot see
+every way a color reaches a fill, so it is not the guarantee and its misses are not defects. A new fill or text
+color needs a new pair in `TextPairs`.
+
+Review's cardio "Time" row keeps its exact value ("3 min 40 s"): it is a detail value, not a minute count.

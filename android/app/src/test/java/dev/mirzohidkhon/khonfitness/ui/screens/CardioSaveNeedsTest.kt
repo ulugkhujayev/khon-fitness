@@ -17,6 +17,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import dev.mirzohidkhon.khonfitness.ui.openTab
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.KhonApp
 import dev.mirzohidkhon.khonfitness.data.CardioSaveResult
@@ -143,6 +144,17 @@ class CardioSaveNeedsTest {
         until { routes() == listOf("today") }
         until { stored()?.finished == true }
         assertEquals(listOf("c1"), runBlocking(Dispatchers.IO) { dao.sessionsOnce() }.map { it.id })
+    }
+
+    /** History keeps its saved state (its week, scroll, page) through a Save that lands on Today, as on a tab switch. */
+    @Test fun `a Save that lands on Today keeps History's saved state for the next time History opens`() {
+        openForm(cardio(timeSec = 960), fromHistory = true)
+        compose.runOnIdle { nav.getBackStackEntry("history").savedStateHandle["week"] = 7 }
+        compose.onNodeWithText("Save").performClick()
+        until { routes() == listOf("today") }
+        compose.runOnIdle { nav.openTab("history") }
+        until { route() == "history" }
+        compose.runOnIdle { assertEquals(7, nav.getBackStackEntry("history").savedStateHandle.get<Int>("week")) }
     }
 
     /** An edit of a saved session goes back to History, where it was opened. */

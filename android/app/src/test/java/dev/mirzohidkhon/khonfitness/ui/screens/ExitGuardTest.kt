@@ -114,8 +114,8 @@ class ExitGuardTest {
         compose.setContent {
             KhonTheme {
                 nav = rememberNavController()
-                NavHost(nav, startDestination = "home") {
-                    composable("home") { Text("Home") }
+                NavHost(nav, startDestination = "today") {
+                    composable("today") { Text("Home") }
                     composable("program/{id}") { e -> ProgramEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                     composable("block/{programId}/{blockId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", e.arguments?.getString("blockId") ?: "") }
                     composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
@@ -133,10 +133,10 @@ class ExitGuardTest {
 
     /** After the exit: the home screen alone on the stack, and exactly [expected] row writes. */
     private fun leftOnceWith(expected: Map<String, Int>) {
-        until { routes() == listOf("home") && shows("Home") }
+        until { routes() == listOf("today") && shows("Home") }
         // Let any second write or pop that was let through land before checking.
         repeat(5) { compose.waitForIdle(); Thread.sleep(20) }
-        assertEquals(listOf("home"), routes())
+        assertEquals(listOf("today"), routes())
         until { writes() == expected }
         Thread.sleep(100)
         assertEquals(expected, writes())
@@ -224,7 +224,7 @@ class ExitGuardTest {
         io { dao.upsertSetLogs(listOf(SetLog("l1", "s1", 0, false, 0, 0, 0, "a", "Old Bench", 6, 10, 2.5, 60.0, 8, SetStatus.DONE))) }
         compose.runOnUiThread { compose.onAllNodesWithText("Delete").fetchSemanticsNodes().last().config[SemanticsActions.OnClick].action!!() }
         until { shows("Used in a session, program, or plan: archive or merge it instead.") }
-        assertEquals(listOf("home", "exercise/{id}"), routes())
+        assertEquals(listOf("today", "exercise/{id}"), routes())
         sql.execSQL("DELETE FROM test_writes")
         typeName("Name", "2")
         twice(clickByText("Done"))
@@ -261,7 +261,7 @@ class ExitGuardTest {
         sql.execSQL("DELETE FROM test_writes")
         compose.runOnUiThread { compose.onAllNodesWithText("Delete").fetchSemanticsNodes().last().config[SemanticsActions.OnClick].action!!() }
         until { shows("In use by 1 routine rows.") }
-        assertEquals(listOf("home", "stretcheditor/{id}"), routes())
+        assertEquals(listOf("today", "stretcheditor/{id}"), routes())
         typeName("Name", "2")
         twice(clickByText("Done"))
         leftOnceWith(mapOf("stretches UPDATE" to 1))

@@ -58,10 +58,12 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
         EditorTopBar(if (s.finished) "History" else "Today", s.exerciseName ?: "Cardio", scrollPx = { barScroll.value }, onBack = { leave { leave.pop { nav.navigate(Routes.TODAY) } } }, done = "Save", doneEnabled = missing == null) {
+            // Save of an unfinished session finishes it and lands on Today; an edit of a saved one goes back to History.
+            val finishing = !s.finished
             leave {
                 vm.run {
                     when (val r = vm.repo.saveCardioEdits(opened, draft, edits)) {
-                        CardioSaveResult.Saved -> leave.pop()
+                        CardioSaveResult.Saved -> if (finishing) leave.toToday() else leave.pop()
                         is CardioSaveResult.Refused -> { refusal = r.message; leave.release() }
                     }
                 }

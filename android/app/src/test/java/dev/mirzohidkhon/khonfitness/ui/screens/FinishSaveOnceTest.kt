@@ -69,8 +69,8 @@ class FinishSaveOnceTest {
     private fun log(id: String, order: Int, status: String, weight: Double? = 60.0, reps: Int? = 8, step: Double = 2.5) =
         SetLog(id, "s1", 0, false, 0, order, order, "bench", "Bench Press", 6, 10, step, weight, reps, status)
 
-    /** Today with the session pushed on it. */
-    private fun openSession(logs: List<SetLog>) {
+    /** Today with the session pushed on it, or on History over Today when [fromHistory] (its "In progress" row). */
+    private fun openSession(logs: List<SetLog>, fromHistory: Boolean = false) {
         io {
             dao.upsert(Session(id = "s1", date = "2026-11-03", startedAt = System.currentTimeMillis(), itemType = ItemType.PROGRAM, programId = "p1", programName = "Push"))
             dao.upsertSetLogs(logs)
@@ -80,11 +80,12 @@ class FinishSaveOnceTest {
                 nav = rememberNavController()
                 NavHost(nav, startDestination = "today") {
                     composable("today") { Text("Today home") }
+                    composable("history") { Text("History home") }
                     composable("session/{id}") { e -> SessionScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 }
             }
         }
-        compose.runOnIdle { nav.navigate("session/s1") }
+        compose.runOnIdle { if (fromHistory) nav.navigate("history"); nav.navigate("session/s1") }
         until { shows("Bench Press") }
     }
 
@@ -114,6 +115,20 @@ class FinishSaveOnceTest {
         assertEquals(listOf("today"), nav.currentBackStack.value.mapNotNull { it.destination.route })
         until { shows("Today home") }
         until { session()?.finished == true }
+    }
+
+    /** Device QA (0.6.0 build ac2da13): Save of a session opened from History's "In progress" row landed on History. */
+    @Test fun `a double tap on Save in a session opened from History finishes once and lands on Today`() {
+        openSession(listOf(log("a", 0, SetStatus.DONE), log("b", 1, SetStatus.PENDING)), fromHistory = true)
+        assertEquals(listOf("today", "history", "session/{id}"), nav.currentBackStack.value.mapNotNull { it.destination.route })
+        compose.onNodeWithText("Finish").performClick()
+        until { shows("Workout done") }
+        doubleTap("Save")
+        compose.waitForIdle()
+        assertEquals(listOf("today"), nav.currentBackStack.value.mapNotNull { it.destination.route })
+        until { shows("Today home") }
+        until { session()?.finished == true }
+        assertEquals(listOf("s1"), runBlocking(Dispatchers.IO) { dao.sessionsOnce() }.map { it.id })
     }
 
     @Test fun `Discard asks with the count of checked sets, and Cancel keeps everything`() {

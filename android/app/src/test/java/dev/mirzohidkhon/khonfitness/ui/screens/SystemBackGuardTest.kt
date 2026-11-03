@@ -114,7 +114,7 @@ class SystemBackGuardTest {
     /** The screen at [route] over home and parent, a new back stack entry each time; returns once [ready] shows. */
     private fun open(route: String, ready: String) {
         if (!hosted) host()
-        compose.runOnIdle { nav.popBackStack("home", inclusive = false); nav.navigate("parent"); nav.navigate(route) }
+        compose.runOnIdle { nav.popBackStack("today", inclusive = false); nav.navigate("parent"); nav.navigate(route) }
         until { shows(ready) }
         compose.waitForIdle()
     }
@@ -124,9 +124,9 @@ class SystemBackGuardTest {
         compose.setContent {
             KhonTheme {
                 nav = rememberNavController()
-                NavHost(nav, startDestination = "home", enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
+                NavHost(nav, startDestination = "today", enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
                     popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
-                    composable("home") { Text("Home") }
+                    composable("today") { Text("Home") }
                     composable("parent") { Text("Parent") }
                     composable("other") { Text("Other") }
                     composable("program/{id}") { e -> ProgramEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
@@ -142,12 +142,15 @@ class SystemBackGuardTest {
         compose.waitForIdle()
     }
 
-    /** The screen left once: parent on top. */
-    private fun leftOnce() {
-        until { routes() == listOf("home", "parent") }
+    /** The screen left once: parent on top, or Today alone after a Save that finishes a workout ([ExitGuard.toToday]). */
+    private fun leftOnce(to: List<String> = listOf("today", "parent")) {
+        until { routes() == to }
         settle()
-        assertEquals(listOf("home", "parent"), routes())
+        assertEquals(to, routes())
     }
+
+    /** Routes whose closing action is a Save that finishes the workout: it lands on Today. */
+    private val finishing = setOf("cardio/c")
 
     /** Every screen with a guard, its ready text, and its closing action that runs in one frame. */
     private val screens = listOf(
@@ -174,7 +177,7 @@ class SystemBackGuardTest {
             open(route, ready)
             val close = action()
             compose.runOnUiThread { close(); systemBack() }
-            leftOnce()
+            leftOnce(if (route in finishing) listOf("today") else listOf("today", "parent"))
         }
     }
 
@@ -203,7 +206,7 @@ class SystemBackGuardTest {
         until { shows("Save") }
         val save = clickByText("Save")
         compose.runOnUiThread { save(); systemBack() }
-        leftOnce()
+        leftOnce(listOf("today"))
         until { runBlocking(Dispatchers.IO) { dao.session("s")!!.finished } }
 
         io { dao.upsert(Session("s2", "2026-11-03", 1L, itemType = ItemType.PROGRAM, programId = "p", programName = "Program")) }
@@ -216,7 +219,7 @@ class SystemBackGuardTest {
     }
 
     /** Holds the database until the action's write is queued, presses system Back, then lets the write run. */
-    private fun pendingThenBack(confirm: () -> Boolean, written: () -> Boolean) {
+    private fun pendingThenBack(confirm: () -> Boolean, to: List<String> = listOf("today", "parent"), written: () -> Boolean) {
         val entered = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
         val blocker = app.scope.async { app.db.withTransaction { entered.complete(Unit); release.await() } }
@@ -231,12 +234,12 @@ class SystemBackGuardTest {
         } finally { release.complete(Unit) }
         runBlocking { blocker.await() }
         until(written)
-        leftOnce()
+        leftOnce(to)
     }
 
     @Test fun `cardio Save pending, then system Back - one pop`() {
         open("cardio/c", "Notes")
-        pendingThenBack(clickByText("Save")) { runBlocking(Dispatchers.IO) { dao.session("c")!!.finished } }
+        pendingThenBack(clickByText("Save"), listOf("today")) { runBlocking(Dispatchers.IO) { dao.session("c")!!.finished } }
     }
 
     @Test fun `exercise Merge pending, then system Back - one pop`() {
@@ -285,6 +288,6 @@ class SystemBackGuardTest {
         runBlocking { blocker.await() }
         until { runBlocking(Dispatchers.IO) { dao.exercise("a") == null } }
         settle()
-        assertEquals(listOf("home", "parent", "exercise/{id}", "other"), routes())
+        assertEquals(listOf("today", "parent", "exercise/{id}", "other"), routes())
     }
 }

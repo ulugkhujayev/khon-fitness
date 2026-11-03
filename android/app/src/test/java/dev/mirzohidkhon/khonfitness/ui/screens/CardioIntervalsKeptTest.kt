@@ -11,6 +11,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.runtime.mutableStateOf
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.NavHost
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.KhonApp
 import dev.mirzohidkhon.khonfitness.data.Exercise
@@ -64,7 +66,16 @@ class CardioIntervalsKeptTest {
             dao.upsert(Session("c1", "2026-11-02", 1000L, itemType = ItemType.CARDIO, exerciseId = "bike", exerciseName = "Bike", timeSec = 960))
             dao.upsertIntervalLogs(rounds)
         }
-        compose.setContent { KhonTheme { CardioScreen(vm, rememberNavController(), "c1") } }
+        // A real graph: a Save that finishes the session lands on Today.
+        compose.setContent {
+            KhonTheme {
+                val nav = rememberNavController()
+                NavHost(nav, startDestination = "cardio") {
+                    composable("today") { androidx.compose.material3.Text("Today") }
+                    composable("cardio") { CardioScreen(vm, nav, "c1") }
+                }
+            }
+        }
         shows("100")
     }
 

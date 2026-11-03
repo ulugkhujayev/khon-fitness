@@ -258,7 +258,8 @@ its exercises.
   sets become skipped and stay visible as empty rows in history. A set
   checked with 0 reps (older versions allowed it) counts as not done and
   never as a new best. Save and Discard leave once: a double tap never
-  finishes twice or closes Today.
+  finishes twice or closes Today. Save lands on Today, also for a session
+  opened from History's "In progress" row.
 - History sessions are editable after the fact. There a check changes the
   set and nothing else: no block opens or closes and no field takes focus.
 - Each edit of a session's date, effort or note, and the timer's duration,
@@ -303,7 +304,9 @@ show one row per work interval for manual entry.
   Screen stays on. A foreground notification keeps it running when the
   phone is locked, with pause and stop.
 - On finish, the app creates the session prefilled with the exercise and
-  one row per work interval. You add HR or watts and save.
+  one row per work interval. You add HR or watts and save. Save of an
+  unfinished session lands on Today, wherever the form was opened; Save of
+  an edit to a saved session goes back to History.
 - After Stop, or after the last round, the timer stores its time. If you
   leave the form without saving, Today shows "Timer stopped" with Save
   (the form with the time and rounds) and Discard, not Resume. The stored

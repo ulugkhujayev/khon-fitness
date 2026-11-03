@@ -10,6 +10,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
+import dev.mirzohidkhon.khonfitness.ui.Routes
 
 /**
  * The one exit guard of a screen that writes and then leaves: every closing action (Done, Save, Archive, Delete, Merge,
@@ -29,6 +30,11 @@ class ExitGuard internal constructor(private val nav: NavController, private val
     }
     /** Runs [go], a navigation away from this screen (the timer's to the cardio form), only while this screen is on top. */
     fun leave(go: () -> Unit) { if (onTop()) go() }
+    /**
+     * Leaves for Today, with every screen above it popped: where the Save that finishes a workout lands, also when the
+     * workout was opened from History's "In progress" row. Only while this screen is on top, as [leave].
+     */
+    fun toToday() = leave { nav.navigate(Routes.TODAY) { popUpTo(Routes.TODAY); launchSingleTop = true } }
     private fun onTop() = entryId == null || nav.currentBackStackEntry?.id == entryId
 }
 

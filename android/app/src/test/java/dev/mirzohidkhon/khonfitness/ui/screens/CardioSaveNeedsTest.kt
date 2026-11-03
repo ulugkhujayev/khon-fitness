@@ -82,8 +82,8 @@ class CardioSaveNeedsTest {
 
     private lateinit var nav: NavHostController
 
-    /** The form on a real back stack, over a home screen. */
-    private fun openForm(s: Session, fields: String = "time,distance,avgHr") {
+    /** The form on a real back stack, over Today, or over History on Today when [fromHistory]. */
+    private fun openForm(s: Session, fields: String = "time,distance,avgHr", fromHistory: Boolean = false) {
         runBlocking(Dispatchers.IO) {
             dao.upsert(Exercise("run", "Run", Kind.CARDIO, intervals = true, rounds = 1, fields = fields))
             dao.upsert(s)
@@ -92,13 +92,14 @@ class CardioSaveNeedsTest {
         compose.setContent {
             KhonTheme {
                 nav = rememberNavController()
-                NavHost(nav, startDestination = "home") {
-                    composable("home") { Text("Home") }
+                NavHost(nav, startDestination = "today") {
+                    composable("today") { Text("Home") }
+                    composable("history") { Text("History") }
                     composable("cardio/{id}") { e -> CardioScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 }
             }
         }
-        compose.runOnIdle { nav.navigate("cardio/${s.id}") }
+        compose.runOnIdle { if (fromHistory) nav.navigate("history"); nav.navigate("cardio/${s.id}") }
         // The round shows once every query of the form has answered, so none is still running at teardown.
         repeat(250) { if (compose.onAllNodesWithText("Round 1").fetchSemanticsNodes().isNotEmpty()) return; compose.waitForIdle(); Thread.sleep(20) }
         throw AssertionError("the form did not load")
@@ -132,6 +133,25 @@ class CardioSaveNeedsTest {
     private fun shows(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
     private fun route() = nav.currentDestination?.route
 
+    private fun routes() = nav.currentBackStack.value.mapNotNull { it.destination.route }
+
+    /** The Save that finishes a workout lands on Today, also from History's "In progress" row; one write, one exit. */
+    @Test fun `Save of an unfinished entry opened from History, tapped twice, finishes it once and lands on Today`() {
+        openForm(cardio(timeSec = 960), fromHistory = true)
+        val click = compose.onNodeWithText("Save").fetchSemanticsNode().config[SemanticsActions.OnClick].action!!
+        compose.runOnUiThread { click(); click() }
+        until { routes() == listOf("today") }
+        until { stored()?.finished == true }
+        assertEquals(listOf("c1"), runBlocking(Dispatchers.IO) { dao.sessionsOnce() }.map { it.id })
+    }
+
+    /** An edit of a saved session goes back to History, where it was opened. */
+    @Test fun `Save of a saved entry opened from History goes back to History`() {
+        openForm(cardio(timeSec = 960, finishedAt = 5L), fromHistory = true)
+        compose.onNodeWithText("Save").performClick()
+        until { routes() == listOf("today", "history") }
+    }
+
     @Test fun `case 17 - an exercise with only heart rate and watts shows Time - Save off while empty, on with a time`() {
         openForm(cardio(), fields = "avgHr,watts")
         compose.onNodeWithText("Time").fetchSemanticsNode()
@@ -141,7 +161,7 @@ class CardioSaveNeedsTest {
         compose.onNodeWithText("Save").performClick()
         until { stored()?.finished == true }
         assertEquals(60, stored()!!.timeSec)
-        until { route() == "home" }
+        until { route() == "today" }
     }
 
     @Test fun `case 18 - the stored time cleared elsewhere before Save - refused, intervals unchanged, form open`() {
@@ -158,7 +178,7 @@ class CardioSaveNeedsTest {
         io { dao.setSessionTime("c1", 300) }
         until { saveEnabled() }
         compose.onNodeWithText("Save").performClick()
-        until { route() == "home" }
+        until { route() == "today" }
         assertEquals(150, runBlocking(Dispatchers.IO) { dao.intervalLogsFor("c1") }.single().avgHr)
     }
 

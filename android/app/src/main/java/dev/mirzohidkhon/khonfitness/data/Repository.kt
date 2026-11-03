@@ -318,12 +318,17 @@ class KhonRepository(private val dao: KhonDao, private val since: WindowSince? =
      * The swap from [log]'s row: every set at its block and slot, and, when [updateProgram], the program row at that
      * position while the session's origin still holds ([KhonDao.swapExercise]); then the origin takes the program's new
      * fingerprint. All under the origin lock. A refusal changes the session only and says so ([SWAP_REFUSED]).
+     *
+     * The origin is removed before the program changes and written again after. If the new one fails to store, no
+     * origin is left, so a later update refuses even when the program is edited back to the old fingerprint. If the
+     * origin cannot be removed, the program is not updated.
      */
     suspend fun swapExerciseInSession(log: SetLog, to: Exercise, updateProgram: Boolean): SwapResult = originLock.withLock {
-        val origin = if (updateProgram) origins?.read(log.sessionId) else null
+        var origin = if (updateProgram) origins?.read(log.sessionId) else null
+        if (origin != null && origins?.remove(log.sessionId) != true) origin = null
         // Only the exercise columns change: a set's weight, reps or check saved meanwhile stays.
         val result = dao.swapExercise(log.sessionId, log.blockIndex, log.slot, to, updateProgram, origin)
-        if (result is SwapResult.ProgramUpdated && origin != null) origins?.write(log.sessionId, origin.copy(fingerprint = result.fingerprint))
+        if (origin != null) origins?.write(log.sessionId, if (result is SwapResult.ProgramUpdated) origin.copy(fingerprint = result.fingerprint) else origin)
         result
     }
 

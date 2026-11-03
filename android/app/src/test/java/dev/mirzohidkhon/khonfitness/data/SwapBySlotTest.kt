@@ -336,14 +336,58 @@ class SwapBySlotTest {
         assertEquals("a", row("r0a").exerciseId)
     }
 
+    @Test fun `storage b - an origin that cannot be removed first leaves the program as it is`() = runBlocking {
+        val s = start()
+        store.failEdits = IOException("disk full")
+        assertEquals(refused, swap(s, 0, 0, "c"))
+        store.failEdits = null
+        assertEquals("a", row("r0a").exerciseId)
+        assertEquals(setOf("c"), sessionExercises(s, 0, 0))
+    }
+
     @Test fun `storage b - a new fingerprint that fails to store still reports the update, and the next update refuses`() = runBlocking {
         val s = start()
         store.failEdits = IOException("disk full")
+        store.passEdits = 1 // the remove before the update passes, the write after it fails
         assertTrue(swap(s, 0, 0, "c") is SwapResult.ProgramUpdated)
         store.failEdits = null
         assertEquals("c", row("r0a").exerciseId)
-        // The origin still holds the old fingerprint: the program changed since, so the next update refuses.
+        assertNull(origins.read(s.id))
         assertEquals(refused, swap(s, 0, 0, "d"))
+        assertEquals("c", row("r0a").exerciseId)
+    }
+
+    @Test fun `storage b - after a failed fingerprint write, a program back in its old state does not allow an update`() = runBlocking {
+        // A session-only swap to B, then an update back to A whose new fingerprint fails to store: the program is in
+        // its start state again, so only a removed origin keeps the next update from going through.
+        val s = start()
+        assertEquals(SwapResult.SessionOnly(refused = false), swap(s, 0, 0, "b", update = false))
+        store.failEdits = IOException("disk full")
+        store.passEdits = 1
+        assertTrue(swap(s, 0, 0, "a") is SwapResult.ProgramUpdated)
+        store.failEdits = null
+        assertEquals(refused, swap(s, 0, 0, "c"))
+        assertEquals("a", row("r0a").exerciseId)
+    }
+
+    @Test fun `storage b - after a failed fingerprint write, the program edited back by hand does not allow an update`() = runBlocking {
+        val s = start()
+        store.failEdits = IOException("disk full")
+        store.passEdits = 1
+        assertTrue(swap(s, 0, 0, "b") is SwapResult.ProgramUpdated)
+        store.failEdits = null
+        dao.upsertBlockExercises(listOf(row("r0a").copy(exerciseId = "a")))
+        assertEquals(refused, swap(s, 0, 0, "c"))
+        assertEquals("a", row("r0a").exerciseId)
+    }
+
+    @Test fun `a refused update keeps the origin, so a later update still works once the program is back`() = runBlocking {
+        val s = start()
+        dao.upsertBlockExercises(listOf(row("r0b").copy(sets = 4)))
+        assertEquals(refused, swap(s, 0, 0, "c"))
+        assertNotNull(origins.read(s.id))
+        dao.upsertBlockExercises(listOf(row("r0b").copy(sets = 3)))
+        assertTrue(swap(s, 0, 0, "c") is SwapResult.ProgramUpdated)
         assertEquals("c", row("r0a").exerciseId)
     }
 
@@ -421,11 +465,13 @@ class GatedStore(private val inner: DataStore<Preferences>) : DataStore<Preferen
     @Volatile var failReads = false
     /** Not null: every edit throws it and writes nothing, as a store whose file cannot be written. */
     @Volatile var failEdits: Throwable? = null
+    /** While [failEdits] is set, this many edits still pass before they fail. */
+    @Volatile var passEdits = 0
     override val data: Flow<Preferences> get() = if (failReads) flow { throw IOException("unreadable") } else inner.data
     override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
         val gate = synchronized(this) { next.also { next = null } }
         if (gate != null) { gate.entered.complete(Unit); gate.release.await() }
-        failEdits?.let { throw it }
+        failEdits?.let { if (passEdits > 0) passEdits-- else throw it }
         return inner.updateData(transform)
     }
 }

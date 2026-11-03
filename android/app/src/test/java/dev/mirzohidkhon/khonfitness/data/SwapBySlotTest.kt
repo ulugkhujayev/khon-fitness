@@ -4,10 +4,18 @@ import android.app.Application
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import java.io.File
+import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +25,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
@@ -193,20 +203,56 @@ class SwapBySlotTest {
         assertTrue(store.data.first().asMap().keys.none { it.name.startsWith(SessionOrigins.PREFIX) })
     }
 
-    @Test fun `case 7 - an import waits for a start whose origin write is pending, then removes that origin too`() = runBlocking {
+    @Test fun `case 7 - an import in either mode, or a reset, waits for a start whose origin write is pending, then removes that origin too`() = runBlocking {
         val backup = run { seed(); repo.exportJson() }
-        val gate = store.holdNextEdit()
-        val starting = async(Dispatchers.IO) { repo.startProgramSession("p1")!! }
-        withTimeout(10_000) { gate.entered.await() } // the session is in Room, its origin write held
-        val importing = async(Dispatchers.IO) { repo.importJson(backup, replace = false) }
-        delay(300)
-        assertFalse("the import must wait for the origin lock", importing.isCompleted)
-        gate.release.complete(Unit)
-        val s = starting.await()
-        importing.await()
-        assertNull(origins.read(s.id))
-        assertEquals(refused, swap(s, 0, 0, "c"))
+        val runs: List<Pair<String, suspend () -> Unit>> = listOf(
+            "merge import" to { repo.importJson(backup, replace = false) },
+            "replace import" to { repo.importJson(backup, replace = true) },
+            "reset" to { repo.resetToSeed() },
+        )
+        for ((name, op) in runs) {
+            seed()
+            val gate = store.holdNextEdit()
+            val starting = async(Dispatchers.IO) { repo.startProgramSession("p1")!! }
+            withTimeout(10_000) { gate.entered.await() } // the session is in Room, its origin write held
+            val running = async(Dispatchers.IO) { op() }
+            delay(300)
+            assertFalse("$name must wait for the origin lock", running.isCompleted)
+            gate.release.complete(Unit)
+            val s = starting.await()
+            running.await()
+            assertNull(name, origins.read(s.id))
+            assertTrue(name, store.data.first().asMap().keys.none { it.name.startsWith(SessionOrigins.PREFIX) })
+            // A merge import keeps the session: the swap changes it only. A replace import or a reset removes it.
+            if (dao.session(s.id) != null) {
+                assertEquals(name, refused, swap(s, 0, 0, "c"))
+                assertEquals(name, "a", row("r0a").exerciseId)
+            }
+        }
+    }
+
+    @Test fun `case 8 - a value of another type under the origin key, or a store that cannot be read, refuses and does not crash`() = runBlocking {
+        val s = start()
+        val name = SessionOrigins.PREFIX + s.id
+        val others: List<(MutablePreferences) -> Unit> = listOf(
+            { it[intPreferencesKey(name)] = 7 }, { it[longPreferencesKey(name)] = 7L }, { it[booleanPreferencesKey(name)] = true },
+            { it[floatPreferencesKey(name)] = 7f }, { it[doublePreferencesKey(name)] = 7.0 }, { it[stringSetPreferencesKey(name)] = setOf("x") },
+        )
+        for (put in others) {
+            store.edit { it.remove(SessionOrigins.key(s.id)); put(it) }
+            assertNull(origins.read(s.id))
+            assertEquals(refused, swap(s, 0, 0, "c"))
+        }
         assertEquals("a", row("r0a").exerciseId)
+
+        // A good origin behind a store that fails to read: refused. Readable again, the same origin updates the program.
+        val t = repo.startProgramSession("p1")!!
+        store.failReads = true
+        assertNull(origins.read(t.id))
+        assertEquals(refused, swap(t, 0, 0, "c"))
+        store.failReads = false
+        assertTrue(swap(t, 0, 0, "d") is SwapResult.ProgramUpdated)
+        assertEquals("d", row("r0a").exerciseId)
     }
 
     @Test fun `case 8 - a missing or unreadable origin refuses, and finish or discard removes only its own origin`() = runBlocking {
@@ -288,13 +334,15 @@ class SwapBySlotTest {
 
 /**
  * A DataStore whose next edit waits after [holdNextEdit] until its gate opens: an origin write held in flight. Every
- * other edit and every read go straight through.
+ * other edit and every read go straight through, unless [failReads].
  */
 class GatedStore(private val inner: DataStore<Preferences>) : DataStore<Preferences> {
     class Gate { val entered = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>() }
     @Volatile private var next: Gate? = null
     fun holdNextEdit(): Gate = Gate().also { next = it }
-    override val data = inner.data
+    /** True: every read fails, as a store whose file cannot be read. */
+    @Volatile var failReads = false
+    override val data: Flow<Preferences> get() = if (failReads) flow { throw IOException("unreadable") } else inner.data
     override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
         val gate = synchronized(this) { next.also { next = null } }
         if (gate != null) { gate.entered.complete(Unit); gate.release.await() }

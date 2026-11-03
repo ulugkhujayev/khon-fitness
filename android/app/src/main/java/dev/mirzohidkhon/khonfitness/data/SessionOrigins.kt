@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import java.security.MessageDigest
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -24,8 +25,17 @@ data class SessionOrigin(val programId: String, val startedAt: Long, val fingerp
  * session only. Every call runs under the repository's origin lock ([KhonRepository]); each awaits its edit.
  */
 class SessionOrigins(private val store: DataStore<Preferences>) {
-    suspend fun read(sessionId: String): SessionOrigin? =
-        store.data.first()[key(sessionId)]?.let { runCatching { Json.decodeFromString<SessionOrigin>(it) }.getOrNull() }
+    /**
+     * Any failure is "no origin": a store that cannot be read, a value of another type under the key (a typed get
+     * would throw ClassCastException), or text that does not decode.
+     */
+    suspend fun read(sessionId: String): SessionOrigin? = try {
+        (store.data.first().asMap()[key(sessionId)] as? String)?.let { Json.decodeFromString<SessionOrigin>(it) }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
+    }
 
     suspend fun write(sessionId: String, origin: SessionOrigin) { store.edit { it[key(sessionId)] = Json.encodeToString(origin) } }
 

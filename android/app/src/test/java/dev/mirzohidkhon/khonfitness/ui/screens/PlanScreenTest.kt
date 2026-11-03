@@ -56,6 +56,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -198,11 +199,11 @@ class PlanScreenTest {
 
     /**
      * At font scales 1.0, 1.3 and 1.6 each week cell holds its name at the full scaled size in two lines at most, with
-     * no "…": above 1.15 the week wraps to rows of four cells.
+     * no "…": above 1.15 the week wraps to rows of four cells. Native graphics, so text has its real width.
      */
-    @Test fun `the week grid names fit their cells at font scale 1_0`() = gridFits(1f)
-    @Test fun `the week grid names fit their cells at font scale 1_3`() = gridFits(1.3f)
-    @Test fun `the week grid names fit their cells at font scale 1_6`() = gridFits(1.6f)
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) @Test fun `the week grid names fit their cells at font scale 1_0`() = gridFits(1f)
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) @Test fun `the week grid names fit their cells at font scale 1_3`() = gridFits(1.3f)
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) @Test fun `the week grid names fit their cells at font scale 1_6`() = gridFits(1.6f)
 
     private fun gridFits(scale: Float) {
         seed()

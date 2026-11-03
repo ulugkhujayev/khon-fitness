@@ -48,6 +48,8 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
+    // The app is English only; drop library translations from the APK.
+    androidResources { localeFilters += "en" }
     // Robolectric tests run Room and Compose on the JVM.
     testOptions { unitTests.isIncludeAndroidResources = true }
 }

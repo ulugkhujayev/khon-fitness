@@ -20,6 +20,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.KhonApp
 import dev.mirzohidkhon.khonfitness.data.*
@@ -56,7 +57,9 @@ class PlanEditorsTest {
         vm = AppViewModel(app)
     }
 
-    @After fun close() { app.scope.cancel(); app.db.close() }
+    // The view model's flows outlive the screen by 5 s (WhileSubscribed): stop them before the database closes, or one
+    // queries the closed database and its exception fails the next test.
+    @After fun close() { vm.viewModelScope.cancel(); app.scope.cancel(); app.db.close() }
 
     private fun io(block: suspend () -> Unit) = runBlocking(Dispatchers.IO) { block() }
     private fun shows(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()

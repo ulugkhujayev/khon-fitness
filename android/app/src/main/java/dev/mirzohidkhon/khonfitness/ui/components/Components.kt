@@ -338,12 +338,14 @@ fun NumberField(
             keyboardOptions = KeyboardOptions(keyboardType = if (decimals > 0) KeyboardType.Decimal else KeyboardType.Number),
             textStyle = valueStyle.copy(fontSize = valueStyle.fontSize * fit),
             cursorBrush = SolidColor(K.Accent),
-            decorationBox = { inner -> Box(Modifier.fillMaxHeight(), contentAlignment = Alignment.CenterEnd) {
+            // The paddings beside the text sit inside the field, so its touch area is all the room between the steps.
+            decorationBox = { inner -> Box(Modifier.fillMaxHeight().padding(start = pad.dp, end = if (compact) pad.dp else 0.dp), contentAlignment = Alignment.CenterEnd) {
                 if (text.text.isEmpty() && placeholder != null) Text(placeholder, color = K.Muted, fontSize = 19.sp * fit, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, maxLines = 1, modifier = Modifier.fillMaxWidth())
                 inner()
             } },
-            // The full row height, so a tap anywhere between the steps focuses the field.
-            modifier = Modifier.weight(1f).fillMaxHeight().padding(start = pad.dp)
+            // The full row height and width between the steps, so a tap anywhere there focuses the field: 48 dp wide
+            // in a set's 146 dp kg or reps slot on a 360 dp phone.
+            modifier = Modifier.weight(1f).fillMaxHeight()
                 .then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier)
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
                 .onFocusChanged { st ->
@@ -361,8 +363,7 @@ fun NumberField(
                     hasFocus = st.isFocused
                 },
         )
-        if (compact) Spacer(Modifier.width(pad.dp))
-        else Text(unit, color = K.Muted, fontSize = 13.sp * fit, fontWeight = FontWeight.Medium, maxLines = 1, modifier = Modifier.padding(start = 4.dp, end = pad.dp))
+        if (!compact) Text(unit, color = K.Muted, fontSize = 13.sp * fit, fontWeight = FontWeight.Medium, maxLines = 1, modifier = Modifier.padding(start = 4.dp, end = pad.dp))
         Box(Modifier.width(1.dp).fillMaxHeight().background(K.Divider))
         StepButton("+", "Increase by ${fmt(step, decimals)} $unit".trim(), stepWidth, { stepBy(1, it) }, ::release)
     }

@@ -45,8 +45,9 @@ import org.robolectric.annotation.Config
 import java.time.LocalDate
 
 /**
- * UI06 P5 rows 8 and 11: every tap target on the tabs and the screens they open is 48 x 48 dp or more, at the S25 size.
- * Each test walks every node with a click action on one screen, icon buttons included, and lists the small ones.
+ * UI06 P5 rows 8 and 11: every tap target on the tabs, the bottom bar and every screen they open (editors, the cardio
+ * form, the timer, the stretch player, settings, review, the lists) is 48 x 48 dp or more, at the S25 size. Each test
+ * walks every node with a click action on one screen, icon buttons and text fields included, and lists the small ones.
  * Row 3: the session's swap symbol, spoken "Swap <name>", opens the swap sheet; the name's own tap stays.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -92,7 +93,10 @@ class TapTargetTest {
         dao.upsert(Block("b1", "push", 0))
         dao.upsert(BlockExercise("be1", "b1", 0, "bench", sets = 2))
         dao.upsert(WeekPlan(today.dayOfWeek.value, ItemType.PROGRAM, "push"))
+        dao.upsert(Exercise("hiit", "Bike intervals", Kind.CARDIO, modalityId = "run", intervals = true, workSec = 60, restSec = 30, rounds = 4))
         dao.upsert(StretchRoutine("daily", "Daily mobility", active = true))
+        dao.upsert(Stretch("fold", "Forward fold", seconds = 40))
+        dao.upsertRoutineStretches(listOf(RoutineStretch("r1", "daily", "fold", 0)))
         dao.upsert(Session(id = "old", date = today.minusDays(2).toString(), startedAt = System.currentTimeMillis() - 2 * 86_400_000L,
             finishedAt = System.currentTimeMillis() - 2 * 86_400_000L + 3_600_000L, itemType = ItemType.PROGRAM, programId = "push", programName = "Push day"))
         dao.upsertSetLogs(listOf(SetLog("o1", "old", 0, false, 0, 0, 0, "bench", "Bench press", 6, 10, 2.5, 60.0, 8, SetStatus.DONE)))
@@ -113,6 +117,19 @@ class TapTargetTest {
                     composable(Routes.WEEK_PLAN) { WeekPlanScreen(vm, nav) }
                     composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                     composable(Routes.SETTINGS) { SettingsScreen(vm, nav) }
+                    composable("review/{id}") { e -> ReviewScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                    composable("cardio/{id}") { e -> CardioScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                    composable("program/{id}") { e -> ProgramEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                    composable("block/{programId}/{blockId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", e.arguments?.getString("blockId") ?: "") }
+                    composable("exercise-new/{kind}") { e -> ExerciseEditorScreen(vm, nav, null, newKind = e.arguments?.getString("kind") ?: Kind.STRENGTH) }
+                    composable("timer/{id}") { e -> TimerScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                    composable("stretch/{id}") { e -> StretchScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                    composable("routine/{id}") { e -> RoutineEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                    composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                    composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                    composable(Routes.LIFTS) { LiftListScreen(vm, nav) }
+                    composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
+                    composable(Routes.IMPORT) { ImportScreen(vm, nav) }
                 }
             }
         }
@@ -128,13 +145,11 @@ class TapTargetTest {
     /**
      * Every clickable node on screen laid out under 48 dp on a side, with its size. The laid-out size, not
      * touchBoundsInRoot: Compose pads that to 48 dp only where no neighbor overlaps, so it passes a 34 dp capsule too.
-     * A text field is held to 48 dp of height only: its width is what the steppers beside it leave (a set's kg and
-     * reps fields share a row on a 360 dp phone), and its whole box, steppers included, is wider than 48 dp.
+     * Text fields count too: a set's kg and reps fields share a row on a 360 dp phone, each between its two steppers.
      */
     private fun small(): List<String> = compose.onAllNodes(hasClickAction(), useUnmergedTree = false).fetchSemanticsNodes().mapNotNull { n ->
         val w = with(compose.density) { n.size.width.toDp().value }; val h = with(compose.density) { n.size.height.toDp().value }
-        val field = SemanticsProperties.EditableText in n.config
-        if ((!field && w < 47.5f) || h < 47.5f) "${describe(n)} ${w.toInt()}x${h.toInt()}" else null
+        if (w < 47.5f || h < 47.5f) "${describe(n)} ${w.toInt()}x${h.toInt()}" else null
     }
 
     private fun assertTargets(screen: String) {
@@ -144,6 +159,16 @@ class TapTargetTest {
     }
 
     private fun tab(route: String) { compose.runOnIdle { nav.openTab(route) }; compose.waitForIdle() }
+
+    /** Opens [route] over Today, checks its targets once [marker] shows, and goes back. */
+    private fun visit(route: String, marker: String) {
+        compose.runOnIdle { nav.navigate(route) }
+        compose.waitForIdle() // Today has faded out: what shows now is the screen's own
+        waitFor { shows(marker) }
+        assertTargets(route)
+        compose.runOnIdle { nav.popBackStack() }
+        compose.waitForIdle()
+    }
 
     @Test fun `Today and its sheets have 48 dp targets`() {
         seed(); openApp()
@@ -211,5 +236,65 @@ class TapTargetTest {
         assertTargets("Shared controls")
         for (label in listOf("Add", "Remove", "Play demo", "Back to the previous stretch", "Opens 15 minutes earlier", "Clear search"))
             assertTrue(label, named(label))
+    }
+
+    @Test fun `the editors have 48 dp targets`() {
+        seed(); openApp()
+        visit(Routes.program("push"), "Bench press")
+        visit(Routes.block("push", "b1"), "Bench press")
+        visit(Routes.exercise("bench"), "Bench press")
+        visit(Routes.exercise("z2"), "Zone 2 run")
+        visit(Routes.exercise("hiit"), "Bike intervals")
+        visit(Routes.newExercise(Kind.CARDIO), "Intensity")
+        visit(Routes.routine("daily"), "Forward fold")
+        visit(Routes.stretchEditor("fold"), "Forward fold")
+    }
+
+    @Test fun `the cardio form and the timer have 48 dp targets`() {
+        seed()
+        io {
+            dao.upsert(Session(id = "c1", date = today.toString(), startedAt = System.currentTimeMillis(), itemType = ItemType.CARDIO, exerciseId = "z2", exerciseName = "Zone 2 run"))
+            dao.upsert(Session(id = "t1", date = today.toString(), startedAt = System.currentTimeMillis(), itemType = ItemType.CARDIO, exerciseId = "hiit", exerciseName = "Bike intervals"))
+        }
+        openApp()
+        visit(Routes.cardio("c1"), "Zone 2 run")
+        // The timer runs for t1, so the screen does not start the service.
+        TimerService.state.value = dev.mirzohidkhon.khonfitness.timer.TimerState("t1", "Bike intervals", dev.mirzohidkhon.khonfitness.timer.buildPhases(0, 60, 30, 4), remaining = 60.0)
+        compose.runOnIdle { nav.navigate(Routes.timer("t1")) }
+        compose.waitForIdle()
+        waitFor { shows("Round 1 of 4") }
+        assertTargets("Timer")
+    }
+
+    @Test fun `settings, review, the week plan and the lists have 48 dp targets`() {
+        seed(); openApp()
+        visit(Routes.SETTINGS, "Version")
+        visit(Routes.review("old"), "Bench press")
+        visit(Routes.WEEK_PLAN, "Monday")
+        visit(Routes.LIFTS, "Cable fly")
+        visit(Routes.STRETCHES, "Forward fold")
+        visit(Routes.cardioType("run"), "No sessions yet")
+        visit(Routes.IMPORT, "Import")
+    }
+
+    @Test fun `the stretch player has 48 dp targets`() {
+        seed(); openApp()
+        val phases = listOf(dev.mirzohidkhon.khonfitness.timer.Phase(dev.mirzohidkhon.khonfitness.timer.PhaseKind.WORK, 40, 0, label = "Forward fold", figure = "hipflexor"))
+        TimerService.state.value = dev.mirzohidkhon.khonfitness.timer.TimerState("daily:x", "Daily mobility", phases, remaining = 40.0, stretch = true)
+        // The demonstration plays forever: drive the clock by hand.
+        compose.mainClock.autoAdvance = false
+        compose.runOnUiThread { nav.navigate(Routes.stretch("daily")) }
+        repeat(40) { compose.mainClock.advanceTimeByFrame() }
+        assertTargets("Stretch player")
+        assertTrue(named("Back to the previous stretch") && named("Skip") && named("Stop"))
+        TimerService.state.value = null; shown = false
+        repeat(5) { compose.mainClock.advanceTimeByFrame() }
+        compose.mainClock.autoAdvance = true
+    }
+
+    @Test fun `the bottom bar has 48 dp targets`() {
+        compose.setContent { KhonTheme { dev.mirzohidkhon.khonfitness.ui.BottomBar(0) {} } }
+        assertTargets("Bottom bar")
+        assertEquals(3, compose.onAllNodes(hasClickAction()).fetchSemanticsNodes().size)
     }
 }

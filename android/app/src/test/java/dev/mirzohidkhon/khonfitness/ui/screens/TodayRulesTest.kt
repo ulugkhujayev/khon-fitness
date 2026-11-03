@@ -113,7 +113,9 @@ class TodayRulesTest {
         assertEquals(83.0, parseKg("83.")!!, 0.0)
         assertEquals(20.0, parseKg("20")!!, 0.0)
         assertEquals(250.0, parseKg("250")!!, 0.0)
-        for (bad in listOf("", " ", "0", "19", "19.9", "250.1", "251", "abc", "8a", ".", ",", "1e2", "83.5.1")) assertNull(bad, parseKg(bad))
+        for (bad in listOf("", " ", "0", "19", "19.9", "250.1", "251", "abc", "8a", ".", ",", "1e2", "83.5.1", "83.55555", "0083.500", "1234567890")) assertNull(bad, parseKg(bad))
+        // Seven characters is the longest weight: "250.0" and a slip.
+        assertEquals(83.6, parseKg("83.5555")!!, 0.0)
     }
 
     @Test fun `entry button is off while the typed text is not a weight`() {

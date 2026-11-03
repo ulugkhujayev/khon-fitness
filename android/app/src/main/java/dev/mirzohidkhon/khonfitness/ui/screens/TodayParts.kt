@@ -61,8 +61,9 @@ fun itemIcon(item: PlanItem): ImageVector = when {
  * Today's item on its card, with its kind as a symbol in its color. A running session: its line in accent ("In
  * progress · 3 of 12 sets", or the timer's state) and Resume; a program adds its progress bar with the time since
  * the start. Saved today: a green check, the done line, Review, and "+1 more today" when other sessions were saved
- * today. Otherwise the item with Change at the top right and Start (Rest has no Start), or, with no week plan at
- * all, "No plan for today" with "Set up your week". Change only shows while nothing ran today.
+ * today; the card names the saved session, whatever the plan held. Otherwise the item with Change at the top right
+ * and Start (Rest has no Start), or, with no program and no cardio workout yet, "No plan for today" with "Set up your
+ * week". Change only shows while nothing runs and nothing is saved today.
  */
 @Composable
 fun TodayCard(
@@ -99,7 +100,7 @@ fun TodayCard(
                 PrimaryButton("Resume", Modifier.padding(top = 14.dp)) { onResume(unfinished) }
             }
             done != null && doneText != null -> {
-                CardHead(Icons.Check, K.Green, item.name, doneText, K.Green)
+                CardHead(Icons.Check, K.Green, done.programName ?: done.exerciseName ?: "Session", doneText, K.Green)
                 if (more > 0) CardLink(moreLine(more), "${moreLine(more)}, open History", Modifier.padding(start = 52.dp), onMore)
                 PrimaryButton("Review", Modifier.padding(top = if (more > 0) 4.dp else 14.dp), color = K.Accent.copy(alpha = 0.2f), textColor = K.Accent, description = "Review today's session") { onReview(done) }
             }
@@ -217,8 +218,8 @@ fun BodyweightCard(today: LocalDate, bodyweights: List<Bodyweight>, onSave: (Dou
             ) {
                 BasicTextField(
                     value = text,
-                    // At most 7 characters, "250.0" and a slip; anything else stays as typed, so nothing changes silently.
-                    onValueChange = { new -> if (new.text.length <= 7) { text = new; touched = true } },
+                    // Every edit stays as typed, so nothing changes silently: text that is not a weight turns Save off.
+                    onValueChange = { new -> text = new; touched = true },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { save() }),

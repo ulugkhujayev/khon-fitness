@@ -80,33 +80,34 @@ class TodayCardRulesTest {
         assertEquals("Rest", weekItem(p, tue.plusDays(2)).name)
     }
 
-    @Test fun `first use is a week plan with nothing on any day and no change today`() {
-        assertTrue(hasNoPlan(plan(weekPlan = emptyList()), tue))
-        assertTrue(hasNoPlan(plan(weekPlan = listOf(WeekPlan(2, ItemType.REST))), tue))
-        assertFalse(hasNoPlan(plan(), tue))
-        // Today rests, but the week has workouts: a plain rest day.
-        assertFalse(hasNoPlan(plan(), tue.plusDays(2)))
-        // A one-day change today is a plan.
-        assertFalse(hasNoPlan(plan(DayOverride(tue.toString(), ItemType.PROGRAM, "push"), weekPlan = emptyList()), tue))
-        assertFalse(hasNoPlan(plan(DayOverride(tue.toString(), ItemType.REST), weekPlan = emptyList()), tue))
+    @Test fun `first use is no program and no cardio workout, and a week of rest days is not first use`() {
+        assertTrue(hasNoPlan(KhonRepository.PlanData(emptyList(), emptyList(), emptyList(), emptyList())))
+        // Archived cardio and strength exercises are nothing to pick.
+        assertTrue(hasNoPlan(KhonRepository.PlanData(emptyList(), emptyList(), emptyList(), listOf(z2.copy(archived = true), Exercise("bench", "Bench press", Kind.STRENGTH)))))
+        // Workouts to pick, nothing on any weekday: a rest day with Change.
+        assertFalse(hasNoPlan(plan(weekPlan = emptyList())))
+        assertFalse(hasNoPlan(plan(weekPlan = listOf(WeekPlan(2, ItemType.REST)))))
+        assertFalse(hasNoPlan(KhonRepository.PlanData(emptyList(), emptyList(), listOf(push), emptyList())))
+        assertFalse(hasNoPlan(KhonRepository.PlanData(emptyList(), emptyList(), emptyList(), listOf(z2))))
+        assertFalse(hasNoPlan(plan()))
     }
 
     private fun session(id: String, start: Long, finished: Long?, program: String? = "push", exercise: String? = null, date: String = tue.toString()) =
         Session(id, date, start, finished, if (program != null) ItemType.PROGRAM else ItemType.CARDIO, programId = program, exerciseId = exercise)
 
-    @Test fun `the card shows the last saved session of today's item and counts the others`() {
-        val item = plan().itemFor(tue)
-        assertEquals(DoneToday(null, 0), doneToday(emptyList(), item, tue))
+    @Test fun `the card shows the last session saved today, whatever the plan held, and counts the others`() {
+        assertEquals(DoneToday(null, 0), doneToday(emptyList(), tue))
         val first = session("a", 1_000, 2_000)
         val second = session("b", 3_000, 4_000)
         val other = session("c", 5_000, 6_000, program = null, exercise = "z2")
         val running = session("d", 7_000, null)
         val yesterday = session("e", 1_000, 2_000, date = "2026-11-02")
-        assertEquals(DoneToday(first, 0), doneToday(listOf(first, running, yesterday), item, tue))
-        assertEquals(DoneToday(second, 1), doneToday(listOf(second, first), item, tue))
-        assertEquals(DoneToday(second, 2), doneToday(listOf(first, second, other), item, tue))
-        // Only another item's session today: the card still offers today's item.
-        assertEquals(DoneToday(null, 0), doneToday(listOf(other), item, tue))
+        assertEquals(DoneToday(null, 0), doneToday(listOf(running, yesterday), tue))
+        assertEquals(DoneToday(first, 0), doneToday(listOf(first, running, yesterday), tue))
+        assertEquals(DoneToday(second, 1), doneToday(listOf(second, first), tue))
+        assertEquals(DoneToday(other, 2), doneToday(listOf(first, second, other), tue))
+        // A run saved on a gym day is today's session: the card shows it, not the plan's program.
+        assertEquals(DoneToday(other, 0), doneToday(listOf(other), tue))
         assertEquals("+1 more today", moreLine(1))
     }
 

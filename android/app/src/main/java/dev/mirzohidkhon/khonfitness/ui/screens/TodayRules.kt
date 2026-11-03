@@ -5,6 +5,7 @@ import dev.mirzohidkhon.khonfitness.data.BlockExercise
 import dev.mirzohidkhon.khonfitness.data.Bodyweight
 import dev.mirzohidkhon.khonfitness.data.EatingWindow
 import dev.mirzohidkhon.khonfitness.data.ItemType
+import dev.mirzohidkhon.khonfitness.data.Kind
 import dev.mirzohidkhon.khonfitness.data.KhonRepository
 import dev.mirzohidkhon.khonfitness.data.Modality
 import dev.mirzohidkhon.khonfitness.data.PlanItem
@@ -95,9 +96,12 @@ fun todayOf(now: Long, zone: ZoneId = ZoneId.systemDefault()): LocalDate = Insta
 fun weekItem(plan: KhonRepository.PlanData, date: LocalDate): PlanItem =
     KhonRepository.PlanData(plan.plan, plan.overrides.filter { it.date != date.iso() }, plan.programs, plan.exercises).itemFor(date)
 
-/** First use: nothing on any weekday of the week plan and no change for [date]. Today then offers "Set up your week". */
-fun hasNoPlan(plan: KhonRepository.PlanData, date: LocalDate): Boolean =
-    plan.itemFor(date).let { it.isRest && !it.overridden } && (0L..6L).all { weekItem(plan, date.plusDays(it)).isRest }
+/**
+ * First use: no program and no cardio workout to plan or change to. Today then offers "Set up your week". A week of
+ * rest days with workouts to pick is a rest day with Change.
+ */
+fun hasNoPlan(plan: KhonRepository.PlanData): Boolean =
+    plan.programs.isEmpty() && plan.exercises.none { it.kind == Kind.CARDIO && !it.archived }
 
 private val sheetDate = DateTimeFormatter.ofPattern("EEE MMM d", Locale.US)
 
@@ -184,14 +188,15 @@ fun statLine(s: Session, logs: List<SetLog>): String {
 /** Green line on Today once today's item is done: "Done · 3 of 12 sets · 3.1 t · 58 min", "Done · 5.2 km · 30 min · 5:46 /km". */
 fun doneLine(s: Session, logs: List<SetLog>): String = statLine(s, logs).let { if (it.isEmpty()) "Done" else "Done · $it" }
 
-/** Today's saved session for the card (the last one of today's item) and how many other sessions today saved. */
+/**
+ * Today's saved session for the card (the last one saved today, whatever the plan held) and how many other sessions
+ * today saved. Once one is saved, the card shows it under its saved name and Change is gone.
+ */
 data class DoneToday(val session: Session?, val more: Int)
 
-fun doneToday(sessions: List<Session>, item: PlanItem, date: LocalDate): DoneToday {
+fun doneToday(sessions: List<Session>, date: LocalDate): DoneToday {
     val finished = sessions.filter { it.date == date.iso() && it.finished }
-    val mine = finished.filter { (item.program != null && it.programId == item.program.id) || (item.cardio != null && it.exerciseId == item.cardio.id) }
-        .maxByOrNull { it.finishedAt ?: it.startedAt }
-    return DoneToday(mine, if (mine == null) 0 else finished.size - 1)
+    return DoneToday(finished.maxByOrNull { it.finishedAt ?: it.startedAt }, maxOf(0, finished.size - 1))
 }
 
 /** "+1 more today": the other sessions saved today; the line opens History. */
@@ -214,10 +219,16 @@ fun kgText(kg: Double): String = String.format(Locale.US, "%.1f", kg)
 
 private val KG_TEXT = Regex("""\d{1,3}([.]\d*)?|[.]\d+""")
 
-/** The typed text as kilograms to 0.1: "83,5" and "83.5" both read; blank, not a number, or outside 20-250 is null. */
+/** The longest text a weight takes: "250.0" and a slip. */
+const val KG_CHARS = 7
+
+/**
+ * The typed text as kilograms to 0.1: "83,5" and "83.5" both read; blank, not a number, longer than [KG_CHARS], or
+ * outside 20-250 is null.
+ */
 fun parseKg(text: String): Double? {
     val t = text.trim().replace(',', '.')
-    if (!KG_TEXT.matches(t)) return null
+    if (t.length > KG_CHARS || !KG_TEXT.matches(t)) return null
     val v = t.toDoubleOrNull() ?: return null
     if (v < KG_MIN || v > KG_MAX) return null
     return Math.round(v * 10) / 10.0

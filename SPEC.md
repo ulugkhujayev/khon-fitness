@@ -38,13 +38,15 @@ Three tabs.
   Start button. Change opens a sheet for today only: a pick writes a
   one-day change (the week plan stays), picking the week plan's item or
   "Back to plan" clears it. Change hides while a session runs and after
-  today's session is saved. While a session runs: its sets done or the
-  interval timer's state, and Resume. Once saved: "Done" with sets (d of
+  any session is saved today. While a session runs: its sets done or the
+  interval timer's state, and Resume. Once saved: the last session saved
+  today under its own name, whatever the plan held, "Done" with sets (d of
   n when some were skipped), tonnes and minutes (cardio: km, minutes and
   pace), one Review button that opens the session read-only (no Edit;
   History keeps Edit), and "+1 more today" to History when other
-  sessions were saved today. With no week plan at all: "No plan for
-  today" and "Set up your week". Under it one group of rows: a newer
+  sessions were saved today. A week of rest days is a rest day with
+  Change. With no program and no cardio workout yet: "No plan for today"
+  and "Set up your week". Under it one group of rows: a newer
   release to install (Today checks on open; tap downloads and installs,
   the row shows the download percent), the stretch routine, the eating
   window, and band sessions waiting for import. Below: a bodyweight card

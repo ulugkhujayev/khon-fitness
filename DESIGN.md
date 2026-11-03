@@ -21,7 +21,8 @@ padded cards, per-item buttons, "Updated" lines.
   secondary label #8E8E93, tertiary #636366. Accent systemOrange #FF9F0A,
   green #30D158, blue #0A84FF, red #FF453A. Label on an accent fill is white.
 - Navigation bar: 56 pt, a round 36 pt Back button with a chevron and no
-  text, the title centered in Headline between two equal 88 pt sides, the
+  text on a 48 pt target (the same round button sits in a tab's large
+  title, reaching 2 pt past its 44 pt row), the title centered in Headline between two equal 88 pt sides, the
   primary action trailing as a 34 pt accent capsule ("Done") or a round
   symbol button ("+"). A hairline fades in on its bottom edge over the
   first 16 pt of scroll.
@@ -271,12 +272,14 @@ Two lines, 88 px total, hairline between rows.
   with " · changed for today" while a one-day change holds it; "Change"
   in accent 600 at the top right on a 48 x 48 px target; Start under it.
   Rest: "Rest day", "Nothing planned. Stretch and recover.", Change, no
-  Start. No week plan at all: "No plan for today" with "Set up your
-  week" (opens Programs). While a session runs: "In progress · 3 of 12
+  Start. A week of rest days with workouts to pick is a rest day too.
+  No program and no cardio workout yet: "No plan for today" with "Set
+  up your week" (opens Programs). While a session runs: "In progress · 3 of 12
   sets" in accent (cardio: the interval timer's state, "Round 2 of 4 ·
   Work", "Paused · …", or the time since its start), a program adds the
   progress bar in accent with the time since the start, and Resume; no
-  Change. Saved today: the green check, "Done · 12 sets · 3.1 t · 58
+  Change. Saved today: the green check, the last session saved today
+  under its saved name (also a run on a gym day), "Done · 12 sets · 3.1 t · 58
   min" in green ("3 of 12 sets" when some were skipped; cardio "5.2 km ·
   30 min · 5:46 /km"), "+1 more today" in accent (48 px target, opens
   History) when other sessions were saved today, and one tinted
@@ -314,7 +317,8 @@ Two lines, 88 px total, hairline between rows.
   with the font scale) and "kg" in muted 15. A tap steps 0.1 kg, a hold
   repeats (the shared stepper timing), 20 to 250 kg. Tap the number to
   type on the decimal keyboard; "83,5" and "83.5" both read. Text that is
-  not a weight stays as typed with "Enter 20-250 kg" in red 13 under the
+  not a weight (also text longer than 7 characters) stays as typed with
+  "Enter 20-250 kg" in red 13 under the
   row, and the button off. The button is the primary one: "Save" for a
   new day, "Update" when today has another value, "Saved" (off) when the
   value is today's entry. A valid typed value saves with one tap on the

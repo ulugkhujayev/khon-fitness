@@ -25,11 +25,15 @@ import java.time.LocalDate
  */
 @Composable
 fun rememberMinuteClock(): Long {
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(60_000 - System.currentTimeMillis() % 60_000); now = System.currentTimeMillis() } }
-    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { now = System.currentTimeMillis(); onPauseOrDispose { } }
+    val clock = LocalWallClock.current
+    var now by remember { mutableLongStateOf(clock()) }
+    LaunchedEffect(clock) { while (true) { kotlinx.coroutines.delay(60_000 - clock() % 60_000); now = clock() } }
+    androidx.lifecycle.compose.LifecycleResumeEffect(clock) { now = clock(); onPauseOrDispose { } }
     return now
 }
+
+/** The wall clock the minute clock reads; a test sets its own to cross midnight. */
+val LocalWallClock = staticCompositionLocalOf<() -> Long> { System::currentTimeMillis }
 
 /**
  * Today: today's item with Change, Start, Resume or Review, one group of rows (a newer release to install, the
@@ -53,7 +57,8 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     val today = todayOf(now)
     val item = plan.itemFor(today)
     val loaded = planRead != null
-    var changeSheet by remember { mutableStateOf(false) }
+    // A new day starts with the sheet closed.
+    var changeSheet by remember(today) { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     var pendingBand by remember { mutableIntStateOf(0) }
     fun start() = vm.startItem(item) { s -> nav.navigate(when { s.itemType == ItemType.PROGRAM -> Routes.session(s.id); item.cardio?.intervals == true -> Routes.timer(s.id); else -> Routes.cardio(s.id) }) }
@@ -87,7 +92,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     TabScreen("Today", trailing = { BarCircleButton(Icons.Gear, "Settings") { nav.navigate(Routes.SETTINGS) } }) {
         if (loaded) {
             val active = unfinished
-            val done = doneToday(sessions, item, today)
+            val done = doneToday(sessions, today)
             TodayCard(
                 item, todayLine(item, blocks, blockExercises, modalities), itemColor(item, modalities)?.first ?: K.Muted,
                 unfinished = active,
@@ -96,7 +101,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
                 elapsed = active?.let { workoutTime(it.startedAt, now) }.orEmpty(),
                 runningColor = active?.let { sessionColor(it, exercises, modalities).first } ?: K.Accent,
                 done = done.session, doneText = done.session?.let { doneLine(it, logs) }, more = done.more,
-                noPlan = hasNoPlan(plan, today),
+                noPlan = hasNoPlan(plan),
                 onStart = ::start, onResume = ::resume, onChange = { changeSheet = true },
                 onReview = { s -> nav.navigate(Routes.review(s.id)) },
                 // History opens fresh, on this week.
@@ -128,8 +133,9 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
         }
         BodyweightCard(today, bodyweights) { kg -> vm.run { vm.repo.saveBodyweight(today.iso(), kg) } }
     }
-    // A session that starts or saves while the sheet is open closes it: Change only applies before today's session.
-    val canChange = loaded && unfinished == null && doneToday(sessions, item, today).session == null
+    // A session that starts or saves while the sheet is open closes it for good: Change only applies before today's session.
+    val canChange = loaded && unfinished == null && doneToday(sessions, today).session == null && !hasNoPlan(plan)
+    LaunchedEffect(canChange) { if (!canChange) changeSheet = false }
     if (changeSheet && canChange) ChangeSheet(today, plan, modalities, onPick = { pick ->
         vm.run { when (pick) { is ChangePick.Override -> vm.repo.saveOverride(today.iso(), pick.itemType, pick.itemId); ChangePick.BackToPlan -> vm.repo.clearOverride(today.iso()) } }
         changeSheet = false

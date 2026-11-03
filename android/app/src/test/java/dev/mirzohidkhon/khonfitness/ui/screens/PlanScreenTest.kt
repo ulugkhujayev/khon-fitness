@@ -84,6 +84,8 @@ class PlanScreenTest {
 
     private fun io(block: suspend () -> Unit) = runBlocking(Dispatchers.IO) { block() }
     private fun shows(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+    /** [text] shows once its data has loaded: a screen fills in as each of its flows emits. */
+    private fun assertShows(text: String) = compose.waitUntil(5_000) { shows(text) }
     private fun waitFor(shown: () -> Boolean) = compose.waitUntil(5_000) { shown() }
     private fun top(text: String) = compose.onNodeWithText(text).fetchSemanticsNode().positionInRoot.y
     private fun tap(node: SemanticsNodeInteraction) { node.performSemanticsAction(SemanticsActions.OnClick); compose.waitForIdle() }
@@ -164,7 +166,7 @@ class PlanScreenTest {
 
         tap(compose.onNodeWithText("Zone 2 run"))
         waitFor { shows("Type") }
-        assertTrue(shows(TYPE_NOTE))
+        assertShows(TYPE_NOTE)
     }
 
     @Test fun `plus opens each create flow`() {
@@ -233,7 +235,7 @@ class PlanScreenTest {
 
     @Test fun `first use shows no programs, Create program and a week of rest`() {
         openPlan()
-        assertTrue(shows("No programs yet"))
+        assertShows("No programs yet")
         assertEquals(7, compose.onAllNodes(hasContentDescription(", Rest.", substring = true)).fetchSemanticsNodes().size)
         tap(compose.onNodeWithText("Create program"))
         waitFor { shows("New program") }

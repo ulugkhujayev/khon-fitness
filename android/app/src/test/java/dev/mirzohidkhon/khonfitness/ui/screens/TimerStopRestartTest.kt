@@ -69,6 +69,8 @@ class TimerStopRestartTest {
         throw AssertionError("the screen did not reach the expected state")
     }
     private fun shows(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+    /** [text] shows once its data has loaded: a screen fills in as each of its flows emits. */
+    private fun assertShows(text: String) = until { shows(text) }
 
     @Test fun `stopped timer, restart - Today offers Save and Discard, and Save opens the form with the stored time and intervals`() {
         val repo = running.repo
@@ -124,7 +126,7 @@ class TimerStopRestartTest {
         until { shows("Round 8") }
         // The form holds the stored time (Save is on, so the time is above 0) and the stored round values.
         assertTrue(!compose.onNodeWithText("Save").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled))
-        assertTrue(shows("151"))
+        assertShows("151")
         compose.onNodeWithText("Save").performClick()
         until { runBlocking(Dispatchers.IO) { app.db.dao().session(session.id) }?.finished == true }
         assertEquals(timeSec, runBlocking(Dispatchers.IO) { app.db.dao().session(session.id) }!!.timeSec)

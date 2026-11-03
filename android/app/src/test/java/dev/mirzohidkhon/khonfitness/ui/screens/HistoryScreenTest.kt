@@ -107,6 +107,8 @@ class HistoryScreenTest {
 
     private fun until(shown: () -> Boolean) = compose.waitUntil(5_000) { shown() }
     private fun shows(text: String) = compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+    /** [text] shows once its data has loaded: a screen fills in as each of its flows emits. */
+    private fun assertShows(text: String) = until { shows(text) }
     private fun waitFor(text: String) = until { shows(text) }
 
     private val push = Program("push", "Push", active = true)
@@ -147,8 +149,8 @@ class HistoryScreenTest {
         assertTrue(compose.onNodeWithText("Log").fetchSemanticsNode().config.getOrElse(SemanticsProperties.Selected) { false })
         compose.onNodeWithText(weekTitle(weekOf(today))).assertExists()
         compose.onNodeWithContentDescription("Previous week").assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
-        assertTrue(shows("planned done"))
-        assertTrue(shows("Not started"))
+        assertShows("planned done")
+        assertShows("Not started")
         // › stops at this week.
         assertTrue(compose.onNodeWithContentDescription("Next week").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled))
         // Today's row opens Today.
@@ -162,14 +164,14 @@ class HistoryScreenTest {
         waitFor("Today: Push")
         compose.onNodeWithContentDescription("Previous week").performClick()
         waitFor(weekTitle(lastMonday))
-        assertTrue(shows("2 of 2 sets · 1 t · 58 min"))
-        assertTrue(shows("2 of 3 sets · 0.9 t · 58 min · 1 PR"))
-        assertTrue(shows("Skipped · Push"))
-        assertTrue(shows("83.0 kg"))
-        assertTrue(shows("Stretch: Daily · 10 min · 9 of 9"))
-        assertTrue(shows(" · 1 stretch"))
-        assertTrue(shows("2 of 6 planned done"))
-        assertTrue(shows("4 missed"))
+        assertShows("2 of 2 sets · 1 t · 58 min")
+        assertShows("2 of 3 sets · 0.9 t · 58 min · 1 PR")
+        assertShows("Skipped · Push")
+        assertShows("83.0 kg")
+        assertShows("Stretch: Daily · 10 min · 9 of 9")
+        assertShows(" · 1 stretch")
+        assertShows("2 of 6 planned done")
+        assertShows("4 missed")
         assertTrue(compose.onNodeWithContentDescription("Previous week").fetchSemanticsNode().config.contains(SemanticsProperties.Disabled))
         compose.onNodeWithText("2 of 2 sets · 1 t · 58 min", substring = true).performClick()
         waitFor("Session mon")
@@ -194,7 +196,7 @@ class HistoryScreenTest {
         }
         show()
         waitFor("5 km · 30 min · 6:00\u00A0/\u2060km · Health Connect")
-        assertTrue(shows("30 min cardio · 5 km"))
+        assertShows("30 min cardio · 5 km")
     }
 
     @Test fun `progress lists records and opens the exercise detail`() {
@@ -204,14 +206,14 @@ class HistoryScreenTest {
         compose.onNodeWithText("Progress").performClick()
         waitFor("Personal records · heaviest weight lifted")
         compose.onNodeWithText("Progress").assertHeightIsAtLeast(48.dp)
-        assertTrue(shows("62.5 kg × 6"))
-        assertTrue(shows("Sets per muscle · this week / last week"))
-        assertTrue(shows("No cardio in the last 30 days."))
+        assertShows("62.5 kg × 6")
+        assertShows("Sets per muscle · this week / last week")
+        assertShows("No cardio in the last 30 days.")
         compose.onNodeWithText("Barbell Bench Press").performClick()
         waitFor("Heaviest set per session")
-        assertTrue(shows("Best"))
+        assertShows("Best")
         // Every saved set shows, the skipped one marked.
-        assertTrue(shows("60×8 · 62.5×6 · 60×5 skipped"))
+        assertShows("60×8 · 62.5×6 · 60×5 skipped")
         compose.onNodeWithText("60×8 · 62.5×6", substring = true).performClick()
         waitFor("Session wed")
     }
@@ -231,12 +233,12 @@ class HistoryScreenTest {
         compose.onNodeWithText("All 9 exercises").performScrollTo().assertHeightIsAtLeast(48.dp).performClick()
         waitFor("Lift 7")
         assertEquals(7, compose.onAllNodesWithText("Lift ", substring = true).fetchSemanticsNodes().size)
-        assertTrue(shows("27 kg × 8"))
+        assertShows("27 kg × 8")
         compose.onNodeWithContentDescription("Search").performTextInput("leg")
         until { !shows("Lift 1") }
         compose.onNodeWithText("Leg Press").performClick()
         waitFor("No sets yet")
-        assertTrue(shows("Quads, Glutes"))
+        assertShows("Quads, Glutes")
     }
 
     @Test fun `the exercise list marks archived exercises and reaches a lost one with only skipped sets`() {
@@ -250,7 +252,7 @@ class HistoryScreenTest {
         waitFor("Today: Push")
         compose.runOnIdle { nav.navigate(Routes.LIFTS) }
         waitFor("Cable fly")
-        assertTrue(shows("Archived · No sets yet"))
+        assertShows("Archived · No sets yet")
         compose.onNodeWithText("Old row").performClick()
         waitFor("50×8 skipped")
     }
@@ -268,14 +270,14 @@ class HistoryScreenTest {
         }
         show(TestClock(wed.atTime(12, 0)))
         waitFor("0 of ${if (today.dayOfWeek.value == 7) 7 else 6} planned done")
-        assertTrue(shows("0 sets · 0 t lifted · 0 min cardio · 0 km · 0 stretches"))
-        assertTrue(shows("Planned: Push"))
+        assertShows("0 sets · 0 t lifted · 0 min cardio · 0 km · 0 stretches")
+        assertShows("Planned: Push")
         assertFalse(shows("Stretch:") || shows("80.0 kg") || shows("58 min") || shows("Easy run"))
         compose.onNodeWithText("Progress").performClick()
         waitFor("No records yet. Save a gym session to see them.")
-        assertTrue(shows("No sets this week or last week."))
-        assertTrue(shows("No entries yet. Add one on Today."))
-        assertTrue(shows("No cardio in the last 30 days."))
+        assertShows("No sets this week or last week.")
+        assertShows("No entries yet. Add one on Today.")
+        assertShows("No cardio in the last 30 days.")
         // Bench Press and Leg Press, no lost exercise.
         compose.onNodeWithText("All 2 exercises").performScrollTo().performClick()
         waitFor("Leg Press")
@@ -283,7 +285,7 @@ class HistoryScreenTest {
         assertEquals(2, compose.onAllNodesWithText("No sets yet").fetchSemanticsNodes().size)
         compose.runOnIdle { nav.navigate(Routes.exerciseDetail("bench")) }
         waitFor("Chest, Shoulders, Triceps")
-        assertTrue(shows("No sets yet"))
+        assertShows("No sets yet")
         compose.runOnIdle { nav.navigate(Routes.cardioType("run")) }
         waitFor("No sessions yet")
     }
@@ -294,8 +296,8 @@ class HistoryScreenTest {
         waitFor("Today: Push")
         compose.runOnIdle { nav.navigate(Routes.exerciseDetail("legpress")) }
         waitFor("No sets yet")
-        assertTrue(shows("Leg Press"))
-        assertTrue(shows("Quads, Glutes"))
+        assertShows("Leg Press")
+        assertShows("Quads, Glutes")
     }
 
     @Test fun `first use shows planned rows and one empty line per Progress section`() {
@@ -303,14 +305,14 @@ class HistoryScreenTest {
         show()
         // Today's row waits for the plan; before it loads every day reads rest.
         waitFor("Today: Push")
-        assertTrue(shows("0 of "))
-        assertTrue(shows("planned done"))
+        assertShows("0 of ")
+        assertShows("planned done")
         assertTrue(shows("Planned: Push") || today.dayOfWeek.value >= 6)
         compose.onNodeWithText("Progress").performClick()
         waitFor("No records yet. Save a gym session to see them.")
-        assertTrue(shows("No sets this week or last week."))
-        assertTrue(shows("No entries yet. Add one on Today."))
-        assertTrue(shows("No cardio in the last 30 days."))
+        assertShows("No sets this week or last week.")
+        assertShows("No entries yet. Add one on Today.")
+        assertShows("No cardio in the last 30 days.")
     }
 
     @Test fun `bodyweight ranges show the point or say the range is empty`() {
@@ -400,7 +402,7 @@ class HistoryScreenTest {
         compose.waitForIdle()
         assertTrue(compose.onNodeWithText("Progress").fetchSemanticsNode().config.getOrElse(SemanticsProperties.Selected) { false })
         assertEquals(y, top("No cardio in the last 30 days."), 0.5f)
-        assertTrue(shows("−1.0 kg since"))
+        assertShows("−1.0 kg since")
         compose.onNodeWithText("Log").performScrollTo().performClick()
         waitFor(weekTitle(lastMonday))
     }
@@ -419,16 +421,16 @@ class HistoryScreenTest {
         }
         show(clock)
         waitFor(weekTitle(LocalDate.of(2026, 11, 2)))
-        assertTrue(shows("In progress · 1 of 2 sets"))
+        assertShows("In progress · 1 of 2 sets")
         clock.now = sunday.plusDays(1).atTime(0, 0, 5)
         compose.mainClock.advanceTimeBy(15_000)
         waitFor(weekTitle(LocalDate.of(2026, 11, 9)))
-        assertTrue(shows("Today: Push"))
-        assertTrue(shows("Not started"))
+        assertShows("Today: Push")
+        assertShows("Not started")
         assertTrue(!shows("In progress"))
         compose.onNodeWithContentDescription("Previous week").performClick()
         waitFor(weekTitle(LocalDate.of(2026, 11, 2)))
-        assertTrue(shows("In progress · 1 of 2 sets"))
+        assertShows("In progress · 1 of 2 sets")
     }
 
     /**
@@ -452,20 +454,20 @@ class HistoryScreenTest {
         compose.onNodeWithText("Progress").performClick()
         waitFor("Cardio · last 30 days")
         compose.onNodeWithText("Distance per session").performScrollTo()
-        assertTrue(shows("2 sessions · 13 km · 1 h 20 m · 6:09\u00A0/\u2060km"))
-        assertTrue(shows("5 km · ${monthDay(today.minusDays(10))}"))
-        assertTrue(shows("8 km · ${monthDay(today.minusDays(3))}"))
+        assertShows("2 sessions · 13 km · 1 h 20 m · 6:09\u00A0/\u2060km")
+        assertShows("5 km · ${monthDay(today.minusDays(10))}")
+        assertShows("8 km · ${monthDay(today.minusDays(3))}")
         compose.onNodeWithText("No sessions in 30 days").performScrollTo().performClick()
         waitFor("Heart rate in work intervals")
-        assertTrue(shows("Average heart rate"))
-        assertTrue(shows("Bike intervals · 20 min"))
+        assertShows("Average heart rate")
+        assertShows("Bike intervals · 20 min")
         compose.runOnIdle { nav.popBackStack() }
         waitFor("Distance per session")
         compose.onNodeWithText("Run").performScrollTo().performClick()
         waitFor("Pace /km")
-        assertTrue(shows("Average heart rate"))
+        assertShows("Average heart rate")
         assertTrue(!shows("Heart rate in work intervals"))
-        assertTrue(shows("Easy run · 8 km · 50 min · 6:15\u00A0/\u2060km"))
+        assertShows("Easy run · 8 km · 50 min · 6:15\u00A0/\u2060km")
         compose.onNodeWithText("Easy run · 8 km", substring = true).performClick()
         waitFor("Cardio r2")
     }

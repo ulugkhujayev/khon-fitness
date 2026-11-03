@@ -78,6 +78,8 @@ class TapTargetTest {
 
     private fun io(block: suspend () -> Unit) = runBlocking(Dispatchers.IO) { block() }
     private fun shows(text: String) = compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+    /** [text] shows once its data has loaded: a screen fills in as each of its flows emits. */
+    private fun assertShows(text: String) = compose.waitUntil(5_000) { shows(text) }
     private fun named(label: String) = compose.onAllNodesWithContentDescription(label).fetchSemanticsNodes().isNotEmpty()
     private fun waitFor(shown: () -> Boolean) = compose.waitUntil(5_000) { shown() }
 
@@ -186,7 +188,7 @@ class TapTargetTest {
         assertTargets("Session")
         compose.onNodeWithContentDescription("Swap Bench press").performSemanticsAction(SemanticsActions.OnClick)
         waitFor { shows("Swap Bench press") }
-        assertTrue(shows("Cable fly"))
+        assertShows("Cable fly")
         assertEquals("session/{id}", nav.currentDestination?.route)
     }
 

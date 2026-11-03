@@ -114,6 +114,8 @@ class TodayScreenTest {
 
     private fun <T> io(block: suspend () -> T): T = runBlocking(Dispatchers.IO) { block() }
     private fun shows(text: String) = compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+    /** [text] shows once its data has loaded: a screen fills in as each of its flows emits. */
+    private fun assertShows(text: String) = compose.waitUntil(5_000) { shows(text) }
     private fun named(label: String) = compose.onAllNodesWithContentDescription(label).fetchSemanticsNodes().isNotEmpty()
     private fun waitFor(shown: () -> Boolean) = compose.waitUntil(5_000) { shown() }
 
@@ -192,7 +194,7 @@ class TodayScreenTest {
         waitFor { shows("Push day") }
         // The week strip spoke each day as "<date>, <item>, today"; nothing of it is left.
         assertFalse(compose.onAllNodesWithContentDescription(", today", substring = true).fetchSemanticsNodes().isNotEmpty())
-        assertTrue(shows("2 exercises · 5 sets"))
+        assertShows("2 exercises · 5 sets")
         assertTrue(top("Push day") < top("Eating window"))
         assertTrue(top("Eating window") < top("Bodyweight"))
         assertFalse("no chart on Today", named("Bodyweight chart"))
@@ -205,8 +207,8 @@ class TodayScreenTest {
         waitFor { named("Change today's plan") }
         compose.onNodeWithContentDescription("Change today's plan").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).performClick()
         waitFor { shows(changeTitle(today)) }
-        assertTrue(shows("Only today changes. The week plan stays."))
-        assertTrue(shows("Gym")); assertTrue(shows("Cardio")); assertTrue(shows("Other"))
+        assertShows("Only today changes. The week plan stays.")
+        assertShows("Gym"); assertShows("Cardio"); assertShows("Other")
         assertFalse("no Back to plan without a change", shows("Back to plan"))
         compose.onNodeWithText("Zone 2 run").performSemanticsAction(SemanticsActions.OnClick) // the sheet may still be sliding in
         waitFor { io { dao.overridesOnce() }.isNotEmpty() }
@@ -234,7 +236,7 @@ class TodayScreenTest {
         session(done = 2, finish = false)
         openToday()
         waitFor { shows("In progress · 2 of 5 sets") }
-        assertTrue(shows("Resume"))
+        assertShows("Resume")
         assertFalse(named("Change today's plan"))
         compose.onNodeWithText("Resume").performClick()
         waitFor { shows("Session screen") }
@@ -251,7 +253,7 @@ class TodayScreenTest {
         compose.onNodeWithContentDescription("Review today's session").assertHeightIsAtLeast(48.dp).performClick()
         waitFor { shows("Bench press") }
         assertEquals(4, compose.onAllNodesWithText("skipped").fetchSemanticsNodes().size)
-        assertTrue(shows("80 kg × 10"))
+        assertShows("80 kg × 10")
         compose.onNodeWithContentDescription("Today").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
         assertFalse("no Edit from Today", shows("Edit"))
         assertFalse("no Delete from Today", shows("Delete"))
@@ -275,7 +277,7 @@ class TodayScreenTest {
         waitFor { named("+1 more today, open History") }
         compose.onNodeWithContentDescription("+1 more today, open History").assertHeightIsAtLeast(48.dp).performClick()
         waitFor { named("Previous week") }
-        assertTrue(shows(thisWeek))
+        assertShows(thisWeek)
         assertFalse(shows(lastWeek))
     }
 
@@ -303,7 +305,7 @@ class TodayScreenTest {
         }
         assertEquals(1, io { dao.sessionsOnce() }.size)
         assertFalse(shows("Session screen"))
-        assertTrue(shows("Done · 5 sets"))
+        assertShows("Done · 5 sets")
     }
 
     @Test fun `the widget's Start with nothing saved starts today's item`() {
@@ -319,14 +321,14 @@ class TodayScreenTest {
         cardio(finishedAt = System.currentTimeMillis())
         openToday()
         waitFor { shows("Zone 2 run") }
-        assertTrue(shows("Done"))
+        assertShows("Done")
         assertFalse(shows("Push day"))
         assertFalse(shows("Start"))
         assertFalse(named("Change today's plan"))
         // A gym session saved before it counts as one more.
         session(done = 5, finish = false).let { io { vm.repo.finishSession(it, System.currentTimeMillis() - 60_000) } }
         waitFor { named("+1 more today, open History") }
-        assertTrue(shows("Zone 2 run"))
+        assertShows("Zone 2 run")
     }
 
     @Test fun `a week with only rest days is a rest day with Change, not first use`() {
@@ -427,8 +429,8 @@ class TodayScreenTest {
     @Test fun `first use offers to set up the week and starts the entry at 75 kg`() {
         openToday()
         waitFor { shows("No plan for today") }
-        assertTrue(shows("No entry yet"))
-        assertTrue(shows("75.0"))
+        assertShows("No entry yet")
+        assertShows("75.0")
         compose.onNodeWithText("Set up your week").performClick()
         waitFor { shows("Plan screen") }
     }
@@ -446,7 +448,7 @@ class TodayScreenTest {
         waitFor { saved() == 83.5 }
         waitFor { named("Today's bodyweight is saved") }
         compose.onNodeWithContentDescription("Today's bodyweight is saved").assertIsNotEnabled()
-        assertTrue(shows("Saved for today · +0.1 kg since"))
+        assertShows("Saved for today · +0.1 kg since")
     }
 
     @Test fun `keyboard Done saves a typed weight`() {

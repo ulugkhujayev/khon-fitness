@@ -63,6 +63,8 @@ class PlanEditorsTest {
 
     private fun io(block: suspend () -> Unit) = runBlocking(Dispatchers.IO) { block() }
     private fun shows(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+    /** [text] shows once its data has loaded: a screen fills in as each of its flows emits. */
+    private fun assertShows(text: String) = compose.waitUntil(5_000) { shows(text) }
     private fun waitFor(shown: () -> Boolean) = compose.waitUntil(5_000) { shown() }
     private fun top(text: String) = compose.onNodeWithText(text).fetchSemanticsNode().positionInRoot.y
     private fun tap(node: SemanticsNodeInteraction) { node.performSemanticsAction(SemanticsActions.OnClick); compose.waitForIdle() }
@@ -109,7 +111,7 @@ class PlanEditorsTest {
 
         compose.onNodeWithText("Search").performTextInput("fly")
         waitFor { !shows("Bench press") }
-        assertTrue(shows("Cable fly"))
+        assertShows("Cable fly")
 
         tap(compose.onNodeWithText("Cable fly"))
         waitFor { shows("Merge into…") }
@@ -123,11 +125,11 @@ class PlanEditorsTest {
         }
         openEditor("z2run")
         waitFor { shows("Type") }
-        assertTrue(shows(TYPE_NOTE))
+        assertShows(TYPE_NOTE)
         assertFalse(shows("Modality"))
         tap(compose.onNodeWithText("Type"))
         waitFor { shows("New type…") }
-        assertTrue(shows("Bike"))
+        assertShows("Bike")
         assertFalse("archived type", shows("Row"))
 
         tap(compose.onNodeWithText("New type…"))

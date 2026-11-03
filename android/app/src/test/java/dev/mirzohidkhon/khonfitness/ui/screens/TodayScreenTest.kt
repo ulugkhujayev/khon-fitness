@@ -50,7 +50,9 @@ import dev.mirzohidkhon.khonfitness.data.Exercise
 import dev.mirzohidkhon.khonfitness.data.ItemType
 import dev.mirzohidkhon.khonfitness.data.Kind
 import dev.mirzohidkhon.khonfitness.data.Modality
+import dev.mirzohidkhon.khonfitness.data.PlanItem
 import dev.mirzohidkhon.khonfitness.data.Program
+import dev.mirzohidkhon.khonfitness.data.Session
 import dev.mirzohidkhon.khonfitness.data.SetStatus
 import dev.mirzohidkhon.khonfitness.data.WeekPlan
 import dev.mirzohidkhon.khonfitness.data.iso
@@ -101,6 +103,7 @@ class TodayScreenTest {
 
     @After fun close() {
         TimerService.state.value = null
+        dev.mirzohidkhon.khonfitness.MainActivity.startRequested.value = false
         shown = false
         compose.waitForIdle()
         vm.viewModelScope.cancel()
@@ -274,6 +277,41 @@ class TodayScreenTest {
         waitFor { named("Previous week") }
         assertTrue(shows(thisWeek))
         assertFalse(shows(lastWeek))
+    }
+
+    @Test fun `the widget's Start resumes, starts, or stays on Today once a session is saved`() {
+        val run = Session(id = "r", date = today.iso(), startedAt = 1L, itemType = ItemType.CARDIO)
+        val push = PlanItem(ItemType.PROGRAM, program = Program("push", "Push day"))
+        assertEquals(WidgetStart.RESUME, widgetStart(run, null, push))
+        assertEquals(WidgetStart.START, widgetStart(null, null, push))
+        assertEquals(WidgetStart.STAY, widgetStart(null, run.copy(finishedAt = 2L), push))
+        assertEquals(WidgetStart.STAY, widgetStart(null, null, PlanItem(ItemType.REST)))
+    }
+
+    @Test fun `the widget's Start after today's session is saved opens Today and starts no second session`() {
+        seed()
+        session(done = 5, finish = true)
+        // The request is there before Today's lists have answered, as when the widget opens the app.
+        dev.mirzohidkhon.khonfitness.MainActivity.startRequested.value = true
+        openToday()
+        waitFor { !dev.mirzohidkhon.khonfitness.MainActivity.startRequested.value }
+        // A start writes on another thread: watch for one for a second.
+        repeat(50) {
+            compose.waitForIdle()
+            assertNull(io { dao.unfinishedSessionOnce() })
+            Thread.sleep(20)
+        }
+        assertEquals(1, io { dao.sessionsOnce() }.size)
+        assertFalse(shows("Session screen"))
+        assertTrue(shows("Done · 5 sets"))
+    }
+
+    @Test fun `the widget's Start with nothing saved starts today's item`() {
+        seed()
+        openToday()
+        dev.mirzohidkhon.khonfitness.MainActivity.startRequested.value = true
+        waitFor { shows("Session screen") }
+        assertEquals(1, io { dao.sessionsOnce() }.size)
     }
 
     @Test fun `a run saved on a gym day shows on the card with its own name, and Change is gone`() {

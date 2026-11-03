@@ -56,7 +56,9 @@ Three tabs.
   today has another value (the save replaces it), Saved (off) when the
   value is today's entry. Text that is not 20 to 250 kg stays, shows
   "Enter 20-250 kg", and turns the button off. Today follows the date: a
-  new day shows at the next minute or on resume.
+  new day shows at the next minute or on resume. The home-screen widget's
+  Start resumes a running session, else starts today's item; once a
+  session is saved today it only opens Today, never a second session.
 - History. Two pages, Log (the default) and Progress; each keeps its own
   scroll position and state (the week shown, the bodyweight range), also
   across page and tab switches. Today's date is read again on resume and

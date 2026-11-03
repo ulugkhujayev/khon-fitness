@@ -201,6 +201,19 @@ fun doneToday(sessions: List<Session>, date: LocalDate): DoneToday {
     return DoneToday(finished.maxByOrNull { it.finishedAt ?: it.startedAt }, maxOf(0, finished.size - 1))
 }
 
+/** What the widget's Start does on Today. */
+enum class WidgetStart { RESUME, START, STAY }
+
+/**
+ * The widget's Start: resume the running session; else stay on Today when a session is saved today (never a second
+ * session) or today is a rest day; else start today's item.
+ */
+fun widgetStart(active: Session?, savedToday: Session?, item: PlanItem): WidgetStart = when {
+    active != null -> WidgetStart.RESUME
+    savedToday != null || item.isRest -> WidgetStart.STAY
+    else -> WidgetStart.START
+}
+
 /** "+1 more today": the other sessions saved today; the line opens History. */
 fun moreLine(n: Int): String = "+$n more today"
 

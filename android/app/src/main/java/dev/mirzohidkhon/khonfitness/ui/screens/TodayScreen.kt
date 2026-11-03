@@ -68,9 +68,17 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
     val startRequested by dev.mirzohidkhon.khonfitness.MainActivity.startRequested.collectAsStateWithLifecycle()
     LaunchedEffect(startRequested, unfinished, item.name, loaded) {
         if (!startRequested || !loaded) return@LaunchedEffect
+        // Read the database, not the screen's flows: they may not have answered yet, and an empty list would start a
+        // second session on a day whose session is saved. The request clears after the reads: clearing it first
+        // changes this effect's key and cancels it mid-read.
+        val active = vm.repo.unfinishedSessionOnce()
+        val saved = doneToday(vm.repo.sessionsOnce(), today).session
         dev.mirzohidkhon.khonfitness.MainActivity.startRequested.value = false
-        val active = unfinished
-        if (active != null) resume(active) else if (!item.isRest) start()
+        when (widgetStart(active, saved, item)) {
+            WidgetStart.RESUME -> resume(active!!)
+            WidgetStart.START -> start()
+            WidgetStart.STAY -> {}
+        }
     }
     LaunchedEffect(item.name, unfinished?.id) { dev.mirzohidkhon.khonfitness.widget.TodayWidget.refresh(context) }
     val stretchRoutines by vm.stretchRoutines.collectAsStateWithLifecycle()

@@ -5,17 +5,33 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
@@ -31,107 +47,194 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 /**
- * Programs tab: the programs (the active one filled), then rows that open a part of the app, each with an icon
- * tile like iOS Settings: Library (exercises, stretching, modalities), Plan (week plan), and Settings on its own.
- * A new program is only a draft in its editor until Done or its first block saves it.
+ * Plan tab: "+" adds a gym program, cardio workout, stretch routine or exercise, each through its own create flow.
+ * Then This week (the week as the plan resolves it, with Edit for the weekly template), the gym programs (the active
+ * one filled), the cardio workouts with their type, the stretch routines, and the Library. Settings is behind the
+ * gear on Today. A new program is only a draft in its editor until Done or its first block saves it.
  */
 @Composable
-fun ProgramsScreen(vm: AppViewModel, nav: NavHostController) {
+fun PlanScreen(vm: AppViewModel, nav: NavHostController) {
+    val plan by vm.planData.collectAsStateWithLifecycle()
     val programs by vm.programs.collectAsStateWithLifecycle()
     val blocks by vm.blocks.collectAsStateWithLifecycle()
+    val blockExercises by vm.blockExercises.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
-    TabScreen("Programs", trailing = { BarCircleButton(Icons.Plus, "New program") { nav.navigate(Routes.program("new")) } }) {
+    val routines by vm.stretchRoutines.collectAsStateWithLifecycle()
+    val routineStretches by vm.routineStretches.collectAsStateWithLifecycle()
+    val stretches by vm.stretches.collectAsStateWithLifecycle()
+    var adding by rememberSaveable { mutableStateOf(false) }
+    // This screen's back stack entry; a new routine's editor opens only if Plan is still on top when the save ends.
+    val self = LocalLifecycleOwner.current
+    fun newRoutine() {
+        if (vm.creatingRoutine) return
+        vm.creatingRoutine = true
+        val id = newId()
+        vm.run {
+            try { vm.repo.createNewRoutine(id) } finally { vm.creatingRoutine = false }
+            if (nav.currentBackStackEntry === self) nav.navigate(Routes.routine(id))
+        }
+    }
+    TabScreen("Plan", trailing = { TitleAddButton("New") { adding = true } }) {
+        SectionTitle("This week", trailing = { SectionAction("Edit", "Edit week plan") { nav.navigate(Routes.WEEK_PLAN) } })
+        val cells = plan.weekCells(vm.today(), modalities)
+        WeekGrid(cells, cells.map { it.spoken(plan.itemFor(it.date).name) })
+
+        SectionTitle("Gym programs", Modifier.padding(top = 24.dp))
         GroupedList {
             programs.forEachIndexed { i, p ->
-                ListRow(p.name, secondary = blocksText(blocks.count { it.programId == p.id }), dotColor = K.Accent, dotFilled = p.active, divider = i > 0) { nav.navigate(Routes.program(p.id)) }
+                val mine = blocks.filter { it.programId == p.id }
+                val sets = mine.sumOf { b -> blockExercises.filter { it.blockId == b.id }.sumOf { it.sets } }
+                PlanRow(p.name, programLine(mine.size, sets, plan.weekdaysOf(ItemType.PROGRAM, p.id)), divider = i > 0, leading = { DotMark(K.Accent, p.active) }) { nav.navigate(Routes.program(p.id)) }
             }
-            if (programs.isEmpty()) ListRow("No programs yet", chevron = false, divider = false, titleColor = K.Muted)
+            if (programs.isEmpty()) {
+                ListRow("No programs yet", chevron = false, divider = false, titleColor = K.Muted)
+                ListRow("Create program", titleColor = K.Accent) { nav.navigate(Routes.program("new")) }
+            }
         }
+
+        val (archivedCardio, cardio) = exercises.filter { it.kind == Kind.CARDIO }.partition { it.archived }
+        @Composable fun CardioRow(e: Exercise, i: Int) {
+            val type = modalities.find { it.id == e.modalityId }
+            PlanRow(e.name, cardioLine(e, plan.weekdaysOf(ItemType.CARDIO, e.id)), divider = i > 0, titleColor = if (e.archived) K.Dim else K.Text,
+                leading = { TypePill(type?.name ?: "Cardio", type?.let { Color(it.color) } ?: K.Muted) }) { nav.navigate(Routes.exercise(e.id)) }
+        }
+        SectionTitle("Cardio workouts", Modifier.padding(top = 24.dp))
+        GroupedList {
+            cardio.forEachIndexed { i, e -> CardioRow(e, i) }
+            if (cardio.isEmpty()) ListRow("No cardio workouts yet", chevron = false, divider = false, titleColor = K.Muted)
+        }
+        if (archivedCardio.isNotEmpty()) {
+            SectionTitle("Archived", Modifier.padding(top = 16.dp))
+            GroupedList { archivedCardio.forEachIndexed { i, e -> CardioRow(e, i) } }
+        }
+
+        SectionTitle("Stretch routines", Modifier.padding(top = 24.dp))
+        GroupedList {
+            routines.forEachIndexed { i, r ->
+                PlanRow(r.name, routineSummary(r.id, routineStretches, stretches), divider = i > 0, leading = { DotMark(K.Green, r.active) }) { nav.navigate(Routes.routine(r.id)) }
+            }
+            if (routines.isEmpty()) ListRow("No routines yet", chevron = false, divider = false, titleColor = K.Muted)
+        }
+
         SectionTitle("Library", Modifier.padding(top = 24.dp))
         GroupedList {
-            ListRow("Exercises", secondary = "${exercises.count { !it.archived }}", divider = false, leading = { IconTile(Icons.Dumbbell, K.Accent) }) { nav.navigate(Routes.LIBRARY) }
-            ListRow("Stretching", leading = { IconTile(Icons.Stretch, K.Green) }) { nav.navigate(Routes.ROUTINES) }
-            ListRow("Modalities", secondary = "${modalities.count { !it.archived }}", leading = { IconTile(Icons.Runner, K.Blue) }) { nav.navigate(Routes.MODALITIES) }
+            ListRow("Exercises", secondary = "${exercises.count { it.kind == Kind.STRENGTH && !it.archived }}", divider = false, leading = { IconTile(Icons.Dumbbell, K.Accent) }) { nav.navigate(Routes.LIBRARY) }
+            ListRow("Stretches", secondary = "${stretches.count { !it.archived }}", leading = { IconTile(Icons.Stretch, K.Green) }) { nav.navigate(Routes.STRETCHES) }
         }
-        SectionTitle("Plan", Modifier.padding(top = 24.dp))
-        GroupedList { ListRow("Week plan", divider = false, leading = { IconTile(Icons.Today, K.Red) }) { nav.navigate(Routes.WEEK_PLAN) } }
-        // Gray like the system's own Settings icon.
-        GroupedList(Modifier.padding(top = 32.dp)) { ListRow("Settings", divider = false, leading = { IconTile(Icons.Gear, K.Dim) }) { nav.navigate(Routes.SETTINGS) } }
+    }
+    if (adding) Sheet("New", { adding = false }) {
+        Text("What do you want to add?", color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 12.dp))
+        ChoiceList {
+            fun open(route: String) { adding = false; nav.navigate(route) }
+            ListRow("Gym program", divider = false, leading = { IconTile(Icons.Dumbbell, K.Accent) }) { open(Routes.program("new")) }
+            ListRow("Cardio workout", leading = { IconTile(Icons.Runner, K.Blue) }) { open(Routes.exercise(NEW_CARDIO)) }
+            ListRow("Stretch routine", leading = { IconTile(Icons.Stretch, K.Green) }) { adding = false; newRoutine() }
+            ListRow("Exercise", leading = { IconTile(Icons.Dumbbell, K.Dim) }) { open(Routes.exercise("new")) }
+        }
     }
 }
 
+/** The tab title's round "+": a 36 dp circle on a 48 dp target, which may reach past the title row's height. */
+@Composable
+private fun TitleAddButton(label: String, onClick: () -> Unit) {
+    Box(Modifier.requiredSize(48.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(36.dp).clip(CircleShape).background(K.Surface), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(Icons.Plus, contentDescription = label, tint = K.Accent, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+/** A section title's action in accent text on a 48 dp target, spoken as [description]. */
+@Composable
+private fun SectionAction(text: String, description: String, onClick: () -> Unit) {
+    Box(
+        Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = description }.padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) { Text(text, color = K.Accent, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium, modifier = Modifier.clearAndSetSemantics {}) }
+}
+
+/**
+ * The week Monday to Sunday in seven cells: the weekday, the item's short name (muted for rest), today's cell tinted
+ * accent, and a small accent dot under a day that a one-day change set. Each cell reads as one spoken line.
+ */
+@Composable
+private fun WeekGrid(cells: List<WeekCell>, spoken: List<String>) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        cells.forEachIndexed { i, c ->
+            Column(
+                Modifier.weight(1f).heightIn(min = 68.dp).clip(RoundedCornerShape(12.dp)).background(if (c.today) K.AccentSoft else K.Surface)
+                    .clearAndSetSemantics { contentDescription = spoken[i] }.padding(horizontal = 2.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(weekdayShort(c.date.dayOfWeek.value), fontSize = 11.sp, color = if (c.today) K.Accent else K.Muted, maxLines = 1)
+                Text(c.name, fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, color = if (c.rest) K.Muted else K.Text, textAlign = TextAlign.Center,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                if (c.changed) Box(Modifier.padding(top = 4.dp).size(5.dp).clip(CircleShape).background(K.Accent))
+            }
+        }
+    }
+}
+
+/** A Plan list row: [leading] mark, the title over its muted [line], a chevron. The whole row opens [onClick]. */
+@Composable
+private fun PlanRow(title: String, line: String, divider: Boolean, titleColor: Color = K.Text, leading: @Composable () -> Unit, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = onClick).padding(start = 16.dp, end = 14.dp, top = 9.dp, bottom = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            leading()
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, color = titleColor, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(line, style = MaterialTheme.typography.bodyMedium, color = K.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+            }
+            Chevron()
+        }
+    }
+}
+
+/** A program's or routine's dot: filled when it is the active one. */
+@Composable
+private fun DotMark(color: Color, filled: Boolean) { Box(Modifier.width(14.dp), contentAlignment = Alignment.CenterStart) { Dot(color, filled) } }
+
+/** A cardio workout's type as a pill in the type's color. */
+@Composable
+private fun TypePill(name: String, color: Color) {
+    Text(name, color = color, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+        modifier = Modifier.widthIn(min = 44.dp, max = 72.dp).clip(RoundedCornerShape(9.dp)).background(K.Surface2).padding(horizontal = 8.dp, vertical = 3.dp))
+}
+
+/**
+ * Exercises: the strength library, searchable, grouped by primary muscle, archived ones last ([libraryGroups]).
+ * Each row opens the exercise editor; "+" adds an exercise. Cardio workouts are on Plan.
+ */
 @Composable
 fun LibraryScreen(vm: AppViewModel, nav: NavHostController) {
     val exercises by vm.exercises.collectAsStateWithLifecycle()
-    val modalities by vm.modalities.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
-    var kind by rememberSaveable { mutableStateOf("") }
-    var muscle by rememberSaveable { mutableStateOf("") }
-    var showArchived by rememberSaveable { mutableStateOf(false) }
-    var muscleSheet by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
-        EditorTopBar("Programs", "Exercises", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New exercise") { nav.navigate(Routes.exercise("new")) }
+        EditorTopBar("Plan", "Exercises", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New exercise") { nav.navigate(Routes.exercise("new")) }
         Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             SearchField(query, { query = it })
-            Spacer(Modifier.height(12.dp))
-            Segmented(listOf("All", "Strength", "Cardio"), when (kind) { Kind.STRENGTH -> 1; Kind.CARDIO -> 2; else -> 0 }) { kind = when (it) { 1 -> Kind.STRENGTH; 2 -> Kind.CARDIO; else -> "" } }
-            if (kind != Kind.CARDIO) {
-                Spacer(Modifier.height(12.dp))
-                GroupedList { FieldRow("Muscle", divider = false, onClick = { muscleSheet = true }) { FieldValue(if (muscle.isEmpty()) "Any" else muscle.replaceFirstChar { it.uppercase() }) } }
-            }
-            Spacer(Modifier.height(16.dp))
-            val list = exercises.filter { (showArchived || !it.archived) && (kind.isEmpty() || it.kind == kind) && (muscle.isEmpty() || it.primaryMuscle == muscle || muscle in it.secondaryList) && (query.isBlank() || it.name.contains(query.trim(), true)) }
-            GroupedList {
-                list.forEachIndexed { i, e ->
-                    val secondary = if (e.kind == Kind.STRENGTH) e.primaryMuscle?.replaceFirstChar { it.uppercase() } else modalities.find { it.id == e.modalityId }?.name
-                    ListRow(e.name, secondary = secondary, dotColor = exerciseColor(e, modalities), dotFilled = e.kind == Kind.STRENGTH || e.intensity == Intensity.HIGH, divider = i > 0, titleColor = if (e.archived) K.Dim else K.Text) { nav.navigate(Routes.exercise(e.id)) }
+            val groups = libraryGroups(exercises, query)
+            groups.forEachIndexed { g, (title, list) ->
+                SectionTitle(title, Modifier.padding(top = if (g == 0) 16.dp else 24.dp))
+                GroupedList {
+                    list.forEachIndexed { i, e -> ListRow(e.name, divider = i > 0, titleColor = if (e.archived) K.Dim else K.Text) { nav.navigate(Routes.exercise(e.id)) } }
                 }
-                if (list.isEmpty()) SearchEmpty(query)
             }
-            Spacer(Modifier.height(16.dp))
-            GroupedList { ToggleRow("Show archived", showArchived, divider = false) { showArchived = it } }
-        }
-    }
-    if (muscleSheet) ChoiceSheet(
-        "Muscle", listOf(Choice("", "Any")) + MUSCLE_GROUPS.map { Choice(it, it.replaceFirstChar { c -> c.uppercase() }) },
-        onPick = { muscle = it; muscleSheet = false }, onDismiss = { muscleSheet = false }, isSelected = { it == muscle },
-    )
-}
-
-/**
- * Modalities: each with its color and how many exercises it groups, a note on what they are for, and the archived
- * ones in their own group when shown.
- */
-@Composable
-fun ModalitiesScreen(vm: AppViewModel, nav: NavHostController) {
-    val modalities by vm.modalities.collectAsStateWithLifecycle()
-    val exercises by vm.exercises.collectAsStateWithLifecycle()
-    var showArchived by rememberSaveable { mutableStateOf(false) }
-    val (archived, live) = modalities.partition { it.archived }
-    @Composable fun ModalityRow(m: Modality, i: Int) = ListRow(m.name, secondary = modalityUse(m.id, exercises), dotColor = androidx.compose.ui.graphics.Color(m.color), divider = i > 0,
-        titleColor = if (m.archived) K.Dim else K.Text) { nav.navigate(Routes.modality(m.id)) }
-    Column(Modifier.fillMaxSize()) {
-        val barScroll = rememberScrollState()
-        EditorTopBar("Programs", "Modalities", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New modality") { nav.navigate(Routes.modality("new")) }
-        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
-            GroupedList {
-                live.forEachIndexed { i, m -> ModalityRow(m, i) }
-                if (live.isEmpty()) ListRow("No modalities yet", chevron = false, divider = false, titleColor = K.Muted)
-            }
-            GroupFooter("A modality groups cardio exercises, such as running or cycling, and colors them on Today and in History.")
-            GroupedList(Modifier.padding(top = 24.dp)) { ToggleRow("Show archived", showArchived, divider = false) { showArchived = it } }
-            if (showArchived && archived.isNotEmpty()) {
-                SectionTitle("Archived", Modifier.padding(top = 24.dp))
-                GroupedList { archived.forEachIndexed { i, m -> ModalityRow(m, i) } }
-            }
+            if (groups.isEmpty()) GroupedList(Modifier.padding(top = 16.dp)) { SearchEmpty(query) }
         }
     }
 }
 
 /**
- * The weekly template: the week at a glance, then each weekday with an icon tile of what it holds in its color
+ * The weekly template: what it is for ([WEEK_PLAN_NOTE]), the week at a glance, then each weekday with an icon tile of what it holds in its color
  * (today's name in accent), and a note on when a change applies. A change fills today and later dates only:
  * [KhonRepository.saveWeekPlan] freezes the past days of that weekday first.
  */
@@ -143,8 +246,9 @@ fun WeekPlanScreen(vm: AppViewModel, nav: NavHostController) {
     val today = vm.today().dayOfWeek.value
     Column(Modifier.fillMaxSize()) {
     val barScroll = rememberScrollState()
-    EditorTopBar("Programs", "Week plan", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() })
+    EditorTopBar("Plan", "Week plan", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() })
     Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+    Text(WEEK_PLAN_NOTE, color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp))
     SectionTitle(plan.weekSummary())
     GroupedList {
         for (wd in 1..7) {
@@ -154,7 +258,7 @@ fun WeekPlanScreen(vm: AppViewModel, nav: NavHostController) {
                 leading = { IconTile(icon, itemColor(item, modalities)?.first ?: K.Dim) }) { editing = wd }
         }
     }
-    GroupFooter("A change applies from today on; past days keep the plan they had. To change one date only, tap it on Today.")
+    GroupFooter("A change applies from today on; past days keep the plan they had.")
     } }
     editing?.let { wd ->
         val current = plan.plan.find { it.weekday == wd }

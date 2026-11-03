@@ -74,7 +74,7 @@ fun ProgramEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Str
         draft.programForBlock(newId(), onlyProgram)?.let { p -> vm.run { vm.repo.createProgram(p) } }
         draft.programId(programId)?.let { nav.navigate(Routes.block(it, "new")) }
     }
-    EditorScaffold("Programs", program?.name ?: "New program", onBack = { nav.popBackStack() }, onDone = ::done) {
+    EditorScaffold("Plan", program?.name ?: "New program", onBack = { nav.popBackStack() }, onDone = ::done) {
         GroupedList {
             FieldRow("Name", divider = false) { InlineTextField(draft.name ?: program?.name ?: "", { draft.name = it }, placeholder = "Program name", label = "Name") }
             // A saved active program stays on: turning another one on is what moves the mark.
@@ -181,18 +181,22 @@ fun BlockEditorScreen(vm: AppViewModel, nav: NavHostController, programId: Strin
 /**
  * Exercise editor: fields in groups (name and kind; muscles and details, or cardio, intervals and notes), Archive,
  * Merge into… and Delete at the bottom. The kind cannot change once the exercise is used ([kindLocked]); Delete
- * only while nothing uses it, and only after asking.
+ * only while nothing uses it, and only after asking. [NEW_CARDIO] opens a new cardio workout. A cardio workout's
+ * Type picks one of the types or adds a new one ([NewTypeSheet]); a type colors the workout's past sessions too.
  */
 @Composable
 fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: String) {
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
-    val isNew = exerciseId == "new"
+    val isNew = exerciseId == "new" || exerciseId == NEW_CARDIO
     val original = exercises.find { it.id == exerciseId }
     if (!isNew && original == null) return
     // What the editor opened with: Done writes only the fields that differ from it, onto the row as it is then.
     val opened = remember(exerciseId, original == null) { original }
-    var draft by remember(exerciseId, original == null) { mutableStateOf(opened ?: Exercise(newId(), "", Kind.STRENGTH, primaryMuscle = "chest")) }
+    var draft by remember(exerciseId, original == null) { mutableStateOf(opened ?: if (exerciseId == NEW_CARDIO) Exercise(newId(), "", Kind.CARDIO, intensity = Intensity.LOW, fields = "time,distance,avgHr") else Exercise(newId(), "", Kind.STRENGTH, primaryMuscle = "chest")) }
+    // A type added here shows on the Type row before the type list reads it back.
+    var addedType by remember { mutableStateOf<Modality?>(null) }
+    val types = modalities + listOfNotNull(addedType?.takeIf { a -> modalities.none { it.id == a.id } })
     var sheet by remember { mutableStateOf<String?>(null) }
     // Null while the count loads, which keeps the kind locked and Delete off.
     var usage by remember { mutableStateOf<Int?>(if (isNew) 0 else null) }
@@ -200,7 +204,7 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
     val confirmDelete = rememberConfirm<Exercise>()
     val locked = kindLocked(isNew, usage)
     val isStrength = draft.kind == Kind.STRENGTH
-    EditorScaffold("Library", if (isNew) "New exercise" else original!!.name, onBack = { nav.popBackStack() }, onDone = {
+    EditorScaffold(if (draft.kind == Kind.CARDIO) "Plan" else "Exercises", if (!isNew) original!!.name else if (draft.kind == Kind.CARDIO) "New cardio workout" else "New exercise", onBack = { nav.popBackStack() }, onDone = {
         if (draft.name.isNotBlank()) vm.run { vm.repo.saveExerciseEdits(opened, draft.copy(name = draft.name.trim())) }; nav.popBackStack()
     }) {
         GroupedList {
@@ -223,8 +227,11 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
         } else {
             SectionTitle("Cardio", Modifier.padding(top = 24.dp))
             GroupedList {
-                FieldRow("Modality", divider = false, onClick = { sheet = "modality" }) { FieldValue(modalities.find { it.id == draft.modalityId }?.name ?: "Choose") }
-                FieldRow("Intensity", onClick = { sheet = "intensity" }) { FieldValue(cap(draft.intensity ?: "low")) }
+                FieldRow("Type", divider = false, onClick = { sheet = "type" }) { FieldValue(types.find { it.id == draft.modalityId }?.name ?: "Choose") }
+            }
+            if (!isNew) GroupFooter(TYPE_NOTE)
+            GroupedList(Modifier.padding(top = 24.dp)) {
+                FieldRow("Intensity", divider = false, onClick = { sheet = "intensity" }) { FieldValue(cap(draft.intensity ?: "low")) }
                 FieldRow("Fields", onClick = { sheet = "fields" }) { FieldValue(draft.fieldList.joinToString(", ") { fieldLabel(it) }.ifEmpty { "None" }, maxLines = 2) }
             }
             GroupedList(Modifier.padding(top = 24.dp)) {
@@ -262,7 +269,12 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
             val on = m in draft.secondaryList
             draft = draft.copy(secondaryMuscles = (if (on) draft.secondaryList - m else draft.secondaryList + m).joinToString(","))
         }, onDismiss = ::close, isSelected = { it in draft.secondaryList })
-        "modality" -> ChoiceSheet("Modality", modalities.map { Choice(it.id, it.name, Color(it.color)) }, onPick = { draft = draft.copy(modalityId = it); close() }, onDismiss = ::close, isSelected = { it == draft.modalityId })
+        "type" -> ChoiceSheet("Type", typeChoices(types, draft.modalityId).map { Choice(it.id, it.name, Color(it.color)) } + Choice(NEW_TYPE, "New type…"),
+            onPick = { if (it == NEW_TYPE) sheet = "newtype" else { draft = draft.copy(modalityId = it); close() } }, onDismiss = ::close, isSelected = { it == draft.modalityId })
+        "newtype" -> NewTypeSheet(onDismiss = ::close) { type ->
+            addedType = type; draft = draft.copy(modalityId = type.id); close()
+            vm.run { vm.repo.saveModalityEdits(null, type) }
+        }
         "intensity" -> ChoiceSheet("Intensity", listOf(Intensity.LOW, Intensity.MODERATE, Intensity.HIGH).map { Choice(it, cap(it)) }, onPick = { draft = draft.copy(intensity = it); close() }, onDismiss = ::close, isSelected = { it == draft.intensity })
         "fields" -> ChoiceSheet("Fields", listOf("time", "distance", "avgHr", "watts", "laps", "poolLength", "stroke").map { Choice(it, fieldLabel(it)) }, onPick = { f ->
             val on = f in draft.fieldList
@@ -279,31 +291,21 @@ fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
 
 fun fieldLabel(f: String) = when (f) { "time" -> "Time"; "distance" -> "Distance"; "avgHr" -> "Avg heart rate"; "watts" -> "Watts"; "laps" -> "Laps"; "poolLength" -> "Pool length"; "stroke" -> "Stroke"; else -> f }
 
-// ---------- Modality ----------
+// ---------- Type ----------
 
-/** Modality editor: the name, its color picked right on the page from the presets, and Archive with what it does. */
+/**
+ * New type: a name and a color from the presets, as a sheet over the cardio workout's editor. Add type is off
+ * while the name is blank; [onAdd] gets the new type, which the caller saves.
+ */
 @Composable
-fun ModalityEditorScreen(vm: AppViewModel, nav: NavHostController, modalityId: String) {
-    val modalities by vm.modalities.collectAsStateWithLifecycle()
-    val isNew = modalityId == "new"
-    val original = modalities.find { it.id == modalityId }
-    if (!isNew && original == null) return
-    val opened = remember(modalityId, original == null) { original }
-    var draft by remember(modalityId, original == null) { mutableStateOf(opened ?: Modality(newId(), "", PRESET_COLORS[3])) }
-    EditorScaffold("Modalities", if (isNew) "New modality" else original!!.name, onBack = { nav.popBackStack() }, onDone = {
-        if (draft.name.isNotBlank()) vm.run { vm.repo.saveModalityEdits(opened, draft.copy(name = draft.name.trim())) }; nav.popBackStack()
-    }) {
-        GroupedList { FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Bike, rowing…", label = "Name") } }
-        SectionTitle("Color", Modifier.padding(top = 24.dp))
-        ColorGrid(draft.color) { draft = draft.copy(color = it) }
-        if (!isNew) EditorActions(note = "Archived, it moves to the archived group in Modalities; its exercises and past sessions keep it and its color.") {
-            GroupedList {
-                val archived = original!!.archived
-                ActionRow(if (archived) Icons.Unarchive else Icons.Archive, if (archived) "Unarchive" else "Archive", divider = false) {
-                    vm.run { vm.repo.archiveModalityWithEdits(opened!!, draft.copy(name = draft.name.trim()), !archived) }; nav.popBackStack()
-                }
-            }
-        }
+private fun NewTypeSheet(onDismiss: () -> Unit, onAdd: (Modality) -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var color by rememberSaveable { mutableStateOf(PRESET_COLORS[3]) }
+    Sheet("New type", onDismiss) {
+        GroupedList(elevated = true) { FieldRow("Name", divider = false) { InlineTextField(name, { name = it }, placeholder = "Bike, rowing…", label = "Type name") } }
+        SectionTitle("Color", Modifier.padding(top = 20.dp))
+        ColorGrid(color, elevated = true) { color = it }
+        PrimaryButton("Add type", Modifier.padding(top = 20.dp), enabled = name.isNotBlank()) { onAdd(Modality(newId(), name.trim(), color)) }
     }
 }
 
@@ -312,8 +314,8 @@ fun ModalityEditorScreen(vm: AppViewModel, nav: NavHostController, modalityId: S
  * white ring 2.5 dp wide with a 2 dp gap. Each 34 dp swatch sits on a 48 dp target.
  */
 @Composable
-private fun ColorGrid(selected: Long, onPick: (Long) -> Unit) {
-    GroupedList {
+private fun ColorGrid(selected: Long, elevated: Boolean = false, onPick: (Long) -> Unit) {
+    GroupedList(elevated = elevated) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             PRESET_COLORS.chunked(6).forEachIndexed { r, row ->
                 Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.SpaceBetween) {

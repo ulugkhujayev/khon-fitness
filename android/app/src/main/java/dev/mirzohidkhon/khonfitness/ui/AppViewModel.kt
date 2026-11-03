@@ -35,7 +35,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun run(block: suspend () -> Unit) { viewModelScope.launch { block() } }
 
-    /** True while "+" on Stretching writes a new routine; a second tap waits, also after Stretching was left or rebuilt. */
+    /** True while Plan's "+" writes a new routine; a second tap waits, also after Plan was left or rebuilt. */
     var creatingRoutine = false
 
     /** The open block of each session, so Back and Resume keep it (process lifetime). */

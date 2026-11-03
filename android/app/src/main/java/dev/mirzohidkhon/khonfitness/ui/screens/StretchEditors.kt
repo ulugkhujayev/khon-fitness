@@ -10,7 +10,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
@@ -21,47 +20,8 @@ import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 
 /**
- * Stretching: the routines (the active one filled), then the stretch library. "+" saves a new routine
- * ([KhonDao.createNewRoutine]) and then opens it in its editor, if this screen is still the one on top.
- */
-@Composable
-fun RoutinesScreen(vm: AppViewModel, nav: NavHostController) {
-    val routines by vm.stretchRoutines.collectAsStateWithLifecycle()
-    val routineStretches by vm.routineStretches.collectAsStateWithLifecycle()
-    val stretches by vm.stretches.collectAsStateWithLifecycle()
-    // This screen's back stack entry; the editor opens only if it is still on top when the create ends.
-    val self = LocalLifecycleOwner.current
-    Column(Modifier.fillMaxSize()) {
-        val barScroll = rememberScrollState()
-        EditorTopBar("Programs", "Stretching", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New routine") {
-            if (!vm.creatingRoutine) {
-                vm.creatingRoutine = true
-                val id = newId()
-                vm.run {
-                    try { vm.repo.createNewRoutine(id) } finally { vm.creatingRoutine = false }
-                    if (nav.currentBackStackEntry === self) nav.navigate(Routes.routine(id))
-                }
-            }
-        }
-        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
-            SectionTitle("Routines")
-            GroupedList {
-                routines.forEachIndexed { i, r ->
-                    ListRow(r.name, secondary = routineSummary(r.id, routineStretches, stretches), dotColor = K.Green, dotFilled = r.active, divider = i > 0) { nav.navigate(Routes.routine(r.id)) }
-                }
-                if (routines.isEmpty()) ListRow("No routines yet", chevron = false, divider = false, titleColor = K.Muted)
-            }
-            SectionTitle("Library", Modifier.padding(top = 24.dp))
-            GroupedList {
-                ListRow("Stretches", secondary = "${stretches.count { !it.archived }}", divider = false, leading = { IconTile(Icons.Stretch, K.Green) }) { nav.navigate(Routes.STRETCHES) }
-            }
-        }
-    }
-}
-
-/**
  * Routine editor: name, Active and what it does, the stretches with their seconds, Add stretch, their order with up,
- * down and remove, Delete. It edits a saved routine only ("+" on Stretching saves a new one first): each edit is
+ * down and remove, Delete. It edits a saved routine only ("Stretch routine" under "+" on Plan saves a new one first): each edit is
  * written as it is made, and Done and Back leave.
  */
 @Composable
@@ -71,13 +31,13 @@ fun RoutineEditorScreen(vm: AppViewModel, nav: NavHostController, id: String) {
     val stretches by vm.stretches.collectAsStateWithLifecycle()
     val routine = routines.find { it.id == id }
     // No row: not loaded yet, deleted elsewhere, or a back stack saved before 0.5.0 ("routine/new"). Back still works.
-    if (routine == null) { EditorScaffold("Stretching", "", onBack = { nav.popBackStack() }, onDone = null) {}; return }
+    if (routine == null) { EditorScaffold("Plan", "", onBack = { nav.popBackStack() }, onDone = null) {}; return }
     val mine = routineStretches.filter { it.routineId == id }.sortedWith(compareBy({ it.sortOrder }, { it.id }))
     var picking by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val removal = rememberConfirm<RoutineStretch>()
     fun name(rs: RoutineStretch) = stretches.find { it.id == rs.stretchId }?.name ?: "Missing stretch"
-    EditorScaffold("Stretching", routine.name, onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) {
+    EditorScaffold("Plan", routine.name, onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) {
         GroupedList {
             FieldRow("Name", divider = false) {
                 InlineTextField(routine.name, { v -> vm.run { vm.repo.setRoutineName(id, v) } }, placeholder = NEW_ROUTINE_NAME, label = "Routine name")
@@ -138,7 +98,7 @@ fun StretchLibraryScreen(vm: AppViewModel, nav: NavHostController) {
     var query by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
-        EditorTopBar("Stretching", "Stretches", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New stretch") { nav.navigate(Routes.stretchEditor("new")) }
+        EditorTopBar("Plan", "Stretches", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New stretch") { nav.navigate(Routes.stretchEditor("new")) }
         Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             SearchField(query, { query = it })
             Spacer(Modifier.height(16.dp))

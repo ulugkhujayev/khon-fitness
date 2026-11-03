@@ -51,15 +51,20 @@ fun WeekCell.spoken(fullName: String): String = buildString {
 }
 
 /**
- * The Exercises list: live strength exercises that match [query], grouped by primary muscle (groups and names in
- * alphabetical order), then the archived ones that match under "Archived" at the end. Cardio workouts live on Plan.
+ * The Exercises list: live strength exercises that match [query] in [groups] by primary muscle (groups and names in
+ * alphabetical order), and the archived ones that match in [archived], which hide under one row at the end
+ * ([archivedTitle]). Cardio workouts live on Plan.
  */
-fun libraryGroups(exercises: List<Exercise>, query: String): List<Pair<String, List<Exercise>>> {
+data class LibraryList(val groups: List<Pair<String, List<Exercise>>>, val archived: List<Exercise>)
+
+fun libraryList(exercises: List<Exercise>, query: String): LibraryList {
     val shown = exercises.filter { it.kind == Kind.STRENGTH && (query.isBlank() || it.name.contains(query.trim(), true)) }.sortedBy { it.name.lowercase() }
     val (archived, live) = shown.partition { it.archived }
-    val groups = live.groupBy { it.primaryMuscle?.replaceFirstChar { c -> c.uppercase() } ?: "Other" }.toSortedMap().toList()
-    return if (archived.isEmpty()) groups else groups + ("Archived" to archived)
+    return LibraryList(live.groupBy { it.primaryMuscle?.replaceFirstChar { c -> c.uppercase() } ?: "Other" }.toSortedMap().toList(), archived)
 }
+
+/** The Exercises list's last row, which opens and closes the archived exercises: "Archived (3)". */
+fun archivedTitle(count: Int) = "Archived ($count)"
 
 /** The cardio workout editor's note under Type: the type is stored on the workout, not on each session. */
 const val TYPE_NOTE = "Changes the color and type of past sessions too."

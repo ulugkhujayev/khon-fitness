@@ -64,7 +64,7 @@ class PlanTabRulesTest {
         assertEquals(List(7) { "Rest" }, cells.map { it.name })
     }
 
-    @Test fun `the exercise list groups live strength exercises by muscle and puts the archived last`() {
+    @Test fun `the exercise list groups live strength exercises by muscle and keeps the archived apart`() {
         val list = listOf(
             Exercise("row", "Barbell row", Kind.STRENGTH, primaryMuscle = "back"),
             Exercise("bench", "Bench press", Kind.STRENGTH, primaryMuscle = "chest"),
@@ -73,12 +73,15 @@ class PlanTabRulesTest {
             Exercise("odd", "Odd lift", Kind.STRENGTH),
             run,
         )
-        assertEquals(
-            listOf("Back" to listOf("row"), "Chest" to listOf("bench", "fly"), "Other" to listOf("odd"), "Archived" to listOf("dip")),
-            libraryGroups(list, "").map { (g, ex) -> g to ex.map { it.id } },
-        )
-        assertEquals(listOf("Chest" to listOf("fly")), libraryGroups(list, " cable ").map { (g, ex) -> g to ex.map { it.id } })
-        assertEquals(emptyList<Any>(), libraryGroups(list, "run"))
+        val all = libraryList(list, "")
+        assertEquals(listOf("Back" to listOf("row"), "Chest" to listOf("bench", "fly"), "Other" to listOf("odd")), all.groups.map { (g, ex) -> g to ex.map { it.id } })
+        assertEquals(listOf("dip"), all.archived.map { it.id })
+        assertEquals("Archived (1)", archivedTitle(all.archived.size))
+        // A muscle named like the archived row is a group of its own.
+        assertEquals(listOf("Archived" to listOf("odd")), libraryList(listOf(Exercise("odd", "Odd lift", Kind.STRENGTH, primaryMuscle = "archived")), "").groups.map { (g, ex) -> g to ex.map { it.id } })
+        assertEquals(listOf("Chest" to listOf("fly")), libraryList(list, " cable ").groups.map { (g, ex) -> g to ex.map { it.id } })
+        assertEquals(listOf("dip"), libraryList(list, "di").archived.map { it.id })
+        assertEquals(LibraryList(emptyList(), emptyList()), libraryList(list, "run"))
     }
 
     @Test fun `the type picker lists live types and the workout's own archived type`() {

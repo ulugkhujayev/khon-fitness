@@ -81,7 +81,7 @@ class PlanEditorsTest {
     private val bike = Modality("bike", "Bike", 0xFFB39DFF)
     private val row = Modality("row", "Row", 0xFFFF8FA3, archived = true)
 
-    @Test fun `Exercises groups strength by muscle, archived last, with search and no kind or muscle filter`() {
+    @Test fun `Exercises groups strength by muscle, archived under one row, with search and no kind or muscle filter`() {
         io {
             dao.upsert(run)
             dao.upsert(Exercise("bench", "Bench press", Kind.STRENGTH, primaryMuscle = "chest"))
@@ -93,7 +93,14 @@ class PlanEditorsTest {
         openLibrary()
         waitFor { shows("Bench press") }
         assertTrue(top("Back") < top("Barbell row") && top("Barbell row") < top("Chest") && top("Chest") < top("Bench press"))
-        assertTrue(top("Cable fly") < top("Archived") && top("Archived") < top("Dip"))
+        assertTrue(top("Cable fly") < top("Archived (1)"))
+        assertFalse("archived shows before the row opens", shows("Dip"))
+        compose.onNodeWithText("Archived (1)").assertExists()
+        tap(compose.onNodeWithText("Archived (1)"))
+        waitFor { shows("Dip") }
+        assertTrue(top("Archived (1)") < top("Dip"))
+        tap(compose.onNodeWithText("Archived (1)"))
+        waitFor { !shows("Dip") }
         listOf("Zone 2 run", "All", "Strength", "Cardio", "Muscle", "Show archived").forEach { assertFalse(it, shows(it)) }
         compose.onNodeWithContentDescription("New exercise").assertExists()
 

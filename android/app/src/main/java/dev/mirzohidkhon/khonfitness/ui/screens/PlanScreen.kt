@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -26,6 +27,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -226,27 +229,46 @@ private fun TypePill(name: String, color: Color) {
 }
 
 /**
- * Exercises: the strength library, searchable, grouped by primary muscle, archived ones last ([libraryGroups]).
+ * Exercises: the strength library, searchable, grouped by primary muscle, then one "Archived (n)" row that opens and
+ * closes the archived ones ([libraryList]).
  * Each row opens the exercise editor; "+" adds an exercise. Cardio workouts are on Plan.
  */
 @Composable
 fun LibraryScreen(vm: AppViewModel, nav: NavHostController) {
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
+    var archivedOpen by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
         EditorTopBar("Plan", "Exercises", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() }, done = "+", addLabel = "New exercise") { nav.navigate(Routes.newExercise(Kind.STRENGTH)) }
         Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             SearchField(query, { query = it })
-            val groups = libraryGroups(exercises, query)
-            groups.forEachIndexed { g, (title, list) ->
+            val library = libraryList(exercises, query)
+            library.groups.forEachIndexed { g, (title, list) ->
                 SectionTitle(title, Modifier.padding(top = if (g == 0) 16.dp else 24.dp))
                 GroupedList {
-                    list.forEachIndexed { i, e -> ListRow(e.name, divider = i > 0, titleColor = if (e.archived) K.Dim else K.Text) { nav.navigate(Routes.exercise(e.id)) } }
+                    list.forEachIndexed { i, e -> ListRow(e.name, divider = i > 0) { nav.navigate(Routes.exercise(e.id)) } }
                 }
             }
-            if (groups.isEmpty()) GroupedList(Modifier.padding(top = 16.dp)) { SearchEmpty(query) }
+            if (library.archived.isNotEmpty()) GroupedList(Modifier.padding(top = if (library.groups.isEmpty()) 16.dp else 24.dp)) {
+                ArchivedRow(library.archived.size, archivedOpen) { archivedOpen = !archivedOpen }
+                if (archivedOpen) library.archived.forEach { e -> ListRow(e.name, titleColor = K.Dim) { nav.navigate(Routes.exercise(e.id)) } }
+            }
+            if (library.groups.isEmpty() && library.archived.isEmpty()) GroupedList(Modifier.padding(top = 16.dp)) { SearchEmpty(query) }
         }
+    }
+}
+
+/** The row that opens and closes the archived exercises; its chevron turns down when open. */
+@Composable
+private fun ArchivedRow(count: Int, open: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button, onClick = onToggle)
+            .semantics { stateDescription = if (open) "Expanded" else "Collapsed" }.padding(start = 16.dp, end = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(archivedTitle(count), style = MaterialTheme.typography.bodyLarge, color = K.Muted, modifier = Modifier.weight(1f).padding(vertical = 12.dp))
+        Icon(Icons.ChevronRight, contentDescription = null, tint = K.Dim, modifier = Modifier.padding(start = 6.dp).size(14.dp).rotate(if (open) 90f else 0f))
     }
 }
 

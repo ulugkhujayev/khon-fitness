@@ -1,6 +1,7 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
 import android.app.Application
+import androidx.lifecycle.viewModelScope
 import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Bitmap
@@ -59,7 +60,9 @@ class HistoryShotsTest {
         vm = AppViewModel(app)
     }
 
-    @After fun close() { if (::app.isInitialized) { app.scope.cancel(); app.db.close() } }
+    // The view model's flows outlive the screen by 5 s (WhileSubscribed): stop them before the database closes, or one
+    // queries the closed database and its exception fails the next test.
+    @After fun close() { if (::app.isInitialized) { if (::vm.isInitialized) vm.viewModelScope.cancel(); app.scope.cancel(); app.db.close() } }
 
     private fun io(block: suspend () -> Unit) = runBlocking(Dispatchers.IO) { block() }
     private fun waitFor(text: String) = compose.waitUntil(5_000) { compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty() }

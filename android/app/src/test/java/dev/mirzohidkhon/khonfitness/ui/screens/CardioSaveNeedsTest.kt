@@ -1,6 +1,7 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
 import android.app.Application
+import androidx.lifecycle.viewModelScope
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -48,7 +49,9 @@ class CardioSaveNeedsTest {
         vm = AppViewModel(app)
     }
 
-    @After fun close() { app.scope.cancel(); app.db.close() }
+    // The view model's flows outlive the screen by 5 s (WhileSubscribed): stop them before the database closes, or one
+    // queries the closed database and its exception fails the next test.
+    @After fun close() { vm.viewModelScope.cancel(); app.scope.cancel(); app.db.close() }
 
     private fun cardio(timeSec: Int? = null, distanceM: Int? = null, laps: Int? = null, finishedAt: Long? = null) =
         Session(id = "c1", date = "2026-11-03", startedAt = 1L, finishedAt = finishedAt, itemType = ItemType.CARDIO, exerciseId = "run", exerciseName = "Run", timeSec = timeSec, distanceM = distanceM, laps = laps)

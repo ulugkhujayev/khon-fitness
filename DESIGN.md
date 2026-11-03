@@ -184,10 +184,12 @@ padded cards, per-item buttons, "Updated" lines.
   stretch, a routine and a stretch taken out of a routine. Merge and
   Discard workout ask the same way, with counts in the line under the
   title ("3 checked sets are lost.").
-- Undo bar after an exercise merge: an elevated card 16 px from the sides
-  and 12 px above the bottom of the screen, at least 52 px tall, "Merged
-  into <B>" in Body and an accent Undo with a 48 px target. It goes after
-  10 seconds or on Undo. Screen readers hear the line when it shows.
+- A merge has no Undo bar: the confirm sheet is the only step. A refused
+  merge or delete shows its reason as the muted footnote under the
+  editor's action groups.
+- "Update the program too" refused: a sheet titled "Only this workout
+  changed" with the reason in muted Body and an OK button. Screen readers
+  hear the line when it shows.
 - A new program or block is a draft. Nothing is saved, and there is no
   Delete, until Done saves the program or the first exercise saves the
   block. Add block on a new program saves it as Done would (the typed

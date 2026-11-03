@@ -31,6 +31,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -85,9 +86,9 @@ class HistoryScreenTest {
                     composable(Routes.HISTORY) { HistoryScreen(vm, nav, clock) }
                     composable("session/{id}") { e -> Text("Session ${e.arguments?.getString("id")}") }
                     composable("cardio/{id}") { e -> Text("Cardio ${e.arguments?.getString("id")}") }
-                    composable("lift/{id}") { e -> ExerciseDetailScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                    composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                    composable(Routes.LIFTS) { LiftListScreen(vm, nav) }
+                    composable("lift/{id}") { e -> ExerciseDetailScreen(vm, nav, e.arguments?.getString("id") ?: "", clock) }
+                    composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "", clock) }
+                    composable(Routes.LIFTS) { LiftListScreen(vm, nav, clock) }
                 }
             }
         }
@@ -162,7 +163,7 @@ class HistoryScreenTest {
         assertTrue(shows("2 of 3 sets · 0.9 t · 58 min · 1 PR"))
         assertTrue(shows("Skipped · Push"))
         assertTrue(shows("83.0 kg"))
-        assertTrue(shows("Stretch: Daily · 10 min"))
+        assertTrue(shows("Stretch: Daily · 10 min · 9 of 9"))
         assertTrue(shows(" · 1 stretch"))
         assertTrue(shows("2 of 6 planned done"))
         assertTrue(shows("4 missed"))
@@ -235,6 +236,55 @@ class HistoryScreenTest {
         assertTrue(shows("Quads, Glutes"))
     }
 
+    @Test fun `the exercise list marks archived exercises and reaches a lost one with only skipped sets`() {
+        io {
+            plan()
+            dao.upsertExercises(listOf(Exercise("fly", "Cable fly", Kind.STRENGTH, primaryMuscle = "chest", archived = true)))
+            dao.upsert(gym("g", lastMonday))
+            dao.upsertSetLogs(listOf(set("g", 50.0, 8, ex = "row", name = "Old row", status = SetStatus.SKIPPED)))
+        }
+        show()
+        waitFor("Today: Push")
+        compose.runOnIdle { nav.navigate(Routes.LIFTS) }
+        waitFor("Cable fly")
+        assertTrue(shows("Archived · No sets yet"))
+        compose.onNodeWithText("Old row").performClick()
+        waitFor("50×8 skipped")
+    }
+
+    @Test fun `records dated after today count nowhere in the Log, Progress, the list or a detail`() {
+        // Today is this week's Wednesday; Thursday holds a gym session (also a lost exercise's set), a stretch run and
+        // a bodyweight, Friday a run.
+        val wed = weekOf(today).plusDays(2); val thu = wed.plusDays(1); val fri = wed.plusDays(2)
+        io {
+            plan()
+            dao.upsertSessions(listOf(gym("g", thu), Session("c", fri.iso(), startedAt = 1, finishedAt = 2, itemType = ItemType.CARDIO, exerciseId = "run", exerciseName = "Easy run", timeSec = 1800, distanceM = 5000)))
+            dao.upsertSetLogs(listOf(set("g", 60.0, 8), set("g", 40.0, 8, ex = "gone", name = "Old curl")))
+            dao.upsertStretchSessions(listOf(StretchSession("st", "daily", "Daily", thu.iso(), 1L, 600, 9, 0)))
+            dao.upsert(Bodyweight(thu.iso(), 80.0))
+        }
+        show(TestClock(wed.atTime(12, 0)))
+        waitFor("0 of ${if (today.dayOfWeek.value == 7) 7 else 6} planned done")
+        assertTrue(shows("0 sets · 0 t lifted · 0 min cardio · 0 km · 0 stretches"))
+        assertTrue(shows("Planned: Push"))
+        assertFalse(shows("Stretch:") || shows("80.0 kg") || shows("58 min") || shows("Easy run"))
+        compose.onNodeWithText("Progress").performClick()
+        waitFor("No records yet. Save a gym session to see them.")
+        assertTrue(shows("No sets this week or last week."))
+        assertTrue(shows("No entries yet. Add one on Today."))
+        assertTrue(shows("No cardio in the last 30 days."))
+        // Bench Press and Leg Press, no lost exercise.
+        compose.onNodeWithText("All 2 exercises").performScrollTo().performClick()
+        waitFor("Leg Press")
+        assertFalse(shows("Old curl"))
+        assertEquals(2, compose.onAllNodesWithText("No sets yet").fetchSemanticsNodes().size)
+        compose.runOnIdle { nav.navigate(Routes.exerciseDetail("bench")) }
+        waitFor("Chest, Shoulders, Triceps")
+        assertTrue(shows("No sets yet"))
+        compose.runOnIdle { nav.navigate(Routes.cardioType("run")) }
+        waitFor("No sessions yet")
+    }
+
     @Test fun `an exercise without sets opens with its muscle and No sets yet`() {
         io { plan() }
         show()
@@ -248,7 +298,9 @@ class HistoryScreenTest {
     @Test fun `first use shows planned rows and one empty line per Progress section`() {
         io { plan() }
         show()
-        waitFor("0 of ")
+        // Today's row waits for the plan; before it loads every day reads rest.
+        waitFor("Today: Push")
+        assertTrue(shows("0 of "))
         assertTrue(shows("planned done"))
         assertTrue(shows("Planned: Push") || today.dayOfWeek.value >= 6)
         compose.onNodeWithText("Progress").performClick()
@@ -278,15 +330,15 @@ class HistoryScreenTest {
     @Test fun `each page keeps its scroll position, also across a saved state restore`() {
         io {
             plan(); lastWeek()
-            // Two sessions on each day of this week, so the Log scrolls too.
-            val days = (0L..6L).map { weekOf(today).plusDays(it) }
-            dao.upsertSessions(days.flatMap { d -> listOf(gym("a$d", d).copy(startedAt = 1), gym("b$d", d).copy(startedAt = 2)) })
+            // Four sessions on each day of this week up to today (later ones count nowhere), so the Log scrolls too.
+            val days = (0L..6L).map { weekOf(today).plusDays(it) }.filter { it <= today }
+            dao.upsertSessions(days.flatMap { d -> (1L..4L).map { gym("$it$d", d).copy(startedAt = it) } })
             dao.upsertSetLogs((1..7).map { set("mon", 20.0 + it, 8, ex = "e$it", name = "Lift $it") })
         }
         val tester = StateRestorationTester(compose)
         tester.setContent { KhonTheme { HistoryScreen(vm, rememberNavController()) } }
         waitFor("planned done")
-        compose.onAllNodesWithText("Push", substring = true).fetchSemanticsNodes().size.let { assertTrue(it >= 14) }
+        compose.onAllNodesWithText("Push", substring = true).fetchSemanticsNodes().size.let { assertTrue(it >= 9) }
         compose.onNodeWithText("Progress").performClick()
         waitFor("Personal records · heaviest weight lifted")
         compose.onNodeWithText("No cardio in the last 30 days.").performScrollTo()

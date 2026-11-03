@@ -52,13 +52,11 @@ private val TodayTint = K.Accent.copy(alpha = 0.12f)
  */
 @Composable
 fun HistoryLog(vm: AppViewModel, nav: NavHostController, today: LocalDate) {
-    val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val data = rememberHistoryData(vm, today)
+    val (sessions, logs, stretchSessions, bodyweights) = data
     val plan by vm.planData.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
-    val logs by vm.allSetLogs.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
-    val bodyweights by vm.bodyweights.collectAsStateWithLifecycle()
-    val stretchSessions by vm.stretchSessions.collectAsStateWithLifecycle()
     val weeks = logWeeks(sessions, today)
     // The Monday shown as an epoch day; null is this week.
     var shown by rememberSaveable { mutableStateOf<Long?>(null) }

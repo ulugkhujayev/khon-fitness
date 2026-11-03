@@ -50,16 +50,15 @@ private const val RECORDS_SHOWN = 5
  */
 @Composable
 fun HistoryProgress(vm: AppViewModel, nav: NavHostController, today: LocalDate) {
-    val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val data = rememberHistoryData(vm, today)
+    val (sessions, logs, _, bodyweights) = data
     val modalities by vm.modalities.collectAsStateWithLifecycle()
-    val logs by vm.allSetLogs.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
-    val bodyweights by vm.bodyweights.collectAsStateWithLifecycle()
     val monday = weekOf(today)
 
     // ---- Personal records
     val records = remember(logs, sessions, exercises) { personalRecords(liftHistories(logs, sessions), exercises) }
-    val lifts = remember(records, exercises) { liftEntries(records, exercises).size }
+    val lifts = remember(records, exercises, data) { liftEntries(records, exercises, data).size }
     ProgressTitle("Personal records · heaviest weight lifted")
     GroupedList {
         if (records.isEmpty()) EmptyLine("No records yet. Save a gym session to see them.")

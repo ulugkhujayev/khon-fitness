@@ -149,8 +149,9 @@ class HistoryRulesTest {
             StretchSession("c", "r1", "Daily", monday.plusDays(1).iso(), 30, 300, 4, 2),
             StretchSession("old", "r1", "Daily", monday.minusDays(1).iso(), 30, 300, 4, 0),
         )
-        assertEquals(listOf("Stretch: Daily · 10 min", "Stretch: Hips · skipped"), stretchLines(monday, runs))
-        assertEquals(listOf("Stretch: Daily · 5 min · 2 skipped"), stretchLines(monday.plusDays(1), runs))
+        // 245 s with six stretches skipped keeps its minutes.
+        assertEquals(listOf("Stretch: Daily · 10 min · 9 of 9", "Stretch: Hips · 4 min · skipped"), stretchLines(monday, runs))
+        assertEquals(listOf("Stretch: Daily · 5 min · 4 of 6"), stretchLines(monday.plusDays(1), runs))
         val w = weekSummary(monday, today, emptyList(), emptyList(), plan, runs)
         assertEquals(3, w.stretches)
         assertTrue(weekTotals(w).endsWith(" · 3 stretches"))
@@ -176,18 +177,65 @@ class HistoryRulesTest {
         assertTrue(liftHistories(logs.take(2), sessions).isEmpty())
     }
 
-    @Test fun `the full exercise list holds every strength exercise, lost ones with records, and filters by name`() {
-        val sessions = listOf(gym("a", day(0)))
-        val logs = listOf(set("a", 60.0, 8, ex = "bench"), set("a", 40.0, 8, ex = "gone").copy(exerciseName = "Old curl"))
+    @Test fun `the full exercise list holds every strength exercise, archived ones marked, every lost one with a saved set, and filters by name`() {
+        val sessions = listOf(gym("a", day(0)), gym("open", day(1), finished = false))
+        val logs = listOf(
+            set("a", 60.0, 8, ex = "bench"), set("a", 40.0, 8, ex = "gone").copy(exerciseName = "Old curl"),
+            // Lost from the library with only skipped sets: no record, still listed so its detail is reachable.
+            set("a", 50.0, 8, ex = "row", status = SetStatus.SKIPPED).copy(exerciseName = "Old row"),
+            // Only in a session still open: the detail has nothing to show yet.
+            set("open", 30.0, 8, ex = "open").copy(exerciseName = "Open lift"),
+        )
         val library = listOf(
             Exercise("bench", "Bench press", Kind.STRENGTH), Exercise("squat", "Squat", Kind.STRENGTH),
             Exercise("arch", "Archived fly", Kind.STRENGTH, archived = true), Exercise("run", "Easy run", Kind.CARDIO),
         )
-        val records = personalRecords(liftHistories(logs, sessions), library)
-        val all = liftEntries(records, library)
-        assertEquals(listOf("Bench press", "Old curl", "Squat"), all.map { it.name })
+        val data = historyData(today, sessions, logs)
+        val records = personalRecords(liftHistories(data.logs, data.sessions), library)
+        val all = liftEntries(records, library, data)
+        assertEquals(listOf("Archived fly", "Bench press", "Old curl", "Old row", "Squat"), all.map { it.name })
+        assertEquals(listOf("arch"), all.filter { it.archived }.map { it.exerciseId })
         assertNull(all.single { it.exerciseId == "squat" }.record)
-        assertEquals(listOf("squat"), liftEntries(records, library, " SQU").map { it.exerciseId })
+        assertNull(all.single { it.exerciseId == "row" }.record)
+        assertEquals(listOf("50×8 skipped"), liftHistory("row", data.logs, data.sessions).single().sets.map { shortSet(it) })
+        assertEquals(listOf("squat"), liftEntries(records, library, data, " SQU").map { it.exerciseId })
+    }
+
+    @Test fun `a dataset dated only after today counts nowhere in History`() {
+        // Thursday: a gym session with sets of a library and a lost exercise, a stretch run, a bodyweight. Friday: a run.
+        val thu = today.plusDays(1); val fri = today.plusDays(2)
+        val library = listOf(Exercise("bench", "Bench press", Kind.STRENGTH, primaryMuscle = "chest"), run.cardio!!)
+        val data = historyData(
+            today,
+            sessions = listOf(gym("g", thu), gym("open", thu, start = 9, finished = false), cardio("c", fri, 1800, 5000)),
+            logs = listOf(set("g", 60.0, 8), set("g", 40.0, 8, ex = "gone").copy(exerciseName = "Old curl"), set("open", 70.0, 5)),
+            stretches = listOf(StretchSession("s", "r1", "Daily", thu.iso(), 1, 600, 9, 0)),
+            bodyweights = listOf(Bodyweight(thu.iso(), 80.0)),
+        )
+        assertEquals(HistoryData(), data)
+        // The Log: this week only, no session rows, an empty card, a bar without done days, no stretch lines.
+        assertEquals(monday..monday, logWeeks(data.sessions, today))
+        val rows = logRows(monday, today, data.sessions, plan)
+        assertTrue(rows.none { it.session != null })
+        assertEquals(listOf(DayKind.SKIPPED, DayKind.SKIPPED, DayKind.TODAY, DayKind.REST, DayKind.PLANNED, DayKind.PLANNED, DayKind.REST), rows.map { it.kind })
+        assertEquals(WeekSummary(done = 0, planned = 5, missed = 2, toGo = 3, sets = 0, liftedKg = 0.0, cardioSec = 0, meters = 0, stretches = 0),
+            weekSummary(monday, today, data.sessions, data.logs, plan, data.stretches))
+        assertTrue(weekBar(monday, data.sessions, plan).none { it.first == BarPart.DONE })
+        assertTrue(stretchLines(thu, data.stretches).isEmpty())
+        // Progress: no record, no muscle sets, no bodyweight, no cardio type.
+        val histories = liftHistories(data.logs, data.sessions)
+        assertTrue(histories.isEmpty())
+        val records = personalRecords(histories, library)
+        assertTrue(records.isEmpty())
+        assertTrue(muscleVolume(data.logs, data.sessions, library, today).isEmpty())
+        assertNull(latestBodyweight(data.bodyweights, today))
+        assertTrue(BodyRange.entries.all { bodyweightsIn(it, data.bodyweights, today).isEmpty() })
+        assertTrue(cardioTypes(data.sessions, library, today).isEmpty())
+        // The exercise list and detail: the library exercise without sets, the lost one not listed.
+        assertEquals(listOf(LiftEntry("bench", "Bench press", null)), liftEntries(records, library, data))
+        assertTrue(liftHistory("bench", data.logs, data.sessions).isEmpty())
+        // Today's records stay.
+        assertEquals(1, historyData(today, listOf(gym("t", today)), listOf(set("t", 60.0, 8)), bodyweights = listOf(Bodyweight(today.iso(), 81.0))).let { it.sessions.size * it.logs.size * it.bodyweights.size })
     }
 
     @Test fun `ranges stop at today - later sessions and weights count nowhere`() {

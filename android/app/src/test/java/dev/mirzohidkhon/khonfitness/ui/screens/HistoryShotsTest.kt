@@ -167,7 +167,10 @@ class HistoryShotsTest {
     }
 
     @Test fun liftList() {
-        io { seed() }
+        io {
+            seed()
+            dao.upsertExercises(listOf(Exercise("fly", "Cable Fly", Kind.STRENGTH, primaryMuscle = "chest", archived = true)))
+        }
         compose.setContent { KhonTheme { androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) { LiftListScreen(vm, rememberNavController()) } } }
         waitFor("No sets yet")
         shot("11-lift-list")

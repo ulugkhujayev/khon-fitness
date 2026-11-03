@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
@@ -74,6 +75,16 @@ fun rememberToday(clock: Clock): LocalDate {
         }
     }
     return today
+}
+
+/** The records every History screen reads: the app's sessions, sets, stretch runs and bodyweights up to [today]. */
+@Composable
+fun rememberHistoryData(vm: AppViewModel, today: LocalDate): HistoryData {
+    val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val logs by vm.allSetLogs.collectAsStateWithLifecycle()
+    val stretches by vm.stretchSessions.collectAsStateWithLifecycle()
+    val bodyweights by vm.bodyweights.collectAsStateWithLifecycle()
+    return remember(today, sessions, logs, stretches, bodyweights) { historyData(today, sessions, logs, stretches, bodyweights) }
 }
 
 fun sessionColor(s: Session, exercises: List<Exercise>, modalities: List<Modality>): Pair<Color, Boolean> =

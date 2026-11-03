@@ -19,6 +19,25 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+// ---- Input: what happened up to today
+
+/** The records History reads, each dated up to today: sessions, their sets, stretch runs and bodyweights. */
+data class HistoryData(
+    val sessions: List<Session> = emptyList(), val logs: List<SetLog> = emptyList(),
+    val stretches: List<StretchSession> = emptyList(), val bodyweights: List<Bodyweight> = emptyList(),
+)
+
+/**
+ * The one date filter of History: a session, stretch run or bodyweight dated after [today] (a wrong phone clock, an
+ * import) counts nowhere, and neither do the sets of such a session or of a session that is gone. Every History
+ * screen reads its records through this filter.
+ */
+fun historyData(today: LocalDate, sessions: List<Session>, logs: List<SetLog> = emptyList(), stretches: List<StretchSession> = emptyList(), bodyweights: List<Bodyweight> = emptyList()): HistoryData {
+    val past = sessions.filter { it.date.toDate() <= today }
+    val ids = past.map { it.id }.toSet()
+    return HistoryData(past, logs.filter { it.sessionId in ids }, stretches.filter { it.date.toDate() <= today }, bodyweights.filter { it.date.toDate() <= today })
+}
+
 // ---- Log: the week
 
 private val monthDay: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d", Locale.US)
@@ -124,16 +143,13 @@ fun weekTotals(w: WeekSummary): String =
 private fun stretchCount(n: Int) = if (n == 1) "1 stretch" else "$n stretches"
 
 /**
- * The stretch runs of a day, in start order, one line each: "Stretch: Daily · 10 min", with "· 2 skipped" when some
- * stretches were skipped, or "Stretch: Daily · skipped" when none was done.
+ * The stretch runs of a day, in start order, one line each: "Stretch: Daily · 10 min · 9 of 9", or
+ * "Stretch: Hips · 4 min · skipped" when none was done.
  */
 fun stretchLines(date: LocalDate, stretches: List<StretchSession>): List<String> =
     stretches.filter { it.date == date.iso() }.sortedBy { it.startedAt }.map { s ->
-        when {
-            s.completed == 0 && s.skipped > 0 -> "Stretch: ${s.routineName} · skipped"
-            s.skipped > 0 -> "Stretch: ${s.routineName} · ${minutes(s.totalSec)} · ${s.skipped} skipped"
-            else -> "Stretch: ${s.routineName} · ${minutes(s.totalSec)}"
-        }
+        val done = if (s.completed == 0 && s.skipped > 0) "skipped" else "${s.completed} of ${s.completed + s.skipped}"
+        "Stretch: ${s.routineName} · ${minutes(s.totalSec)} · $done"
     }
 
 /** One part of the week bar: a done day takes its session's color, an open planned day gray, a rest day near black. */
@@ -253,17 +269,20 @@ fun personalRecords(histories: Map<String, List<LiftSession>>, exercises: List<E
         PersonalRecord(id, exercises.find { it.id == id }?.name ?: best.exerciseName, best, r.session)
     }.sortedWith(compareByDescending<PersonalRecord> { it.session.date }.thenBy { it.name })
 
-/** An exercise in the full list: its id, name, and record (null without one). */
-data class LiftEntry(val exerciseId: String, val name: String, val record: PersonalRecord?)
+/** An exercise in the full list: its id, name, record (null without one), and whether the library archived it. */
+data class LiftEntry(val exerciseId: String, val name: String, val record: PersonalRecord?, val archived: Boolean = false)
 
 /**
- * Every strength exercise for the "All exercises" list: the library's (archived ones only with a record) and every
- * exercise with a record that the library lost, by name. [query] keeps the names that contain it, any case.
+ * Every strength exercise for the "All exercises" list: the library's, archived ones too, and every exercise with a
+ * saved set in a finished session that the library lost, named by the set's snapshot. [query] keeps the names that
+ * contain it, any case.
  */
-fun liftEntries(records: List<PersonalRecord>, exercises: List<Exercise>, query: String = ""): List<LiftEntry> {
+fun liftEntries(records: List<PersonalRecord>, exercises: List<Exercise>, data: HistoryData, query: String = ""): List<LiftEntry> {
     val byId = records.associateBy { it.exerciseId }
-    val library = exercises.filter { it.kind == Kind.STRENGTH && (!it.archived || it.id in byId) }.map { LiftEntry(it.id, it.name, byId[it.id]) }
-    val lost = records.filter { r -> exercises.none { it.id == r.exerciseId } }.map { LiftEntry(it.exerciseId, it.name, it) }
+    val library = exercises.filter { it.kind == Kind.STRENGTH }.map { LiftEntry(it.id, it.name, byId[it.id], it.archived) }
+    val finished = data.sessions.filter { it.finished }.map { it.id }.toSet()
+    val lost = data.logs.filter { l -> l.sessionId in finished && exercises.none { it.id == l.exerciseId } }
+        .groupBy { it.exerciseId }.map { (id, sets) -> LiftEntry(id, byId[id]?.name ?: sets.first().exerciseName, byId[id]) }
     return (library + lost).filter { matchesQuery(it.name, query) }.sortedBy { it.name.lowercase() }
 }
 

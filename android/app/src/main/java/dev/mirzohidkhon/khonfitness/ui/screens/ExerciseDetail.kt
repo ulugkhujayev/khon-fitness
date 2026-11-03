@@ -27,17 +27,17 @@ import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
+import java.time.Clock
 
 /**
  * Every strength exercise, searchable (Progress' "All <n> exercises"): name and record, or "No sets yet". Each row
  * opens the exercise detail.
  */
 @Composable
-fun LiftListScreen(vm: AppViewModel, nav: NavHostController) {
+fun LiftListScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock.systemDefaultZone()) {
     val exercises by vm.exercises.collectAsStateWithLifecycle()
-    val logs by vm.allSetLogs.collectAsStateWithLifecycle()
-    val sessions by vm.sessions.collectAsStateWithLifecycle()
-    val records = remember(logs, sessions, exercises) { personalRecords(liftHistories(logs, sessions), exercises) }
+    val data = rememberHistoryData(vm, rememberToday(clock))
+    val records = remember(data, exercises) { personalRecords(liftHistories(data.logs, data.sessions), exercises) }
     var query by rememberSaveable { mutableStateOf("") }
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize()) {
@@ -45,10 +45,12 @@ fun LiftListScreen(vm: AppViewModel, nav: NavHostController) {
         Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             SearchField(query, { query = it })
             Spacer(Modifier.height(16.dp))
-            val list = liftEntries(records, exercises, query)
+            val list = liftEntries(records, exercises, data, query)
             GroupedList {
                 list.forEachIndexed { i, e ->
-                    ListRow(e.name, secondary = e.record?.let { setText(it.best) } ?: "No sets yet", divider = i > 0) { nav.navigate(Routes.exerciseDetail(e.exerciseId)) }
+                    // An archived exercise reads dim and says so, as in the library.
+                    val secondary = listOfNotNull(if (e.archived) "Archived" else null, e.record?.let { setText(it.best) } ?: "No sets yet").joinToString(" · ")
+                    ListRow(e.name, secondary = secondary, divider = i > 0, titleColor = if (e.archived) K.Dim else K.Text) { nav.navigate(Routes.exerciseDetail(e.exerciseId)) }
                 }
                 if (list.isEmpty()) SearchEmpty(query)
             }
@@ -62,13 +64,12 @@ fun LiftListScreen(vm: AppViewModel, nav: NavHostController) {
  * exercise without sets shows its muscle and "No sets yet".
  */
 @Composable
-fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: String) {
+fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: String, clock: Clock = Clock.systemDefaultZone()) {
     val exercises by vm.exercises.collectAsStateWithLifecycle()
-    val logs by vm.allSetLogs.collectAsStateWithLifecycle()
-    val sessions by vm.sessions.collectAsStateWithLifecycle()
-    val history = remember(logs, sessions, exerciseId) { liftHistory(exerciseId, logs, sessions) }
+    val data = rememberHistoryData(vm, rememberToday(clock))
+    val history = remember(data, exerciseId) { liftHistory(exerciseId, data.logs, data.sessions) }
     val ex = exercises.find { it.id == exerciseId }
-    val name = ex?.name ?: logs.firstOrNull { it.exerciseId == exerciseId }?.exerciseName ?: "Exercise"
+    val name = ex?.name ?: data.logs.firstOrNull { it.exerciseId == exerciseId }?.exerciseName ?: "Exercise"
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize()) {
         EditorTopBar("Back", name, onBack = { nav.popBackStack() }, scrollPx = { scroll.value })
@@ -121,9 +122,9 @@ fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
  * heart rate in work intervals, else time), then every session newest first. Swim pace is per 100 m.
  */
 @Composable
-fun CardioTypeScreen(vm: AppViewModel, nav: NavHostController, typeId: String) {
+fun CardioTypeScreen(vm: AppViewModel, nav: NavHostController, typeId: String, clock: Clock = Clock.systemDefaultZone()) {
     val exercises by vm.exercises.collectAsStateWithLifecycle()
-    val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val sessions = rememberHistoryData(vm, rememberToday(clock)).sessions
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val intervalLogs by vm.allIntervalLogs.collectAsStateWithLifecycle()
     val type = typeId.takeIf { it != NO_TYPE } ?: ""

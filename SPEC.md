@@ -94,8 +94,13 @@ no native spinner arrows. The accessible name lives in the aria-label.
   Library seeded from a public-domain dataset plus the 14 exercises in
   TP v3 plus the cardio seeds. The user can add, edit, archive, delete
   (only when no session uses it), and merge two exercises into one
-  (history moves to the survivor). Once a session, a program or the plan
-  uses an exercise, its kind is fixed.
+  (history moves to the survivor). Merge asks first: "Merge A into B?
+  12 sets and 4 sessions move to B. A is deleted." After it, a bar says
+  "Merged into B" with Undo for 10 seconds. Undo puts A back and moves
+  back every row the merge moved (set logs, cardio sessions, program rows,
+  plan days, dated changes). Rows logged on B in those 10 seconds stay on
+  B. The undo data lives in memory only. Once a session, a program or the
+  plan uses an exercise, its kind is fixed.
 - Modality: name, color. Seeded bike, run, swim, row. User can add.
 - Program: name, active flag, ordered list of blocks. One program is
   always active. Turning another program on moves the mark; deleting the
@@ -144,7 +149,10 @@ rest days. Deleting a block deletes its exercises.
 - Superset blocks show sets in order A1 B1 A2 B2 A3 B3. Non-superset blocks
   show all sets of A, then all sets of B.
 - Each set row shows last time's weight and reps, prefilled. Tap the check to
-  log as shown. Tap weight or reps to edit: the field takes keyboard input
+  log as shown. A check needs reps above 0 and, unless the exercise steps by
+  0 kg (bodyweight, such as Push-up), a weight above 0. Otherwise the set
+  stays pending and the row says "Enter weight" or "Enter reps" under the
+  field. The stored set decides, so a value typed just before the tap counts. Tap weight or reps to edit: the field takes keyboard input
   and has +/- steppers on both sides. A tap steps once; a held stepper
   repeats faster and saves once on release. The rep range shows as a hint.
 - When you beat last time, the row shows the delta in green next to the
@@ -155,11 +163,20 @@ rest days. Deleting a block deletes its exercises.
   earlier one; with nothing pending every block closes.
 - No progression suggestions. No rest countdown on gym days.
 - Swap: tap the exercise name, pick a replacement from the library or add one,
-  then choose scope: this session only, or update the program.
+  then choose scope: this session only, or update the program. A swap changes
+  the sets at that block and slot. "Update the program" changes the program
+  row at the same block and slot, so a second swap after a session-only one
+  still reaches the program. If the program has no row there any more, the
+  program stays as it is.
+- Discard workout asks first: "Discard this workout? 3 checked sets are
+  lost." Cancel keeps everything.
 - Finish sits in the header only. It shows a summary: time since start,
   sets done, total volume, new bests, then effort and note (the same values
   as the page's fields), then Save. Save finishes the session: unfinished
-  sets become skipped and stay visible as empty rows in history.
+  sets become skipped and stay visible as empty rows in history. A set
+  checked with 0 reps (older versions allowed it) counts as not done and
+  never as a new best. Save and Discard leave once: a double tap never
+  finishes twice or closes Today.
 - History sessions are editable after the fact. There a check changes the
   set and nothing else: no block opens or closes and no field takes focus.
 - Each edit of a session's date, effort or note, and the timer's duration,
@@ -184,6 +201,9 @@ show one row per work interval for manual entry.
 - Interval structure adds one row per work interval with average heart
   rate and watts or pace. Rest length comes from the exercise.
 - Every cardio session has a note and effort 1-10.
+- A new entry saves only with a time or a distance (swim laps count). Until
+  then Save is off and the form says "Enter time or distance". A saved
+  session edited from History keeps Save on.
 
 ## Interval timer
 
@@ -197,6 +217,10 @@ show one row per work interval for manual entry.
   phone is locked, with pause and stop.
 - On finish, the app creates the session prefilled with the exercise and
   one row per work interval. You add HR or watts and save.
+- After Stop, or after the last round, the timer stores its time. If you
+  leave the form without saving, Today shows "Timer stopped" with Save
+  (the form with the time and rounds) and Discard, not Resume. The stored
+  time decides, so this holds after an app restart too.
 - Import: a manual Import button in History reads new exercise sessions from
   Health Connect and shows them as drafts. Confirmed sources: Samsung Health
   and Mi Fitness both write session, heart rate, and distance. Neither is
@@ -278,6 +302,13 @@ Exact alarms at the boundaries refresh the widget and post the reminders.
 Each setting writes only its own column. An opening or closing time that
 would leave the hours shorter than one hour, or cross midnight, is refused.
 History shows one cell per day, filled when the window was kept.
+History counts from the day the window was first turned on. The app keeps
+that date in DataStore (key `window_since`), not in the database and not in
+the backup. Turning the window off and on keeps the first date. Without a
+stored date (an existing user, or after an import or a reset) the start is
+the earliest window day, else today, and the app stores it once. Days
+before the start are grey and not counted. Until one day has settled the
+summary reads "Tracking since Nov 3." instead of "0 of 0 days".
 
 ## Out of scope
 

@@ -24,7 +24,8 @@ padded cards, per-item buttons, "Updated" lines.
   text, the title centered in Headline between two equal 88 pt sides, the
   primary action trailing as a 34 pt accent capsule ("Done") or a round
   symbol button ("+"). A hairline fades in on its bottom edge over the
-  first 16 pt of scroll.
+  first 16 pt of scroll. A capsule that is off (the cardio form's Save
+  without a time or distance) is #2C2C2E with muted text.
 - Large title: 34 bold on the leading edge at the top of a tab screen;
   bar items trailing as round symbol buttons. It stays at the top and
   folds as the content scrolls: over the first 12 pt the bar's bottom edge
@@ -180,7 +181,13 @@ padded cards, per-item buttons, "Updated" lines.
 - Every delete or remove asks first in a confirm sheet: what is deleted,
   a red full-width button, Cancel. Cancel changes nothing. That covers
   an exercise, a program, a block, an exercise taken out of a block, a
-  stretch, a routine and a stretch taken out of a routine.
+  stretch, a routine and a stretch taken out of a routine. Merge and
+  Discard workout ask the same way, with counts in the line under the
+  title ("3 checked sets are lost.").
+- Undo bar after an exercise merge: an elevated card 16 px from the sides
+  and 12 px above the bottom of the screen, at least 52 px tall, "Merged
+  into <B>" in Body and an accent Undo with a 48 px target. It goes after
+  10 seconds or on Undo. Screen readers hear the line when it shows.
 - A new program or block is a draft. Nothing is saved, and there is no
   Delete, until Done saves the program or the first exercise saves the
   block. Add block on a new program saves it as Done would (the typed
@@ -226,6 +233,8 @@ padded cards, per-item buttons, "Updated" lines.
   the list and folds as the sets scroll: over the row's height the
   progress row slides up under the bar with them and fades, and a 2 px green progress line fades in on the
   bar's bottom edge, so Back, Finish and the progress stay in view.
+  A check refused for a missing value shows "Enter weight" or "Enter
+  reps" in red 12 semibold under its field, read out when it appears.
   Finish is the only way to finish (no Finish workout at the bottom): it
   opens the "Workout done" sheet with time, sets done, volume and new
   bests, then effort and note (the page's own fields too), then Save.
@@ -275,7 +284,9 @@ Two lines, 88 px total, hairline between rows.
   line is "In progress · 34 min" in accent and a program adds the
   progress bar in accent with "12 / 42" (green stays for done: the done
   line and its check); Resume or Start under it, 44 px tall (the compact
-  primary button) to keep the card small.
+  primary button) to keep the card small. After the interval timer's Stop
+  the line is "Timer stopped · 1:35" and Resume gives way to two halves
+  10 px apart: Save (compact primary) and Discard (red tinted capsule).
 - 16 px gap. One group of 64 px rows sized for the home screen: the
   symbol in a 40 px circle of its color like the item card's, the name
   17/600 over a line of state 15 muted (green when it is good news), a
@@ -403,8 +414,11 @@ Two lines, 88 px total, hairline between rows.
   first. A day with no manual open or close is filled green, a changed
   day is a green ring, and today is a white ring. Under the card the
   footer reads "Kept the hours on 20 of 27 days. A ring is a day opened or
-  closed by hand; today is white." The count leaves today out. Screen
-  readers hear the card as "Last 28 days" and the count.
+  closed by hand; today is white." The count leaves today out. Days before
+  the window was first turned on are filled #3A3A3C and not counted; the
+  footer then adds "Grey days came before tracking." With no counted day
+  yet it reads "Tracking since Nov 3." Screen readers hear the card as
+  "Last 28 days" and the count.
 - Widget: 2x1, surface #1c1c1e, radius 14. Left: 12 px dot. Then "Open"
   or "Closed" 17/600 and "2 h 10 m left" 13 muted on one line under it.
   Tap opens the app on Today with the sheet open.

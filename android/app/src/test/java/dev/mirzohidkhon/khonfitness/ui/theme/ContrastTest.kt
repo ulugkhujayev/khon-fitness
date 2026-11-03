@@ -53,16 +53,62 @@ class ContrastTest {
         assertTrue(low.joinToString { (c, r) -> "%08X %.2f".format(c.value.toLong() ushr 32, r) }, low.isEmpty())
     }
 
+    private val ui = File("src/main/java/dev/mirzohidkhon/khonfitness/ui")
+    private fun sources(): Map<String, String> =
+        ui.walkTopDown().filter { it.extension == "kt" && it.parentFile.name != "theme" }.associate { it.name to it.readText() }
+
     /**
-     * Text drawn in a raw color (a hex value, or white or black at some alpha) in the screens is a pair [TextPairs] does
-     * not see: the timer's "Elapsed" at white 60 percent read at 4.4:1 on its green. Such colors live in [K].
+     * Every color that text or a symbol takes in the screens, resolved through aliases, branches and parameters, is a
+     * [TextPairs] color ([ColorUseCheck]). A raw color there fails too: the timer's "Elapsed" at white 60 percent read
+     * at 4.4:1 on its green.
      */
-    @Test fun noRawTextColorInScreens() {
-        val raw = Regex("""Color\(0x|Color\.(White|Black)\.copy\(""")
-        val use = Regex("""(Text\(|SpanStyle\(|\bcolor = |\btint = |textColor = |contentColor = )""")
-        val hits = File("src/main/java/dev/mirzohidkhon/khonfitness/ui").walkTopDown().filter { it.extension == "kt" && it.parentFile.name != "theme" }.flatMap { f ->
-            f.readLines().withIndex().filter { (_, l) -> raw.containsMatchIn(l) && use.containsMatchIn(l) }.map { (i, l) -> "${f.name}:${i + 1} ${l.trim()}" }
-        }.toList()
+    @Test fun everyTextColorIsAPair() {
+        val hits = ColorUseCheck.hits(sources())
         assertTrue(hits.joinToString("\n"), hits.isEmpty())
+    }
+
+    /** The check sees the real screens: the hits it finds after one break in a real file. */
+    private fun hitsAfter(file: String, old: String, new: String): List<String> {
+        val src = sources()
+        val text = src.getValue(file)
+        assertTrue("$file has no $old", old in text)
+        return ColorUseCheck.hits(src + (file to text.replaceFirst(old, new)))
+    }
+
+    /** Sol's first miss: the routine count back on the private alias of white at 60 percent. */
+    @Test fun checkCatchesAnAlias() {
+        val hits = hitsAfter("StretchParts.kt", "color = K.OnPhaseMuted, textAlign = TextAlign.Center", "color = OnPhaseDim, textAlign = TextAlign.Center")
+        assertTrue(hits.toString(), hits.any { it.startsWith("StretchParts.kt:") && "OnPhaseDim" in it })
+    }
+
+    /** Sol's second miss: a bad color split over several lines. */
+    @Test fun checkCatchesASplitExpression() {
+        val hits = hitsAfter("TimerScreen.kt", "color = K.OnPhaseMuted, style = MaterialTheme.typography.bodyMedium",
+            "color =\n                K.Text.copy(\n                    alpha = 0.6f,\n                ),\n                style = MaterialTheme.typography.bodyMedium")
+        assertTrue(hits.toString(), hits.any { it.startsWith("TimerScreen.kt:") && "no TextPairs entry" in it })
+    }
+
+    /** The other shapes the check resolves, each with a bad pair: a branch alias, a when, a positional and a default argument, and a split raw color. */
+    @Test fun checkCatchesEveryShape() {
+        val src = """
+            private val Soft = Color.White.copy(alpha = 0.6f)
+            @Composable fun Row1(on: Boolean) { val c = if (on) K.Text else K.Dim; Text("a", color = c) }
+            @Composable fun Row2(n: Int) { Text("b", color = when (n) { 0 -> K.Text
+                else -> K.Blue }) }
+            @Composable fun Label(text: String, tint: Color = K.Surface3) { Text(text, color = tint) }
+            @Composable fun Use() { Label("c", K.Divider); Label("d") }
+            @Composable fun Row3() { Text(
+                "e",
+                color =
+                    Soft,
+            ) }
+            @Composable fun Row4(enabled: Boolean) { Text("f", color = if (enabled) K.Text else K.Dim) }
+        """.trimIndent()
+        val hits = ColorUseCheck.hits(mapOf("A.kt" to src))
+        for ((line, why) in listOf(2 to "K.Dim text", 3 to "K.Blue", 6 to "K.Divider", 5 to "K.Surface3", 10 to "raw color"))
+            assertTrue("line $line $why: $hits", hits.any { it.startsWith("A.kt:$line ") && why in it })
+        // An off control may be dim.
+        assertTrue(hits.toString(), hits.none { it.startsWith("A.kt:12 ") })
+        assertEquals(hits.toString(), 5, hits.size)
     }
 }

@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import dev.mirzohidkhon.khonfitness.R
+import dev.mirzohidkhon.khonfitness.ui.screens.PRESET_COLORS
 
 /**
  * iOS dark-appearance semantic palette (Human Interface Guidelines, Color and Dark Mode).
@@ -120,6 +121,12 @@ val TextPairs: List<TextPair> = buildList {
         add(TextPair("OnPhaseMuted on the player over $n", K.OnPhaseMuted.compositeOver(fill), fill))
         // The player's round Stop, Back and Skip: a white symbol on white at 18 percent. A symbol needs 3:1.
         add(TextPair("Text on a player button over $n", K.Text, Color.White.copy(alpha = 0.18f).compositeOver(fill), large = true))
+    }
+    // A cardio type's own color: its name on the Plan list's type pill, its symbol on its circle (20 percent).
+    for (c in PRESET_COLORS.map { Color(it) }) {
+        val hex = "%06X".format(c.value.toLong() ushr 32 and 0xFFFFFF)
+        add(TextPair("Type #$hex on its pill", c, K.Surface2))
+        for ((n, under) in listOf("Bg" to K.Bg, "Surface" to K.Surface)) add(TextPair("Type #$hex on its circle over $n", c, c.copy(alpha = 0.2f).compositeOver(under), large = true))
     }
     // The demonstration's round controls: a white symbol on black at 45 percent over the light image.
     add(TextPair("Text on the demo glass", K.Text, Color.Black.copy(alpha = 0.45f).compositeOver(Color(0xFFF2F2F2)), large = true))

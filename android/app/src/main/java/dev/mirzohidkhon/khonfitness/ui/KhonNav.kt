@@ -145,7 +145,6 @@ fun KhonNav() {
                 composable(Routes.WEEK_PLAN) { WeekPlanScreen(vm, nav) }
                 composable(Routes.SETTINGS) { SettingsScreen(vm, nav) }
             }
-            MergeUndoBar(vm, Modifier.align(Alignment.BottomCenter))
         }
     }
 }

@@ -91,11 +91,11 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
     }
     LaunchedEffect(finished) {
         val f = finished ?: return@LaunchedEffect
-        if (f.sessionId == sessionId || f.sessionId == observedSessionId) { exit.leave(); TimerService.finished.value = null }
+        if (f.sessionId == sessionId || f.sessionId == observedSessionId) { exit { exit.pop() }; TimerService.finished.value = null }
     }
     var sawRunning by remember { mutableStateOf(false) }
     LaunchedEffect(state?.sessionId) { if (state?.sessionId?.startsWith("$routineId:") == true) sawRunning = true }
-    LaunchedEffect(sawRunning, state == null) { if (sawRunning && state == null) { delay(1500); if (TimerService.state.value == null) exit.leave() } }
+    LaunchedEffect(sawRunning, state == null) { if (sawRunning && state == null) { delay(1500); if (TimerService.state.value == null) exit { exit.pop() } } }
 
     val st = state?.takeIf { it.stretch && it.sessionId.startsWith("$routineId:") }
     val phase = st?.takeUnless { it.done }?.phase
@@ -106,7 +106,7 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
                 // Equal 96 dp sides keep the title centered: Stop on the left, Back and Skip on the right.
                 Box(Modifier.width(96.dp), contentAlignment = Alignment.CenterStart) {
-                    PlayerButton(Icons.Close, "Stop") { if (st != null) TimerService.send(context, TimerService.ACTION_STOP) else exit.leave() }
+                    PlayerButton(Icons.Close, "Stop") { if (st != null) TimerService.send(context, TimerService.ACTION_STOP) else exit { exit.pop() } }
                 }
                 Text(st?.title ?: routine?.name ?: "Stretching", color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).semantics { heading() }, textAlign = TextAlign.Center)

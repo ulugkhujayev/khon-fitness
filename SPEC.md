@@ -158,12 +158,18 @@ no native spinner arrows. The accessible name lives in the aria-label.
   TP v3 plus the cardio seeds. The user can add, edit, archive, delete
   (only when no session uses it), and merge two exercises into one
   (history moves to the survivor). Merge asks first: "Merge A into B?
-  12 sets and 4 sessions move to B. A is deleted." After it, a bar says
-  "Merged into B" with Undo for 10 seconds. Undo puts A back and moves
-  back every row the merge moved (set logs, cardio sessions, program rows,
-  plan days, dated changes). Rows logged on B in those 10 seconds stay on
-  B. The undo data lives in memory only. Once a session, a program or the
-  plan uses an exercise, its kind is fixed.
+  12 sets and 4 sessions move to B. A is deleted." Merge then moves every
+  row (set logs, cardio sessions, program rows, plan days, dated changes)
+  and deletes A in one transaction. There is no Undo. If A or B is gone
+  by then, or they are the same exercise, nothing is written and the
+  editor stays open with "Not merged: one of the two exercises is gone."
+  Once a session, a program or the plan uses an exercise, its kind is
+  fixed.
+- Every closing action of an editor (Done, Back, Archive, Unarchive,
+  Delete, Merge, and Save, Discard and Back in a session or cardio form)
+  runs once: a second tap, or a second exit in the same frame, does
+  nothing. A delete or merge that is refused when it runs keeps the editor
+  open, and the next action works.
 - Modality (shown as "Type"): name, color. Seeded bike, run, swim, row. User can add one in a cardio workout's editor.
 - Program: name, active flag, ordered list of blocks. One program is
   always active. Turning another program on moves the mark; deleting the
@@ -231,9 +237,19 @@ its exercises.
 - Swap: tap the exercise name or the swap symbol beside it, pick a replacement from the library or add one,
   then choose scope: this session only, or update the program. A swap changes
   the sets at that block and slot. "Update the program" changes the program
-  row at the same block and slot, so a second swap after a session-only one
-  still reaches the program. If the program has no row there any more, the
-  program stays as it is.
+  row at the same position: blocks in (order, id), rows in (slot, id), rows
+  whose exercise is gone left out, as the session numbered them. A second
+  swap after a session-only one still reaches the program.
+- Session start stores the session's origin outside the database (program,
+  start time, and a fingerprint of every block and row of the program).
+  "Update the program" changes the program only while the session is
+  unfinished, its origin is there, and the program is exactly as it was at
+  the start or after the last update from this session. Any change to the
+  program's blocks or rows since (order, exercise, sets, reps, a block or
+  row removed or added) refuses: only the workout changes, and a sheet
+  says "The program changed after this workout started. Only this workout
+  changed." Finish and Discard remove the origin; an import (both modes)
+  and Reset remove every origin. Origins are not in the backup.
 - Discard workout asks first: "Discard this workout? 3 checked sets are
   lost." Cancel keeps everything.
 - Finish sits in the header only. It shows a summary: time since start,
@@ -267,9 +283,14 @@ show one row per work interval for manual entry.
 - Interval structure adds one row per work interval with average heart
   rate and watts or pace. Rest length comes from the exercise.
 - Every cardio session has a note and effort 1-10.
-- A new entry saves only with a time or a distance (swim laps count). Until
-  then Save is off and the form says "Enter time or distance". A saved
-  session edited from History keeps Save on.
+- A new entry saves only with a time, a distance or laps above 0. Until
+  then Save is off and the form says "Enter time or distance". The form
+  always shows Time, also for an exercise that lists only heart rate or
+  watts. Save checks the stored row with the form's edits, so a time the
+  timer stores after the form opened counts. The data layer checks the
+  same rule again when Save runs; a refusal writes nothing, keeps the form
+  open and shows the line. A saved session edited from History keeps Save
+  on and is not checked.
 
 ## Interval timer
 

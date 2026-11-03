@@ -6,6 +6,8 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -95,7 +97,40 @@ fun mergeStretchEdits(current: Stretch, opened: Stretch, edited: Stretch): Stret
     )
 }
 
-class KhonRepository(private val dao: KhonDao, private val since: WindowSince? = null) {
+/**
+ * The program session's set logs from a [ProgramDetail] in execution order: the position of a block and of a row in
+ * it are the logs' `blockIndex` and `slot`. Each set is prefilled from [previous] (by [key]), else with its minimum reps.
+ */
+fun programLogs(sessionId: String, detail: ProgramDetail, previous: Map<String, SetLog>): List<SetLog> {
+    fun setLog(bi: Int, superset: Boolean, slot: Int, s: Int, order: Int, be: BlockExercise, ex: Exercise) = SetLog(
+        id = newId(), sessionId = sessionId, blockIndex = bi, blockSuperset = superset, slot = slot, setIndex = s, order = order,
+        exerciseId = ex.id, exerciseName = ex.name, minReps = be.minReps, maxReps = be.maxReps, stepKg = ex.stepKg,
+    )
+    val logs = mutableListOf<SetLog>()
+    var order = 0
+    detail.blocks.forEachIndexed { bi, bd ->
+        val exs = bd.exercises
+        if (bd.block.superset && exs.size > 1) {
+            val maxSets = exs.maxOf { it.first.sets }
+            for (s in 0 until maxSets) exs.forEachIndexed { slot, (be, ex) -> if (s < be.sets) logs += setLog(bi, true, slot, s, order++, be, ex) }
+        } else {
+            exs.forEachIndexed { slot, (be, ex) -> for (s in 0 until be.sets) logs += setLog(bi, bd.block.superset, slot, s, order++, be, ex) }
+        }
+    }
+    return logs.map { l -> previous[l.key()]?.let { p -> l.copy(weightKg = p.weightKg, reps = p.reps) } ?: l.copy(reps = l.minReps) }
+}
+
+/**
+ * The app's data. [since] and [origins] live in DataStore; without [origins] no session has an origin, so a swap never
+ * updates the program.
+ */
+class KhonRepository(private val dao: KhonDao, private val since: WindowSince? = null, private val origins: SessionOrigins? = null) {
+    /**
+     * The one lock over session origins ([SessionOrigins]): session start, the swap with "Update the program too",
+     * finish and discard, import and reset run only while holding it, each with its DataStore edit awaited inside, so
+     * no origin write is ever pending when another of them runs.
+     */
+    private val originLock = Mutex()
     val exercises: Flow<List<Exercise>> = dao.exercises()
     val modalities: Flow<List<Modality>> = dao.modalities()
     val programs: Flow<List<Program>> = dao.programs()
@@ -178,14 +213,8 @@ class KhonRepository(private val dao: KhonDao, private val since: WindowSince? =
         }
     }
 
-    suspend fun programDetail(programId: String): ProgramDetail? {
-        val program = dao.program(programId) ?: return null
-        val exercises = dao.exercisesOnce().associateBy { it.id }
-        val blocks = dao.blocksFor(programId).map { block ->
-            BlockDetail(block, dao.blockExercisesFor(block.id).mapNotNull { be -> exercises[be.exerciseId]?.let { be to it } })
-        }
-        return ProgramDetail(program, blocks)
-    }
+    /** The program as a session would start from it ([KhonDao.programSnapshot]). */
+    suspend fun programDetail(programId: String): ProgramDetail? = dao.programSnapshot(programId)?.detail
 
     suspend fun exercise(id: String) = dao.exercise(id)
     /** The exercise editor's Done: a new exercise ([opened] null) is written whole, an existing one gets only its changed fields. */
@@ -194,10 +223,8 @@ class KhonRepository(private val dao: KhonDao, private val since: WindowSince? =
     suspend fun archiveExerciseWithEdits(opened: Exercise, edited: Exercise, archived: Boolean) = dao.archiveExerciseWithEdits(opened, edited, archived)
     suspend fun exerciseUsage(id: String): Int = dao.exerciseUsage(id)
     suspend fun deleteExercise(id: String): Boolean = dao.deleteExerciseIfUnused(id)
-    suspend fun mergeExercise(from: String, into: String) = dao.mergeExercise(from, into)
-    /** The merge with its undo snapshot ([KhonDao.mergeExerciseWithSnapshot]); null when nothing was merged. */
-    suspend fun mergeExerciseWithUndo(from: String, into: String): MergeSnapshot? = dao.mergeExerciseWithSnapshot(from, into)
-    suspend fun undoMerge(s: MergeSnapshot) = dao.undoMerge(s)
+    /** False when refused, with nothing written: either exercise is gone, or they are one ([KhonDao.mergeExercise]). */
+    suspend fun mergeExercise(from: String, into: String): Boolean = dao.mergeExercise(from, into)
     /** What a merge of [id] moves, for its confirm: set logs, and the program and cardio sessions they and it are in. */
     suspend fun mergeCounts(id: String): Pair<Int, Int> = dao.setLogCountFor(id) to dao.setLogSessionCountFor(id) + dao.cardioSessionCountFor(id)
     /** The modality editor's Done: a new modality ([opened] null) is written whole, an existing one gets only its changed fields. */
@@ -233,42 +260,19 @@ class KhonRepository(private val dao: KhonDao, private val since: WindowSince? =
 
     suspend fun saveBodyweight(date: String, kg: Double) = dao.upsert(Bodyweight(date, kg))
 
-    /** Starts a program session: snapshots every block into set logs in execution order. */
-    suspend fun startProgramSession(programId: String, date: LocalDate = LocalDate.now()): Session? {
-        val detail = programDetail(programId) ?: return null
-        val session = Session(id = newId(), date = date.iso(), startedAt = System.currentTimeMillis(), itemType = ItemType.PROGRAM, programId = programId, programName = detail.program.name)
-        val logs = mutableListOf<SetLog>()
-        var order = 0
-        detail.blocks.forEachIndexed { bi, bd ->
-            val exs = bd.exercises
-            if (bd.block.superset && exs.size > 1) {
-                val maxSets = exs.maxOf { it.first.sets }
-                for (s in 0 until maxSets) exs.forEachIndexed { slot, (be, ex) -> if (s < be.sets) logs += setLog(session.id, bi, true, slot, s, order++, be, ex) }
-            } else {
-                exs.forEachIndexed { slot, (be, ex) -> for (s in 0 until be.sets) logs += setLog(session.id, bi, bd.block.superset, slot, s, order++, be, ex) }
-            }
-        }
-        // prefill from last time
-        val previous = previousLogsByKey(programId, session.id)
-        val filled = logs.map { l -> previous[l.key()]?.let { p -> l.copy(weightKg = p.weightKg, reps = p.reps) } ?: l.copy(reps = l.minReps) }
-        dao.insertSessionWithLogs(session, filled, emptyList())
-        return session
+    /**
+     * Starts a program session in one transaction ([KhonDao.startProgramSession]), then stores its origin with the
+     * program's fingerprint ([SessionOrigins]), under the origin lock. Null when the program is gone.
+     */
+    suspend fun startProgramSession(programId: String, date: LocalDate = LocalDate.now()): Session? = originLock.withLock {
+        val draft = Session(id = newId(), date = date.iso(), startedAt = System.currentTimeMillis(), itemType = ItemType.PROGRAM, programId = programId)
+        val (session, fingerprint) = dao.startProgramSession(programId, draft) ?: return@withLock null
+        origins?.write(session.id, SessionOrigin(programId, session.startedAt, fingerprint))
+        session
     }
-
-    private fun setLog(sessionId: String, bi: Int, superset: Boolean, slot: Int, s: Int, order: Int, be: BlockExercise, ex: Exercise) = SetLog(
-        id = newId(), sessionId = sessionId, blockIndex = bi, blockSuperset = superset, slot = slot, setIndex = s, order = order,
-        exerciseId = ex.id, exerciseName = ex.name, minReps = be.minReps, maxReps = be.maxReps, stepKg = ex.stepKg,
-    )
 
     /** Last done set for the same exercise and set index, from the most recent finished session. */
-    suspend fun previousLogsByKey(programId: String?, excludeSessionId: String): Map<String, SetLog> {
-        val sessions = dao.sessionsOnce().filter { it.finished && it.id != excludeSessionId && it.itemType == ItemType.PROGRAM }.sortedByDescending { it.startedAt }
-        val result = HashMap<String, SetLog>()
-        for (s in sessions) {
-            for (l in dao.setLogsOnce(s.id)) if (l.status == SetStatus.DONE && !result.containsKey(l.key())) result[l.key()] = l
-        }
-        return result
-    }
+    suspend fun previousLogsByKey(programId: String?, excludeSessionId: String): Map<String, SetLog> = dao.previousLogsByKey(programId, excludeSessionId)
 
     suspend fun startCardioSession(exercise: Exercise, date: LocalDate = LocalDate.now()): Session {
         val session = Session(id = newId(), date = date.iso(), startedAt = System.currentTimeMillis(), itemType = ItemType.CARDIO, exerciseId = exercise.id, exerciseName = exercise.name)
@@ -282,21 +286,45 @@ class KhonRepository(private val dao: KhonDao, private val since: WindowSince? =
     suspend fun checkSet(id: String): Boolean = dao.checkSet(id) > 0
     suspend fun setSetWeight(id: String, weightKg: Double?) = dao.setSetWeight(id, weightKg)
     suspend fun setSetReps(id: String, reps: Int?) = dao.setSetReps(id, reps)
-    /** The cardio form's Save: only what the user changed since [opened] and [openedIntervals] is written, in one transaction. */
-    suspend fun saveCardioEdits(opened: Session, edited: Session, intervalEdits: Map<String, IntervalEdit>, now: Long = System.currentTimeMillis()) =
+    /**
+     * The cardio form's Save: only what the user changed since [opened] and the touched interval fields are written,
+     * in one transaction; a new entry without a time, distance or laps is refused ([KhonDao.saveCardioEdits]).
+     */
+    suspend fun saveCardioEdits(opened: Session, edited: Session, intervalEdits: Map<String, IntervalEdit>, now: Long = System.currentTimeMillis()): CardioSaveResult =
         dao.saveCardioEdits(opened, edited, intervalEdits, now)
     // Single fields of a session edited in place (session page, finish sheet, timer): each writes its own column only.
     suspend fun setSessionDate(sessionId: String, date: LocalDate) = dao.setSessionDate(sessionId, date.iso())
     suspend fun setSessionEffort(sessionId: String, effort: Int?) = dao.setSessionEffort(sessionId, effort)
     suspend fun setSessionNote(sessionId: String, note: String) = dao.setSessionNote(sessionId, note)
     suspend fun setSessionTime(sessionId: String, timeSec: Int?) = dao.setSessionTime(sessionId, timeSec)
-    /** Pending sets become skipped and the session gets its finish time, in one transaction; nothing else is written. */
-    suspend fun finishSession(sessionId: String, now: Long = System.currentTimeMillis()) = dao.finishSession(sessionId, now)
-    suspend fun deleteSession(sessionId: String) = dao.deleteSessionWithLogs(sessionId)
-    /** The swap from [log]'s row: every set at its block and slot, and the program row there when [updateProgram]. */
-    suspend fun swapExerciseInSession(log: SetLog, to: Exercise, updateProgram: Boolean, programId: String?) {
+    /**
+     * Pending sets become skipped and the session gets its finish time, in one transaction; nothing else is written.
+     * Then its origin goes, under the origin lock.
+     */
+    suspend fun finishSession(sessionId: String, now: Long = System.currentTimeMillis()) {
+        originLock.withLock {
+            dao.finishSession(sessionId, now)
+            origins?.remove(sessionId)
+        }
+    }
+    /** A session with its logs, then its origin, under the origin lock. */
+    suspend fun deleteSession(sessionId: String) {
+        originLock.withLock {
+            dao.deleteSessionWithLogs(sessionId)
+            origins?.remove(sessionId)
+        }
+    }
+    /**
+     * The swap from [log]'s row: every set at its block and slot, and, when [updateProgram], the program row at that
+     * position while the session's origin still holds ([KhonDao.swapExercise]); then the origin takes the program's new
+     * fingerprint. All under the origin lock. A refusal changes the session only and says so ([SWAP_REFUSED]).
+     */
+    suspend fun swapExerciseInSession(log: SetLog, to: Exercise, updateProgram: Boolean): SwapResult = originLock.withLock {
+        val origin = if (updateProgram) origins?.read(log.sessionId) else null
         // Only the exercise columns change: a set's weight, reps or check saved meanwhile stays.
-        dao.swapExercise(log.sessionId, log.blockIndex, log.slot, to, if (updateProgram) programId else null)
+        val result = dao.swapExercise(log.sessionId, log.blockIndex, log.slot, to, updateProgram, origin)
+        if (result is SwapResult.ProgramUpdated && origin != null) origins?.write(log.sessionId, origin.copy(fingerprint = result.fingerprint))
+        result
     }
 
     suspend fun importedSourceIds(): List<String> = dao.importedSourceIds().flatMap { it.split(",") }
@@ -329,16 +357,30 @@ class KhonRepository(private val dao: KhonDao, private val since: WindowSince? =
         return listOf(n(b.sessions.size, "session", "sessions"), n(b.stretchSessions.size, "stretch session", "stretch sessions"), n(b.bodyweights.size, "bodyweight entry", "bodyweight entries"), n(b.programs.size, "program", "programs"), n(b.exercises.size, "exercise", "exercises")).joinToString(" · ")
     }
 
-    /** Merges or replaces from a backup in one transaction ([KhonDao.importBackup]). Throws when the file is not a Khon backup. */
-    /** The window's start date is not in the backup: an import clears it, so the imported window days set it again. */
+    /**
+     * Merges or replaces from a backup in one transaction ([KhonDao.importBackup]). Throws when the file is not a Khon
+     * backup, and then writes nothing. Under the origin lock, every session origin goes first, in both modes. The
+     * window's start date is not in the backup: an import clears it, so the imported window days set it again.
+     */
     suspend fun importJson(text: String, replace: Boolean) {
-        dao.importBackup(Json { ignoreUnknownKeys = true }.decodeFromString<Backup>(text), replace)
+        val backup = Json { ignoreUnknownKeys = true }.decodeFromString<Backup>(text)
+        originLock.withLock {
+            origins?.clearAll()
+            dao.importBackup(backup, replace)
+        }
         since?.clear()
     }
 
     suspend fun seedIfEmpty() = dao.seedIfEmpty()
     suspend fun seedStretchesIfEmpty() = dao.seedStretchesIfEmpty()
-    suspend fun resetToSeed() { dao.resetToSeed(); since?.clear() }
+    /** Back to the built-in data: under the origin lock, every session origin goes first, then the tables. */
+    suspend fun resetToSeed() {
+        originLock.withLock {
+            origins?.clearAll()
+            dao.resetToSeed()
+        }
+        since?.clear()
+    }
 }
 
 object PlanRules {

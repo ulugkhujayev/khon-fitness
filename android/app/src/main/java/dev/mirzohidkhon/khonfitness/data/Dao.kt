@@ -154,7 +154,8 @@ interface KhonDao {
     @Query("UPDATE block_exercises SET maxReps = :reps, minReps = MIN(minReps, :reps) WHERE id = :id") suspend fun setBlockExerciseMaxReps(id: String, reps: Int)
     @Query("DELETE FROM block_exercises WHERE blockId IN (SELECT id FROM blocks WHERE programId = :programId)") suspend fun deleteBlockExercisesOfProgram(programId: String)
     @Query("UPDATE week_plan SET itemType = '${ItemType.REST}', itemId = NULL WHERE itemType = '${ItemType.PROGRAM}' AND itemId = :programId") suspend fun restPlanDaysOf(programId: String)
-    @Query("UPDATE day_overrides SET itemType = '${ItemType.REST}', itemId = NULL WHERE itemType = '${ItemType.PROGRAM}' AND itemId = :programId") suspend fun restOverridesOf(programId: String)
+    /** Dated changes from [from] on that hold the program become rest; earlier days keep it, so History keeps their plan. */
+    @Query("UPDATE day_overrides SET itemType = '${ItemType.REST}', itemId = NULL WHERE itemType = '${ItemType.PROGRAM}' AND itemId = :programId AND date >= :from") suspend fun restOverridesOf(programId: String, from: String)
     /** One program is always active: when none is, the first left in order takes the mark. */
     @Query("UPDATE programs SET active = 1 WHERE id = (SELECT id FROM programs ORDER BY sortOrder, name LIMIT 1) AND NOT EXISTS (SELECT 1 FROM programs WHERE active = 1)")
     suspend fun keepOneActiveProgram()
@@ -166,12 +167,19 @@ interface KhonDao {
     }
 
     /**
-     * A program and all it holds: its blocks and their exercises go, plan days and dated changes that hold it become
-     * rest days (they showed rest once it was gone anyway), and the active mark moves to the first program left.
+     * A program and all it holds: its blocks and their exercises go, and the active mark moves to the first program
+     * left. Plan days and dated changes that hold it become rest from [today] on. Days before [today] keep it: past
+     * dates of its template weekdays first get auto overrides (as a template edit does), so History still counts them
+     * as planned.
      */
-    @Transaction suspend fun deleteProgramFully(id: String) {
+    @Transaction suspend fun deleteProgramFully(id: String, today: LocalDate) {
+        val overrides = overridesOnce()
+        val first = PlanRules.freezeFrom(sessionsOnce().map { it.date } + stretchSessionsOnce().map { it.date } + bodyweightsOnce().map { it.date } + windowDaysOnce().map { it.date } + overrides.map { it.date }, today)
+        val taken = overrides.map { it.date }.toSet()
+        upsertOverrides(weekPlanOnce().filter { it.itemType == ItemType.PROGRAM && it.itemId == id }
+            .flatMap { PlanRules.datesToFreeze(it.weekday, first, today, taken) }.map { DayOverride(it.iso(), ItemType.PROGRAM, id, auto = true) })
         deleteBlockExercisesOfProgram(id); deleteBlocksFor(id); deleteProgram(id)
-        restPlanDaysOf(id); restOverridesOf(id); keepOneActiveProgram()
+        restPlanDaysOf(id); restOverridesOf(id, today.iso()); keepOneActiveProgram()
     }
 
     /** A new block with its first exercise, after its program's other blocks, so no block is ever saved empty. */

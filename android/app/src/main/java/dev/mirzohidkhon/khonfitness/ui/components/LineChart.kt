@@ -26,7 +26,8 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
-data class ChartPoint(val date: LocalDate, val value: Double)
+/** A chart point; a [mark]ed one (a record) draws green. */
+data class ChartPoint(val date: LocalDate, val value: Double, val mark: Boolean = false)
 
 private fun niceStep(span: Double, target: Int): Double {
     val raw = span / target.coerceAtLeast(1)
@@ -88,7 +89,7 @@ fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modif
             val last = i == n - 1
             val r = (if (last) 4.5f else 3.5f).dp.toPx()
             drawCircle(K.Bg, r, Offset(xs[i], ys[i]))
-            drawCircle(K.Accent, r, Offset(xs[i], ys[i]), style = if (last) androidx.compose.ui.graphics.drawscope.Fill else Stroke(2.dp.toPx()))
+            drawCircle(if (points[i].mark) K.Green else K.Accent, r, Offset(xs[i], ys[i]), style = if (last) androidx.compose.ui.graphics.drawscope.Fill else Stroke(2.dp.toPx()))
             if (labelAll || last || i == maxIdx) {
                 val label = (format?.invoke(points[i].value) ?: fmt(points[i].value, decimals)) + if (last && unit.isNotEmpty()) " $unit" else ""
                 val t = measurer.measure(label, if (last) lastStyle else valueStyle)

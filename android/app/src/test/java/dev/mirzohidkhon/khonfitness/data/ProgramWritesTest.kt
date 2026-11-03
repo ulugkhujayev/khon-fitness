@@ -123,13 +123,14 @@ class ProgramWritesTest {
 
     @Test fun `deleting a program leaves no blocks, block exercises or plan days that point at it`() = runBlocking {
         seed()
-        repo.deleteProgram("push")
+        // Before the dated change: it turns rest. Past days keep the program (DeletesKeepHistoryTest).
+        repo.deleteProgram("push", java.time.LocalDate.of(2026, 11, 3))
         assertNull(dao.program("push"))
         assertEquals(listOf("b3"), dao.blocksOnce().map { it.id })
         assertEquals(listOf("e4"), dao.blockExercisesOnce().map { it.id })
         assertEquals(WeekPlan(1, ItemType.REST, null), dao.weekPlanOnce().find { it.weekday == 1 })
         assertEquals(WeekPlan(2, ItemType.PROGRAM, "pull"), dao.weekPlanOnce().find { it.weekday == 2 })
-        assertEquals(DayOverride("2026-11-05", ItemType.REST, null), dao.overridesOnce().single())
+        assertEquals(DayOverride("2026-11-05", ItemType.REST, null), dao.overridesOnce().single { !it.auto })
     }
 
     @Test fun `deleting the active program moves the mark to the first one left`() = runBlocking {

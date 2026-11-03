@@ -84,7 +84,7 @@ class SwapBySlotTest {
 
     @Test fun `a deleted program changes nothing and does not crash`() = runBlocking {
         val s = start()
-        dao.deleteProgramFully("p1")
+        dao.deleteProgramFully("p1", java.time.LocalDate.now())
         repo.swapExerciseInSession(firstLog(s, 0, 0), strength("c"), updateProgram = true, programId = s.programId)
         assertEquals("c", firstLog(s, 0, 0).exerciseId)
     }

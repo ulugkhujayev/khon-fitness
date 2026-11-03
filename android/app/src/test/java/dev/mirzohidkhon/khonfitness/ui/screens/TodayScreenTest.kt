@@ -27,9 +27,7 @@ import dev.mirzohidkhon.khonfitness.timer.Phase
 import dev.mirzohidkhon.khonfitness.timer.PhaseKind
 import dev.mirzohidkhon.khonfitness.timer.TimerService
 import dev.mirzohidkhon.khonfitness.timer.TimerState
-import java.time.YearMonth
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -262,18 +260,20 @@ class TodayScreenTest {
         session(done = 3, finish = true)
         openToday()
         waitFor { shows("Done · 3 of 5 sets") }
-        // History was left a month back; the line opens it fresh, not where it was left.
-        val month = DateTimeFormatter.ofPattern("MMMM yyyy")
+        // A session two weeks back lets History step back; it was left there, and the line opens it fresh on this week.
+        io { vm.repo.startProgramSession("push", today.minusWeeks(2))!!.let { vm.repo.finishSession(it.id) } }
+        val thisWeek = weekTitle(today.with(java.time.DayOfWeek.MONDAY))
+        val lastWeek = weekTitle(today.with(java.time.DayOfWeek.MONDAY).minusWeeks(1))
         tab(Routes.HISTORY)
-        waitFor { named("Previous month") }
-        compose.onNodeWithContentDescription("Previous month").performClick()
-        waitFor { shows(YearMonth.from(today).minusMonths(1).format(month)) }
+        waitFor { shows(thisWeek) }
+        compose.onNodeWithContentDescription("Previous week").performClick()
+        waitFor { shows(lastWeek) }
         tab(Routes.TODAY)
         waitFor { named("+1 more today, open History") }
         compose.onNodeWithContentDescription("+1 more today, open History").assertHeightIsAtLeast(48.dp).performClick()
-        waitFor { named("Previous month") }
-        assertTrue(shows(YearMonth.from(today).format(month)))
-        assertFalse(shows(YearMonth.from(today).minusMonths(1).format(month)))
+        waitFor { named("Previous week") }
+        assertTrue(shows(thisWeek))
+        assertFalse(shows(lastWeek))
     }
 
     @Test fun `a run saved on a gym day shows on the card with its own name, and Change is gone`() {
@@ -317,6 +317,7 @@ class TodayScreenTest {
     @Test fun `a session that starts while Change is open closes it, and the sheet stays closed after`() {
         seed()
         openToday()
+        waitFor { named("Change today's plan") }
         compose.onNodeWithContentDescription("Change today's plan").performClick()
         waitFor { shows(changeTitle(today)) }
         val id = io { vm.repo.startProgramSession("push", today)!!.id }
@@ -344,6 +345,7 @@ class TodayScreenTest {
         seed(day = today.minusDays(1))
         wall = today.minusDays(1).atTime(23, 59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         openToday()
+        waitFor { named("Change today's plan") }
         compose.onNodeWithContentDescription("Change today's plan").performClick()
         waitFor { shows(changeTitle(today.minusDays(1))) }
         wall = System.currentTimeMillis()
@@ -399,7 +401,7 @@ class TodayScreenTest {
     @Test fun `a typed weight with a comma saves with one tap`() {
         io { dao.upsert(Bodyweight(today.minusDays(4).iso(), 83.4)) }
         openToday()
-        assertTrue(shows("Last: 83.4 kg"))
+        waitFor { shows("Last: 83.4 kg") }
         field.performClick()
         field.performTextReplacement("83,5")
         compose.onNodeWithContentDescription("Save bodyweight").assertIsEnabled().performClick()

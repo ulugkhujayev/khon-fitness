@@ -3,22 +3,30 @@ package dev.mirzohidkhon.khonfitness.data
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import dev.mirzohidkhon.khonfitness.ui.screens.dayDots
-import dev.mirzohidkhon.khonfitness.ui.screens.progressFor
+import dev.mirzohidkhon.khonfitness.ui.screens.DayKind
+import dev.mirzohidkhon.khonfitness.ui.screens.historyPlanFor
+import dev.mirzohidkhon.khonfitness.ui.screens.liftHistory
+import dev.mirzohidkhon.khonfitness.ui.screens.logRows
+import dev.mirzohidkhon.khonfitness.ui.screens.planName
+import dev.mirzohidkhon.khonfitness.ui.screens.weekOf
+import dev.mirzohidkhon.khonfitness.ui.screens.weekSummary
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.time.LocalDate
 
 /**
  * Deleting an exercise, a block or a program against a real in-memory database: the sessions and set logs that point
- * at them stay, and History still shows them (the day's dot, the row title, the exercise's progress).
+ * at them stay, and History still shows them (the day's Log rows, the row title, the exercise's records).
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -59,10 +67,13 @@ class DeletesKeepHistoryTest {
         val sessions = dao.sessionsOnce()
         assertEquals(listOf("c1", "s1"), sessions.map { it.id }.sorted())
         assertEquals(listOf("l1", "l2"), dao.allSetLogsOnce().map { it.id }.sorted())
-        assertEquals(listOf("s1", "c1"), dayDots(day, sessions, emptyList()).map { it?.id })
+        val date = day.toDate()
+        val rows = logRows(weekOf(date), date, sessions) { PlanItem(ItemType.REST) }.filter { it.date == date }
+        assertEquals(listOf("s1", "c1"), rows.map { it.session?.id })
+        assertEquals(listOf(DayKind.DONE, DayKind.DONE), rows.map { it.kind })
         val s1 = sessions.first { it.id == "s1" }
         assertEquals("Push", s1.programName ?: s1.exerciseName)
-        assertEquals(1, progressFor("bench", dao.allSetLogsOnce(), sessions).size)
+        assertEquals(1, liftHistory("bench", dao.allSetLogsOnce(), sessions).size)
     }
 
     @Test fun `deleting a program keeps its sessions and set logs in History`() = runBlocking {
@@ -70,6 +81,40 @@ class DeletesKeepHistoryTest {
         repo.deleteProgram("push")
         assertNull(dao.program("push"))
         assertHistoryKept()
+    }
+
+    /**
+     * Push on Mondays and Wednesdays in the template, and on last Tuesday as a one-day change; Pull on Fridays; Push
+     * also next Thursday as a one-day change. After the delete, last week still reads "1 of 4 planned done" and its
+     * Push days are "Deleted program"; from today on the Push days are rest.
+     */
+    @Test fun `deleting a program leaves last week's planned count and its past days unchanged`() = runBlocking {
+        seed()
+        val today = LocalDate.of(2026, 11, 4) // a Wednesday
+        val last = weekOf(today).minusWeeks(1) // Oct 26
+        dao.upsertWeekPlan(listOf(WeekPlan(1, ItemType.PROGRAM, "push"), WeekPlan(3, ItemType.PROGRAM, "push"), WeekPlan(5, ItemType.PROGRAM, "pull")))
+        dao.upsert(DayOverride(last.plusDays(1).iso(), ItemType.PROGRAM, "push"))
+        dao.upsert(DayOverride(today.plusDays(1).iso(), ItemType.PROGRAM, "push"))
+        dao.upsert(Session(id = "fri", date = last.plusDays(4).iso(), startedAt = 5L, finishedAt = 6L, itemType = ItemType.PROGRAM, programId = "pull", programName = "Pull"))
+        suspend fun week(monday: LocalDate) = repo.planData.first().let { p -> weekSummary(monday, today, dao.sessionsOnce(), emptyList(), { historyPlanFor(p, it, today) }) }
+        val before = week(last)
+        assertEquals(4, before.planned)
+        assertEquals(1, before.done)
+
+        repo.deleteProgram("push", today)
+
+        val after = week(last)
+        assertEquals(before.planned, after.planned)
+        assertEquals(before.done, after.done)
+        assertEquals(before.missed, after.missed)
+        val p = repo.planData.first()
+        assertEquals(listOf("Deleted program", "Deleted program", "Deleted program", "Pull"), listOf(0L, 1L, 2L, 4L).map { planName(historyPlanFor(p, last.plusDays(it), today)) })
+        // This week: Monday is past and keeps its plan; today and the Thursday change are rest now.
+        assertEquals("Deleted program", planName(historyPlanFor(p, weekOf(today), today)))
+        assertTrue(historyPlanFor(p, today, today).isRest)
+        assertTrue(historyPlanFor(p, today.plusDays(1), today).isRest)
+        assertEquals(DayOverride(today.plusDays(1).iso(), ItemType.REST, null), dao.overridesOnce().single { it.date == today.plusDays(1).iso() })
+        assertEquals(WeekPlan(1, ItemType.REST, null), dao.weekPlanOnce().single { it.weekday == 1 })
     }
 
     @Test fun `deleting a block keeps the sessions and set logs that came from it`() = runBlocking {

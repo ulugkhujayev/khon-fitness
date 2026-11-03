@@ -5,6 +5,10 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -157,10 +161,13 @@ fun Segmented(options: List<String>, selected: Int, height: androidx.compose.ui.
     }
 }
 
-/** The trailing bar action as a 34 dp accent capsule: Done, Edit, Save. Off ([enabled] false) it turns grey. */
+/** The trailing bar action as a 34 dp accent capsule on a 48 dp target: Done, Edit, Save. Off ([enabled] false) it turns grey. */
 @Composable
 fun Capsule(text: String, onClick: () -> Unit, enabled: Boolean = true) {
-    Box(Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(if (enabled) K.Accent else K.Surface2).clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = if (enabled) K.AccentInk else K.Muted, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1)
+    val press = remember { MutableInteractionSource() }
+    Box(Modifier.heightIn(min = MIN_TAP.dp).widthIn(min = MIN_TAP.dp).clickable(press, null, enabled = enabled, role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) {
+        Box(Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(if (enabled) K.Accent else K.Surface2).indication(press, LocalIndication.current).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+            Text(text, color = if (enabled) K.AccentInk else K.Muted, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1)
+        }
     }
 }

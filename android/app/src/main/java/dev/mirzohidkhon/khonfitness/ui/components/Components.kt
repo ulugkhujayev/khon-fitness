@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -101,22 +102,22 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier, trailing: (@Compos
 @Composable
 fun TextButton(text: String, color: Color = K.Accent, enabled: Boolean = true, description: String? = null, onClick: () -> Unit) {
     val spoken = if (description != null) Modifier.semantics { contentDescription = description } else Modifier
-    Box(Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(8.dp)).clickable(enabled = enabled, role = Role.Button, onClick = onClick).then(spoken).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.heightIn(min = MIN_TAP.dp).widthIn(min = MIN_TAP.dp).clip(RoundedCornerShape(8.dp)).clickable(enabled = enabled, role = Role.Button, onClick = onClick).then(spoken).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
         Text(text, color = if (enabled) color else K.Dim, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium,
             modifier = if (description != null) Modifier.clearAndSetSemantics {} else Modifier)
     }
 }
 
-/** Plus symbol as a bar or section action, 44 dp target. */
+/** Plus symbol as a bar or section action, 48 dp target. */
 @Composable
 fun PlusButton(label: String = "Add", onClick: () -> Unit) {
-    Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(MIN_TAP.dp).clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         androidx.compose.material3.Icon(dev.mirzohidkhon.khonfitness.ui.Icons.Plus, contentDescription = label, tint = K.Accent, modifier = Modifier.size(22.dp))
     }
 }
 
 /**
- * The one prominent button of a screen: a 50 dp (compact 44) full-width capsule in accent. [color] is [K.Red] for a
+ * The one prominent button of a screen: a 50 dp (compact 48) full-width capsule in accent. [color] is [K.Red] for a
  * destructive confirm; [TintedButton] passes a tint. [description] is the spoken name when the text is not enough.
  */
 @Composable
@@ -132,7 +133,7 @@ fun PrimaryButton(
 ) {
     val spoken = if (description != null) Modifier.semantics { contentDescription = description } else Modifier
     Box(
-        modifier.fillMaxWidth().height(if (compact) 44.dp else 50.dp).clip(CapsuleShape).background(if (enabled) color else K.Surface2).clickable(enabled = enabled, role = Role.Button, onClick = onClick).then(spoken),
+        modifier.fillMaxWidth().height(if (compact) MIN_TAP.dp else 50.dp).clip(CapsuleShape).background(if (enabled) color else K.Surface2).clickable(enabled = enabled, role = Role.Button, onClick = onClick).then(spoken),
         contentAlignment = Alignment.Center,
     ) { Text(text, color = if (enabled) textColor else K.Muted, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = if (description != null) Modifier.clearAndSetSemantics {} else Modifier) }
 }
@@ -227,10 +228,11 @@ fun InlineTextField(value: String, onValueChange: (String) -> Unit, placeholder:
         value = value, onValueChange = onValueChange, singleLine = singleLine,
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = K.Text, textAlign = TextAlign.End),
         cursorBrush = SolidColor(K.Accent),
-        // [label] is the field's spoken name, for a field whose visible label sits elsewhere in its row.
-        modifier = modifier.fillMaxWidth().padding(vertical = 14.dp).then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier),
+        // [label] is the field's spoken name, for a field whose visible label sits elsewhere in its row. The 14 dp above
+        // and below the text are inside the field, so a tap there focuses it too.
+        modifier = modifier.fillMaxWidth().heightIn(min = MIN_TAP.dp).then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier),
         decorationBox = { inner ->
-            Box(contentAlignment = Alignment.CenterEnd) {
+            Box(Modifier.padding(vertical = 14.dp), contentAlignment = Alignment.CenterEnd) {
                 if (value.isEmpty()) Text(placeholder, color = K.Muted, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
                 inner()
             }
@@ -336,11 +338,12 @@ fun NumberField(
             keyboardOptions = KeyboardOptions(keyboardType = if (decimals > 0) KeyboardType.Decimal else KeyboardType.Number),
             textStyle = valueStyle.copy(fontSize = valueStyle.fontSize * fit),
             cursorBrush = SolidColor(K.Accent),
-            decorationBox = { inner -> Box(contentAlignment = Alignment.CenterEnd) {
+            decorationBox = { inner -> Box(Modifier.fillMaxHeight(), contentAlignment = Alignment.CenterEnd) {
                 if (text.text.isEmpty() && placeholder != null) Text(placeholder, color = K.Muted, fontSize = 19.sp * fit, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, maxLines = 1, modifier = Modifier.fillMaxWidth())
                 inner()
             } },
-            modifier = Modifier.weight(1f).padding(start = pad.dp)
+            // The full row height, so a tap anywhere between the steps focuses the field.
+            modifier = Modifier.weight(1f).fillMaxHeight().padding(start = pad.dp)
                 .then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier)
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
                 .onFocusChanged { st ->

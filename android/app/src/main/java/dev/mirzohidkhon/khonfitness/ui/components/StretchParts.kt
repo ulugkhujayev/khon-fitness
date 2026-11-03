@@ -57,7 +57,7 @@ private val OnPhaseSoft = Color.White.copy(alpha = 0.18f)
 private val Glass = Color.Black.copy(alpha = 0.45f)
 
 /**
- * A round control on the stretch player's bar, Stop or Skip: a white symbol on white at 18 percent, readable on the
+ * A round control on the stretch player's bar, Stop, Back or Skip: a white symbol on white at 18 percent, readable on the
  * player's black and on its green, 40 dp in a 48 dp target. Off, it fades to 35 percent and does nothing.
  */
 @Composable
@@ -97,11 +97,11 @@ fun RoutineProgress(segments: List<RunSegment>, index: Int, text: String, modifi
     }
 }
 
-/** A round control over a bottom corner of the demonstration: a white symbol on black at 45 percent, 40 dp in a 44 dp target. */
+/** A round control over a bottom corner of the demonstration: a white symbol on black at 45 percent, 40 dp in a 48 dp target. */
 @Composable
 fun DemoControl(icon: ImageVector, label: String, onClick: () -> Unit) {
     Box(
-        Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = label },
+        Modifier.size(MIN_TAP.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(Glass), contentAlignment = Alignment.Center) {
@@ -155,11 +155,11 @@ fun StepTimeline(titles: List<String>, selected: Int, fill: () -> Float, onSelec
     }
 }
 
-/** A bare symbol as a row action (move up, move down, remove) on a 44 dp target; off, it turns dim and does nothing. */
+/** A bare symbol as a row action (move up, move down, remove) on a 48 dp target; off, it turns dim and does nothing. */
 @Composable
 fun SymbolButton(icon: ImageVector, label: String, color: Color = K.Accent, enabled: Boolean = true, onClick: () -> Unit) {
     Box(
-        Modifier.size(44.dp).clip(CircleShape).clickable(enabled = enabled, role = Role.Button, onClick = onClick).semantics { contentDescription = label },
+        Modifier.size(MIN_TAP.dp).clip(CircleShape).clickable(enabled = enabled, role = Role.Button, onClick = onClick).semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) { Icon(icon, contentDescription = null, tint = if (enabled) color else K.Dim, modifier = Modifier.size(20.dp)) }
 }

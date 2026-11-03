@@ -162,8 +162,8 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
             DemoFrame(figure, guide, view, frame, mirror,
                 Modifier.fillMaxWidth().height(if (compact) 208.dp else 272.dp),
                 description = "${guide.name}. ${guide.steps[selectedStep].title}. $instruction")
-            // Over the image's bottom corners, 10 dp in, like a video player's controls.
-            Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            // Over the image's bottom corners, 10 dp in (6 dp and the 48 dp target's edge), like a video player's controls.
+            Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 if (preview) DemoControl(if (playing) Icons.Pause else Icons.Play, if (playing) "Pause demo" else "Play demo") {
                     if (playing) manualFrame = playFrame else { elapsedMs = 0L; playFrame = guide.previewFrame(0) }
                     playing = !playing

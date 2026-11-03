@@ -337,7 +337,7 @@ private fun SetRow(
     Column(Modifier.fillMaxWidth().background(if (isDone) K.Green.copy(alpha = 0.05f) else androidx.compose.ui.graphics.Color.Transparent).padding(start = 10.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(44.dp).clip(CircleShape)
+                Modifier.size(MIN_TAP.dp).clip(CircleShape)
                     .toggleable(isDone, enabled = live, role = Role.Checkbox) { onToggle() }
                     .semantics { contentDescription = "$tag ${log.exerciseName}" },
                 contentAlignment = Alignment.Center,
@@ -349,9 +349,13 @@ private fun SetRow(
             Spacer(Modifier.width(8.dp))
             Text(tag, color = K.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f).then(if (live) Modifier.clickable(onClick = onSwap) else Modifier)) {
+            Column(Modifier.weight(1f).heightIn(min = MIN_TAP.dp).then(if (live) Modifier.clickable(onClick = onSwap) else Modifier), verticalArrangement = Arrangement.Center) {
                 Text(log.exerciseName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                 Text("${log.minReps}–${log.maxReps} reps", color = K.Muted, fontSize = 12.sp)
+            }
+            // The name's tap stays; the symbol shows that the exercise can be swapped.
+            if (live) Box(Modifier.size(MIN_TAP.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onSwap).semantics { contentDescription = "Swap ${log.exerciseName}" }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Swap, contentDescription = null, tint = K.Muted, modifier = Modifier.size(18.dp))
             }
             if (prev != null) Text("$prevKg × ${prev.reps ?: 0}", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
         }

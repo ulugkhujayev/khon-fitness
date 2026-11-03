@@ -31,6 +31,7 @@ object Icons {
     val Archive = icon("archivebox") { stroke("M3 4h18v4H3zM5 8v12h14V8M10 12h4") }
     val Unarchive = icon("tray.and.arrow.up") { stroke("M4 14v6h16v-6M12 15V4M8 8l4-4 4 4") }
     val Merge = icon("arrow.triangle.merge") { stroke("M6 4v4a6 6 0 0 0 6 6M18 4v4a6 6 0 0 1-6 6v6M9 17l3 3 3-3") }
+    val Swap = icon("arrow.left.arrow.right") { stroke("M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4") }
     val ArrowUp = icon("arrow.up") { stroke("M12 20V4M5 11l7-7 7 7") }
     val ArrowDown = icon("arrow.down") { stroke("M12 4v16M5 13l7 7 7-7") }
     /** What a day holds (Today's card, plan sheets): a program, cardio, rest. */
@@ -42,6 +43,7 @@ object Icons {
     /** The stretch player's round controls (Stop, Skip) and the demonstration's (Play, Pause, Change view). */
     val Close = icon("xmark") { addPath(pathData = PathParser().parsePathString("M6.5 6.5l11 11M17.5 6.5l-11 11").toNodes(), stroke = SolidColor(Color.White), strokeLineWidth = 2.4f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) }
     val SkipForward = icon("forward.end.fill") { fill("M5 5.6a1 1 0 0 1 1.5-.85l9.3 6.4a1 1 0 0 1 0 1.7l-9.3 6.4A1 1 0 0 1 5 18.4zM17.2 5.5a1.1 1.1 0 0 1 2.2 0v13a1.1 1.1 0 0 1-2.2 0z") }
+    val SkipBack = icon("backward.end.fill") { fill("M19 5.6a1 1 0 0 0-1.5-.85l-9.3 6.4a1 1 0 0 0 0 1.7l9.3 6.4A1 1 0 0 0 19 18.4zM6.8 5.5a1.1 1.1 0 0 0-2.2 0v13a1.1 1.1 0 0 0 2.2 0z") }
     val Play = icon("play.fill") { fill("M7 5.2a1 1 0 0 1 1.5-.86l11 6.8a1 1 0 0 1 0 1.72l-11 6.8A1 1 0 0 1 7 18.8z") }
     val Pause = icon("pause.fill") { fill("M6 5a1 1 0 0 1 1-1h2.6a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1zM13.4 5a1 1 0 0 1 1-1H17a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-2.6a1 1 0 0 1-1-1z") }
     val Rotate3d = icon("rotate.3d") { stroke("M12 3.5l6.5 3.7v7.6L12 18.5l-6.5-3.7V7.2z"); stroke("M5.5 7.2L12 11l6.5-3.8M12 11v7.5"); stroke("M3 17.5c2 2.2 5.3 3.5 9 3.5s7-1.3 9-3.5M19 19.6l2-2.1-2.6-.6") }

@@ -11,6 +11,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -112,15 +117,24 @@ fun TimeStepper(minute: Int, name: String, range: IntRange, elevated: Boolean = 
     }
     fun release() { stepper.release()?.let { shown = it.toInt(); onChange(it.toInt()) } }
     val text = EatingWindowRules.hhmm(shown ?: minute)
-    // 150 dp wide; a large font widens the value, which stays on one line.
-    Row(Modifier.widthIn(min = 150.dp).height(38.dp).clip(RoundedCornerShape(10.dp)).background(if (elevated) K.Surface3 else K.Surface2), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(40.dp).fillMaxHeight().repeatPress("$name 15 minutes earlier", { step(-1, true) }, { step(-1, false) }, ::release), contentAlignment = Alignment.Center) { Text("−", fontSize = 22.sp, fontWeight = FontWeight.Medium) }
+    // 166 dp wide; a large font widens the value, which stays on one line. The row is MIN_TAP tall so each step is a
+    // MIN_TAP square to the touch; the box is drawn 38 dp tall in its middle, as [NumberField] draws its own.
+    val fill = if (elevated) K.Surface3 else K.Surface2
+    Row(
+        Modifier.widthIn(min = 166.dp).height(MIN_TAP.dp).drawWithContent {
+            val inset = (size.height - 38.dp.toPx()).coerceAtLeast(0f) / 2
+            val box = Path().apply { addRoundRect(RoundRect(0f, inset, size.width, size.height - inset, CornerRadius(10.dp.toPx()))) }
+            clipPath(box) { drawRect(fill); this@drawWithContent.drawContent() }
+        },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.width(MIN_TAP.dp).fillMaxHeight().repeatPress("$name 15 minutes earlier", { step(-1, true) }, { step(-1, false) }, ::release), contentAlignment = Alignment.Center) { Text("−", fontSize = 22.sp, fontWeight = FontWeight.Medium) }
         Box(Modifier.width(1.dp).fillMaxHeight().background(K.Divider))
         Text(
             text, fontSize = 19.sp, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), textAlign = TextAlign.Center,
             maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = 68.dp).padding(horizontal = 6.dp).semantics { contentDescription = "$name $text" },
         )
         Box(Modifier.width(1.dp).fillMaxHeight().background(K.Divider))
-        Box(Modifier.width(40.dp).fillMaxHeight().repeatPress("$name 15 minutes later", { step(1, true) }, { step(1, false) }, ::release), contentAlignment = Alignment.Center) { Text("+", fontSize = 22.sp, fontWeight = FontWeight.Medium) }
+        Box(Modifier.width(MIN_TAP.dp).fillMaxHeight().repeatPress("$name 15 minutes later", { step(1, true) }, { step(1, false) }, ::release), contentAlignment = Alignment.Center) { Text("+", fontSize = 22.sp, fontWeight = FontWeight.Medium) }
     }
 }

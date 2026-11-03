@@ -233,8 +233,10 @@ fun BodyweightCard(today: LocalDate, bodyweights: List<Bodyweight>, onSave: (Dou
                     textStyle = MaterialTheme.typography.headlineMedium.copy(color = K.Text, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, fontFeatureSettings = TABULAR),
                     cursorBrush = SolidColor(K.Accent),
                     // Room for "250.0" at this font scale; a narrow row gives it less, never more than it has.
-                    modifier = Modifier.weight(1f, fill = false).width(KG_FIELD_WIDTH.dp * LocalDensity.current.fontScale).semantics { contentDescription = "Bodyweight in kilograms" }
+                    // MIN_TAP tall, the number centered in it, so a tap anywhere on the box's middle focuses it.
+                    modifier = Modifier.weight(1f, fill = false).width(KG_FIELD_WIDTH.dp * LocalDensity.current.fontScale).heightIn(min = MIN_TAP.dp).semantics { contentDescription = "Bodyweight in kilograms" }
                         .onFocusChanged { if (it.isFocused) text = text.copy(selection = TextRange(0, text.text.length)) },
+                    decorationBox = { inner -> Box(contentAlignment = Alignment.CenterEnd) { inner() } },
                 )
                 Text("kg", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = K.Muted, modifier = Modifier.padding(start = 6.dp).clearAndSetSemantics {})
             }

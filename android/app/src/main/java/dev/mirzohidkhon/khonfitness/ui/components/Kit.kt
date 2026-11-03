@@ -30,7 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -39,6 +41,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -118,7 +121,7 @@ fun GroupFooter(text: String, modifier: Modifier = Modifier, error: Boolean = fa
 
 /**
  * A secondary action that should still read as a button: the primary capsule tinted, its color as text on that
- * color at [TINT_ALPHA] and 44 dp tall, so the screen's one primary button keeps the lead. [K.Red] for a destructive one.
+ * color at [TINT_ALPHA] and 48 dp tall, so the screen's one primary button keeps the lead. [K.Red] for a destructive one.
  */
 @Composable
 fun TintedButton(text: String, modifier: Modifier = Modifier, color: Color = K.Accent, enabled: Boolean = true, description: String? = null, onClick: () -> Unit) {
@@ -152,8 +155,13 @@ fun SearchEmpty(query: String) {
 /** Search field: magnifier, the text, a clear button once there is text. [elevated] inside a sheet. */
 @Composable
 fun SearchField(value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier, elevated: Boolean = false) {
+    val fill = if (elevated) K.Elevated else K.Surface
+    // MIN_TAP tall so the clear button is a full target; the field is drawn 44 dp tall in the middle.
     Row(
-        modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(10.dp)).background(if (elevated) K.Elevated else K.Surface).padding(start = 12.dp),
+        modifier.fillMaxWidth().height(MIN_TAP.dp).drawBehind {
+            val inset = (size.height - 44.dp.toPx()).coerceAtLeast(0f) / 2
+            drawRoundRect(fill, Offset(0f, inset), Size(size.width, size.height - 2 * inset), CornerRadius(10.dp.toPx()))
+        }.padding(start = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Search, contentDescription = null, tint = K.Dim, modifier = Modifier.size(18.dp))
@@ -163,11 +171,11 @@ fun SearchField(value: String, onChange: (String) -> Unit, modifier: Modifier = 
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = K.Text),
             cursorBrush = SolidColor(K.Accent),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Search),
-            modifier = Modifier.weight(1f).semantics { contentDescription = "Search" },
-            decorationBox = { inner -> Box { if (value.isEmpty()) Text("Search", color = K.Muted, style = MaterialTheme.typography.bodyLarge); inner() } },
+            modifier = Modifier.weight(1f).fillMaxHeight().semantics { contentDescription = "Search" },
+            decorationBox = { inner -> Box(Modifier.fillMaxHeight(), contentAlignment = Alignment.CenterStart) { if (value.isEmpty()) Text("Search", color = K.Muted, style = MaterialTheme.typography.bodyLarge); inner() } },
         )
         if (value.isNotEmpty()) {
-            Box(Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button) { onChange("") }.semantics { contentDescription = "Clear search" }, contentAlignment = Alignment.Center) {
+            Box(Modifier.size(MIN_TAP.dp).clip(CircleShape).clickable(role = Role.Button) { onChange("") }.semantics { contentDescription = "Clear search" }, contentAlignment = Alignment.Center) {
                 Icon(Icons.ClearFill, contentDescription = null, tint = K.Muted, modifier = Modifier.size(18.dp))
             }
         } else Spacer(Modifier.width(12.dp))
@@ -201,16 +209,21 @@ fun ProgressBar(done: Int, total: Int, label: String, modifier: Modifier = Modif
 /**
  * An on/off setting as an editor row: its label and a switch in the app's colors. The label takes all the width the
  * switch leaves, so it does not wrap the way a [FieldRow] label column would. [enabled] off fixes it where it is.
+ * The whole row is the switch's target, 48 dp tall and full width; screen readers get one switch named [label].
  */
 @Composable
 fun ToggleRow(label: String, checked: Boolean, divider: Boolean = true, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(label, color = K.Text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = MIN_TAP.dp).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
+                .semantics { contentDescription = label }.padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(label, color = K.Text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(vertical = 10.dp).clearAndSetSemantics {})
             Spacer(Modifier.width(12.dp))
             Switch(
-                checked, onChange, enabled = enabled, modifier = Modifier.semantics { contentDescription = label },
+                checked, onCheckedChange = null, enabled = enabled,
                 colors = SwitchDefaults.colors(
                     checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3,
                     uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent,

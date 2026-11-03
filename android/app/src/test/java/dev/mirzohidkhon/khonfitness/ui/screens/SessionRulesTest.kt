@@ -114,13 +114,30 @@ class SessionRulesTest {
         val today = listOf(
             set(0, index = 0, kg = 100.0, reps = 6, exercise = "ex00", status = SetStatus.DONE), // beats 100 x 5
             set(1, index = 0, kg = 80.0, reps = 10, exercise = "ex10", status = SetStatus.DONE), // ties: no best
-            set(2, index = 0, kg = 20.0, reps = 10, exercise = "ex20", status = SetStatus.DONE), // first time: a best
+            set(2, index = 0, kg = 20.0, reps = 10, exercise = "ex20", status = SetStatus.DONE), // first counted sets: no best, as in History
             set(2, index = 1, kg = null, reps = null, exercise = "ex20", status = SetStatus.DONE), // checked by old data with no reps: not done
             set(2, index = 2, kg = 50.0, reps = 10, exercise = "ex20"), // pending: not counted
         )
         val sum = summarize(today, old + today, "s", start, start + 52 * 60_000 + 59_000)
-        assertEquals(Summary("52 min", done = 3, total = 5, volume = 600.0 + 800.0 + 200.0, bests = 2), sum)
+        assertEquals(Summary("52 min", done = 3, total = 5, volume = 600.0 + 800.0 + 200.0, bests = 1), sum)
         assertEquals("1 h 5 min", summarize(today, today, "s", start, start + 65 * 60_000).time)
+    }
+
+    @Test fun `the finish sheet's new best is History's record rule, heaviest weight first, not an estimated 1RM`() {
+        val old = set(0, kg = 62.5, reps = 6, exercise = "bench", session = "old", status = SetStatus.DONE)
+        fun bests(kg: Double, reps: Int) = summarize(listOf(set(0, kg = kg, reps = reps, exercise = "bench", status = SetStatus.DONE)), listOf(old), "s", 0L, 60_000L).bests
+        assertEquals("60 x 12 is lighter: no best (its e1RM, 84, beats 62.5 x 6's 75)", 0, bests(60.0, 12))
+        assertEquals("62.5 x 7: as heavy, more reps", 1, bests(62.5, 7))
+        assertEquals("62.5 x 6: a tie keeps the old record", 0, bests(62.5, 6))
+        // History counts the same session the same way.
+        for ((kg, reps) in listOf(60.0 to 12, 62.5 to 7, 62.5 to 6)) {
+            val today = set(0, kg = kg, reps = reps, exercise = "bench", status = SetStatus.DONE)
+            val sessions = listOf(
+                dev.mirzohidkhon.khonfitness.data.Session(id = "old", date = "2026-11-01", startedAt = 1L, finishedAt = 2L, itemType = "program"),
+                dev.mirzohidkhon.khonfitness.data.Session(id = "s", date = "2026-11-03", startedAt = 3L, finishedAt = 4L, itemType = "program"),
+            )
+            assertEquals("$kg x $reps", bests(kg, reps), recordCount("s", liftHistories(listOf(old, today), sessions)))
+        }
     }
 
     @Test fun `the progress row slides up and fades over 28 dp, the line fades in over its last 8`() {

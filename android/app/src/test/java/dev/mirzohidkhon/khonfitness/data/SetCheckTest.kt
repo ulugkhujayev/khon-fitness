@@ -88,8 +88,10 @@ class SetCheckTest {
 
     @Test fun `an old 0-rep set does not stand as the best to beat`() {
         val oldZero = log("old", 300.0, 0, status = SetStatus.DONE, session = "s0")
+        val oldDone = log("old2", 50.0, 8, status = SetStatus.DONE, session = "s0")
         val today = listOf(log("a", 60.0, 8, status = SetStatus.DONE))
-        assertEquals(1, summarize(today, today + oldZero, "s1", 0L, 60_000L).bests)
+        // 60 x 8 beats 50 x 8; the 300 kg x 0 set is no record to beat.
+        assertEquals(1, summarize(today, today + oldZero + oldDone, "s1", 0L, 60_000L).bests)
     }
 
     @Test fun `the discard line counts the checked sets`() {

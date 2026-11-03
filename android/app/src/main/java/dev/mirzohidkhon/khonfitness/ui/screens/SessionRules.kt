@@ -2,12 +2,9 @@ package dev.mirzohidkhon.khonfitness.ui.screens
 
 import dev.mirzohidkhon.khonfitness.data.SetLog
 import dev.mirzohidkhon.khonfitness.data.SetStatus
-import dev.mirzohidkhon.khonfitness.data.epley
 
 /** What the finish sheet shows, as of opening it: how long the workout took ("52 min"), sets done of total, volume, new bests. */
 data class Summary(val time: String, val done: Int, val total: Int, val volume: Double, val bests: Int)
-
-private fun e1rm(l: SetLog) = epley(l.weightKg ?: 0.0, l.reps ?: 0)
 
 /** A set that counts as done: checked with reps. A 0-rep set checked by an older version counts as not done. */
 fun countsAsDone(l: SetLog): Boolean = l.status == SetStatus.DONE && (l.reps ?: 0) > 0
@@ -31,12 +28,15 @@ fun discardBody(checked: Int): String = when (checked) {
     else -> "$checked checked sets are lost."
 }
 
-/** The finish figures. A new best is an exercise whose best e1RM today beats every earlier done set of it. */
+/**
+ * The finish figures. A new best is an exercise whose best set today [beats] its best of every other session, under
+ * History's record rule ([bestSet]); like History's PR count ([recordCount]), an exercise's first counted sets are no new best.
+ */
 fun summarize(logs: List<SetLog>, all: List<SetLog>, sessionId: String, startedAt: Long, now: Long): Summary {
     val done = logs.filter(::countsAsDone)
     val volume = done.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }
-    val before = all.filter { it.sessionId != sessionId && countsAsDone(it) }.groupBy { it.exerciseId }.mapValues { e -> e.value.maxOf(::e1rm) }
-    val bests = done.groupBy { it.exerciseId }.count { (ex, ls) -> ls.maxOf(::e1rm) > (before[ex] ?: 0.0) }
+    val before = all.filter { it.sessionId != sessionId }.groupBy { it.exerciseId }.mapValues { e -> bestSet(e.value) }
+    val bests = done.groupBy { it.exerciseId }.count { (ex, ls) -> before[ex]?.let { top -> beats(bestSet(ls), top) } ?: false }
     return Summary(workoutTime(startedAt, now), done.size, logs.size, volume, bests)
 }
 

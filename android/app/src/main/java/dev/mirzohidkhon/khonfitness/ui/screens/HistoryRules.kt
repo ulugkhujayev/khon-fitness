@@ -226,8 +226,14 @@ data class LiftSession(val session: Session, val sets: List<SetLog>, val best: S
 
 private val heavier = compareBy<SetLog>({ it.weightKg ?: 0.0 }, { it.reps ?: 0 })
 
-/** A set that counts toward a record: done, with reps. A set without weight counts as 0 kg. */
-private fun counts(l: SetLog) = l.status == SetStatus.DONE && (l.reps ?: 0) > 0
+/**
+ * The record rule, for History and the finish sheet alike: the best of [sets] is the heaviest counted set ([countsAsDone];
+ * a set without weight counts as 0 kg), then the most reps at that weight, then the earlier set. Null when none counts.
+ */
+fun bestSet(sets: List<SetLog>): SetLog? = sets.filter(::countsAsDone).reduceOrNull { b, l -> if (heavier.compare(l, b) > 0) l else b }
+
+/** Whether [best] is a record over [top], the best before it: heavier, or as heavy with more reps. A tie keeps [top]. */
+fun beats(best: SetLog?, top: SetLog?): Boolean = best != null && (top == null || heavier.compare(best, top) > 0)
 
 /**
  * Every finished session of an exercise with a saved set, oldest first. Only counted sets are record candidates: the
@@ -243,8 +249,8 @@ fun liftHistory(exerciseId: String, logs: List<SetLog>, sessions: List<Session>)
         .map { (id, sets) -> finished.getValue(id) to sets.sortedBy { it.order } }
         .sortedWith(compareBy({ it.first.date }, { it.first.startedAt }))
         .map { (s, sets) ->
-            val best = sets.filter(::counts).reduceOrNull { b, l -> if (heavier.compare(l, b) > 0) l else b }
-            val record = best != null && (top == null || heavier.compare(best, top) > 0)
+            val best = bestSet(sets)
+            val record = beats(best, top)
             if (record) top = best
             LiftSession(s, sets, best, record)
         }

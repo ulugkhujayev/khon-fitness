@@ -365,7 +365,6 @@ fun moveInOrder(ids: List<String>, id: String, delta: Int): List<String> {
 }
 
 fun SetLog.key(): String = "$exerciseId:$setIndex"
-fun epley(weight: Double, reps: Int): Double = weight * (1 + reps / 30.0)
 
 object Seed {
     /** The owner's daily mobility routine (2026-09-12) with reference clips. Seconds are per side for sided stretches. */

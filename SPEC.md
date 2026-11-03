@@ -115,7 +115,8 @@ History's Progress lists every exercise's record, newest first: five
 rows, then "All <n> exercises", a searchable list of every strength
 exercise (its record, or "No sets yet") that opens each one's detail. "New" marks a record set this week. The
 Log's "<k> PR" counts the session's exercises that set a record, not an
-exercise's first session.
+exercise's first session. The finish sheet's "New bests" uses the same rule
+and the same count.
 
 An exercise's detail (from a record row) shows the Best card ("62.5 kg × 6
 · Oct 29"), a chart "Heaviest set per session" with record points green,

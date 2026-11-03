@@ -100,7 +100,7 @@ fun PlanScreen(vm: AppViewModel, nav: NavHostController) {
         val (archivedCardio, cardio) = exercises.filter { it.kind == Kind.CARDIO }.partition { it.archived }
         @Composable fun CardioRow(e: Exercise, i: Int) {
             val type = modalities.find { it.id == e.modalityId }
-            PlanRow(e.name, cardioLine(e, plan.weekdaysOf(ItemType.CARDIO, e.id)), divider = i > 0, titleColor = if (e.archived) K.Dim else K.Text,
+            PlanRow(e.name, cardioLine(e, plan.weekdaysOf(ItemType.CARDIO, e.id)), divider = i > 0, titleColor = if (e.archived) K.Muted else K.Text,
                 leading = { TypePill(type?.name ?: "Cardio", type?.let { Color(it.color) } ?: K.Muted) }) { nav.navigate(Routes.exercise(e.id)) }
         }
         SectionTitle("Cardio workouts", Modifier.padding(top = 24.dp))
@@ -252,7 +252,7 @@ fun LibraryScreen(vm: AppViewModel, nav: NavHostController) {
             }
             if (library.archived.isNotEmpty()) GroupedList(Modifier.padding(top = if (library.groups.isEmpty()) 16.dp else 24.dp)) {
                 ArchivedRow(library.archived.size, archivedOpen) { archivedOpen = !archivedOpen }
-                if (archivedOpen) library.archived.forEach { e -> ListRow(e.name, titleColor = K.Dim) { nav.navigate(Routes.exercise(e.id)) } }
+                if (archivedOpen) library.archived.forEach { e -> ListRow(e.name, titleColor = K.Muted) { nav.navigate(Routes.exercise(e.id)) } }
             }
             if (library.groups.isEmpty() && library.archived.isEmpty()) GroupedList(Modifier.padding(top = 16.dp)) { SearchEmpty(query) }
         }
@@ -426,7 +426,7 @@ private fun Settings(vm: AppViewModel) {
         Spacer(Modifier.height(16.dp))
         PrimaryButton("Merge") { applyImport(BackupAction.MERGE) { text } }
         Spacer(Modifier.height(8.dp))
-        PrimaryButton("Replace", color = K.Red, textColor = K.Text) { applyImport(BackupAction.REPLACE) { text } }
+        PrimaryButton("Replace", color = K.Red, textColor = K.RedInk) { applyImport(BackupAction.REPLACE) { text } }
         Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) { TextButton("Cancel", color = K.Muted) { pendingImport = null } }
     } }
     if (restoreSheet) Sheet("Restore a saved copy", { restoreSheet = false }) {

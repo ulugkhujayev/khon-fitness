@@ -69,7 +69,7 @@ private fun ExerciseReview(sets: List<SetLog>) {
             Row(Modifier.fillMaxWidth().heightIn(min = 36.dp).padding(horizontal = 16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text("Set ${i + 1}", style = MaterialTheme.typography.bodyMedium, color = K.Muted, modifier = Modifier.width(56.dp))
                 val done = log.status == SetStatus.DONE
-                Text(reviewSet(log), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = if (done) K.Text else K.Dim)
+                Text(reviewSet(log), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = if (done) K.Text else K.Muted)
             }
         }
         Spacer(Modifier.height(8.dp))

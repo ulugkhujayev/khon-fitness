@@ -351,7 +351,7 @@ private fun SetRow(
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f).then(if (live) Modifier.clickable(onClick = onSwap) else Modifier)) {
                 Text(log.exerciseName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                Text("${log.minReps}–${log.maxReps} reps", color = K.Dim, fontSize = 12.sp)
+                Text("${log.minReps}–${log.maxReps} reps", color = K.Muted, fontSize = 12.sp)
             }
             if (prev != null) Text("$prevKg × ${prev.reps ?: 0}", color = K.Muted, style = MaterialTheme.typography.bodyMedium)
         }
@@ -373,7 +373,7 @@ private fun SetRow(
                 },
             )
         } else {
-            Text(if (log.status == SetStatus.SKIPPED) "skipped" else "${fmt(log.weightKg ?: 0.0, decimals)} kg × ${log.reps ?: 0} reps", color = if (log.status == SetStatus.SKIPPED) K.Dim else K.Text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 42.dp, top = 4.dp))
+            Text(if (log.status == SetStatus.SKIPPED) "skipped" else "${fmt(log.weightKg ?: 0.0, decimals)} kg × ${log.reps ?: 0} reps", color = if (log.status == SetStatus.SKIPPED) K.Muted else K.Text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 42.dp, top = 4.dp))
         }
     }
 }
@@ -390,7 +390,7 @@ private fun Delta(prev: Double?, now: Double?, decimals: Int, suffix: String = "
     // Two fields share a row on every phone width, so the field itself is compact and the unit lives here.
     val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 480
     if (prev != null && now != null && now > prev) Text("+${fmt(now - prev, decimals)}$suffix", color = K.Green, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 40.dp, top = 3.dp))
-    else if (narrow) Text(suffix.trim(), color = K.Dim, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 40.dp, top = 3.dp))
+    else if (narrow) Text(suffix.trim(), color = K.Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 40.dp, top = 3.dp))
     else Spacer(Modifier.height(0.dp))
 }
 

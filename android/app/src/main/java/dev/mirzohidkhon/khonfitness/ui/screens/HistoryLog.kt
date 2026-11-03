@@ -137,7 +137,7 @@ private fun LogRowView(
         DayKind.REST -> "Rest" to K.Muted
         DayKind.SKIPPED -> "Skipped · $name" to K.Muted
         DayKind.TODAY -> "Today: $name" to K.Text
-        DayKind.PLANNED -> "Planned: $name" to K.Dim
+        DayKind.PLANNED -> "Planned: $name" to K.Muted
     }
     val records = if (row.kind == DayKind.DONE && s != null) recordCount(s.id, histories) else 0
     val line = when (row.kind) {

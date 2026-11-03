@@ -54,7 +54,7 @@ fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modif
     val tick = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     val valueStyle = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     val lastStyle = TextStyle(fontFamily = Inter, color = K.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-    val emptyStyle = TextStyle(fontFamily = Inter, color = K.Dim, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    val emptyStyle = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     Canvas(modifier.fillMaxWidth().height(CHART_HEIGHT.dp)) {
         if (points.isEmpty()) {
             val t = measurer.measure("No data yet", emptyStyle)

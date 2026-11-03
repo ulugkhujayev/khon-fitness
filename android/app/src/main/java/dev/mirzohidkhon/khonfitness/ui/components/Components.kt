@@ -231,7 +231,7 @@ fun InlineTextField(value: String, onValueChange: (String) -> Unit, placeholder:
         modifier = modifier.fillMaxWidth().padding(vertical = 14.dp).then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier),
         decorationBox = { inner ->
             Box(contentAlignment = Alignment.CenterEnd) {
-                if (value.isEmpty()) Text(placeholder, color = K.Dim, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+                if (value.isEmpty()) Text(placeholder, color = K.Muted, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
                 inner()
             }
         },
@@ -337,7 +337,7 @@ fun NumberField(
             textStyle = valueStyle.copy(fontSize = valueStyle.fontSize * fit),
             cursorBrush = SolidColor(K.Accent),
             decorationBox = { inner -> Box(contentAlignment = Alignment.CenterEnd) {
-                if (text.text.isEmpty() && placeholder != null) Text(placeholder, color = K.Dim, fontSize = 19.sp * fit, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, maxLines = 1, modifier = Modifier.fillMaxWidth())
+                if (text.text.isEmpty() && placeholder != null) Text(placeholder, color = K.Muted, fontSize = 19.sp * fit, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, maxLines = 1, modifier = Modifier.fillMaxWidth())
                 inner()
             } },
             modifier = Modifier.weight(1f).padding(start = pad.dp)

@@ -50,7 +50,7 @@ fun LiftListScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Cloc
                 list.forEachIndexed { i, e ->
                     // An archived exercise reads dim and says so, as in the library.
                     val secondary = listOfNotNull(if (e.archived) "Archived" else null, e.record?.let { setText(it.best) } ?: "No sets yet").joinToString(" · ")
-                    ListRow(e.name, secondary = secondary, divider = i > 0, titleColor = if (e.archived) K.Dim else K.Text) { nav.navigate(Routes.exerciseDetail(e.exerciseId)) }
+                    ListRow(e.name, secondary = secondary, divider = i > 0, titleColor = if (e.archived) K.Muted else K.Text) { nav.navigate(Routes.exerciseDetail(e.exerciseId)) }
                 }
                 if (list.isEmpty()) SearchEmpty(query)
             }
@@ -105,7 +105,7 @@ fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
                             if (k > 0) append(" · ")
                             when {
                                 h.record && l === h.best -> withStyle(SpanStyle(color = K.Green, fontWeight = FontWeight.SemiBold)) { append(shortSet(l)) }
-                                l.status == SetStatus.SKIPPED -> withStyle(SpanStyle(color = K.Dim)) { append(shortSet(l)) }
+                                l.status == SetStatus.SKIPPED -> withStyle(SpanStyle(color = K.Muted)) { append(shortSet(l)) }
                                 else -> append(shortSet(l))
                             }
                         }

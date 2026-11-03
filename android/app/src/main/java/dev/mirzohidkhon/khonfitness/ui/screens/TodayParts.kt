@@ -42,6 +42,7 @@ import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
+import dev.mirzohidkhon.khonfitness.ui.theme.TINT_ALPHA
 import java.time.LocalDate
 
 /** A day as a tile on the group surface: the month calendar on History (DESIGN.md, Today). */
@@ -102,7 +103,7 @@ fun TodayCard(
                 }
                 if (timerStopped) Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     PrimaryButton("Save", Modifier.weight(1f)) { onResume(unfinished) }
-                    PrimaryButton("Discard", Modifier.weight(1f), color = K.Red.copy(alpha = 0.2f), textColor = K.Red) { onDiscard(unfinished) }
+                    PrimaryButton("Discard", Modifier.weight(1f), color = K.Red.copy(alpha = TINT_ALPHA), textColor = K.Red) { onDiscard(unfinished) }
                 } else PrimaryButton("Resume", Modifier.padding(top = 14.dp)) { onResume(unfinished) }
             }
             done != null && doneText != null -> {

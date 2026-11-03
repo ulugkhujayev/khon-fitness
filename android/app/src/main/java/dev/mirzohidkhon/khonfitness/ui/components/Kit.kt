@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.theme.K
+import dev.mirzohidkhon.khonfitness.ui.theme.TINT_ALPHA
 
 /** A white symbol on a rounded square of its color, leading a list row like iOS Settings. Decorative: the row names it. */
 @Composable
@@ -117,11 +118,11 @@ fun GroupFooter(text: String, modifier: Modifier = Modifier, error: Boolean = fa
 
 /**
  * A secondary action that should still read as a button: the primary capsule tinted, its color as text on that
- * color at 20 percent and 44 dp tall, so the screen's one primary button keeps the lead. [K.Red] for a destructive one.
+ * color at [TINT_ALPHA] and 44 dp tall, so the screen's one primary button keeps the lead. [K.Red] for a destructive one.
  */
 @Composable
 fun TintedButton(text: String, modifier: Modifier = Modifier, color: Color = K.Accent, enabled: Boolean = true, description: String? = null, onClick: () -> Unit) {
-    PrimaryButton(text, modifier, enabled = enabled, color = color.copy(alpha = 0.2f), textColor = color, compact = true, description = description, onClick = onClick)
+    PrimaryButton(text, modifier, enabled = enabled, color = color.copy(alpha = TINT_ALPHA), textColor = color, compact = true, description = description, onClick = onClick)
 }
 
 /**
@@ -163,7 +164,7 @@ fun SearchField(value: String, onChange: (String) -> Unit, modifier: Modifier = 
             cursorBrush = SolidColor(K.Accent),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Search),
             modifier = Modifier.weight(1f).semantics { contentDescription = "Search" },
-            decorationBox = { inner -> Box { if (value.isEmpty()) Text("Search", color = K.Dim, style = MaterialTheme.typography.bodyLarge); inner() } },
+            decorationBox = { inner -> Box { if (value.isEmpty()) Text("Search", color = K.Muted, style = MaterialTheme.typography.bodyLarge); inner() } },
         )
         if (value.isNotEmpty()) {
             Box(Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button) { onChange("") }.semantics { contentDescription = "Clear search" }, contentAlignment = Alignment.Center) {

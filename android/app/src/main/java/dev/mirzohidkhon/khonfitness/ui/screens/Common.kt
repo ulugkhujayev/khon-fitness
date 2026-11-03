@@ -171,7 +171,7 @@ fun DateRow(date: java.time.LocalDate, divider: Boolean = true, onChange: (java.
 fun ConfirmSheet(title: String, body: String, action: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     Sheet(title, onDismiss) {
         if (body.isNotEmpty()) Text(body, color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 16.dp))
-        PrimaryButton(action, color = K.Red, textColor = K.Text, onClick = onConfirm)
+        PrimaryButton(action, color = K.Red, textColor = K.RedInk, onClick = onConfirm)
         Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) { TextButton("Cancel", color = K.Muted) { onDismiss() } }
     }
 }

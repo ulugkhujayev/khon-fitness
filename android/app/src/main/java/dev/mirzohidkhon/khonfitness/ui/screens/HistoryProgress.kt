@@ -168,7 +168,7 @@ private fun MuscleRows(volume: List<MuscleVolume>) {
     Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp).clearAndSetSemantics { contentDescription = "Accent bar this week, gray bar last week. Secondary muscles count half." }, verticalAlignment = Alignment.CenterVertically) {
         Legend(K.Accent, "This week"); Spacer(Modifier.width(14.dp)); Legend(K.Surface3, "Last week")
     }
-    Text("Secondary muscles count half.", fontSize = 11.sp, color = K.Dim, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp).clearAndSetSemantics {})
+    Text("Secondary muscles count half.", fontSize = 11.sp, color = K.Muted, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp).clearAndSetSemantics {})
     val shares = volumeShares(volume)
     // A large font gets a wider name column and two lines, so "Upper back" stays whole.
     val largeText = androidx.compose.ui.platform.LocalConfiguration.current.fontScale >= 1.5f
@@ -225,7 +225,7 @@ private fun CardioTypeRow(t: CardioType, name: String, color: Color, divider: Bo
                 Text(name, style = MaterialTheme.typography.bodyLarge)
                 Text(line, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp))
                 if (dist.isNotEmpty()) {
-                    Text("Distance per session", fontSize = 11.sp, color = K.Dim, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+                    Text("Distance per session", fontSize = 11.sp, color = K.Muted, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
                     Sparkline(dist.map { it.second }, color, Modifier.fillMaxWidth().height(28.dp))
                     Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
                         Text("${fmt(dist.first().second, 1)} km · ${monthDay(dist.first().first)}", fontSize = 11.sp, color = K.Muted, modifier = Modifier.weight(1f))

@@ -18,8 +18,15 @@ padded cards, per-item buttons, "Updated" lines.
   for numbers.
 - Dark appearance semantic colors: background #000000, group surface
   #1C1C1E, fill inside a group #2C2C2E, separator #38383A, label white,
-  secondary label #8E8E93, tertiary #636366. Accent systemOrange #FF9F0A,
-  green #30D158, blue #0A84FF, red #FF453A. Label on an accent fill is white.
+  secondary label and placeholders #AEAEB2 (Apple's increased-contrast
+  gray), tertiary #636366 for chevrons, the grabber, dots and off controls
+  only, never for text. Accent systemOrange #FF9F0A, green #30D158, blue
+  #0A84FF, red #FF6961 (increased contrast). Text and symbols on an
+  accent, green or red fill are black.
+- Contrast: every text color on every fill it sits on reads at 4.5:1 or
+  more (3:1 for 18 sp bold and up), placeholders included. `TextPairs` in
+  `Theme.kt` lists the pairs and `ContrastTest` checks them. Off controls
+  are exempt.
 - Navigation bar: 56 pt, a round 36 pt Back button with a chevron and no
   text on a 48 pt target (the same round button sits in a tab's large
   title, reaching 2 pt past its 44 pt row), the title centered in Headline between two equal 88 pt sides, the
@@ -47,7 +54,7 @@ padded cards, per-item buttons, "Updated" lines.
   Footnote in secondary label, sentence case, inset 16 pt. Field labels in
   editors are Body in label color, values on the right.
 - Buttons: one prominent button per screen, a 50 pt full-width capsule in
-  accent with white 17 semibold text. Other actions are plain accent text,
+  accent with black 17 semibold text. Other actions are plain accent text,
   tinted capsules or action rows (see Buttons and Editors). Destructive is
   red.
 - Sheets: top radius 24, a 36x5 grabber in tertiary label, the sheet on
@@ -133,7 +140,7 @@ padded cards, per-item buttons, "Updated" lines.
 - The Exercises list: search, then strength exercises under muscle
   section titles in alphabetical order, then one "Archived (n)" row,
   closed at first, whose chevron turns down when a tap opens the archived
-  exercises in dim text under it. No kind switch and no muscle filter.
+  exercises in muted text under it. No kind switch and no muscle filter.
 - The week plan's section title sums up the template ("5 training days ·
   2 rest days", "1 training day" in the singular). Each weekday leads
   with a tile of what it holds in its color (a dumbbell for a program, a
@@ -239,11 +246,11 @@ padded cards, per-item buttons, "Updated" lines.
 ## Buttons
 
 - One primary button per screen at most: 50 px tall, full width, accent
-  fill, white text. Start, Finish, Done.
+  fill, black text. Start, Finish, Done.
 - All other actions are text buttons, 44 px tap height, no fill, no
   border. Exception: an action that must read as a button without
   competing with the primary one is a 44 px tinted capsule, its color as
-  text on that color at 20 percent (accent; red for a destructive one).
+  text on that color at 16 percent (accent; red for a destructive one).
   A session's Discard workout or Delete session is that capsule in red,
   full width at the end of the page.
 - Icon buttons only in the top bar or the set-row check. Never floating
@@ -322,7 +329,7 @@ Two lines, 88 px total, hairline between rows.
 - Review from Today opens the saved session read-only (a back button, no
   Edit, no Delete): the date 17/600 over the stats line in muted, then
   one group per exercise with "Set 1  80 kg × 10" rows, a set not done
-  reading "skipped" in dim; cardio shows its values as label/value rows.
+  reading "skipped" in muted; cardio shows its values as label/value rows.
   History's entry keeps Edit.
 - 16 px gap. One group of 64 px rows sized for the home screen: the
   symbol in a 40 px circle of its color like the item card's, the name
@@ -365,14 +372,14 @@ Two lines, 88 px total, hairline between rows.
   number 15/600, accent today), a 10 px dot (filled in the session's
   color; ring for rest, green once stretched or weighed; ring in the item
   color for today's open item; Surface3 for skipped, Surface2 for later),
-  the title 17 (muted for rest and skipped, dim for planned) over a muted
+  the title 17 (muted for rest, skipped and planned) over a muted
   13 line, "<k> PR" in green 600, a chevron on rows that open. Stretch
   runs add one muted 13 line each under the day's last row. Today's
   row is tinted with the accent at 12 percent.
 - History Progress: section titles in muted 13 over grouped lists.
   Record rows: name over the date (and a green "New" chip), "62.5 kg × 6"
   bold on the right. Sets per muscle: a legend (8 px swatches), "Secondary
-  muscles count half." in dim 11, then per muscle the name (88 px, 112 at
+  muscles count half." in muted 11, then per muscle the name (88 px, 112 at
   large text), two 6 px bars (this week accent over last week Surface3,
   shares of the biggest count of either week) and "8 / 6" muted in a
   60 px column (96 at large text). Bodyweight: range chips 1M / 3M / All
@@ -417,7 +424,7 @@ Two lines, 88 px total, hairline between rows.
   bottom corners, 10 px in, a white symbol on black at 45 percent, like a
   video player's. The steps are a timeline: 26 px numbered nodes on a
   3 px line, each title under its node in footnote muted. Nodes before
-  the shown step are accent with white numbers, the shown one also sits
+  the shown step are accent with black numbers, the shown one also sits
   in a 34 px accent-tinted halo with its title white and semibold, later
   ones are Surface3 with muted numbers. The line runs between the first
   and the last node in Surface2 and fills in accent as far as the demo

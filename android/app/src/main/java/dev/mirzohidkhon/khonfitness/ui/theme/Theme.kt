@@ -6,6 +6,8 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -30,26 +32,75 @@ object K {
     val Divider = Color(0xFF38383A)
     /** label. */
     val Text = Color(0xFFFFFFFF)
-    /** secondaryLabel: EBEBF5 at 60 percent over black. */
-    val Muted = Color(0xFF8E8E93)
-    /** tertiaryLabel: EBEBF5 at 30 percent over black. */
+    /**
+     * Secondary label and placeholder text: Apple's increased-contrast systemGray, so it reads at 4.5:1 or more on
+     * every fill it sits on, the elevated field fill #3A3A3C included ([TextPairs]).
+     */
+    val Muted = Color(0xFFAEAEB2)
+    /** systemGray2: chevrons, the grabber, decorative dots and off controls. Never readable text (2.8:1 on [Surface]). */
     val Dim = Color(0xFF636366)
     /** systemOrange, the app accent. */
     val Accent = Color(0xFFFF9F0A)
-    /** Label on an accent fill. Apple uses white on prominent buttons. */
-    val AccentInk = Color(0xFFFFFFFF)
+    /** Text and symbols on an accent fill: dark ink, 10:1 (white on orange is 2.1:1). */
+    val AccentInk = Color(0xFF000000)
     val AccentSoft = Color(0x33FF9F0A)
     /** systemGreen. */
     val Green = Color(0xFF30D158)
-    val GreenInk = Color(0xFFFFFFFF)
+    /** Text and symbols on a green fill (the done check). */
+    val GreenInk = Color(0xFF000000)
     /** systemBlue. */
     val Blue = Color(0xFF0A84FF)
-    /** systemRed. */
-    val Red = Color(0xFFFF453A)
+    /** systemRed, increased contrast: red text reads at 4.5:1 on the elevated fill and on its own tint. */
+    val Red = Color(0xFFFF6961)
+    /** Text on a red fill (a destructive confirm). */
+    val RedInk = Color(0xFF000000)
     /** Elevated group surface for sheets. */
     val Elevated = Color(0xFF2C2C2E)
     /** 1 dp edge of the floating tab bar: white at 6 percent. */
     val Hairline = Color(0x0FFFFFFF)
+}
+
+/** The share of its color a tinted fill takes ([dev.mirzohidkhon.khonfitness.ui.components.TintedButton]): its text stays at 4.5:1 on it. */
+const val TINT_ALPHA = 0.16f
+
+/** A [fg] text color on a [bg] fill, as the app uses it. [large] is 18 sp and up, bold, which needs only 3:1. */
+data class TextPair(val name: String, val fg: Color, val bg: Color, val large: Boolean = false)
+
+/** [fg] at [TINT_ALPHA] over [under]: the fill of a tinted button. */
+fun tinted(fg: Color, under: Color): Color = fg.copy(alpha = TINT_ALPHA).compositeOver(under)
+
+/**
+ * Every token pair the app uses for readable text. ContrastTest holds each to WCAG AA: 4.5:1, 3:1 for large text.
+ * Off controls ([K.Dim] text) are left out, as WCAG 1.4.3 exempts inactive controls. [K.Elevated] equals [K.Surface2].
+ */
+val TextPairs: List<TextPair> = buildList {
+    for ((n, bg) in listOf("Bg" to K.Bg, "Surface" to K.Surface, "Surface2" to K.Surface2)) {
+        add(TextPair("Text on $n", K.Text, bg))
+        add(TextPair("Muted on $n", K.Muted, bg))
+        add(TextPair("Accent on $n", K.Accent, bg))
+        add(TextPair("Green on $n", K.Green, bg))
+        add(TextPair("Red on $n", K.Red, bg))
+    }
+    // The selected segment, a selected chip, and the elevated number field's unit and placeholder.
+    add(TextPair("Text on Surface3", K.Text, K.Surface3))
+    add(TextPair("Muted on Surface3", K.Muted, K.Surface3))
+    // Ink on a fill: Start, Save, Done, Done set check, stretch steps, the picked date, a destructive confirm.
+    add(TextPair("AccentInk on Accent", K.AccentInk, K.Accent))
+    add(TextPair("GreenInk on Green", K.GreenInk, K.Green))
+    add(TextPair("RedInk on Red", K.RedInk, K.Red))
+    // Index badges and today's cell on the soft accent; tinted buttons on the page and on a card or sheet.
+    add(TextPair("Accent on AccentSoft over Bg", K.Accent, K.AccentSoft.compositeOver(K.Bg)))
+    add(TextPair("Accent on AccentSoft over Surface", K.Accent, K.AccentSoft.compositeOver(K.Surface)))
+    for ((n, under) in listOf("Bg" to K.Bg, "Surface" to K.Surface)) {
+        add(TextPair("Accent on its tint over $n", K.Accent, tinted(K.Accent, under)))
+        add(TextPair("Red on its tint over $n", K.Red, tinted(K.Red, under)))
+    }
+}
+
+/** WCAG 2.1 contrast ratio of two opaque colors, 1 to 21. */
+fun contrast(a: Color, b: Color): Double {
+    val (lo, hi) = listOf(a.luminance().toDouble(), b.luminance().toDouble()).sorted()
+    return (hi + 0.05) / (lo + 0.05)
 }
 
 /** Motion shared across the app. */

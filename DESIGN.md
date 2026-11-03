@@ -262,11 +262,6 @@ Two lines, 88 px total, hairline between rows.
   strength), filled for high intensity, ring for low or moderate, none
   for rest. Past days: number muted, dot at 50 percent. Today's tile is
   filled in accent, letter, number and dot in white, the number bold.
-  History's month calendar draws its days as the same tiles (weekday
-  letters stay in a row above, 52 px rows, 64 at large text): the number
-  over its dots, the selected day on Surface3, other months' days with
-  no tile and a dim number, the changed-plan mark (5 px, muted) in the
-  tile's top right corner; on today's tile every mark is white.
 - 16 px gap. The item on a group-surface card (16 px padding at the
   sides, 14 top and bottom): a 40 px circle with the kind's symbol in
   its color on that color at 20 percent (dumbbell in accent, a runner in
@@ -303,11 +298,36 @@ Two lines, 88 px total, hairline between rows.
   The ruler starts at the latest entry, 70 kg before the first. One owner
   at a time: a typed value, a screen reader adjust or a reset stops a
   fling and moves the ruler to it, and the fling never writes over it.
-- History's sets per muscle: one row per muscle, the name with this
-  week's count bold and "last 3" in muted 13, then a 6 px track filled in
-  accent to this week's sets with a 2 x 14 px white mark where last
-  week's ended, both as shares of the biggest count of either week.
-- History's title bar carries Import as a round symbol button.
+- History's title bar carries Import as a round symbol button. Under it
+  a segmented Log / Progress, 54 px tall so each segment is a 48 px
+  target; it scrolls with the page.
+- History Log: the week title 17/600 centered between 48 px chevron
+  buttons (accent, Surface3 at the first or last week). The week card on
+  the group surface (16 px padding): "<done> of <planned> planned done"
+  17/600 with the tail muted on the right, a 7-part bar (6 px tall, 4 px
+  gaps, radius 3), the totals in muted 13 with tabular figures. Day rows
+  are at least 56 px: a 40 px day column (weekday 12 muted over the day
+  number 15/600, accent today), a 10 px dot (filled in the session's
+  color; ring for rest, green once stretched or weighed; ring in the item
+  color for today's open item; Surface3 for skipped, Surface2 for later),
+  the title 17 (muted for rest and skipped, dim for planned) over a muted
+  13 line, "<k> PR" in green 600, a chevron on rows that open. Today's
+  row is tinted with the accent at 12 percent.
+- History Progress: section titles in muted 13 over grouped lists.
+  Record rows: name over the date (and a green "New" chip), "62.5 kg × 6"
+  bold on the right. Sets per muscle: a legend (8 px swatches), "Secondary
+  muscles count half." in dim 11, then per muscle the name (88 px, 112 at
+  large text), two 6 px bars (this week accent over last week Surface3,
+  shares of the biggest count of either week) and "8 / 6" muted in a
+  60 px column (96 at large text). Bodyweight: range chips 1M / 3M / All
+  (48 px targets, the selected one on Surface3), a card with the latest
+  value 24/700 and the change in green (muted when up), the chart under
+  it. Cardio rows: dot, type, the muted line, "Distance per session" dim
+  11 over a 28 px sparkline in the type color with the first and last
+  value and date in muted 11. A chip is 11/600 on its color at 18 percent.
+- Detail screens (exercise, cardio type) use the editor bar with Back.
+  Session rows: the date 15/500 (a green "PR" chip) over the sets or the
+  stat line in muted 15. Record points on a chart are green.
 
 ## Stretch player
 

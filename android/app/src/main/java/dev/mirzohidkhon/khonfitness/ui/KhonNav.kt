@@ -71,6 +71,10 @@ object Routes {
     fun stretch(routineId: String) = "stretch/$routineId"
     fun routine(id: String) = "routine/$id"
     fun stretchEditor(id: String) = "stretcheditor/$id"
+    /** An exercise's records and sessions (History, Progress). */
+    fun exerciseDetail(id: String) = "lift/$id"
+    /** A cardio type's charts and sessions (History, Progress). */
+    fun cardioType(id: String) = "cardiotype/$id"
     const val ROUTINES = "routines"; const val STRETCHES = "stretches"
     const val IMPORT = "import"
     const val LIBRARY = "library"; const val MODALITIES = "modalities"; const val WEEK_PLAN = "weekplan"; const val SETTINGS = "settings"
@@ -119,6 +123,8 @@ fun KhonNav() {
                 composable("stretch/{id}") { e -> StretchScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("routine/{id}") { e -> RoutineEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "new") }
+                composable("lift/{id}") { e -> ExerciseDetailScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+                composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable(Routes.ROUTINES) { RoutinesScreen(vm, nav) }
                 composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
                 composable(Routes.IMPORT) { ImportScreen(vm, nav) }

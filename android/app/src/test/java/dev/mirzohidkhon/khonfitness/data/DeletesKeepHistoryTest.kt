@@ -3,8 +3,10 @@ package dev.mirzohidkhon.khonfitness.data
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import dev.mirzohidkhon.khonfitness.ui.screens.dayDots
-import dev.mirzohidkhon.khonfitness.ui.screens.progressFor
+import dev.mirzohidkhon.khonfitness.ui.screens.DayKind
+import dev.mirzohidkhon.khonfitness.ui.screens.liftHistory
+import dev.mirzohidkhon.khonfitness.ui.screens.logRows
+import dev.mirzohidkhon.khonfitness.ui.screens.weekOf
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -18,7 +20,7 @@ import org.robolectric.annotation.Config
 
 /**
  * Deleting an exercise, a block or a program against a real in-memory database: the sessions and set logs that point
- * at them stay, and History still shows them (the day's dot, the row title, the exercise's progress).
+ * at them stay, and History still shows them (the day's Log rows, the row title, the exercise's records).
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -59,10 +61,13 @@ class DeletesKeepHistoryTest {
         val sessions = dao.sessionsOnce()
         assertEquals(listOf("c1", "s1"), sessions.map { it.id }.sorted())
         assertEquals(listOf("l1", "l2"), dao.allSetLogsOnce().map { it.id }.sorted())
-        assertEquals(listOf("s1", "c1"), dayDots(day, sessions, emptyList()).map { it?.id })
+        val date = day.toDate()
+        val rows = logRows(weekOf(date), date, sessions) { PlanItem(ItemType.REST) }.filter { it.date == date }
+        assertEquals(listOf("s1", "c1"), rows.map { it.session?.id })
+        assertEquals(listOf(DayKind.DONE, DayKind.DONE), rows.map { it.kind })
         val s1 = sessions.first { it.id == "s1" }
         assertEquals("Push", s1.programName ?: s1.exerciseName)
-        assertEquals(1, progressFor("bench", dao.allSetLogsOnce(), sessions).size)
+        assertEquals(1, liftHistory("bench", dao.allSetLogsOnce(), sessions).size)
     }
 
     @Test fun `deleting a program keeps its sessions and set logs in History`() = runBlocking {

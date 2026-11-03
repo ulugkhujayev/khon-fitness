@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -64,11 +65,10 @@ private val TAB_CONTENT_BOTTOM = 24.dp
 
 /**
  * A tab screen: the large title with its bar items stays at the top and folds as the content scrolls under it
- * ([LargeTitleHeader]); the content scrolls with 16 dp margins.
+ * ([LargeTitleHeader]); the content scrolls with 16 dp margins. A screen with pages passes each page's own [scroll].
  */
 @Composable
-fun TabScreen(title: String, trailing: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
-    val scroll = rememberScrollState()
+fun TabScreen(title: String, trailing: (@Composable () -> Unit)? = null, scroll: ScrollState = rememberScrollState(), content: @Composable ColumnScope.() -> Unit) {
     // The row is a tap target tall, or as tall as the title's line at a large font scale.
     val row = with(LocalDensity.current) { max(44.dp, 41.sp.toDp()).value }
     val geometry = remember(row) { LargeTitleFold(row) }
@@ -134,14 +134,15 @@ fun SlidingCapsuleRow(count: Int, selected: Int, shape: Shape, color: Color, mod
 
 /**
  * Fixed-width segmented control: every option gets an equal share, nothing scrolls. The selected segment's
- * capsule slides to the option tapped, with a light haptic click, like the tab bar's.
+ * capsule slides to the option tapped, with a light haptic click, like the tab bar's. [height] 48 dp makes each
+ * segment a full tap target.
  */
 @Composable
-fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+fun Segmented(options: List<String>, selected: Int, height: androidx.compose.ui.unit.Dp = 36.dp, onSelect: (Int) -> Unit) {
     val tick = rememberTick()
     SlidingCapsuleRow(
         options.size, selected, RoundedCornerShape(8.dp), K.Surface3,
-        Modifier.fillMaxWidth().height(36.dp).clip(RoundedCornerShape(10.dp)).background(K.Surface).padding(3.dp),
+        Modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(10.dp)).background(K.Surface).padding(3.dp),
     ) {
         options.forEachIndexed { i, label ->
             val active = i == selected

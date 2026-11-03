@@ -1,0 +1,153 @@
+package dev.mirzohidkhon.khonfitness.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
+import dev.mirzohidkhon.khonfitness.data.*
+import dev.mirzohidkhon.khonfitness.ui.AppViewModel
+import dev.mirzohidkhon.khonfitness.ui.components.*
+import dev.mirzohidkhon.khonfitness.ui.theme.K
+
+/**
+ * One exercise's progress: the Best card with the heaviest set per session (records green), then every session
+ * newest first with its sets (the record set green), each opening the session. An exercise without sets shows its
+ * muscle and "No sets yet".
+ */
+@Composable
+fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: String) {
+    val exercises by vm.exercises.collectAsStateWithLifecycle()
+    val logs by vm.allSetLogs.collectAsStateWithLifecycle()
+    val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val history = remember(logs, sessions, exerciseId) { liftHistory(exerciseId, logs, sessions) }
+    val ex = exercises.find { it.id == exerciseId }
+    val name = ex?.name ?: logs.firstOrNull { it.exerciseId == exerciseId }?.exerciseName ?: "Exercise"
+    val scroll = rememberScrollState()
+    Column(Modifier.fillMaxSize()) {
+        EditorTopBar("Back", name, onBack = { nav.popBackStack() }, scrollPx = { scroll.value })
+        Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+            val muscles = ex?.let { listOfNotNull(it.primaryMuscle) + it.secondaryList }.orEmpty().joinToString(", ") { it.replaceFirstChar(Char::uppercase) }
+            if (muscles.isNotEmpty()) Text(muscles, style = MaterialTheme.typography.bodyMedium, color = K.Muted, modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
+            if (history.isEmpty()) {
+                GroupedList { EmptyLine("No sets yet") }
+                return@Column
+            }
+            val record = history.last { it.record }
+            Column(Modifier.fillMaxWidth().clip(GroupShape).background(K.Surface).padding(16.dp, 14.dp, 16.dp, 12.dp)) {
+                Text("Best", style = MaterialTheme.typography.bodySmall, color = K.Muted)
+                Text(
+                    buildAnnotatedString {
+                        append(setText(record.best))
+                        withStyle(SpanStyle(color = K.Muted, fontWeight = FontWeight.Medium, fontSize = 16.sp)) { append(" · ${monthDay(record.session.date.toDate())}") }
+                    },
+                    fontSize = 24.sp, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR),
+                )
+                Text("Heaviest set per session", style = MaterialTheme.typography.bodySmall, color = K.Muted, modifier = Modifier.padding(top = 12.dp))
+                LineChart(history.map { ChartPoint(it.session.date.toDate(), it.best.weightKg ?: 0.0, mark = it.record) }, "kg")
+            }
+            SectionTitle("Sessions · newest first", Modifier.padding(top = 24.dp))
+            GroupedList {
+                history.asReversed().forEachIndexed { i, h ->
+                    val first = h === history.first()
+                    val sets = buildAnnotatedString {
+                        h.sets.forEachIndexed { k, l ->
+                            if (k > 0) append(" · ")
+                            if (h.record && l === h.best) withStyle(SpanStyle(color = K.Green, fontWeight = FontWeight.SemiBold)) { append(shortSet(l)) } else append(shortSet(l))
+                        }
+                    }
+                    SessionRow(h.session.date.toDate().format(shortDate), sets, chip = if (h.record && !first) "PR" else null, divider = i > 0) { openSession(nav, h.session) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One cardio type over all time: the charts the old History showed per cardio exercise (pace, average heart rate,
+ * heart rate in work intervals, else time), then every session newest first. Swim pace is per 100 m.
+ */
+@Composable
+fun CardioTypeScreen(vm: AppViewModel, nav: NavHostController, typeId: String) {
+    val exercises by vm.exercises.collectAsStateWithLifecycle()
+    val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val modalities by vm.modalities.collectAsStateWithLifecycle()
+    val intervalLogs by vm.allIntervalLogs.collectAsStateWithLifecycle()
+    val type = typeId.takeIf { it != NO_TYPE } ?: ""
+    val byId = exercises.associateBy { it.id }
+    val cs = sessions.filter { it.finished && it.itemType == ItemType.CARDIO && (byId[it.exerciseId]?.modalityId ?: "") == type }
+        .sortedWith(compareBy({ it.date }, { it.startedAt }))
+    val swim = type == "swim"
+    val scroll = rememberScrollState()
+    Column(Modifier.fillMaxSize()) {
+        EditorTopBar("Back", modalities.find { it.id == type }?.name ?: "Other", onBack = { nav.popBackStack() }, scrollPx = { scroll.value })
+        Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+            if (cs.isEmpty()) { GroupedList { EmptyLine("No sessions yet") }; return@Column }
+            val pace = cs.mapNotNull { s ->
+                val dist = meters(s); val t = s.timeSec
+                if (dist == null || dist <= 0 || t == null || t <= 0) null else ChartPoint(s.date.toDate(), t / (dist / if (swim) 100.0 else 1000.0) / 60.0)
+            }
+            if (pace.isNotEmpty()) {
+                ChartTitle("Pace ${if (swim) "/100 m" else "/km"}")
+                LineChart(pace, "", format = { m -> val sec = Math.round(m * 60); "%d:%02d".format(sec / 60, sec % 60) })
+            }
+            val hr = cs.mapNotNull { s -> s.avgHr?.let { ChartPoint(s.date.toDate(), it.toDouble()) } }
+            if (hr.isNotEmpty()) { ChartTitle("Average heart rate"); LineChart(hr, "bpm", decimals = 0) }
+            val work = cs.filter { byId[it.exerciseId]?.intervals == true }.mapNotNull { s ->
+                intervalLogs.filter { it.sessionId == s.id && it.avgHr != null }.map { it.avgHr!! }.takeIf { it.isNotEmpty() }?.let { ChartPoint(s.date.toDate(), it.average()) }
+            }
+            if (work.isNotEmpty()) { ChartTitle("Heart rate in work intervals"); LineChart(work, "bpm", decimals = 0) }
+            val time = cs.mapNotNull { s -> s.timeSec?.let { ChartPoint(s.date.toDate(), it / 60.0) } }
+            if (pace.isEmpty() && hr.isEmpty() && time.isNotEmpty()) { ChartTitle("Time, min"); LineChart(time, "min", decimals = 0) }
+            SectionTitle("Sessions · newest first", Modifier.padding(top = 24.dp))
+            GroupedList {
+                cs.asReversed().forEachIndexed { i, s ->
+                    val line = "${s.exerciseName ?: byId[s.exerciseId]?.name ?: "Cardio"} · ${sessionLine(s, emptyList(), byId[s.exerciseId])}"
+                    SessionRow(s.date.toDate().format(shortDate), buildAnnotatedString { append(line) }, divider = i > 0) { openSession(nav, s) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChartTitle(text: String) {
+    Text(text, style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
+}
+
+/** A session in a detail list: the date (with a [chip]) over its [line], a chevron; opens the session. */
+@Composable
+private fun SessionRow(date: String, line: androidx.compose.ui.text.AnnotatedString, chip: String? = null, divider: Boolean, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClick = onClick).padding(start = 16.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(date, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    if (chip != null) { Spacer(Modifier.width(6.dp)); LabelChip(chip) }
+                }
+                Text(line, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp))
+            }
+            Chevron()
+        }
+    }
+}

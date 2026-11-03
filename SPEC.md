@@ -48,21 +48,52 @@ Three tabs.
   Add for a new day, Update when today has another value (the save
   replaces it), Saved (off) when the value is today's entry. While the
   typed value is blank or not above 0 the button is off.
-- History. Month calendar, one colored dot per session. Tap a day to open
-  the session. Below: bodyweight chart, and an exercise picker that shows
-  a progress card (see Exercise progress).
+- History. Two pages, Log (the default) and Progress; each keeps its own
+  scroll position, also across tab switches.
+  - Log: one week at a time, "‹ Nov 2 – 8, 2026 ›". ‹ stops at the week
+    of the first session (this week when none), › at this week. A week
+    card: "<done> of <planned> planned done" and "<n> to go" (this week,
+    open planned days from today on), else "<n> missed" or "Full week";
+    a 7-part bar (done day in its item color, open planned day gray, rest
+    near black); "<sets> sets · <t> lifted · <min> min cardio · <km> km"
+    over the week's finished sessions. Planned = the item each day had:
+    past days keep theirs, a one-day change counts. Then one row per day,
+    Monday to Sunday: a finished session (gym "d of n sets · t · min",
+    cardio "km · min · pace", "Health Connect" when imported, "<k> PR"
+    in green when the session set records) opens the session with Edit;
+    two sessions on a day give two rows; "Rest" with "Stretch ✓ · 83.0
+    kg" when present; "Skipped · <item>" for a past planned day; "Today:
+    <item>" opens Today; "In progress · d of n sets" opens the running
+    session; "Planned: <item>" for a later day.
+  - Progress: personal records, sets per muscle this week / last week,
+    bodyweight (1M / 3M / All, the change since the range's first entry),
+    cardio of the last 30 days per type (sessions, km, time, pace, a
+    sparkline "Distance per session" with the first and last value and
+    date). A type opens its detail: pace, average heart rate, heart rate
+    in work intervals (else time), and its sessions. Each section without
+    data shows one line.
 - Programs. Program list (many, one active), exercise library (strength
   and cardio, filter by kind, muscle, modality), modalities, week plan,
   settings (export, import, check for update).
 
 ## Exercise progress
 
-Per exercise, the History tab shows:
+A record is the heaviest weight lifted. The best set of a session is the
+heaviest weight, then the most reps at that weight. A session sets a
+record when its best set beats every earlier session's; a tie on weight
+and reps keeps the record with the earlier session. Only done sets with
+reps count (a 0-rep set never does). No estimated 1RM is shown.
 
-- A line chart of estimated 1RM per session over all sessions, Epley
-  formula from the best set: weight x (1 + reps / 30).
-- Top set per session (highest weight, then highest reps at that weight).
-- The last sessions as a table, sets as weight x reps, newest first.
+History's Progress lists every exercise's record, newest first: five
+rows, then "All <n> exercises". "New" marks a record set this week. The
+Log's "<k> PR" counts the session's exercises that set a record, not an
+exercise's first session.
+
+An exercise's detail (from a record row) shows the Best card ("62.5 kg × 6
+· Oct 29"), a chart "Heaviest set per session" with record points green,
+and every session newest first with its sets ("60×8 · 62.5×6", the
+record set green), each opening the session. An exercise without sets
+shows its muscles and "No sets yet".
 
 ## Copy and chrome
 
@@ -206,9 +237,9 @@ show one row per work interval for manual entry.
 
 ## Day plan
 
-The weekly template fills future weeks. On the History calendar, long-press a
-day to change its activity, or drag one day onto another to swap the two.
-An overridden date shows a small mark. Template edits apply from today on and
+The weekly template fills future weeks. History shows the plan but does not
+change it (the month calendar with its long-press change and drag swap is
+gone). Template edits apply from today on and
 never touch past days or dates with an override.
 
 ## Backup

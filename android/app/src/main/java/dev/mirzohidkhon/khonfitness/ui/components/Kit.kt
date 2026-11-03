@@ -56,12 +56,13 @@ import androidx.compose.ui.unit.dp
 import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import dev.mirzohidkhon.khonfitness.ui.theme.TINT_ALPHA
+import dev.mirzohidkhon.khonfitness.ui.theme.inkOn
 
-/** A white symbol on a rounded square of its color, leading a list row like iOS Settings. Decorative: the row names it. */
+/** A symbol on a rounded square of its color, leading a list row like iOS Settings: black or white, whichever reads ([inkOn]). Decorative: the row names it. */
 @Composable
 fun IconTile(icon: ImageVector, color: Color) {
     Box(Modifier.size(30.dp).clip(RoundedCornerShape(7.dp)).background(color).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
-        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(17.dp))
+        Icon(icon, contentDescription = null, tint = inkOn(color), modifier = Modifier.size(17.dp))
     }
 }
 

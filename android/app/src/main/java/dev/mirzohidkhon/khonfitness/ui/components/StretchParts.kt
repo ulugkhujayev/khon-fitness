@@ -49,7 +49,7 @@ enum class RunSegment { DONE, CURRENT, AHEAD }
 fun runSegments(count: Int, index: Int): List<RunSegment> =
     List(count) { i -> when { i < index -> RunSegment.DONE; i == index -> RunSegment.CURRENT; else -> RunSegment.AHEAD } }
 
-/** White on the player's black and green: the current segment and the symbols at full, done segments at 60 percent. */
+/** Done segments on the player's black and green: white at 60 percent. Text there takes [K.OnPhaseMuted], 75 percent. */
 private val OnPhaseDim = Color.White.copy(alpha = 0.6f)
 /** The soft white under the player's round controls and the segments still to come. */
 private val OnPhaseSoft = Color.White.copy(alpha = 0.18f)
@@ -93,7 +93,7 @@ fun RoutineProgress(segments: List<RunSegment>, index: Int, text: String, modifi
                 Box(Modifier.weight(1f).height(3.dp).clip(RoundedCornerShape(1.5.dp)).background(color))
             }
         }
-        Text(text, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"), color = OnPhaseDim, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"), color = K.OnPhaseMuted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
     }
 }
 

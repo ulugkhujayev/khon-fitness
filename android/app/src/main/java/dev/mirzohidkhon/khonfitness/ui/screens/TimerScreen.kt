@@ -84,7 +84,7 @@ fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
 
     val st = state
     val kind = st?.phase?.kind ?: PhaseKind.WARMUP
-    val bg by animateColorAsState(when { st == null || st.done || st.awaitingStart || st.preparing || st.paused -> K.Bg; kind == PhaseKind.WORK -> Color(0xFF14532D); kind == PhaseKind.REST -> Color(0xFF1E3A5F); else -> Color(0xFF3A3A40) }, label = "phase")
+    val bg by animateColorAsState(when { st == null || st.done || st.awaitingStart || st.preparing || st.paused -> K.Bg; kind == PhaseKind.WORK -> K.WorkFill; kind == PhaseKind.REST -> K.RestFill; else -> K.WarmupFill }, label = "phase")
     Column(Modifier.fillMaxSize().background(bg).padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         // Equal 64 dp sides keep the title centered.
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -98,17 +98,17 @@ fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         Spacer(Modifier.weight(1f))
         val label = when { st == null -> "Starting"; st.done -> "Done"; st.awaitingStart -> "Ready"; st.preparing -> "Get ready"; st.paused -> "Paused"; kind == PhaseKind.WARMUP -> "Warm-up"; kind == PhaseKind.WORK -> "Work"; else -> "Rest" }
         // The phase word is spoken when it changes; the countdown is not, as it changes every second.
-        Text(label, color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+        Text(label, color = K.OnPhaseMuted, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         Text(if (st?.preparing == true) kotlin.math.ceil(st.preparation).toInt().toString() else mmss(st?.remaining ?: 0.0), color = Color.White, fontSize = 96.sp, fontWeight = FontWeight.Bold, letterSpacing = (-5).sp, lineHeight = 112.sp, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), modifier = Modifier.padding(vertical = 8.dp))
         if (st != null && !st.done && kind != PhaseKind.WARMUP) Text("Round ${st.phase.round} of ${st.rounds}", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, lineHeight = 30.sp)
         if (st != null && !st.done) {
             val next = st.phases.getOrNull(st.index + 1)
-            Text(if (next == null) "Last one" else "Next: " + (when (next.kind) { PhaseKind.WORK -> "work"; PhaseKind.REST -> "rest"; else -> "warm-up" }) + " " + mmss(next.seconds.toDouble()), color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 10.dp))
-            Text("Elapsed ${mmss(st.elapsed)} of ${mmss(st.total.toDouble())}", color = Color.White.copy(alpha = .6f), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), modifier = Modifier.padding(top = 4.dp))
+            Text(if (next == null) "Last one" else "Next: " + (when (next.kind) { PhaseKind.WORK -> "work"; PhaseKind.REST -> "rest"; else -> "warm-up" }) + " " + mmss(next.seconds.toDouble()), color = K.OnPhaseMuted, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 10.dp))
+            Text("Elapsed ${mmss(st.elapsed)} of ${mmss(st.total.toDouble())}", color = K.OnPhaseMuted, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), modifier = Modifier.padding(top = 4.dp))
         }
         Spacer(Modifier.weight(1f))
         if (!batteryOk) {
-            Text(BATTERY_NOTE, color = Color.White.copy(alpha = .8f), fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 10.dp))
+            Text(BATTERY_NOTE, color = K.OnPhaseMuted, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 10.dp))
             TextButton("Battery settings", color = Color.White) {
                 runCatching { batteryLauncher.launch(appSettingsIntent(context.packageName)) }
                     .onFailure { batteryLauncher.launch(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }

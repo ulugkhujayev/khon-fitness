@@ -174,7 +174,7 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
         // The fill is read while drawing, so the line runs on with the pose without recomposing the steps.
         if (preview) StepTimeline(guide.steps.map { it.title }, selectedStep, fill = { guide.timelineFill(frame()) },
             onSelect = { playing = false; manualFrame = guide.steps[it].frame }, modifier = Modifier.padding(top = 14.dp))
-        Text(instruction, color = Color.White.copy(alpha = .9f), style = MaterialTheme.typography.bodyLarge, minLines = 3,
+        Text(instruction, color = K.Text, style = MaterialTheme.typography.bodyLarge, minLines = 3,
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp), textAlign = TextAlign.Start)
     }
 }

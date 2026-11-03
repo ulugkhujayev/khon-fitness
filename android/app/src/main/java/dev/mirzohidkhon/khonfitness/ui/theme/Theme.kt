@@ -58,19 +58,35 @@ object K {
     val Elevated = Color(0xFF2C2C2E)
     /** 1 dp edge of the floating tab bar: white at 6 percent. */
     val Hairline = Color(0x0FFFFFFF)
+    /** The interval timer's and the stretch player's fill in a work phase (a stretch is a work phase). */
+    val WorkFill = Color(0xFF14532D)
+    /** The interval timer's fill in a rest phase. */
+    val RestFill = Color(0xFF1E3A5F)
+    /** The interval timer's fill in the warm-up. */
+    val WarmupFill = Color(0xFF3A3A40)
+    /** Secondary text on the player fills and on black: white at 75 percent, 5.9:1 on [WorkFill] (60 percent was 4.4:1). */
+    val OnPhaseMuted = Color.White.copy(alpha = 0.75f)
 }
+
+/**
+ * The symbol color on a solid fill of any color, such as an [dev.mirzohidkhon.khonfitness.ui.components.IconTile]:
+ * black or white, whichever reads better. One of the two is 4.5:1 or more on every opaque color.
+ */
+fun inkOn(fill: Color): Color = if (contrast(Color.Black, fill) >= contrast(Color.White, fill)) Color.Black else Color.White
 
 /** The share of its color a tinted fill takes ([dev.mirzohidkhon.khonfitness.ui.components.TintedButton]): its text stays at 4.5:1 on it. */
 const val TINT_ALPHA = 0.16f
 
-/** A [fg] text color on a [bg] fill, as the app uses it. [large] is 18 sp and up, bold, which needs only 3:1. */
+/** A [fg] text or symbol color on a [bg] fill, as the app uses it. [large] is 18 sp and up bold, or a symbol: it needs only 3:1. */
 data class TextPair(val name: String, val fg: Color, val bg: Color, val large: Boolean = false)
 
 /** [fg] at [TINT_ALPHA] over [under]: the fill of a tinted button. */
 fun tinted(fg: Color, under: Color): Color = fg.copy(alpha = TINT_ALPHA).compositeOver(under)
 
 /**
- * Every token pair the app uses for readable text. ContrastTest holds each to WCAG AA: 4.5:1, 3:1 for large text.
+ * Every color pair the app uses for readable text and for symbols that carry meaning, the timer's and the stretch
+ * player's fills included. ContrastTest holds each to WCAG AA: 4.5:1, 3:1 for large text and symbols. It also fails a
+ * raw color for text in the screens, so a new pair has to come through a token here.
  * Off controls ([K.Dim] text) are left out, as WCAG 1.4.3 exempts inactive controls. [K.Elevated] equals [K.Surface2].
  */
 val TextPairs: List<TextPair> = buildList {
@@ -94,7 +110,19 @@ val TextPairs: List<TextPair> = buildList {
     for ((n, under) in listOf("Bg" to K.Bg, "Surface" to K.Surface)) {
         add(TextPair("Accent on its tint over $n", K.Accent, tinted(K.Accent, under)))
         add(TextPair("Red on its tint over $n", K.Red, tinted(K.Red, under)))
+        // "New" and "PR" chips (LabelChip, 18 percent) and the Log's today row (12 percent).
+        add(TextPair("Green on its chip over $n", K.Green, K.Green.copy(alpha = 0.18f).compositeOver(under)))
+        add(TextPair("Muted on the today row over $n", K.Muted, K.Accent.copy(alpha = 0.12f).compositeOver(under)))
     }
+    // The timer and the stretch player: white and [K.OnPhaseMuted] on each phase fill and on black (paused, done).
+    for ((n, fill) in listOf("Bg" to K.Bg, "WorkFill" to K.WorkFill, "RestFill" to K.RestFill, "WarmupFill" to K.WarmupFill)) {
+        add(TextPair("Text on the player over $n", K.Text, fill))
+        add(TextPair("OnPhaseMuted on the player over $n", K.OnPhaseMuted.compositeOver(fill), fill))
+        // The player's round Stop, Back and Skip: a white symbol on white at 18 percent. A symbol needs 3:1.
+        add(TextPair("Text on a player button over $n", K.Text, Color.White.copy(alpha = 0.18f).compositeOver(fill), large = true))
+    }
+    // The demonstration's round controls: a white symbol on black at 45 percent over the light image.
+    add(TextPair("Text on the demo glass", K.Text, Color.Black.copy(alpha = 0.45f).compositeOver(Color(0xFFF2F2F2)), large = true))
 }
 
 /** WCAG 2.1 contrast ratio of two opaque colors, 1 to 21. */

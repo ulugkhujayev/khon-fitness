@@ -99,7 +99,7 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
 
     val st = state?.takeIf { it.stretch && it.sessionId.startsWith("$routineId:") }
     val phase = st?.takeUnless { it.done }?.phase
-    val bg by animateColorAsState(if (st?.active == true) Color(0xFF14532D) else K.Bg, label = "bg")
+    val bg by animateColorAsState(if (st?.active == true) K.WorkFill else K.Bg, label = "bg")
     BoxWithConstraints(Modifier.fillMaxSize().background(bg)) {
         val compact = maxHeight < 680.dp
         Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -121,7 +121,7 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
                 if (phase != null) {
                     Text(phase.label, color = Color.White, style = MaterialTheme.typography.titleLarge,
                         textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                    Text(sideLine(phase), color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.bodyLarge,
+                    Text(sideLine(phase), color = K.OnPhaseMuted, style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.padding(top = 8.dp))
                     val motion = if (phase.reps > 0) {
                         val cycle = ((phase.seconds - st.remaining) / (phase.seconds.toDouble() / phase.reps)) % 1.0
@@ -134,7 +134,7 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
                     }
                     // A ready screen has no status line: its length is in the line under the name, the button says what comes.
                     playerStatus(st, phase)?.let { status ->
-                        Text(status, color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.bodyLarge,
+                        Text(status, color = K.OnPhaseMuted, style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite })
                     }
                     if (!st.awaitingStart) Text(if (st.preparing) kotlin.math.ceil(st.preparation).toInt().toString() else mmss(st.remaining),

@@ -121,6 +121,11 @@ class TimerService : Service() {
                 if (next.done) finish(early = false)
                 else { say("Ready for ${phaseSpeech(next)}"); updateNotification(next) }
             }
+            ACTION_BACK -> {
+                val s = state.value ?: return START_NOT_STICKY
+                val next = s.back()
+                if (next != s) { silence(); state.value = next; say("Ready for ${phaseSpeech(next)}"); updateNotification(next) }
+            }
             ACTION_PAUSE -> {
                 state.value?.takeIf { !it.done && !it.awaitingStart }?.let {
                     state.value = it.copy(paused = true); silence(); updateNotification(state.value!!)
@@ -361,7 +366,7 @@ class TimerService : Service() {
     companion object {
         const val CHANNEL = "timer"; const val NOTIFICATION_ID = 41
         const val ACTION_START = "start"; const val ACTION_PAUSE = "pause"; const val ACTION_RESUME = "resume"; const val ACTION_STOP = "stop"
-        const val ACTION_START_STRETCH = "start_stretch"; const val ACTION_SKIP = "skip"
+        const val ACTION_START_STRETCH = "start_stretch"; const val ACTION_SKIP = "skip"; const val ACTION_BACK = "back"
         const val ACTION_BEGIN = "begin"; const val ACTION_RESTORE = "restore"
         val state = MutableStateFlow<TimerState?>(null)
         val finished = MutableStateFlow<FinishedTimer?>(null)

@@ -18,9 +18,9 @@ class StretchRulesTest {
     @Test fun `routine summary counts minutes and stretches`() {
         val stretches = listOf(Stretch("a", "A", sided = true, seconds = 30), Stretch("b", "B", seconds = 45))
         val rows = listOf(RoutineStretch("1", "r", "a", 0), RoutineStretch("2", "r", "b", 1), RoutineStretch("3", "other", "b", 0))
-        assertEquals("2 min · 2 stretches", routineSummary("r", rows, stretches)) // 30 + 30 + 45 = 105 s
-        assertEquals("1 min · 1 stretch", routineSummary("other", rows, stretches))
-        assertEquals("0 min · 0 stretches", routineSummary("none", rows, stretches))
+        assertEquals("2 stretches · 2 min", routineSummary("r", rows, stretches)) // 30 + 30 + 45 = 105 s
+        assertEquals("1 stretch · 1 min", routineSummary("other", rows, stretches))
+        assertEquals("0 stretches · 0 min", routineSummary("none", rows, stretches))
     }
 
     @Test fun `library line names sides and length`() {

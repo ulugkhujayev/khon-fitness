@@ -19,7 +19,7 @@ Merge code in `Editors.kt` (P1 changes it); keep your edits in other functions.
 | 5 | Gym programs | — | One row per program: dot (filled = active), name, "n blocks · m sets · Every Mon, Thu" (from the week plan; "Not in the week" when absent). Opens the program editor. |
 | 6 | Cardio workouts | — | One row per cardio exercise: type pill in its color (the modality), name, plan line. Opens the cardio exercise editor. Archived ones sit under "Archived" at the end. |
 | 7 | Cardio editor type | — | A row "Type" opens a picker of the existing modalities plus "New type…" (name + color, the old modality editor's fields). Under the row: "Changes the color and type of past sessions too." No Modalities screen and no route to it remains. |
-| 8 | Stretch routines | — | One row per routine (dot, name, "10 min · 9 stretches"), opens the routine screen as today. |
+| 8 | Stretch routines | — | One row per routine (dot, name, "9 stretches · 10 min"), opens the routine screen as today. |
 | 9 | Library | — | Two rows: Exercises (strength only, count) and Stretches (count). |
 | 10 | Exercises list | — | Search field; strength exercises grouped by muscle with section headers (no All/Strength/Cardio switch, no Muscle filter row); "+ Add" in the bar; archived at the end. Each row opens the exercise editor; the editor keeps its actions (rename, muscle, archive, merge, delete). |
 | 11 | Stretches list | — | The existing stretch library list, reached from Library. |

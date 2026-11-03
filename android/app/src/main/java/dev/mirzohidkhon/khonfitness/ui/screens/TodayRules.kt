@@ -46,8 +46,8 @@ fun setProgress(sessionId: String, logs: List<SetLog>): SetProgress {
     return SetProgress(mine.count { it.status == SetStatus.DONE }, mine.size)
 }
 
-/** A routine's length and size: "10 min · 9 stretches", "1 min · 1 stretch". */
-fun routineSummary(seconds: Int, count: Int): String = "${(seconds + 30) / 60} min · $count ${if (count == 1) "stretch" else "stretches"}"
+/** A routine's size and length, the same wherever it shows: "9 stretches · 10 min", "1 stretch · 1 min". */
+fun routineSummary(seconds: Int, count: Int): String = "$count ${if (count == 1) "stretch" else "stretches"} · ${(seconds + 30) / 60} min"
 
 /** The stretch row's line: the summary, after "Done today · " once stretched today. */
 fun routineLine(summary: String, doneToday: Boolean): String = if (doneToday) "Done today · $summary" else summary

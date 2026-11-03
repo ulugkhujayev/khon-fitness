@@ -93,4 +93,42 @@ class TimerStateTest {
         assertEquals(2.0, s.preparation, 0.0)
         assertEquals(0.0, s.elapsed, 0.0)
     }
+
+    /** UI06 P5 row 4: Skip then Back returns to the stretch skipped, its timer reset, and takes the skip back. */
+    @Test fun `back after skip returns to the stretch before with its timer reset`() {
+        val nine = TimerState("routine:nine", "Daily", (1..9).map { Phase(PhaseKind.WORK, 40, 0, label = "S$it") }, remaining = 40.0, stretch = true)
+        var s = nine.skip().skip()
+        assertEquals(2, s.index)
+        s = s.begin().tick(3.0).tick(10.0)
+        assertEquals(30.0, s.remaining, 0.0)
+        s = s.skip()
+        assertEquals(3, s.index)
+        assertEquals(3, s.skipped)
+        s = s.back()
+        assertEquals("S3", s.phase.label)
+        assertEquals(40.0, s.remaining, 0.0)
+        assertTrue(s.awaitingStart)
+        assertEquals(0.0, s.preparation, 0.0)
+        assertEquals(2, s.skipped)
+        assertEquals(10.0, s.elapsed, 0.0)
+    }
+
+    @Test fun `back takes back a completed stretch and is off on the first`() {
+        val first = stretch()
+        assertFalse(first.canGoBack)
+        assertEquals(first, first.back())
+        var s = first.begin().tick(3.0).tick(5.0)
+        assertEquals(1, s.index)
+        assertEquals(1, s.completed)
+        assertTrue(s.canGoBack)
+        s = s.back()
+        assertEquals(0, s.index)
+        assertEquals(0, s.completed)
+        assertEquals(5.0, s.remaining, 0.0)
+        assertFalse(s.canGoBack)
+        // An interval timer has no Back.
+        val timer = TimerState("t", "Run", buildPhases(0, 60, 30, 2), index = 1, remaining = 30.0)
+        assertFalse(timer.canGoBack)
+        assertEquals(timer, timer.back())
+    }
 }

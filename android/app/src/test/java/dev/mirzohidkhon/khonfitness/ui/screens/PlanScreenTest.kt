@@ -157,7 +157,7 @@ class PlanScreenTest {
         compose.onNode(hasText("Run") and hasText("Zone 2 run") and hasText("Steady · Not in the week")).assertExists()
         // The archived workout sits under Archived, after the live one.
         assertTrue(top("Zone 2 run") < top("Archived") && top("Archived") < top("Old run"))
-        compose.onNode(hasText("Daily mobility") and hasText("0 min · 0 stretches")).assertExists()
+        compose.onNode(hasText("Daily mobility") and hasText("0 stretches · 0 min")).assertExists()
         compose.onNodeWithText("Exercises").performScrollTo()
         compose.onNode(hasText("Exercises") and hasText("1")).assertExists() // live strength only
         compose.onNode(hasText("Stretches") and hasText("0")).assertExists()

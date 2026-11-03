@@ -75,6 +75,8 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
     }
     val routine = routines.find { it.id == routineId }
     val sessionId = remember { "$routineId:" + newId() }
+    // Every exit (the run's end, the delayed close, Stop before a run, system Back) pops this screen at most once.
+    val exit = rememberExitGuard(nav)
 
     LaunchedEffect(routine?.id, routineStretches.size, stretches.size) {
         val r = routine ?: return@LaunchedEffect
@@ -89,11 +91,11 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
     }
     LaunchedEffect(finished) {
         val f = finished ?: return@LaunchedEffect
-        if (f.sessionId == sessionId || f.sessionId == observedSessionId) { nav.popBackStack(); TimerService.finished.value = null }
+        if (f.sessionId == sessionId || f.sessionId == observedSessionId) { exit.leave(); TimerService.finished.value = null }
     }
     var sawRunning by remember { mutableStateOf(false) }
     LaunchedEffect(state?.sessionId) { if (state?.sessionId?.startsWith("$routineId:") == true) sawRunning = true }
-    LaunchedEffect(sawRunning, state == null) { if (sawRunning && state == null) { delay(1500); if (TimerService.state.value == null) nav.popBackStack() } }
+    LaunchedEffect(sawRunning, state == null) { if (sawRunning && state == null) { delay(1500); if (TimerService.state.value == null) exit.leave() } }
 
     val st = state?.takeIf { it.stretch && it.sessionId.startsWith("$routineId:") }
     val phase = st?.takeUnless { it.done }?.phase
@@ -102,13 +104,14 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
         val compact = maxHeight < 680.dp
         Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-                // Equal 64 dp sides keep the title centered.
-                Box(Modifier.width(64.dp), contentAlignment = Alignment.CenterStart) {
-                    PlayerButton(Icons.Close, "Stop") { if (st != null) TimerService.send(context, TimerService.ACTION_STOP) else nav.popBackStack() }
+                // Equal 96 dp sides keep the title centered: Stop on the left, Back and Skip on the right.
+                Box(Modifier.width(96.dp), contentAlignment = Alignment.CenterStart) {
+                    PlayerButton(Icons.Close, "Stop") { if (st != null) TimerService.send(context, TimerService.ACTION_STOP) else exit.leave() }
                 }
-                Text(st?.title ?: routine?.name ?: "Stretching", color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                Text(st?.title ?: routine?.name ?: "Stretching", color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).semantics { heading() }, textAlign = TextAlign.Center)
-                Box(Modifier.width(64.dp), contentAlignment = Alignment.CenterEnd) {
+                Row(Modifier.width(96.dp), horizontalArrangement = Arrangement.End) {
+                    PlayerButton(Icons.SkipBack, "Back to the previous stretch", enabled = st?.canGoBack == true) { TimerService.send(context, TimerService.ACTION_BACK) }
                     PlayerButton(Icons.SkipForward, "Skip", enabled = phase != null) { TimerService.send(context, TimerService.ACTION_SKIP) }
                 }
             }

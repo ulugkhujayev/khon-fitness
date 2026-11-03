@@ -7,11 +7,9 @@ import dev.mirzohidkhon.khonfitness.timer.Phase
 import dev.mirzohidkhon.khonfitness.timer.TimerState
 import dev.mirzohidkhon.khonfitness.timer.mmss
 
-/** A routine's row on Plan: "10 min · 9 stretches", "1 min · 1 stretch". */
-fun routineSummary(routineId: String, routineStretches: List<RoutineStretch>, stretches: List<Stretch>): String {
-    val count = routineStretches.count { it.routineId == routineId }
-    return "${(routineSeconds(routineId, routineStretches, stretches) + 30) / 60} min · $count ${if (count == 1) "stretch" else "stretches"}"
-}
+/** A routine's row on Plan: "9 stretches · 10 min", "1 stretch · 1 min", worded as on Today. */
+fun routineSummary(routineId: String, routineStretches: List<RoutineStretch>, stretches: List<Stretch>): String =
+    routineSummary(routineSeconds(routineId, routineStretches, stretches), routineStretches.count { it.routineId == routineId })
 
 /** A stretch's line in the library: "per side · 45 s", "10 reps". */
 fun stretchLine(st: Stretch): String =

@@ -37,10 +37,10 @@ class TodayRulesTest {
     }
 
     @Test fun `routine line says its length and count, singular and plural, and done today`() {
-        assertEquals("10 min · 9 stretches", routineSummary(600, 9))
-        assertEquals("1 min · 1 stretch", routineSummary(45, 1))
-        assertEquals("10 min · 9 stretches", routineLine("10 min · 9 stretches", doneToday = false))
-        assertEquals("Done today · 10 min · 9 stretches", routineLine("10 min · 9 stretches", doneToday = true))
+        assertEquals("9 stretches · 10 min", routineSummary(600, 9))
+        assertEquals("1 stretch · 1 min", routineSummary(45, 1))
+        assertEquals("9 stretches · 10 min", routineLine("9 stretches · 10 min", doneToday = false))
+        assertEquals("Done today · 9 stretches · 10 min", routineLine("9 stretches · 10 min", doneToday = true))
     }
 
     private val window = EatingWindow(enabled = true, startMinute = 12 * 60, endMinute = 20 * 60)
@@ -160,8 +160,8 @@ class TodayRulesTest {
     }
 
     @Test fun `done line for stretching says done today with its length, singular and plural`() {
-        assertEquals("Done today · 1 min · 1 stretch", routineLine(routineSummary(45, 1), doneToday = true))
-        assertEquals("Done today · 12 min · 10 stretches", routineLine(routineSummary(700, 10), doneToday = true))
+        assertEquals("Done today · 1 stretch · 1 min", routineLine(routineSummary(45, 1), doneToday = true))
+        assertEquals("Done today · 10 stretches · 12 min", routineLine(routineSummary(700, 10), doneToday = true))
     }
 
     private val release = Updater.Release("v0.5.0", assets = listOf(Updater.Asset("khon-fitness.apk", "https://example.invalid/khon-fitness.apk")))

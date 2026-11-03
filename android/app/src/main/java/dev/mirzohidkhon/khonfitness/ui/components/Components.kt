@@ -49,6 +49,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -283,10 +288,10 @@ fun NumberField(
     val measurer = rememberTextMeasurer()
     val valueStyle = MaterialTheme.typography.bodyLarge.copy(color = K.Text, fontSize = 19.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End)
     val unitStyle = MaterialTheme.typography.bodyLarge.copy(color = K.Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-    // Narrow slots (two fields per row on a 360 dp phone) drop the unit and slim the steppers so the whole value stays visible.
+    // Narrow slots (two fields per row on a 360 dp phone) drop the unit so the whole value stays visible.
     androidx.compose.foundation.layout.BoxWithConstraints(modifier.then(if (width != null) Modifier.width(width * density.fontScale) else Modifier)) {
     val compact = maxWidth < 176.dp
-    val stepWidth = if (compact) 36 else 44
+    val stepWidth = MIN_TAP
     val shown = text.text.ifEmpty { placeholder.orEmpty() }
     // The largest text size that fits the value (or placeholder) and unit. Large fonts scale non-linearly, so each
     // candidate size is measured, not scaled. When even MIN_FIT does not fit, the paddings beside the text narrow, and
@@ -302,8 +307,15 @@ fun NumberField(
         FIT_STEPS.firstOrNull { need(it) <= room(8) }?.let { it to 8 }
             ?: ((FIT_STEPS.firstOrNull { need(it) <= room(2) } ?: shrinkToFit(room(2)) { need(it) }) to 2)
     }
+    // The row is at least MIN_TAP tall, so each step button is a MIN_TAP square to the touch; the box is drawn [height]
+    // tall in its middle, and the content is clipped to it. A clip modifier would also clip the touch area.
+    val fill = if (elevated) K.Surface3 else K.Surface2
     Row(
-        Modifier.fillMaxWidth().height(height.dp).bringIntoViewRequester(bringIntoView).clip(RoundedCornerShape(10.dp)).background(if (elevated) K.Surface3 else K.Surface2),
+        Modifier.fillMaxWidth().height(maxOf(height, MIN_TAP).dp).bringIntoViewRequester(bringIntoView).drawWithContent {
+            val inset = (size.height - height.dp.toPx()).coerceAtLeast(0f) / 2
+            val box = Path().apply { addRoundRect(RoundRect(0f, inset, size.width, size.height - inset, CornerRadius(10.dp.toPx()))) }
+            clipPath(box) { drawRect(fill); this@drawWithContent.drawContent() }
+        },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StepButton("−", "Decrease by ${fmt(step, decimals)} $unit".trim(), stepWidth, { stepBy(-1, it) }, ::release)
@@ -353,6 +365,9 @@ fun NumberField(
     }
     }
 }
+
+/** The smallest tap target, in dp, on each side. */
+const val MIN_TAP = 48
 
 /** The smallest step, as a share of its own size, that [NumberField] shrinks its value, unit and placeholder to. */
 const val MIN_FIT = 0.75f

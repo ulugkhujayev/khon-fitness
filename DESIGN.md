@@ -183,7 +183,9 @@ padded cards, per-item buttons, "Updated" lines.
   numbers stay inside the field's limits (effort 1 to 10, sets 1 to 10),
   so the field never shows a number that is not stored. An empty field
   with a numeric placeholder (last time, latest bodyweight) steps from
-  that number, not from zero. An editor field row is 176 dp wide at
+  that number, not from zero. Each − and + is a 48 x 48 dp tap
+  target; the box is drawn 38 or 44 dp tall in the middle of that
+  48 dp row, so the look stays slim. An editor field row is 176 dp wide at
   font scale 1.0 and grows with the font scale up to the room it has.
   At font scale 1.5 and up the field row stacks like a list row: the
   label on its own line, the widget under it at the end, full width.

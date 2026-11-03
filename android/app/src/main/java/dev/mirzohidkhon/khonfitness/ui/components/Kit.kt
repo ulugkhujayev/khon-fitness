@@ -209,7 +209,8 @@ fun ProgressBar(done: Int, total: Int, label: String, modifier: Modifier = Modif
 /**
  * An on/off setting as an editor row: its label and a switch in the app's colors. The label takes all the width the
  * switch leaves, so it does not wrap the way a [FieldRow] label column would. [enabled] off fixes it where it is.
- * The whole row is the switch's target, 48 dp tall and full width; screen readers get one switch named [label].
+ * The whole row is the switch's target, 48 dp tall and full width; screen readers get one switch named [label] (the
+ * label's text merges into it).
  */
 @Composable
 fun ToggleRow(label: String, checked: Boolean, divider: Boolean = true, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
@@ -220,7 +221,7 @@ fun ToggleRow(label: String, checked: Boolean, divider: Boolean = true, enabled:
                 .semantics { contentDescription = label }.padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(label, color = K.Text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(vertical = 10.dp).clearAndSetSemantics {})
+            Text(label, color = K.Text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
             Spacer(Modifier.width(12.dp))
             Switch(
                 checked, onCheckedChange = null, enabled = enabled,

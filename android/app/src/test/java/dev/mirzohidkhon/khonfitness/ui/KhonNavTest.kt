@@ -18,4 +18,15 @@ class KhonNavTest {
         assertNull(tabShift(Routes.LIBRARY, Routes.PROGRAMS))
         assertNull(tabShift(null, Routes.TODAY))
     }
+
+    /** UI06 P5 row 10: a pushed screen belongs to the tab it was opened from, not to a tab its route looks like. */
+    @Test fun aPushedScreenBelongsToTheTabUnderIt() {
+        assertEquals(1, tabOf(listOf(Routes.TODAY, Routes.HISTORY, "lift/{id}")))
+        assertEquals(1, tabOf(listOf(Routes.TODAY, Routes.HISTORY, "cardiotype/{id}")))
+        assertEquals(1, tabOf(listOf(Routes.TODAY, Routes.HISTORY, "session/{id}", "exercise/{id}")))
+        assertEquals(0, tabOf(listOf(Routes.TODAY, Routes.IMPORT)))
+        assertEquals(0, tabOf(listOf(Routes.TODAY, "exercise/{id}")))
+        assertEquals(2, tabOf(listOf(Routes.TODAY, Routes.PROGRAMS, Routes.LIBRARY, "lift/{id}")))
+        assertEquals(0, tabOf(emptyList()))
+    }
 }

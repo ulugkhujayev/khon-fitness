@@ -228,7 +228,7 @@ its exercises.
   block's last set the next block with a pending set opens, wrapping to an
   earlier one; with nothing pending every block closes.
 - No progression suggestions. No rest countdown on gym days.
-- Swap: tap the exercise name, pick a replacement from the library or add one,
+- Swap: tap the exercise name or the swap symbol beside it, pick a replacement from the library or add one,
   then choose scope: this session only, or update the program. A swap changes
   the sets at that block and slot. "Update the program" changes the program
   row at the same block and slot, so a second swap after a session-only one
@@ -339,6 +339,12 @@ Start button. Start gives a three-second preparation countdown before work.
 Numbered steps let the user inspect setup and movement, and Change view
 switches camera angles. Demo playback is independent of the exercise clock.
 Each stretch and side change waits for the user to start the next one.
+Skip moves to the next stretch or side; Back returns to the one before
+with its timer reset, waiting for Start, and takes back its done or
+skipped count (off on the first). The player leaves once, and only while
+it is on top: its end, its delayed close, Stop and system Back never pop
+the screen under it. The routine's length reads "9 stretches · 10 min"
+("1 stretch") on Today and Plan.
 Held poses stay still; repeated movements follow the timer and freeze on pause. Same audio engine and lock-screen
 notification as the interval timer. The end writes a session and returns to
 Today. Plan lists the routines (one active) and has a Stretches row in its Library: a stretch

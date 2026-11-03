@@ -94,7 +94,8 @@ fun KhonNav() {
     val vm: AppViewModel = viewModel()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: Routes.TODAY
-    val tab = when { route.startsWith(Routes.HISTORY) -> 1; route.startsWith(Routes.PROGRAMS) || route.startsWith("program") || route.startsWith("block") || route.startsWith("exercise") || route == Routes.LIBRARY || route == Routes.WEEK_PLAN || route == Routes.STRETCHES || route.startsWith("routine") || route.startsWith("stretcheditor") -> 2; route == Routes.IMPORT -> 1; else -> 0 }
+    val stack by nav.currentBackStack.collectAsStateWithLifecycle()
+    val tab = tabOf(stack.map { it.destination.route })
     // Widget and notification requests are consumed by Today. Return there first, or a request that lands on
     // another screen waits and fires later with stale data.
     val startRequested by dev.mirzohidkhon.khonfitness.MainActivity.startRequested.collectAsStateWithLifecycle()
@@ -156,6 +157,9 @@ private val TABS = listOf(Routes.TODAY, Routes.HISTORY, Routes.PROGRAMS)
  * them), and the tab opened gets its own back.
  */
 fun NavHostController.openTab(route: String) = navigate(route) { popUpTo(Routes.TODAY) { saveState = true }; launchSingleTop = true; restoreState = true }
+
+/** The tab a screen belongs to: the tab it was opened from, the nearest tab under it on the back stack ([stack] runs bottom to top). */
+internal fun tabOf(stack: List<String?>): Int = stack.lastOrNull { it in TABS }?.let { TABS.indexOf(it) } ?: 0
 
 /** Direction a tab switch shifts the screens: 1 toward a tab on the right, -1 toward the left, null when not between tabs. */
 internal fun tabShift(from: String?, to: String?): Int? {

@@ -37,6 +37,13 @@ import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
 import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.map
 
+/** Under the timer while the phone may stop the app in the background. Any phone maker can, so it names none. */
+const val BATTERY_NOTE = "If the timer stops when the screen is off, allow Khon to run in the background in battery settings."
+
+/** The app's own settings page, where its battery use is set (Battery, then Unrestricted on most phones). */
+fun appSettingsIntent(packageName: String) =
+    android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", packageName, null))
+
 /** Full-screen interval countdown. The service owns the clock; this screen only shows it. */
 @Composable
 fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
@@ -101,8 +108,11 @@ fun TimerScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         }
         Spacer(Modifier.weight(1f))
         if (!batteryOk) {
-            Text("Samsung may pause the timer when the screen is off. Allow it to run in the background once.", color = Color.White.copy(alpha = .8f), fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 10.dp))
-            TextButton("Allow background", color = Color.White) { batteryLauncher.launch(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:" + context.packageName))) }
+            Text(BATTERY_NOTE, color = Color.White.copy(alpha = .8f), fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(bottom = 10.dp))
+            TextButton("Battery settings", color = Color.White) {
+                runCatching { batteryLauncher.launch(appSettingsIntent(context.packageName)) }
+                    .onFailure { batteryLauncher.launch(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+            }
             Spacer(Modifier.height(12.dp))
         }
         if (st != null && !st.done) PrimaryButton(when { st.awaitingStart -> "Start timer"; st.paused -> "Resume"; else -> "Pause" }) {

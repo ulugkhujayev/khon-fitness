@@ -47,7 +47,10 @@ padded cards, per-item buttons, "Updated" lines.
   on a #2C2C2E capsule tinted accent. The capsule slides to the tab tapped
   on a quick spring (damping 20, stiffness 240, mass 0.8) with a light
   haptic click, and the screens shift 50 pt sideways and fade over 150 ms
-  as they swap. Segmented controls slide and click the same way.
+  as they swap. Segmented controls slide and click the same way. A
+  screen pushed from a tab belongs to that tab: the bar marks the tab
+  under it on the back stack (an exercise opened from History marks
+  History).
 - Inset grouped lists: radius 20 pt, rows 48 pt minimum with 17 pt Body,
   hairline separators inset to the text, values in secondary label on the
   right, a small chevron symbol in tertiary label. Section headers are
@@ -109,11 +112,11 @@ padded cards, per-item buttons, "Updated" lines.
   Open, no Use, no Edit. Destructive and secondary actions live in the
   editor screen, at the bottom, as action rows (see Editors).
 - Add on a list screen is a round "+" in the bar. Inside an editor it is
-  a full-width 44 px tinted "Add …" button 12 px under its list (Add
+  a full-width 48 px tinted "Add …" button 12 px under its list (Add
   block, Add exercise, Add second exercise, Add stretch). A program's blocks are
   numbered like a session's: the index in a 24 px accent-tinted circle.
   A routine's order rows carry up, down and remove as bare symbols on
-  44 px targets (remove in red; up off on the first row, down on the last).
+  48 px targets (remove in red; up off on the first row, down on the last).
 - No dates on list rows unless the row IS a date (history).
 - Rows that open a part of the app lead with a 30 px icon tile like iOS
   Settings: a white 17 px symbol on a rounded square (radius 7) of its
@@ -179,7 +182,8 @@ padded cards, per-item buttons, "Updated" lines.
   select that cannot change shows its value muted with a small lock
   instead of the chevron: an exercise's kind once a session, a program
   or the plan uses it.
-- A toggle row gives its label all the width the switch leaves. The
+- A toggle row gives its label all the width the switch leaves, and the
+  whole row is the switch's target. The
   program's Active and the block's Superset have a footnote that says
   what they do. The active program's Active is fixed on; turning
   another program on moves the mark.
@@ -247,9 +251,12 @@ padded cards, per-item buttons, "Updated" lines.
 
 - One primary button per screen at most: 50 px tall, full width, accent
   fill, black text. Start, Finish, Done.
-- All other actions are text buttons, 44 px tap height, no fill, no
+- Every tap target is 48 x 48 px or more (`TapTargetTest` checks each
+  tab): a smaller symbol or capsule sits in the middle of a 48 px target.
+  A text field is 48 px tall; its width is what its steppers leave.
+- All other actions are text buttons, 48 px tap height, no fill, no
   border. Exception: an action that must read as a button without
-  competing with the primary one is a 44 px tinted capsule, its color as
+  competing with the primary one is a 48 px tinted capsule, its color as
   text on that color at 16 percent (accent; red for a destructive one).
   A session's Discard workout or Delete session is that capsule in red,
   full width at the end of the page.
@@ -276,7 +283,9 @@ padded cards, per-item buttons, "Updated" lines.
 Two lines, 88 px total, hairline between rows.
 - Line 1 (40 px): 32 px check circle, then the set tag "A1" in accent
   12/600, then the full exercise name 17, never truncated (wrap to two
-  lines if needed). Right: last time "60 × 8" in muted 14.
+  lines if needed), then a swap symbol (two arrows) in muted on a 48 px
+  target, spoken "Swap <name>"; it opens the swap sheet, as a tap on the
+  name does. Right: last time "60 × 8" in muted 14.
 - Line 2 (40 px): two number widgets side by side, each half the width:
   [ − 60 kg + ] [ − 8 reps + ]. Value 18/600 tabular, inputs at least
   64 px wide so "100" and "12.5" fit. Delta in green 12 under the widget.
@@ -334,11 +343,11 @@ Two lines, 88 px total, hairline between rows.
 - 16 px gap. One group of 64 px rows sized for the home screen: the
   symbol in a 40 px circle of its color like the item card's, the name
   17/600 over a line of state 15 muted (green when it is good news), a
-  chevron. First, when a newer release is out, "Update to v0.5.0" with
+  chevron. First, when a newer release is out, "Update to v0.6.0" with
   "Tap to install" in accent (accent download symbol), "Downloading 42%"
   while the APK downloads (a tap then does nothing); Today checks for it
-  on open. Then the active stretch routine (green; "Done today · 10 min · 9
-  stretches" in green with a check once stretched), the eating window
+  on open. Then the active stretch routine (green; "Done today · 9 stretches ·
+  10 min" in green with a check once stretched), the eating window
   ("Open · closes in 3 h 20 m" in green, or "Closed · opens 12:00",
   gray), and band sessions waiting ("2 new sessions", "From the band,
   ready to import", red heart); a row with nothing to say is left out.
@@ -402,11 +411,12 @@ Two lines, 88 px total, hairline between rows.
   next ready screen. Cardio work/rest intervals still advance automatically.
 - Background is black while ready, preparing, or paused, and green while
   stretching. State is also shown in text.
-- Screen margins are 16 dp. Top Stop and Skip controls have equal 64 dp
-  widths and at least 48 dp tap targets. The routine title is centered.
-  Stop (an X) and Skip (forward-end) are 40 px round controls, a white
-  symbol on white at 18 percent, readable on black and on green; Skip is
-  dim when there is nothing to skip. 10 px under the bar, the run's
+- Screen margins are 16 dp. The top bar's sides are equal, 96 dp: Stop
+  on the left, Back and Skip on the right, each a 48 dp target. The
+  routine title is centered, up to two lines. Stop (an X), Back
+  (backward-end) and Skip (forward-end) are 40 px round controls, a
+  white symbol on white at 18 percent, readable on black and on green;
+  Skip is dim when there is nothing to skip, Back on the first stretch. 10 px under the bar, the run's
   progress: one 3 px segment per stretch and side, 3 px apart (done white
   at 60 percent, the current one white, the rest white at 18 percent) and
   "3 of 12 · 6:30 remaining" in footnote under it. The line under the
@@ -420,7 +430,7 @@ Two lines, 88 px total, hairline between rows.
   Before Start, the guide automatically plays setup, movement, and hold steps.
   Numbered steps pause on a position. Play demo restarts the lesson. Change
   view switches between two camera angles. Each step has a plain instruction.
-  Play/Pause and Change view are 40 px round controls over the image's
+  Play/Pause and Change view are 40 px round controls (48 px targets) over the image's
   bottom corners, 10 px in, a white symbol on black at 45 percent, like a
   video player's. The steps are a timeline: 26 px numbered nodes on a
   3 px line, each title under its node in footnote muted. Nodes before
@@ -521,9 +531,11 @@ Two lines, 88 px total, hairline between rows.
   readers hear it when it changes), the countdown 96 bold with tabular
   figures, "Round 2 of 4" 24 semibold, "Next: rest 0:30" in body, and
   "Elapsed 1:08 of 4:30" in subheadline at 60 percent white.
-- At the bottom: the background-permission note and "Allow background"
-  while the app may be paused with the screen off, then Start timer,
-  Pause or Resume as the one primary button.
+- At the bottom, while the phone may stop the app with the screen off:
+  "If the timer stops when the screen is off, allow Khon to run in the
+  background in battery settings." (no phone maker named) and a
+  "Battery settings" text button that opens the app's settings page.
+  Then Start timer, Pause or Resume as the one primary button.
 
 ## Frame
 

@@ -44,6 +44,18 @@ D1, swap with "update the program too" (`SwapBySlotTest`, `SessionStartOneStateT
 11. Only sets or rep limits changed since the start: refused.
 12. A missing-exercise row whose sets changed: refused.
 
+D1a, origin storage errors (`SwapBySlotTest`, "storage a-e"). An origin `write` or `remove` that fails after its
+Room commit returns false and never escapes (a DataStore edit is atomic: on error nothing is written). A
+CancellationException still propagates. `clearAll` still throws, so an import or a reset stops before its Room writes.
+
+| # | Action | Expected |
+|---|---|---|
+| a | Start a program session; the origin write fails | Session started and returned, no crash; a later "update the program too" refuses (no origin). |
+| b | Swap with update; the program row commits; the new-fingerprint write fails | Result ProgramUpdated, no crash; the next update refuses (old fingerprint). |
+| c | Finish or delete; the origin remove fails | Session finished or deleted, no crash; a stale key never allows an update (session finished or missing). |
+| d | Cancellation during write or remove | CancellationException propagates. |
+| e | clearAll fails during import (both modes) or reset | No Room write happens. |
+
 D2, merge (`MergeConfirmTest`):
 13. Missing source, missing target, or source = target: refused, nothing written.
 

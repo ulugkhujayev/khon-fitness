@@ -16,6 +16,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -322,6 +323,82 @@ class SwapBySlotTest {
         assertEquals(programFingerprint("p1", dao.blocksOnce().filter { it.programId == "p1" }, dao.blockExercisesOnce().filter { it.blockId.startsWith("k") }), origin.fingerprint)
     }
 
+    // ---- origin storage errors: a write or remove that fails after the Room commit never escapes (rows a-e)
+
+    @Test fun `storage a - an origin write that fails at the start still returns the session, and a later update refuses`() = runBlocking {
+        seed()
+        store.failEdits = IOException("disk full")
+        val s = repo.startProgramSession("p1")!!
+        store.failEdits = null
+        assertNotNull(dao.session(s.id))
+        assertNull(origins.read(s.id))
+        assertEquals(refused, swap(s, 0, 0, "c"))
+        assertEquals("a", row("r0a").exerciseId)
+    }
+
+    @Test fun `storage b - a new fingerprint that fails to store still reports the update, and the next update refuses`() = runBlocking {
+        val s = start()
+        store.failEdits = IOException("disk full")
+        assertTrue(swap(s, 0, 0, "c") is SwapResult.ProgramUpdated)
+        store.failEdits = null
+        assertEquals("c", row("r0a").exerciseId)
+        // The origin still holds the old fingerprint: the program changed since, so the next update refuses.
+        assertEquals(refused, swap(s, 0, 0, "d"))
+        assertEquals("c", row("r0a").exerciseId)
+    }
+
+    @Test fun `storage c - an origin remove that fails at finish or delete still finishes or deletes, and the stale key never updates`() = runBlocking {
+        val finished = start()
+        val deleted = repo.startProgramSession("p1")!!
+        val deletedLog = firstLog(deleted, 0, 0)
+        store.failEdits = IOException("disk full")
+        repo.finishSession(finished.id)
+        repo.deleteSession(deleted.id)
+        store.failEdits = null
+        assertTrue(dao.session(finished.id)!!.finished)
+        assertNull(dao.session(deleted.id))
+        assertNotNull(origins.read(finished.id))
+        assertNotNull(origins.read(deleted.id))
+        assertEquals(refused, swap(finished, 0, 0, "c"))
+        assertEquals(refused, repo.swapExerciseInSession(deletedLog, strength("c"), updateProgram = true))
+        assertEquals("a", row("r0a").exerciseId)
+    }
+
+    @Test fun `storage d - a cancellation during an origin write or remove propagates`() = runBlocking {
+        seed()
+        val s = repo.startProgramSession("p1")!!
+        store.failEdits = CancellationException("cancelled")
+        val calls: List<Pair<String, suspend () -> Unit>> = listOf(
+            "start" to { repo.startProgramSession("p1") },
+            "swap" to { swap(s, 0, 0, "c") },
+            "finish" to { repo.finishSession(s.id) },
+            "delete" to { repo.deleteSession(s.id) },
+        )
+        for ((name, call) in calls) {
+            val e = try { call(); null } catch (e: CancellationException) { e }
+            assertEquals(name, "cancelled", e?.message)
+        }
+    }
+
+    @Test fun `storage e - an origin clear that fails stops an import in either mode or a reset before any Room write`() = runBlocking {
+        val backup = run { seed(); repo.exportJson() }
+        val s = repo.startProgramSession("p1")!!
+        val before = dao.backupSnapshot()
+        store.failEdits = IOException("disk full")
+        val runs: List<Pair<String, suspend () -> Unit>> = listOf(
+            "merge import" to { repo.importJson(backup, replace = false) },
+            "replace import" to { repo.importJson(backup, replace = true) },
+            "reset" to { repo.resetToSeed() },
+        )
+        for ((name, op) in runs) {
+            val e = try { op(); null } catch (e: IOException) { e }
+            assertEquals(name, "disk full", e?.message)
+            assertEquals(name, before, dao.backupSnapshot())
+        }
+        store.failEdits = null
+        assertNotNull(origins.read(s.id))
+    }
+
     @Test fun `without an origin store, Update the program too changes the session only`() = runBlocking {
         val bare = KhonRepository(dao)
         seed()
@@ -334,7 +411,7 @@ class SwapBySlotTest {
 
 /**
  * A DataStore whose next edit waits after [holdNextEdit] until its gate opens: an origin write held in flight. Every
- * other edit and every read go straight through, unless [failReads].
+ * other edit and every read go straight through, unless [failReads] or [failEdits].
  */
 class GatedStore(private val inner: DataStore<Preferences>) : DataStore<Preferences> {
     class Gate { val entered = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>() }
@@ -342,10 +419,13 @@ class GatedStore(private val inner: DataStore<Preferences>) : DataStore<Preferen
     fun holdNextEdit(): Gate = Gate().also { next = it }
     /** True: every read fails, as a store whose file cannot be read. */
     @Volatile var failReads = false
+    /** Not null: every edit throws it and writes nothing, as a store whose file cannot be written. */
+    @Volatile var failEdits: Throwable? = null
     override val data: Flow<Preferences> get() = if (failReads) flow { throw IOException("unreadable") } else inner.data
     override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
         val gate = synchronized(this) { next.also { next = null } }
         if (gate != null) { gate.entered.complete(Unit); gate.release.await() }
+        failEdits?.let { throw it }
         return inner.updateData(transform)
     }
 }

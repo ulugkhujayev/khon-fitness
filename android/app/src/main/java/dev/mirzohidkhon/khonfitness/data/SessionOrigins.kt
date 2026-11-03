@@ -1,6 +1,7 @@
 package dev.mirzohidkhon.khonfitness.data
 
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -37,11 +38,29 @@ class SessionOrigins(private val store: DataStore<Preferences>) {
         null
     }
 
-    suspend fun write(sessionId: String, origin: SessionOrigin) { store.edit { it[key(sessionId)] = Json.encodeToString(origin) } }
+    /**
+     * False when the store fails: the edit is atomic, so nothing is written. Callers run after their Room commit, so a
+     * failure must not escape; every state it leaves is one the swap check refuses (no origin, an old fingerprint, or a
+     * finished or missing session behind a stale key).
+     */
+    suspend fun write(sessionId: String, origin: SessionOrigin): Boolean = edit { it[key(sessionId)] = Json.encodeToString(origin) }
 
-    suspend fun remove(sessionId: String) { store.edit { it.remove(key(sessionId)) } }
+    /** False when the store fails, as [write]. */
+    suspend fun remove(sessionId: String): Boolean = edit { it.remove(key(sessionId)) }
 
-    /** Every session's origin goes, in one edit: an import or a reset makes none of them trustworthy. */
+    private suspend fun edit(change: (MutablePreferences) -> Unit): Boolean = try {
+        store.edit(change)
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        false
+    }
+
+    /**
+     * Every session's origin goes, in one edit: an import or a reset makes none of them trustworthy. Unlike [write]
+     * and [remove] it throws on failure, so an import or a reset stops before its Room writes.
+     */
     suspend fun clearAll() {
         store.edit { p ->
             @Suppress("UNCHECKED_CAST")

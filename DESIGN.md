@@ -130,14 +130,23 @@ padded cards, per-item buttons, "Updated" lines.
 - The Plan tab: the large title "Plan" with a round "+" (a 36 px circle
   on a 48 px target) that opens a sheet of four rows with tiles: Gym
   program, Cardio workout, Stretch routine, Exercise. Then This week with
-  an accent "Edit" (48 px target) on its section title, over a grid of
-  seven cells of one height, 4 px apart, radius 12: the weekday in 11 px
-  muted, the item's name in 12 px semibold, two lines at most, then "…"
-  (muted for rest), today's cell on AccentSoft with its weekday in
-  accent, and a 5 px accent dot under a day a one-day change set. The
-  cell text grows with the font scale; above 1.15 the week wraps to two
-  rows of four cells (Mon-Thu, Fri-Sun). Each cell speaks its day, full
-  item name, "Today" and "Changed for this day only".
+  an accent "Edit" (48 px target) on its section title, over a strip of
+  seven columns, Monday to Sunday, across the whole screen width (no side
+  margins, no card), each 1/7 of it (51 px at 360) and a full tap target:
+  the day's letter (M T W T F S S) in 12 px muted, under it a 40 px
+  Surface2 circle with the day's symbol at 22 px. A gym program is a
+  dumbbell in accent; a cardio workout by its type id, run a runner,
+  bike a bike, swim a swimmer, any other or none a heart, in the type's
+  own color (muted without a type); rest is a moon in RestSymbol
+  (#8E8E93). Every symbol color reads at 3:1 or more on Surface2 and on
+  Surface3. Today's letter is accent and bold and its circle has a 2 px
+  accent ring; a day a one-day change set keeps its 5 px accent dot,
+  under the circle. A tap selects a day (today at first; not saved): its
+  circle fills Surface3, and one line under the strip, 15 medium, names
+  it in full ("Wed · Rest", "Thu · Norwegian 4×4"; long names wrap). The
+  strip stays one row at every font scale. Each column is a tab with its
+  selected state and speaks its day, full item name, "Today" and
+  "Changed for this day only".
 - Gym programs, cardio workouts and stretch routines are rows with the
   title over a muted line (up to two lines each), 56 px minimum: a dot
   (filled = active) for programs and routines, a type pill (11 px text in
@@ -375,9 +384,19 @@ Two lines, 88 px total, hairline between rows.
   value is today's entry. A valid typed value saves with one tap on the
   button or the keyboard's Done. The entry starts at the latest value,
   75.0 kg before the first.
-- History's title bar carries Import as a round symbol button. Under it
-  a segmented Log / Progress, 54 px tall so each segment is a 48 px
-  target; it scrolls with the page.
+- History's large title is the page switch: "Log" and "Progress" side by
+  side in the title row, 34 bold, 16 px apart, Import as a round symbol
+  button at the row's end. The open word is white with a 3 px accent bar
+  6 px under it, as wide as the word and rounded; the closed word is
+  TitleOff (#6C6C70, 4.0:1 on the page). Each word is a 48 px target and
+  a tab with its selected state; the row is a heading spoken as
+  "History". No "History" word shows. When the words do not fit, their
+  size steps down a whole size at a time, not below 22. Android scales
+  large text less than small text, so at font scale 1.6 on a 360 px
+  screen they fit at 34. As the bar folds the words shrink like a title,
+  the closed word and the bar fade, and the open word moves to the
+  leading edge: the small bar title is the open page's word. Once the bar
+  is half folded the closed word takes no taps; scroll up to switch.
 - History Log: the week title 17/600 centered between 48 px chevron
   buttons (accent, Surface3 at the first or last week). The week card on
   the group surface (16 px padding): "<done> of <planned> planned done"

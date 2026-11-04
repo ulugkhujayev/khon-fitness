@@ -60,7 +60,8 @@ Three tabs.
   new day shows at the next minute or on resume. The home-screen widget's
   Start resumes a running session, else starts today's item; once a
   session is saved today it only opens Today, never a second session.
-- History. Two pages, Log (the default) and Progress; each keeps its own
+- History. Two pages, Log (the default) and Progress, named side by side
+  in the large title as tabs (the open one marked); each keeps its own
   scroll position and state (the week shown, the bodyweight range), also
   across page and tab switches. Today's date is read again on resume and
   at midnight; every range ends at today, so a later-dated session or
@@ -92,9 +93,11 @@ Three tabs.
     in work intervals (else time), and its sessions. Each section without
     data shows one line.
 - Plan. A "+" adds a gym program, a cardio workout, a stretch routine or
-  an exercise. This week: Monday to Sunday in seven cells with each day's
-  item by name, today tinted, and a dot on a day
-  that a one-day change set; Edit opens the week plan. Then the gym
+  an exercise. This week: Monday to Sunday as seven day symbols (gym,
+  run, bike, swim, other cardio, rest) under the day's letter, today
+  ringed, and a dot on a day that a one-day change set. A tap on a day
+  selects it and names its item in full under the strip; today is
+  selected first. Edit opens the week plan. Then the gym
   programs (the active one filled; blocks, sets and "Every Tue, Sat" from
   the week plan, or "Not in the week"), the cardio workouts (type pill,
   name, plan; archived ones last under Archived), the stretch routines,

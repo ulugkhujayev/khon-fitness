@@ -5,20 +5,15 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.material3.Text
 import android.content.res.Configuration
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextMeasurer
-import androidx.compose.ui.text.TextStyle as TextStyleC
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
@@ -57,11 +52,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.robolectric.annotation.GraphicsMode
 import java.time.format.TextStyle
 import java.util.Locale
 
-/** The Plan tab (UI06 P4): its sections, "+", the week grid, the rows' lines, first use and its own scroll position. */
+/** The Plan tab (UI06 P4, UI07): its sections, "+", the week strip, the rows' lines, first use and its own scroll position. */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class PlanScreenTest {
@@ -97,8 +91,6 @@ class PlanScreenTest {
             val config = Configuration(LocalConfiguration.current).apply { fontScale = scale }
             CompositionLocalProvider(LocalDensity provides Density(d.density, scale), LocalConfiguration provides config) {
             KhonTheme {
-                measurer = rememberTextMeasurer()
-                textStyle = LocalTextStyle.current
                 val nav = rememberNavController().also { nav = it }
                 NavHost(nav, Routes.TODAY) {
                     composable(Routes.TODAY) { Text("Today screen") }
@@ -118,8 +110,6 @@ class PlanScreenTest {
         }
         waitFor { shows(shown) }
     }
-    private lateinit var measurer: TextMeasurer
-    private lateinit var textStyle: TextStyleC
 
     private fun seed() = io {
         dao.upsertPrograms(listOf(Program("push", "Push", active = true), Program("pull", "Pull", sortOrder = 1)))
@@ -204,33 +194,65 @@ class PlanScreenTest {
         waitFor { shows(WEEK_PLAN_NOTE) }
     }
 
-    /**
-     * At font scales 1.0, 1.3 and 1.6 each week cell holds its name at the full scaled size in two lines at most, with
-     * no "…": above 1.15 the week wraps to rows of four cells. Native graphics, so text has its real width.
-     */
-    @GraphicsMode(GraphicsMode.Mode.NATIVE) @Test fun `the week grid names fit their cells at font scale 1_0`() = gridFits(1f)
-    @GraphicsMode(GraphicsMode.Mode.NATIVE) @Test fun `the week grid names fit their cells at font scale 1_3`() = gridFits(1.3f)
-    @GraphicsMode(GraphicsMode.Mode.NATIVE) @Test fun `the week grid names fit their cells at font scale 1_6`() = gridFits(1.6f)
+    /** One week column by its spoken line ("Thursday, Push."). */
+    private fun day(spoken: String) = compose.onNode(hasContentDescription(spoken, substring = true))
 
-    private fun gridFits(scale: Float) {
+    /**
+     * UI07 rows 9 and 11: at font scales 1.0 and 1.6 the week is one row of seven columns that spans the whole screen
+     * width, each 1/7 of it (51 dp at 360) and a full tap target.
+     */
+    @Test fun `the week strip is one row of seven full width columns at font scale 1_0`() = stripFits(1f)
+    @Test fun `the week strip is one row of seven full width columns at font scale 1_6`() = stripFits(1.6f)
+
+    private fun stripFits(scale: Float) {
         seed()
-        io {
-            dao.upsert(Exercise("tempo", "Tempo run", Kind.CARDIO, modalityId = "run"))
-            dao.upsertWeekPlan(listOf(WeekPlan(2, ItemType.CARDIO, "z2run"), WeekPlan(3, ItemType.PROGRAM, "pull"), WeekPlan(5, ItemType.CARDIO, "tempo")))
+        openPlan(scale = scale)
+        val px = compose.density.density
+        val root = compose.onRoot().fetchSemanticsNode().size.width
+        val days = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday").map { day("$it,").fetchSemanticsNode() }
+        assertEquals("x$scale rows of the week", 1, days.map { it.positionInRoot.y }.distinct().size)
+        assertEquals("x$scale first column at the screen edge", 0f, days.first().positionInRoot.x, 1f)
+        assertEquals("x$scale last column at the screen edge", root.toFloat(), days.last().positionInRoot.x + days.last().size.width, 1f)
+        days.forEach {
+            assertEquals("x$scale column width", root / 7f, it.size.width.toFloat(), 1f)
+            assertTrue("x$scale column height ${it.size.height / px}", it.size.height >= 48 * px)
         }
-        run {
-            openPlan(scale = scale)
-            val px = compose.density.density
-            val names = mapOf("Monday" to "Push", "Tuesday" to "Zone 2 run", "Wednesday" to "Pull", "Thursday" to "Push", "Friday" to "Tempo run", "Saturday" to "Rest")
-            val rows = names.map { (day, name) ->
-                val cell = compose.onNode(hasContentDescription("$day, $name.", substring = true)).fetchSemanticsNode()
-                val style = textStyle.merge(TextStyleC(fontSize = WEEK_CELL_NAME_SP.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center))
-                val text = measurer.measure(name, style, overflow = TextOverflow.Ellipsis, maxLines = 2, constraints = Constraints(maxWidth = cell.size.width - (4 * px).toInt()))
-                assertFalse("x$scale $day \"$name\" does not fit a ${cell.size.width / px} dp cell", text.hasVisualOverflow)
-                cell.positionInRoot.y
-            }
-            assertEquals("x$scale rows of the week", if (scale > WEEK_GRID_ONE_ROW_MAX_SCALE) 2 else 1, rows.distinct().size)
-        }
+    }
+
+    /** UI07 rows 9 and 10: today is selected first; a tap selects a day and names it in full under the strip. */
+    @Test fun `a tap on a day selects it and names it under the strip`() {
+        seed()
+        io { dao.upsert(Exercise("nor", "Norwegian 4×4 on the bike, long name that wraps", Kind.CARDIO, modalityId = "bike")); dao.upsert(WeekPlan(4, ItemType.CARDIO, "nor")) }
+        openPlan()
+        val today = vm.today()
+        val todayName = today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+        day("$todayName,").assertIsSelected()
+        val long = "Norwegian 4×4 on the bike, long name that wraps"
+        val todayItem = when (today.dayOfWeek.value) { 1 -> "Push"; 4 -> long; else -> "Rest" }
+        assertShows(weekdayShort(today.dayOfWeek.value) + " · " + todayItem)
+        waitFor { compose.onAllNodes(hasContentDescription("Thursday, Norwegian", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        tap(day("Thursday,"))
+        day("Thursday,").assertIsSelected()
+        assertShows("Thu · $long")
+        if (todayName != "Thursday") day("$todayName,").assertIsNotSelected()
+        // Monday is a program day.
+        tap(day("Monday,"))
+        assertShows("Mon · Push")
+        assertFalse(shows("Thu · $long"))
+    }
+
+    /** UI07 row 10: each column is a tab with its selected state, spoken as its day's line. */
+    @Test fun `each week column is a tab spoken as its line`() {
+        seed()
+        openPlan()
+        val node = day("Monday, Push.").fetchSemanticsNode()
+        assertEquals(Role.Tab, node.config[SemanticsProperties.Role])
+        assertTrue(node.config.contains(SemanticsProperties.Selected))
+        assertTrue(node.config.contains(SemanticsActions.OnClick))
+        assertEquals(1, compose.onAllNodes(hasContentDescription("Monday, Push.", substring = true)).fetchSemanticsNodes().size)
+        // The letter and the symbol add nothing to the spoken line.
+        assertEquals(listOf("Monday, Push."), node.config[SemanticsProperties.ContentDescription].map { it.substringBefore(" Today") })
+        assertFalse(node.config.contains(SemanticsProperties.Text))
     }
 
     @Test fun `first use shows no programs, Create program and a week of rest`() {

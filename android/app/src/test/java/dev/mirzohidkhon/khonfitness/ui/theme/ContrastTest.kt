@@ -2,6 +2,7 @@ package dev.mirzohidkhon.khonfitness.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import dev.mirzohidkhon.khonfitness.data.Seed
 import dev.mirzohidkhon.khonfitness.ui.screens.PRESET_COLORS
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -51,6 +52,21 @@ class ContrastTest {
     @Test fun circleSymbolsRead() {
         val low = symbolFills.filter { it != K.Dim }.flatMap { c -> listOf(K.Bg, K.Surface).map { c to contrast(c, c.copy(alpha = 0.2f).compositeOver(it)) } }.filter { it.second < 3.0 }
         assertTrue(low.joinToString { (c, r) -> "%08X %.2f".format(c.value.toLong() ushr 32, r) }, low.isEmpty())
+    }
+
+    /**
+     * UI07 rows 1 and 7: History's closed title word on the page, and Plan's week symbols on a day's circle and on the
+     * selected day's: gym, rest, cardio without a type and each seeded type's color. Each is a pair at 3:1 or more.
+     */
+    @Test fun titleTabAndWeekSymbolsRead() {
+        val wanted = listOf(K.TitleOff to K.Bg) +
+            listOf(K.Surface2, K.Surface3).flatMap { bg -> (listOf(K.Accent, K.RestSymbol, K.Muted) + Seed.modalities.map { Color(it.color) }).map { it to bg } }
+        for ((fg, bg) in wanted) {
+            val name = "%08X on %08X".format(fg.value.toLong() ushr 32, bg.value.toLong() ushr 32)
+            assertTrue("$name is no pair", TextPairs.any { it.fg == fg && it.bg == bg })
+            assertTrue("$name %.2f".format(contrast(fg, bg)), contrast(fg, bg) >= 3.0)
+        }
+        assertEquals(setOf("bike", "run", "swim", "row"), Seed.modalities.map { it.id }.toSet())
     }
 
     private val ui = File("src/main/java/dev/mirzohidkhon/khonfitness/ui")

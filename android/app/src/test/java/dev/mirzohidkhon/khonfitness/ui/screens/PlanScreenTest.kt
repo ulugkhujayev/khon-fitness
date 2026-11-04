@@ -245,6 +245,8 @@ class PlanScreenTest {
     @Test fun `each week column is a tab spoken as its line`() {
         seed()
         openPlan()
+        // The week shows Monday's program once the plan's queries answer.
+        waitFor { compose.onAllNodes(hasContentDescription("Monday, Push.", substring = true)).fetchSemanticsNodes().isNotEmpty() }
         val node = day("Monday, Push.").fetchSemanticsNode()
         assertEquals(Role.Tab, node.config[SemanticsProperties.Role])
         assertTrue(node.config.contains(SemanticsProperties.Selected))

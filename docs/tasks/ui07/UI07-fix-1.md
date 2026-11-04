@@ -1,0 +1,22 @@
+# UI07 fix 1 (after the Sol deep review of d291e9f)
+
+Class: Normal. Review, tests and fixes follow `~/.config/agents/review-protocol.md` (step 6: fixer).
+Contract: `UI07-title-tabs-week-symbols.md`; this file replaces its rows 5 and 9 where they differ.
+
+## Findings and the decided fix
+
+| # | Class | Finding (Sol) | Fix |
+|---|---|---|---|
+| F1 | Tap target shrinks with the fold | History's title words shrink as the large title folds; folded "Progress" is 88 x 30 dp; a tap 23 dp below "Log"'s center misses after 10 dp of scroll (`Shell.kt:237`). | History's title row does not fold. It stays pinned at the top at full size; the page content scrolls under it. No small bar title for History (row 5 is dropped for History). Each word keeps a 48 x 48 dp or larger target at every scroll offset. |
+| F2 | Visible control loses its action | After 21 dp of scroll the closed word is partly visible but has no click action and no TalkBack tab (`Shell.kt:244`). | Same fix as F1: no fold, no fade, so both words stay tabs with click actions at every scroll offset. |
+| F3 | Contrast check ignores opacity | At 10 dp scroll the closed word is drawn at 75% opacity: 2.65:1, below 3:1 (`Shell.kt:248`). | Same fix as F1: no alpha on the words. `K.TitleOff` on `K.Bg` stays the checked pair. |
+| F4 | Tap target under 48 dp on narrow screens | At 320 dp width the seven Plan columns are 45.7-46 dp (`PlanScreen.kt:179`). | When the width is under 7 x 48 dp plus 2 x 10 dp, each column is exactly 48 dp and the strip scrolls sideways (`horizontalScroll`), keeping today in view at first. At 336 dp and wider nothing changes. |
+| F5 | Selected state not visible | The selected day is Surface3 on Surface2, 1.23:1. | The 2 dp accent ring marks the **selected** day (today at first) instead of today. Today keeps its accent bold letter. Drop the Surface3 fill. Ring color `K.Accent` against `K.Bg` and `K.Surface2` passes 3:1: add to `TextPairs` if not there. |
+
+## Rules
+
+- Per class: search the branch for siblings (other `TabScreen` users, other places that fade or shrink a control on fold) and fix every instance in UI07's diff. Other tabs (Today, Plan) keep their folding large title.
+- Tests (each fails before the fix): History words stay 48 x 48 dp, clickable and `Role.Tab` at scroll offsets 0, 10, 21, 60 dp and at the bottom; no alpha below 1 on the words; Plan columns are 48 dp and the strip scrolls at 320 dp width; the ring follows the selection (tap Thursday: Thursday has the ring, Wednesday not); remove or update tests for the dropped folded bar title.
+- Update `DESIGN.md` and `SPEC.md` for F1, F4, F5. Commit small, messages like `UI07 fix: ...`. No push. No AI attribution.
+- Run only your new tests and the test classes of files you touched; the lead runs the full suite.
+- Report under 40 lines: commits, each finding with the test that proves the fix, the tests you ran with output tail. Save Robolectric screenshots (History scrolled 60 dp, Plan with Thursday selected, Plan at 320 dp) to `/tmp/khon-ui07-fix/`.

@@ -40,6 +40,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -168,4 +169,38 @@ class SessionBarTouchTest {
     @Test fun `a finger on the list stops a fling (control)`() = holdStopsFling(400f)
     @Test fun `a finger on the session bar stops a fling`() = holdStopsFling(28f)
     @Test fun `a finger on the folded progress line stops a fling`() = holdStopsFling(57f)
+
+    /** A tap on block 8's header where it shows below the line (70 and 90 dp) opens it. */
+    private fun visibleHeaderTakesTap(yDp: Float) {
+        openSession()
+        block8UnderTheLine()
+        val before = block8().config.getOrNull(SemanticsProperties.StateDescription)
+        val px = compose.density.density
+        compose.onRoot().performTouchInput { click(Offset(180 * px, yDp * px)) }
+        compose.waitForIdle()
+        assertNotEquals("block 8 after a tap at $yDp dp, below the line", before, block8().config.getOrNull(SemanticsProperties.StateDescription))
+    }
+
+    @Test fun `a tap just below the folded line opens the block header there`() = visibleHeaderTakesTap(70f)
+    @Test fun `a tap well below the folded line opens the block header there`() = visibleHeaderTakesTap(90f)
+
+    /**
+     * Before the bar folds, the progress row slides up with the list and lets taps through: block 1's header, scrolled
+     * to lie under the row and near the line, takes a tap there.
+     */
+    @Test fun `the moving progress row lets a tap through to the block under it`() {
+        openSession()
+        val px = compose.density.density
+        fun block1() = compose.onAllNodes(hasContentDescription("Block 1,", substring = true)).fetchSemanticsNodes().single()
+        // Block 1's header to start at 64 dp: under the row, and within 48 dp of the 2 dp line at 56 dp.
+        val dy = block1().boundsInRoot.top - 64 * px
+        compose.onNode(hasScrollAction()).performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, dy) }
+        compose.waitForIdle()
+        assertEquals("block 1's header top in dp", 64f, block1().boundsInRoot.top / px, 1f)
+        val y = 70f
+        val before = block1().config.getOrNull(SemanticsProperties.StateDescription)
+        compose.onRoot().performTouchInput { click(Offset(180 * px, y * px)) }
+        compose.waitForIdle()
+        assertNotEquals("block 1 after a tap at $y dp", before, block1().config.getOrNull(SemanticsProperties.StateDescription))
+    }
 }

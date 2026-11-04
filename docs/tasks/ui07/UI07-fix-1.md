@@ -51,3 +51,8 @@ parent) and only takes the first press, in the first pass, on a layer under its 
 scrolls, flings, stops, measures speed and stretches by its own code; rows under a bar never get a tap. A drag that
 starts on a bar button stays with the button (as on a native toolbar; Today and Plan already worked so before UI07).
 Tests: taps, drags, held and pressed fingers during a fling, and a drag from a bar button, on each instance.
+
+Verify 6 found that the press cover also took presses near the 2 dp session line: Compose gives a small pointer node a
+48 dp touch target ring, so the line took a tap at 70 dp that belonged to the block header there, and to the moving
+progress row's tap-through. Fix: the cover takes a press only inside its own bounds. Tests: taps at 70 and 90 dp open
+block 8 below the folded line; a tap at 70 dp opens block 1 under the moving row.

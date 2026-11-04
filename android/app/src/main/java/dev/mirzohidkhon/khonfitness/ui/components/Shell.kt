@@ -204,11 +204,16 @@ private data object PassTouchesBelow : ModifierNodeElement<SharedTouchNode>() {
 /**
  * Shares each touch with the layouts under it. With [takePress] it marks the press as used in the first pass, before
  * any layout acts on it: a tap detector under it then ignores the touch, while a scroll under it still follows the
- * drag (scrolling does not need an unused press).
+ * drag (scrolling does not need an unused press). Only a press inside its own [bounds] counts: Compose also sends it
+ * presses near a small layout (the 2 dp session line gets the 48 dp touch target ring), and those belong to the rows.
  */
 private class SharedTouchNode(private val takePress: Boolean) : Modifier.Node(), PointerInputModifierNode {
     override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
-        if (takePress && pass == PointerEventPass.Initial) pointerEvent.changes.forEach { if (it.changedToDownIgnoreConsumed()) it.consume() }
+        if (!takePress || pass != PointerEventPass.Initial) return
+        pointerEvent.changes.forEach {
+            val inside = it.position.x in 0f..bounds.width.toFloat() && it.position.y in 0f..bounds.height.toFloat()
+            if (inside && it.changedToDownIgnoreConsumed()) it.consume()
+        }
     }
     override fun onCancelPointerInput() = Unit
     override fun sharePointerInputWithSiblings() = true

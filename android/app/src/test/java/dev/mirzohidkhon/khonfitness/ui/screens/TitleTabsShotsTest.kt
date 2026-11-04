@@ -119,15 +119,15 @@ class TitleTabsShotsTest {
     @Test fun history() = history(1f, "1.0")
     @Test fun historyLarge() = history(1.6f, "1.6")
 
-    @Test fun historyFolded() {
+    /** The title row stays pinned at full size while the page scrolls under it. */
+    @Test fun historyScrolled() {
         io { seed() }
-        // At font scale 1.6 the Progress page is long enough to fold the bar.
-        show(1.6f) { HistoryScreen(vm, rememberNavController()) }
+        show(1f) { HistoryScreen(vm, rememberNavController()) }
         waitFor("planned done")
         compose.onNodeWithText("Progress").performClick()
         waitFor("Personal records")
-        scrollPage(200f)
-        shot("history-progress-folded")
+        scrollPage(60f)
+        shot("history-progress-scrolled-60")
     }
 
     /** Scrolls the page under the header by [dp]. */
@@ -155,4 +155,8 @@ class TitleTabsShotsTest {
         waitFor("Thu · ")
         shot("plan-thursday")
     }
+
+    /** A 320 dp screen: the week columns stay 48 dp and the strip scrolls sideways. */
+    @Config(qualifiers = "w320dp-h780dp-xxhdpi")
+    @Test fun planNarrow() = plan(1f, "320dp")
 }

@@ -53,7 +53,7 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock
     TabScreen(
         trailing = { BarCircleButton(Icons.Download, "Import workouts") { nav.navigate(Routes.IMPORT) } },
         scroll = if (page == 0) logScroll else progressScroll,
-        title = { scale -> TitleTabs(listOf("Log", "Progress"), page, "History", scale) { page = it } },
+        title = { TitleTabs(listOf("Log", "Progress"), page, "History") { page = it } },
     ) {
         pages.SaveableStateProvider(page) { if (page == 0) HistoryLog(vm, nav, today) else HistoryProgress(vm, nav, today) }
     }

@@ -5,8 +5,12 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.res.Configuration
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -48,7 +52,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.time.LocalDate
 
-/** UI07 rows 1 to 5: History's large title is the Log / Progress switch. */
+/** UI07 rows 1 to 4 and fix 1: History's large title is the Log / Progress switch. */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class HistoryTitleTabsTest {
@@ -57,6 +61,7 @@ class HistoryTitleTabsTest {
     private lateinit var vm: AppViewModel
     private val dao get() = app.db.dao()
     private val today = LocalDate.now()
+    private lateinit var view: android.view.View
 
     @Before fun open() {
         app = KhonApp()
@@ -76,6 +81,7 @@ class HistoryTitleTabsTest {
             val d = LocalDensity.current
             val config = Configuration(LocalConfiguration.current).apply { fontScale = scale }
             CompositionLocalProvider(LocalDensity provides Density(d.density, scale), LocalConfiguration provides config) {
+                view = LocalView.current
                 KhonTheme { HistoryScreen(vm, rememberNavController()) }
             }
         }
@@ -192,25 +198,46 @@ class HistoryTitleTabsTest {
     }
 
     /**
-     * Row 5: once the bar folds the small bar title is the open page's word: the closed word is gone from the screen's
-     * semantics and takes no taps, the open one stays. Scrolled back up, both words show again.
+     * Fix 1, F1 to F3: the title row does not fold. At scroll offsets 0, 10, 21 and 60 dp and at the bottom of the page,
+     * each word is a tab with a click action and a 48 x 48 dp target, in the same place and drawn the same as at the top
+     * (no shrink, no fade, no small bar title), and a tap 23 dp below "Log"'s center still opens Log.
      */
-    @Test fun `the folded bar shows only the open page's word`() {
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test fun `the title words stay full size tabs at every scroll offset`() {
         seed()
         show()
         compose.onNodeWithText("Progress").performClick()
         waitFor("Personal records")
+        val px = compose.density.density
         val page = compose.onNode(hasScrollAction())
-        val before = compose.onNodeWithText("Personal records", substring = true).fetchSemanticsNode().positionInRoot.y
-        page.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 200 * compose.density.density) }
-        compose.waitForIdle()
-        val after = compose.onNodeWithText("Personal records", substring = true).fetchSemanticsNode().positionInRoot.y
-        assertTrue("scrolled ${(before - after) / compose.density.density} dp", before - after >= 40 * compose.density.density)
-        assertTrue(compose.onAllNodesWithText("Log").fetchSemanticsNodes().isEmpty())
-        compose.onNodeWithText("Progress").assertIsSelected()
-        compose.onNode(isHeading() and hasContentDescription("History")).assertExists()
+        fun content() = compose.onNodeWithText("Personal records", substring = true).fetchSemanticsNode().positionInRoot.y
+        val top = content()
+        val words = listOf("Log", "Progress")
+        val bounds = words.associateWith { compose.onNodeWithText(it).fetchSemanticsNode().boundsInRoot }
+        val looks = words.associateWith { compose.nodeImage(view, compose.onNodeWithText(it)) }
+        for (dp in listOf(0f, 10f, 21f, 60f, null)) {
+            val wanted = dp?.times(px) ?: 100_000f
+            page.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, wanted - (top - content())) }
+            compose.waitForIdle()
+            val scrolled = top - content()
+            if (dp != null) assertEquals("scrolled to $dp dp", dp * px, scrolled, 1f) else assertTrue("at the bottom ${scrolled / px} dp", scrolled > 60 * px)
+            for (w in words) {
+                val node = compose.onNodeWithText(w).fetchSemanticsNode()
+                assertEquals("$w at $dp dp", Role.Tab, node.config[SemanticsProperties.Role])
+                assertTrue("$w takes taps at $dp dp", node.config.contains(SemanticsActions.OnClick))
+                assertTrue("$w ${node.size} at $dp dp", node.size.width >= 48 * px && node.size.height >= 48 * px)
+                assertEquals("$w moved at $dp dp", bounds.getValue(w), node.boundsInRoot)
+                assertTrue("$w drawn otherwise at $dp dp", looks.getValue(w).sameAs(compose.nodeImage(view, compose.onNodeWithText(w))))
+            }
+            compose.onNode(isHeading() and hasContentDescription("History")).assertExists()
+        }
+        // At 10 dp of scroll, a tap 23 dp below Log's center opens Log.
         page.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, -100_000f) }
+        page.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 10 * px) }
         compose.waitForIdle()
-        compose.onNodeWithText("Log").assertIsNotSelected()
+        val log = compose.onNodeWithText("Log").fetchSemanticsNode().boundsInRoot
+        compose.onRoot().performTouchInput { click(Offset(log.center.x, log.center.y + 23 * px)) }
+        waitFor("planned")
+        compose.onNodeWithText("Log").assertIsSelected()
     }
 }

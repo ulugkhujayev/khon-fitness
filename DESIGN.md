@@ -131,8 +131,9 @@ padded cards, per-item buttons, "Updated" lines.
   on a 48 px target) that opens a sheet of four rows with tiles: Gym
   program, Cardio workout, Stretch routine, Exercise. Then This week with
   an accent "Edit" (48 px target) on its section title, over a strip of
-  seven columns, Monday to Sunday, across the whole screen width (no side
-  margins, no card), each 1/7 of it (51 px at 360) and a full tap target:
+  seven columns, Monday to Sunday, across the screen width with a 10 px
+  inset on each side (no card), each 1/7 of the rest (48.6 px at 360,
+  never under 48) and a full tap target:
   the day's letter (M T W T F S S) in 12 px muted, under it a 40 px
   Surface2 circle with the day's symbol at 22 px. A gym program is a
   dumbbell in accent; a cardio workout by its type id, run a runner,

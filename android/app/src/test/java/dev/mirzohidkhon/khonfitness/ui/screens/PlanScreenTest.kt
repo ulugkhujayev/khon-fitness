@@ -198,8 +198,8 @@ class PlanScreenTest {
     private fun day(spoken: String) = compose.onNode(hasContentDescription(spoken, substring = true))
 
     /**
-     * UI07 rows 9 and 11: at font scales 1.0 and 1.6 the week is one row of seven columns that spans the whole screen
-     * width, each 1/7 of it (51 dp at 360) and a full tap target.
+     * UI07 rows 9 and 11: at font scales 1.0 and 1.6 the week is one row of seven columns across the screen width, inset
+     * 10 dp on each side, each 1/7 of the rest (48.6 dp at 360) and a full 48 dp tap target.
      */
     @Test fun `the week strip is one row of seven full width columns at font scale 1_0`() = stripFits(1f)
     @Test fun `the week strip is one row of seven full width columns at font scale 1_6`() = stripFits(1.6f)
@@ -211,10 +211,12 @@ class PlanScreenTest {
         val root = compose.onRoot().fetchSemanticsNode().size.width
         val days = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday").map { day("$it,").fetchSemanticsNode() }
         assertEquals("x$scale rows of the week", 1, days.map { it.positionInRoot.y }.distinct().size)
-        assertEquals("x$scale first column at the screen edge", 0f, days.first().positionInRoot.x, 1f)
-        assertEquals("x$scale last column at the screen edge", root.toFloat(), days.last().positionInRoot.x + days.last().size.width, 1f)
+        val inset = WEEK_STRIP_INSET_DP * px
+        assertEquals("x$scale first column after the inset", inset, days.first().positionInRoot.x, 1f)
+        assertEquals("x$scale last column before the inset", root - inset, days.last().positionInRoot.x + days.last().size.width, 1f)
         days.forEach {
-            assertEquals("x$scale column width", root / 7f, it.size.width.toFloat(), 1f)
+            assertEquals("x$scale column width", (root - 2 * inset) / 7f, it.size.width.toFloat(), 1f)
+            assertTrue("x$scale column width ${it.size.width / px}", it.size.width >= 48 * px)
             assertTrue("x$scale column height ${it.size.height / px}", it.size.height >= 48 * px)
         }
     }

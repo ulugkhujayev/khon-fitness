@@ -20,3 +20,9 @@ Contract: `UI07-title-tabs-week-symbols.md`; this file replaces its rows 5 and 9
 - Update `DESIGN.md` and `SPEC.md` for F1, F4, F5. Commit small, messages like `UI07 fix: ...`. No push. No AI attribution.
 - Run only your new tests and the test classes of files you touched; the lead runs the full suite.
 - Report under 40 lines: commits, each finding with the test that proves the fix, the tests you ran with output tail. Save Robolectric screenshots (History scrolled 60 dp, Plan with Thursday selected, Plan at 320 dp) to `/tmp/khon-ui07-fix/`.
+
+## Added after verify 1 (design alarm, new class)
+
+| # | Class | Finding (Sol) | Fix |
+|---|---|---|---|
+| F6 | Taps pass through an opaque bar | The pinned bar (History) and the folding bar (Today, Plan) draw over the content but take no input, so a tap on the bar's background opens the row scrolled under it (`Shell.kt:143`, `:164`). The folding instance predates UI07. | Both bars take every touch on their background (`takeTouches` in `Shell.kt`); their own controls still take taps. `TitleBarTouchTest` covers both bars, so all three tabs. |

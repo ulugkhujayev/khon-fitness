@@ -4,6 +4,7 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -140,7 +141,7 @@ fun LargeTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit
     Box(
         Modifier.fillMaxWidth().height(geometry.height.dp)
             .graphicsLayer { translationY = -geometry.barShift(scrollPx() / density).dp.toPx() }
-            .background(K.Bg),
+            .background(K.Bg).takeTouches(),
     ) {
         Row(
             Modifier.padding(top = geometry.rowTop.dp).height(geometry.row.dp).padding(horizontal = 16.dp)
@@ -161,7 +162,7 @@ fun LargeTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit
 @Composable
 fun PinnedTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit)?, scrollPx: () -> Int, title: @Composable RowScope.() -> Unit) {
     val density = LocalDensity.current.density
-    Box(Modifier.fillMaxWidth().height(geometry.height.dp).background(K.Bg)) {
+    Box(Modifier.fillMaxWidth().height(geometry.height.dp).background(K.Bg).takeTouches()) {
         Row(Modifier.padding(top = geometry.rowTop.dp).height(geometry.row.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             title()
             trailing?.invoke()
@@ -169,6 +170,12 @@ fun PinnedTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Uni
         BarHairline(Modifier.align(Alignment.BottomStart)) { barHairline(scrollPx(), density) }
     }
 }
+
+/**
+ * A bar draws over the content that scrolls under it, so it takes every touch on its background too: a tap there
+ * never reaches a row behind it. The bar's own controls sit above this and still take their taps.
+ */
+private fun Modifier.takeTouches(): Modifier = pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
 
 /** Hairline on a bar's bottom edge; [opacity] is read in the draw layer. */
 @Composable

@@ -111,7 +111,7 @@ class TitleBarTouchTest {
      * A flick on the content starts a fling; a finger then lands on the bar at [yDp] (or on the content, as a
      * control) and holds still. The content stops as it does under a finger on the content.
      */
-    private fun holdStopsFling(pinned: Boolean, yDp: Float) {
+    private fun holdStopsFling(pinned: Boolean, yDp: Float, move: Boolean = true) {
         compose.setContent {
             KhonTheme {
                 scroll = rememberScrollState()
@@ -127,7 +127,7 @@ class TitleBarTouchTest {
         compose.onRoot().performTouchInput { swipe(Offset(180 * px, 600 * px), Offset(180 * px, 450 * px), durationMillis = 200) }
         compose.mainClock.advanceTimeBy(32)
         compose.runOnIdle { assertTrue("the fling started", scroll.isScrollInProgress) }
-        compose.onRoot().performTouchInput { down(Offset(180 * px, yDp * px)); moveTo(Offset(180 * px, (yDp + 60) * px), delayMillis = 16) }
+        compose.onRoot().performTouchInput { down(Offset(180 * px, yDp * px)); if (move) moveTo(Offset(180 * px, (yDp + 60) * px), delayMillis = 16) }
         compose.mainClock.advanceTimeBy(16)
         val held = scroll.value
         compose.mainClock.advanceTimeBy(128)
@@ -141,4 +141,16 @@ class TitleBarTouchTest {
     @Test fun `a finger on the content stops a fling (control)`() = holdStopsFling(pinned = false, yDp = 400f)
     @Test fun `a finger on the folding bar stops a fling`() = holdStopsFling(pinned = false, yDp = 35f)
     @Test fun `a finger on the pinned bar stops a fling`() = holdStopsFling(pinned = true, yDp = 35f)
+
+    @Test fun `a press without a move on the folding bar stops a fling`() = holdStopsFling(pinned = false, yDp = 35f, move = false)
+    @Test fun `a press without a move on the pinned bar stops a fling`() = holdStopsFling(pinned = true, yDp = 35f, move = false)
+
+    /** As on a native toolbar, a drag that starts on a bar button belongs to the button: it neither scrolls nor taps. */
+    @Test fun `a drag that starts on a bar button does not press the button or a row`() {
+        show(pinned = false)
+        compose.onNodeWithText("Bar button").performTouchInput { swipe(center, center + Offset(0f, 300 * compose.density.density), durationMillis = 300) }
+        compose.waitForIdle()
+        assertEquals("button presses", 0, buttonTaps)
+        assertEquals("rows tapped by the drag", 0, rowTaps)
+    }
 }

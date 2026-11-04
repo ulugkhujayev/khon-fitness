@@ -43,3 +43,11 @@ the first touch (`list.scroll(MutatePriority.UserInput)`), as a touch on the lis
 flings on release. Tests: a finger that holds still on each bar and on the line stops a fling (the content is the
 control). P3 is left as a known limit: Compose BOM 2024.12 has no way to share a list's overscroll effect, and it only
 shows when a drag from a bar reaches the top or bottom end.
+
+Verify 5 found two more side effects of the hand-made forwarding (a stale release speed starts a fling; no overscroll)
+and refused P3 as a known limit. Redesign (third design for F6): the bars stop handling drags at all. Each bar and
+the session line shares its touches with the list under it (`passTouchesBelow` on each layout up to the list's
+parent) and only takes the first press, in the first pass, on a layer under its own controls (`TapCover`). The list
+scrolls, flings, stops, measures speed and stretches by its own code; rows under a bar never get a tap. A drag that
+starts on a bar button stays with the button (as on a native toolbar; Today and Plan already worked so before UI07).
+Tests: taps, drags, held and pressed fingers during a fling, and a drag from a bar button, on each instance.

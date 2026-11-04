@@ -4,21 +4,12 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.foundation.gestures.ScrollableState
-import androidx.compose.foundation.gestures.ScrollableDefaults
-import androidx.compose.foundation.MutatePriority
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
-import androidx.compose.foundation.gestures.verticalDrag
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.input.pointer.util.VelocityTracker
-import androidx.compose.ui.input.pointer.util.addPointerInputChange
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
-import androidx.compose.ui.composed
+import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.PointerInputModifierNode
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -35,6 +26,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -98,7 +90,7 @@ private val TAB_CONTENT_BOTTOM = 24.dp
 @Composable
 fun TabScreen(title: String, trailing: (@Composable () -> Unit)? = null, scroll: ScrollState = rememberScrollState(), content: @Composable ColumnScope.() -> Unit) {
     val geometry = rememberTitleFold()
-    TabScreenFrame(geometry, scroll, content) { LargeTitleHeader(geometry, trailing, scroll, { scroll.value }) { scale -> LargeTitle(title, scale) } }
+    TabScreenFrame(geometry, scroll, content) { LargeTitleHeader(geometry, trailing, { scroll.value }) { scale -> LargeTitle(title, scale) } }
 }
 
 /**
@@ -109,7 +101,7 @@ fun TabScreen(title: String, trailing: (@Composable () -> Unit)? = null, scroll:
 @Composable
 fun TabScreen(trailing: (@Composable () -> Unit)?, scroll: ScrollState, title: @Composable RowScope.() -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val geometry = rememberTitleFold()
-    TabScreenFrame(geometry, scroll, content) { PinnedTitleHeader(geometry, trailing, scroll, { scroll.value }, title) }
+    TabScreenFrame(geometry, scroll, content) { PinnedTitleHeader(geometry, trailing, { scroll.value }, title) }
 }
 
 /** The title bar's geometry. The row is a tap target tall, or as tall as the title's line at a large font scale. */
@@ -150,13 +142,14 @@ private fun RowScope.LargeTitle(title: String, scale: () -> Float) {
  * not recompose the header.
  */
 @Composable
-fun LargeTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit)?, list: ScrollableState, scrollPx: () -> Int, title: @Composable RowScope.(scale: () -> Float) -> Unit) {
+fun LargeTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit)?, scrollPx: () -> Int, title: @Composable RowScope.(scale: () -> Float) -> Unit) {
     val density = LocalDensity.current.density
     Box(
         Modifier.fillMaxWidth().height(geometry.height.dp)
             .graphicsLayer { translationY = -geometry.barShift(scrollPx() / density).dp.toPx() }
-            .background(K.Bg).scrollHandle(list),
+            .background(K.Bg).passTouchesBelow(),
     ) {
+        TapCover()
         Row(
             Modifier.padding(top = geometry.rowTop.dp).height(geometry.row.dp).padding(horizontal = 16.dp)
                 .graphicsLayer { translationY = geometry.rowShift(scrollPx() / density).dp.toPx() },
@@ -174,9 +167,10 @@ fun LargeTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit
  * hairline fades in once it does. The scroll offset is read in the draw layer only.
  */
 @Composable
-fun PinnedTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit)?, list: ScrollableState, scrollPx: () -> Int, title: @Composable RowScope.() -> Unit) {
+fun PinnedTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit)?, scrollPx: () -> Int, title: @Composable RowScope.() -> Unit) {
     val density = LocalDensity.current.density
-    Box(Modifier.fillMaxWidth().height(geometry.height.dp).background(K.Bg).scrollHandle(list)) {
+    Box(Modifier.fillMaxWidth().height(geometry.height.dp).background(K.Bg).passTouchesBelow()) {
+        TapCover()
         Row(Modifier.padding(top = geometry.rowTop.dp).height(geometry.row.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             title()
             trailing?.invoke()
@@ -186,39 +180,38 @@ fun PinnedTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Uni
 }
 
 /**
- * A bar, or a line drawn with it, draws over the [list] that scrolls under it. It takes the touches on its background,
- * so a tap there never reaches a row behind it, and a drag that starts on it scrolls [list] as a drag on the list
- * would. The bar's own controls sit above this and keep their taps.
+ * A bar, or a line drawn with it, draws over the list that scrolls under it. A touch on it still reaches the list, so
+ * the list scrolls, flings, stops and stretches by its own rules; the bar only takes the touch's first press, so a row
+ * under it never takes a tap or shows a press. Put [TapCover] first in the bar's box, under the bar's own controls (they
+ * keep their taps), and mark the bar's box and each layout between it and the list's parent with [passTouchesBelow].
  */
-fun Modifier.scrollHandle(list: ScrollableState): Modifier = composed {
-    val fling = ScrollableDefaults.flingBehavior()
-    val scope = rememberCoroutineScope()
-    // Plain pointer input, not `scrollable`: the bar adds no scroll action of its own for screen readers.
-    pointerInput(list, fling) {
-        awaitEachGesture {
-            val down = awaitFirstDown(requireUnconsumed = false)
-            val drags = Channel<Float>(Channel.UNLIMITED)
-            var velocity = 0f
-            // The touch holds the list as a touch on the list does: its scroll is taken at once, so a running fling
-            // stops; the list then moves by the drag and flings on release.
-            scope.launch {
-                list.scroll(MutatePriority.UserInput) {
-                    for (dy in drags) scrollBy(-dy)
-                    with(fling) { performFling(-velocity) }
-                }
-            }
-            try {
-                val tracker = VelocityTracker().apply { addPointerInputChange(down) }
-                val start = awaitVerticalTouchSlopOrCancellation(down.id) { change, over -> change.consume(); tracker.addPointerInputChange(change); drags.trySend(over) }
-                if (start != null) {
-                    verticalDrag(start.id) { change -> tracker.addPointerInputChange(change); drags.trySend(change.positionChange().y); change.consume() }
-                    velocity = tracker.calculateVelocity().y
-                }
-            } finally {
-                drags.close()
-            }
-        }
+@Composable
+fun BoxScope.TapCover() = Box(Modifier.matchParentSize().then(CoverTaps))
+
+/** Lets a touch on this layout also reach the layouts drawn under it (siblings below in the same parent). */
+fun Modifier.passTouchesBelow(): Modifier = this then PassTouchesBelow
+
+private data object CoverTaps : ModifierNodeElement<SharedTouchNode>() {
+    override fun create() = SharedTouchNode(takePress = true)
+    override fun update(node: SharedTouchNode) = Unit
+}
+
+private data object PassTouchesBelow : ModifierNodeElement<SharedTouchNode>() {
+    override fun create() = SharedTouchNode(takePress = false)
+    override fun update(node: SharedTouchNode) = Unit
+}
+
+/**
+ * Shares each touch with the layouts under it. With [takePress] it marks the press as used in the first pass, before
+ * any layout acts on it: a tap detector under it then ignores the touch, while a scroll under it still follows the
+ * drag (scrolling does not need an unused press).
+ */
+private class SharedTouchNode(private val takePress: Boolean) : Modifier.Node(), PointerInputModifierNode {
+    override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
+        if (takePress && pass == PointerEventPass.Initial) pointerEvent.changes.forEach { if (it.changedToDownIgnoreConsumed()) it.consume() }
     }
+    override fun onCancelPointerInput() = Unit
+    override fun sharePointerInputWithSiblings() = true
 }
 
 /** Hairline on a bar's bottom edge; [opacity] is read in the draw layer. */

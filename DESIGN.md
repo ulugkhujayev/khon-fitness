@@ -573,7 +573,9 @@ Two lines, 88 px total, hairline between rows.
 - A bar drawn over scrolling content (a tab's title bar, folding or
   pinned; the session bar and its folded progress line) takes the taps on
   its background, so a tap there never opens a row scrolled under it, and
-  a drag that starts on it scrolls the content. Its own buttons keep their
+  a drag that starts on its background scrolls the content (the content's
+  own scroll, fling and stretch). A drag that starts on one of its buttons
+  stays with the button. Its buttons keep their
   taps.
 - The bottom nav is pinned to the bottom of the frame at all times. The
   content area scrolls above it. Short screens leave empty space above

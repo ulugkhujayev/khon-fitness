@@ -1,6 +1,21 @@
 package dev.mirzohidkhon.khonfitness.ui.components
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -72,7 +87,15 @@ private val TAB_CONTENT_BOTTOM = 24.dp
  * ([LargeTitleHeader]); the content scrolls with 16 dp margins. A screen with pages passes each page's own [scroll].
  */
 @Composable
-fun TabScreen(title: String, trailing: (@Composable () -> Unit)? = null, scroll: ScrollState = rememberScrollState(), content: @Composable ColumnScope.() -> Unit) {
+fun TabScreen(title: String, trailing: (@Composable () -> Unit)? = null, scroll: ScrollState = rememberScrollState(), content: @Composable ColumnScope.() -> Unit) =
+    TabScreen(trailing, scroll, title = { scale -> LargeTitle(title, scale) }, content = content)
+
+/**
+ * A tab screen whose large title is its own [title] content, drawn in the title row's leading space. It gets the
+ * title's scale as the bar folds ([LargeTitleFold.titleScale], read in a draw layer or a derived state).
+ */
+@Composable
+fun TabScreen(trailing: (@Composable () -> Unit)?, scroll: ScrollState, title: @Composable RowScope.(scale: () -> Float) -> Unit, content: @Composable ColumnScope.() -> Unit) {
     // The row is a tap target tall, or as tall as the title's line at a large font scale.
     val row = with(LocalDensity.current) { max(44.dp, 41.sp.toDp()).value }
     val geometry = remember(row) { LargeTitleFold(row) }
@@ -81,8 +104,20 @@ fun TabScreen(title: String, trailing: (@Composable () -> Unit)? = null, scroll:
             Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 16.dp).padding(top = (geometry.height + 4).dp, bottom = TAB_CONTENT_BOTTOM),
             content = content,
         )
-        LargeTitleHeader(title, geometry, trailing) { scroll.value }
+        LargeTitleHeader(geometry, trailing, { scroll.value }, title)
     }
+}
+
+/** The plain large title: one heading that shrinks toward its leading edge by [scale]. */
+@Composable
+private fun RowScope.LargeTitle(title: String, scale: () -> Float) {
+    Text(
+        title, style = MaterialTheme.typography.headlineLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f).semantics { heading() }.graphicsLayer {
+            val s = scale()
+            scaleX = s; scaleY = s; transformOrigin = TransformOrigin(0f, 0.5f)
+        },
+    )
 }
 
 /**
@@ -92,7 +127,8 @@ fun TabScreen(title: String, trailing: (@Composable () -> Unit)? = null, scroll:
  * not recompose the header.
  */
 @Composable
-fun LargeTitleHeader(title: String, geometry: LargeTitleFold, trailing: (@Composable () -> Unit)?, scrollPx: () -> Int) {
+fun LargeTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit)?, scrollPx: () -> Int, title: @Composable RowScope.(scale: () -> Float) -> Unit) {
+    val density = LocalDensity.current.density
     Box(
         Modifier.fillMaxWidth().height(geometry.height.dp)
             .graphicsLayer { translationY = -geometry.barShift(scrollPx() / density).dp.toPx() }
@@ -103,13 +139,7 @@ fun LargeTitleHeader(title: String, geometry: LargeTitleFold, trailing: (@Compos
                 .graphicsLayer { translationY = geometry.rowShift(scrollPx() / density).dp.toPx() },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                title, style = MaterialTheme.typography.headlineLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).semantics { heading() }.graphicsLayer {
-                    val s = geometry.titleScale(scrollPx() / density)
-                    scaleX = s; scaleY = s; transformOrigin = TransformOrigin(0f, 0.5f)
-                },
-            )
+            title { geometry.titleScale(scrollPx() / density) }
             trailing?.invoke()
         }
         BarHairline(Modifier.align(Alignment.BottomStart)) { geometry.hairline(scrollPx() / density) }
@@ -156,6 +186,76 @@ fun Segmented(options: List<String>, selected: Int, height: androidx.compose.ui.
                 contentAlignment = Alignment.Center,
             ) {
                 Text(label, color = if (active) K.Text else K.Muted, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+}
+
+/** The smallest size title tabs step down to when their words do not fit the title row (a large font scale). */
+const val TITLE_TABS_MIN_SP = 22f
+/** Space between two title tabs. */
+private val TITLE_TABS_GAP = 16.dp
+/** Room under a title tab's word for its accent bar: a 6 dp gap and the 3 dp bar. */
+private val TITLE_TAB_BAR = 9.dp
+
+/**
+ * [base] at the largest whole size from its own down to [TITLE_TABS_MIN_SP] at which [width] (px, for a style) fits
+ * [room] px, its line height scaled with it.
+ */
+fun titleTabsStyle(base: TextStyle, room: Int, width: (TextStyle) -> Int): TextStyle {
+    fun at(sp: Float) = base.copy(fontSize = sp.sp, lineHeight = (base.lineHeight.value * sp / base.fontSize.value).sp)
+    var sp = base.fontSize.value
+    while (sp > TITLE_TABS_MIN_SP && width(at(sp)) > room) sp = maxOf(TITLE_TABS_MIN_SP, sp - 1f)
+    return at(sp)
+}
+
+/**
+ * Pages named in a tab screen's large title row ([TabScreen]): each of [words] is a tab in the large title's size and
+ * weight, the open one in [K.Text] with a 3 dp accent bar under it as wide as the word, the closed ones in
+ * [K.TitleOff]. The row is a heading spoken as [name]. Each word is a tap target of 48 dp or more. When the words do
+ * not fit the row (a large font scale) their size steps down ([titleTabsStyle]). As the bar folds the words shrink by
+ * [scale] like a title: the closed words and the bar fade, and the open word moves to the leading edge, so the folded
+ * bar shows the open page's word. A closed word takes no taps once the bar is half folded.
+ */
+@Composable
+fun RowScope.TitleTabs(words: List<String>, selected: Int, name: String, scale: () -> Float, onSelect: (Int) -> Unit) {
+    val tick = rememberTick()
+    val base = MaterialTheme.typography.headlineLarge
+    val measurer = rememberTextMeasurer()
+    // 0 while the bar is open, 1 once it is folded.
+    val fold = { ((1f - scale()) / (1f - LargeTitleFold.TITLE_SCALE)).coerceIn(0f, 1f) }
+    val folded by remember(scale) { derivedStateOf { fold() >= 0.5f } }
+    BoxWithConstraints(Modifier.weight(1f)) {
+        val density = LocalDensity.current
+        val room = constraints.maxWidth
+        val style = remember(words, room, base, measurer, density) {
+            val gap = with(density) { TITLE_TABS_GAP.roundToPx() }
+            val tab = with(density) { MIN_TAP.dp.roundToPx() }
+            titleTabsStyle(base, room) { st -> words.sumOf { maxOf(tab, measurer.measure(it, st, softWrap = false, maxLines = 1).size.width) } + gap * (words.size - 1) }
+        }
+        Row(
+            Modifier.graphicsLayer { val s = scale(); scaleX = s; scaleY = s; transformOrigin = TransformOrigin(0f, 0.5f) }
+                .semantics { heading(); contentDescription = name }.selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(TITLE_TABS_GAP), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            words.forEachIndexed { i, w ->
+                val on = i == selected
+                var x by remember { mutableFloatStateOf(0f) }
+                val tap = if (!on && folded) Modifier.clearAndSetSemantics {}
+                    else Modifier.selectable(on, interactionSource = remember { MutableInteractionSource() }, indication = null, role = Role.Tab) { if (!on) { tick(false); onSelect(i) } }
+                Box(
+                    // The word and its bar are taller than the row at the default size: they reach past it, centered.
+                    Modifier.onPlaced { x = it.positionInParent().x }.graphicsLayer { if (on) translationX = -x * fold() else alpha = 1f - fold() }
+                        .wrapContentHeight(unbounded = true).then(tap).heightIn(min = MIN_TAP.dp).widthIn(min = MIN_TAP.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Text(
+                        w, style = style, color = if (on) K.Text else K.TitleOff, maxLines = 1,
+                        modifier = Modifier.padding(bottom = TITLE_TAB_BAR).drawBehind {
+                            if (on) drawRoundRect(K.Accent, Offset(0f, size.height + 6.dp.toPx()), Size(size.width, 3.dp.toPx()), CornerRadius(1.5.dp.toPx()), alpha = 1f - fold())
+                        },
+                    )
+                }
             }
         }
     }

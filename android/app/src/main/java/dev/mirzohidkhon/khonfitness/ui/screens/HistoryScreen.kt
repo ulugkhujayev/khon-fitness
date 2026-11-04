@@ -38,8 +38,8 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
- * History: the import button, then Log (a week of sessions against the plan) or Progress (records, sets per muscle,
- * bodyweight, cardio). Log opens first. Each page keeps its own scroll position and state (the week shown, the
+ * History: the title row names the two pages as tabs, Log (a week of sessions against the plan) and Progress (records,
+ * sets per muscle, bodyweight, cardio), with the import button at its end. Log opens first. Each page keeps its own scroll position and state (the week shown, the
  * bodyweight range), also across page and tab switches: the page, both scroll states and each page's saved state
  * are saved with the tab. Today's date is read again on resume and at midnight.
  */
@@ -50,10 +50,11 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock
     val progressScroll = rememberScrollState()
     val pages = rememberSaveableStateHolder()
     val today = rememberToday(clock)
-    TabScreen("History", trailing = { BarCircleButton(Icons.Download, "Import workouts") { nav.navigate(Routes.IMPORT) } }, scroll = if (page == 0) logScroll else progressScroll) {
-        // 54 dp tall leaves each segment a 48 dp target inside the 3 dp track.
-        Segmented(listOf("Log", "Progress"), page, height = 54.dp) { page = it }
-        Spacer(Modifier.height(14.dp))
+    TabScreen(
+        trailing = { BarCircleButton(Icons.Download, "Import workouts") { nav.navigate(Routes.IMPORT) } },
+        scroll = if (page == 0) logScroll else progressScroll,
+        title = { scale -> TitleTabs(listOf("Log", "Progress"), page, "History", scale) { page = it } },
+    ) {
         pages.SaveableStateProvider(page) { if (page == 0) HistoryLog(vm, nav, today) else HistoryProgress(vm, nav, today) }
     }
 }

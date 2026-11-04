@@ -1,6 +1,11 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -68,27 +74,41 @@ fun preview(item: PlanItem, blocks: List<Block>, blockExercises: List<BlockExerc
 
 /**
  * Navigation bar in the HIG style: a round Back button with a chevron only (no "Back" text), the title centered
- * in Headline, and the primary action on the trailing edge as a small prominent capsule.
+ * in Headline, and the primary action on the trailing edge as a small prominent capsule. Equal sides keep the
+ * title centered. Given the list under it ([scrollPx], its scroll offset in px), a hairline fades in on its
+ * bottom edge once content scrolls beneath ([navHairline]). [done] "+" shows a round plus spoken as [addLabel].
  */
 @Composable
-fun EditorTopBar(back: String, title: String, onBack: () -> Unit, done: String = "Done", onDone: (() -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        BarCircleButton(dev.mirzohidkhon.khonfitness.ui.Icons.ChevronLeft, back, onBack)
-        Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
-        when {
-            onDone == null -> Spacer(Modifier.width(36.dp))
-            done == "+" -> BarCircleButton(dev.mirzohidkhon.khonfitness.ui.Icons.Plus, "Add", onDone)
-            else -> Box(Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(K.Accent).clickable(onClick = onDone).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
-                Text(done, color = K.AccentInk, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+fun EditorTopBar(back: String, title: String, onBack: () -> Unit, done: String = "Done", scrollPx: (() -> Int)? = null, addLabel: String = "Add", doneEnabled: Boolean = true, onDone: (() -> Unit)? = null) {
+    Box(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            // 88 wide on each side holds a Done capsule and keeps the title centered; a large font may widen it.
+            Box(Modifier.widthIn(min = BAR_SIDE), contentAlignment = Alignment.CenterStart) { BarCircleButton(dev.mirzohidkhon.khonfitness.ui.Icons.ChevronLeft, back, onBack) }
+            Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).semantics { heading() })
+            Box(Modifier.widthIn(min = BAR_SIDE), contentAlignment = Alignment.CenterEnd) {
+                when {
+                    onDone == null -> Unit
+                    done == "+" -> BarCircleButton(dev.mirzohidkhon.khonfitness.ui.Icons.Plus, addLabel, onDone)
+                    else -> Capsule(done, onDone, enabled = doneEnabled)
+                }
             }
         }
+        if (scrollPx != null) BarHairline(Modifier.align(Alignment.BottomStart)) { barHairline(scrollPx(), density) }
     }
 }
 
-/** 36 dp round bar button on the group surface, like a Liquid Glass toolbar item without the blur. */
+private val BAR_SIDE = 88.dp
+
+/** Scroll offset of a lazy list for [EditorTopBar]: past the first item it counts as scrolled all the way. */
+fun androidx.compose.foundation.lazy.LazyListState.barOffset(): Int = listBarOffset(firstVisibleItemIndex, firstVisibleItemScrollOffset)
+
+/**
+ * 36 dp round bar button on the group surface, like a Liquid Glass toolbar item without the blur. Its target is 48 dp
+ * also in the 44 dp row of a tab's large title, where it reaches 2 dp past the row on each side.
+ */
 @Composable
 fun BarCircleButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.requiredSize(48.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Box(Modifier.size(36.dp).clip(androidx.compose.foundation.shape.CircleShape).background(K.Surface), contentAlignment = Alignment.Center) {
             androidx.compose.material3.Icon(icon, contentDescription = label, tint = K.Accent, modifier = Modifier.size(18.dp))
         }
@@ -146,16 +166,72 @@ fun DateRow(date: java.time.LocalDate, divider: Boolean = true, onChange: (java.
     }
 }
 
-/** Two-button confirm sheet for destructive actions. */
+/** Confirm for a destructive action: what goes, a red button, Cancel. Cancel and a swipe down do nothing else. */
 @Composable
 fun ConfirmSheet(title: String, body: String, action: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     Sheet(title, onDismiss) {
-        Text(body, color = K.Muted, style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(16.dp))
-        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(25.dp)).background(K.Red).clickable(onClick = onConfirm), contentAlignment = Alignment.Center) {
-            Text(action, color = K.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        if (body.isNotEmpty()) Text(body, color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 16.dp))
+        PrimaryButton(action, color = K.Red, textColor = K.RedInk, onClick = onConfirm)
+        Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) { TextButton("Cancel", color = K.Muted) { onDismiss() } }
+    }
+}
+
+/**
+ * What a [ConfirmSheet] asks about: [ask] opens it for an item, [confirm] closes it and runs the action on that item
+ * once (a second tap on the red button finds nothing open), [close] closes it and runs nothing. Open while [item] is set.
+ */
+class ConfirmState<T : Any> {
+    var item by androidx.compose.runtime.mutableStateOf<T?>(null)
+        private set
+    fun ask(next: T) { item = next }
+    fun close() { item = null }
+    fun confirm(action: (T) -> Unit) { val it = item ?: return; item = null; action(it) }
+}
+
+@Composable
+fun <T : Any> rememberConfirm(): ConfirmState<T> = androidx.compose.runtime.remember { ConfirmState() }
+
+/** A [ConfirmSheet] for the item [state] asks about; [onConfirm] gets that item after the sheet closes. */
+@Composable
+fun <T : Any> ConfirmSheet(state: ConfirmState<T>, title: (T) -> String, body: (T) -> String, action: String = "Delete", onConfirm: (T) -> Unit) {
+    val item = state.item ?: return
+    ConfirmSheet(title(item), body(item), action, onDismiss = state::close) { state.confirm(onConfirm) }
+}
+
+/** One option of a [ChoiceSheet]. */
+data class Choice(val id: String, val title: String, val dotColor: Color? = null, val dotFilled: Boolean = true)
+
+/**
+ * A sheet that lists choices with a check on the selected ones. It never closes by itself: a single select closes
+ * in [onPick], a multi select leaves it open. [searchable] adds a search field over the list that narrows it by
+ * title, empty each time the sheet opens, and the no-results view in the list's card when nothing matches.
+ * [addLabel] adds a last row that calls [onAdd]; it is an action, not a choice, so no choice id can stand for it.
+ */
+@Composable
+fun ChoiceSheet(
+    title: String?,
+    choices: List<Choice>,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+    isSelected: (String) -> Boolean = { false },
+    searchable: Boolean = false,
+    header: (@Composable () -> Unit)? = null,
+    empty: (@Composable () -> Unit)? = null,
+    addLabel: String? = null,
+    onAdd: () -> Unit = {},
+) {
+    Sheet(title, onDismiss) {
+        // The sheet leaves the composition when it closes, so each opening starts with an empty search.
+        var query by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
+        val shown = if (searchable) choices.filter { matchesQuery(it.title, query) } else choices
+        if (header != null) Box(Modifier.padding(bottom = 12.dp)) { header() }
+        if (searchable) SearchField(query, { query = it }, Modifier.padding(bottom = 12.dp), elevated = true)
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            ChoiceList {
+                if (shown.isEmpty()) { if (empty != null) empty() else if (searchable) SearchEmpty(query) }
+                shown.forEachIndexed { i, c -> ChoiceRow(c.title, isSelected(c.id), c.dotColor, c.dotFilled, divider = i > 0) { onPick(c.id) } }
+                if (addLabel != null) ChoiceRow(addLabel, false, null, true, divider = shown.isNotEmpty(), onClick = onAdd)
+            }
         }
-        Spacer(Modifier.height(8.dp))
-        TextButton("Cancel", color = K.Muted) { onDismiss() }
     }
 }

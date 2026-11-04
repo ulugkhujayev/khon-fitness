@@ -16,8 +16,8 @@ android {
         applicationId = "dev.mirzohidkhon.khonfitness"
         minSdk = 28
         targetSdk = 35
-        versionCode = 25
-        versionName = "0.4.8"
+        versionCode = 27
+        versionName = "0.6.0"
     }
 
     signingConfigs {
@@ -48,6 +48,10 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
+    // The app is English only; drop library translations from the APK.
+    androidResources { localeFilters += "en" }
+    // Robolectric tests run Room and Compose on the JVM.
+    testOptions { unitTests.isIncludeAndroidResources = true }
 }
 
 ksp {
@@ -79,4 +83,9 @@ dependencies {
     implementation(libs.androidx.health.connect)
     implementation(libs.androidx.glance.appwidget)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

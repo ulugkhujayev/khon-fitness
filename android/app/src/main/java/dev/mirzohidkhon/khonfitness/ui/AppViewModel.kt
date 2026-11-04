@@ -35,6 +35,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun run(block: suspend () -> Unit) { viewModelScope.launch { block() } }
 
+    /** True while Plan's "+" writes a new routine; a second tap waits, also after Plan was left or rebuilt. */
+    var creatingRoutine = false
+
+    /** The open block of each session, so Back and Resume keep it (process lifetime). */
+    val openPicks = dev.mirzohidkhon.khonfitness.ui.screens.OpenPicks()
+
     /** Latest release check, done once per app start. Today and Settings both read it. */
     val update = kotlinx.coroutines.flow.MutableStateFlow<dev.mirzohidkhon.khonfitness.update.Updater.Result?>(null)
     val updateProgress = kotlinx.coroutines.flow.MutableStateFlow<Float?>(null)
@@ -48,7 +54,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     /** Download and install in one go. The system relaunches the app when the install is done. */
     fun runUpdate(context: android.content.Context, onNeedPermission: () -> Unit, onError: (String) -> Unit) {
-        val u = update.value as? dev.mirzohidkhon.khonfitness.update.Updater.Result.Available ?: return
+        // One download at a time: a second tap before the screen shows the progress starts nothing.
+        if (!dev.mirzohidkhon.khonfitness.ui.screens.startsUpdate(update.value, updateProgress.value)) return
+        val u = update.value as dev.mirzohidkhon.khonfitness.update.Updater.Result.Available
         updateProgress.value = 0f
         viewModelScope.launch {
             runCatching { dev.mirzohidkhon.khonfitness.update.Updater.download(context, u.apk) { updateProgress.value = it } }

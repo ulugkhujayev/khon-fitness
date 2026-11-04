@@ -6,6 +6,9 @@ import kotlinx.serialization.Serializable
 
 object StretchMode { const val HOLD = "hold"; const val REPS = "reps" }
 
+/** The name a new routine is saved with, and the Name field's placeholder. */
+const val NEW_ROUTINE_NAME = "New routine"
+
 /** One stretch in the library. A sided stretch runs left then right. Reps mode runs as a timer with a rep cue. */
 @Serializable
 @Entity(tableName = "stretches")
@@ -102,6 +105,12 @@ object EatingWindowRules {
         }
         return WindowState(open, changesAt, kept = day?.openedAt == null && day?.closedAt == null)
     }
+
+    /** Opening times that keep the hours at least an hour long before [endMinute]; the hours never cross midnight. */
+    fun startRange(endMinute: Int): IntRange = 0..(endMinute - 60)
+
+    /** Closing times at least an hour after [startMinute] and before midnight. */
+    fun endRange(startMinute: Int): IntRange = (startMinute + 60)..(24 * 60 - 1)
 
     fun hhmm(minute: Int): String = "%02d:%02d".format(minute / 60, minute % 60)
 

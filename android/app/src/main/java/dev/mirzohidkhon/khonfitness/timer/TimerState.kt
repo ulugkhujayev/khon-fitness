@@ -29,6 +29,8 @@ data class TimerState(
     val preparation: Double = 0.0,
     val completed: Int = 0,
     val startedAt: Long = 0L,
+    /** The indexes of the phases skipped so far, so [back] takes back the count its phase added. */
+    val skippedPhases: List<Int> = emptyList(),
 ) {
     val phase: Phase get() = phases[index.coerceIn(0, phases.size - 1)]
     val done: Boolean get() = phases.isEmpty() || index >= phases.size
@@ -43,13 +45,30 @@ data class TimerState(
 
     fun skip(): TimerState = if (done) this else advance(skippedPhase = true)
 
+    /** A stretch run can go back while its first phase is not the one shown. */
+    val canGoBack: Boolean get() = stretch && !done && index > 0
+
+    /**
+     * Back to the phase before, its timer reset and waiting for Start, as Skip leaves the next one. That phase no longer
+     * counts as completed or skipped; its time already stretched stays in [elapsed].
+     */
+    fun back(): TimerState {
+        if (!canGoBack) return this
+        val prev = index - 1
+        val wasSkipped = prev in skippedPhases
+        return copy(index = prev, remaining = phases[prev].seconds.toDouble(), preparation = 0.0, awaitingStart = true, paused = false,
+            skipped = skipped - if (wasSkipped) 1 else 0, completed = (completed - if (wasSkipped) 0 else 1).coerceAtLeast(0),
+            skippedPhases = skippedPhases - prev)
+    }
+
     private fun advance(skippedPhase: Boolean = false): TimerState {
         val next = index + 1
         return copy(index = next, remaining = phases.getOrNull(next)?.seconds?.toDouble() ?: 0.0,
             preparation = 0.0, awaitingStart = stretch && next < phases.size,
             paused = if (stretch) false else paused,
             skipped = skipped + if (skippedPhase) 1 else 0,
-            completed = completed + if (skippedPhase) 0 else 1)
+            completed = completed + if (skippedPhase) 0 else 1,
+            skippedPhases = if (skippedPhase) skippedPhases + index else skippedPhases)
     }
 
     /** Called by the service's monotonic clock. A stretch boundary discards overshoot. */

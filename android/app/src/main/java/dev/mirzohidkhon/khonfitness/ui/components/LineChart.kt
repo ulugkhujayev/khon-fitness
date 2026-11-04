@@ -26,7 +26,8 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
-data class ChartPoint(val date: LocalDate, val value: Double)
+/** A chart point; a [mark]ed one (a record) draws green. */
+data class ChartPoint(val date: LocalDate, val value: Double, val mark: Boolean = false)
 
 private fun niceStep(span: Double, target: Int): Double {
     val raw = span / target.coerceAtLeast(1)
@@ -36,18 +37,27 @@ private fun niceStep(span: Double, target: Int): Double {
 
 private val dateFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d")
 
-/** Line chart: dashed grid at round values, marker on every point, value labels, dates along the bottom. */
+/** Every chart is this tall, Today's bodyweight and History's alike. */
+private const val CHART_HEIGHT = 190
+/** Room between the value axis labels and the plot. */
+private const val AXIS_GAP = 8
+
+/**
+ * Line chart: dashed grid at round values labelled on the left, a marker on every point, value labels, the last
+ * point filled in accent with its unit, dates along the bottom. The value axis is as wide as its widest label plus
+ * 8 dp and the right inset is 8 dp, so the chart sits even between the screen margins.
+ */
 @Composable
-fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modifier, height: Int = 180, decimals: Int = 1, format: ((Double) -> String)? = null) {
+fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modifier, decimals: Int = 1, format: ((Double) -> String)? = null) {
     val measurer = rememberTextMeasurer()
-    val tick = TextStyle(fontFamily = Inter, color = K.Dim, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-    val valueStyle = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-    val lastStyle = TextStyle(fontFamily = Inter, color = K.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    Canvas(modifier.fillMaxWidth().height(height.dp)) {
-        val padL = 40.dp.toPx(); val padR = 14.dp.toPx(); val padT = 22.dp.toPx(); val padB = 24.dp.toPx()
-        val plotW = size.width - padL - padR; val plotH = size.height - padT - padB
+    // Axis and date labels in secondary label at Caption 1: tertiary at 11 was too faint to read on black.
+    val tick = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    val valueStyle = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    val lastStyle = TextStyle(fontFamily = Inter, color = K.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    val emptyStyle = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    Canvas(modifier.fillMaxWidth().height(CHART_HEIGHT.dp)) {
         if (points.isEmpty()) {
-            val t = measurer.measure("No data yet", tick)
+            val t = measurer.measure("No data yet", emptyStyle)
             drawText(t, topLeft = Offset((size.width - t.size.width) / 2, (size.height - t.size.height) / 2))
             return@Canvas
         }
@@ -55,16 +65,18 @@ fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modif
         if (vmin == vmax) { vmin -= 1; vmax += 1 }
         val step = niceStep(vmax - vmin, 3)
         val yMin = floor(vmin / step) * step; val yMax = ceil(vmax / step) * step
+        val ticks = generateSequence(yMin) { it + step }.takeWhile { it <= yMax + step / 1000 }.toList()
+        val tickText = ticks.map { measurer.measure(format?.invoke(it) ?: fmt(it, if (step < 1) 1 else 0), tick) }
+        val padL = axisWidth(tickText.map { it.size.width.toFloat() }, AXIS_GAP.dp.toPx()); val padR = 8.dp.toPx(); val padT = 22.dp.toPx(); val padB = 24.dp.toPx()
+        val plotW = size.width - padL - padR; val plotH = size.height - padT - padB
         fun yFor(v: Double) = padT + ((yMax - v) * plotH / (yMax - yMin)).toFloat()
         val n = points.size
         fun xFor(i: Int) = if (n == 1) padL + plotW / 2 else padL + i * plotW / (n - 1)
-        var v = yMin
-        while (v <= yMax + step / 1000) {
+        ticks.forEachIndexed { k, v ->
             val y = yFor(v)
             drawLine(K.Divider, Offset(padL, y), Offset(size.width - padR, y), strokeWidth = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)))
-            val t = measurer.measure(format?.invoke(v) ?: fmt(v, if (step < 1) 1 else 0), tick)
-            drawText(t, topLeft = Offset(padL - 8.dp.toPx() - t.size.width, y - t.size.height / 2))
-            v += step
+            val t = tickText[k]
+            drawText(t, topLeft = Offset(padL - AXIS_GAP.dp.toPx() - t.size.width, y - t.size.height / 2))
         }
         val xs = points.indices.map { xFor(it) }; val ys = points.map { yFor(it.value) }
         val line = Path().apply { moveTo(xs[0], ys[0]); for (i in 1 until n) lineTo(xs[i], ys[i]) }
@@ -77,7 +89,7 @@ fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modif
             val last = i == n - 1
             val r = (if (last) 4.5f else 3.5f).dp.toPx()
             drawCircle(K.Bg, r, Offset(xs[i], ys[i]))
-            drawCircle(K.Accent, r, Offset(xs[i], ys[i]), style = if (last) androidx.compose.ui.graphics.drawscope.Fill else Stroke(2.dp.toPx()))
+            drawCircle(if (points[i].mark) K.Green else K.Accent, r, Offset(xs[i], ys[i]), style = if (last) androidx.compose.ui.graphics.drawscope.Fill else Stroke(2.dp.toPx()))
             if (labelAll || last || i == maxIdx) {
                 val label = (format?.invoke(points[i].value) ?: fmt(points[i].value, decimals)) + if (last && unit.isNotEmpty()) " $unit" else ""
                 val t = measurer.measure(label, if (last) lastStyle else valueStyle)

@@ -68,7 +68,7 @@ class TodayWidget : GlanceAppWidget() {
                 if (routine != null) Text(if (stretchedToday) "Stretched today" else routine.name + " not yet", style = TextStyle(color = ColorProvider(if (stretchedToday) Color(0xFF30D158) else Color(0xFF8E8E93)), fontSize = 12.sp))
                 Spacer(GlanceModifier.height(10.dp))
                 Box(GlanceModifier.fillMaxWidth().height(40.dp).background(Color(0xFFFF9F0A)).cornerRadius(20.dp).clickable(open), contentAlignment = Alignment.Center) {
-                    Text(label, style = TextStyle(color = ColorProvider(Color.White), fontSize = 16.sp, fontWeight = FontWeight.Bold))
+                    Text(label, style = TextStyle(color = ColorProvider(Color.Black), fontSize = 16.sp, fontWeight = FontWeight.Bold))
                 }
             }
         }

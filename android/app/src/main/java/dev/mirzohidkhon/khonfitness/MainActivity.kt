@@ -9,6 +9,8 @@ import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The manifest theme only draws the launch window (K logo on Android 9 to 11); the app runs on the plain one.
+        setTheme(R.style.Theme_KhonFitness)
         // Dark-only app: keep status and nav bar icons light whatever the system theme is.
         enableEdgeToEdge(androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         super.onCreate(savedInstanceState)

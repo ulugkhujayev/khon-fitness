@@ -1,28 +1,29 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
+import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 
@@ -33,193 +34,325 @@ private fun cap(s: String) = s.replaceFirstChar { it.uppercase() }
 @Composable
 fun EditorScaffold(back: String, title: String, onBack: () -> Unit, onDone: (() -> Unit)?, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar(back, title, onBack = onBack, onDone = onDone)
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp, 8.dp, 16.dp, 32.dp), content = content)
+        val barScroll = rememberScrollState()
+        EditorTopBar(back, title, scrollPx = { barScroll.value }, onBack = onBack, onDone = onDone)
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp), content = content)
     }
-}
-
-@Composable
-fun BottomActions(content: @Composable RowScope.() -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(top = 28.dp, start = 2.dp), horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.CenterVertically, content = content)
 }
 
 // ---------- Program ----------
 
+/**
+ * Program editor: name, Active and what it does, the numbered blocks with Add block, Delete. A new program
+ * (`new`) is a draft ([ProgramDraft]): nothing is saved until Done, or Add block, which saves it as Done would so
+ * the block has a home; from then on it is a saved program, kept when left without Done.
+ */
 @Composable
-fun ProgramEditorScreen(vm: AppViewModel, nav: NavHostController, programId: String) {
+fun ProgramEditorScreen(vm: AppViewModel, nav: NavHostController, programId: String?) {
     val programs by vm.programs.collectAsStateWithLifecycle()
     val blocks by vm.blocks.collectAsStateWithLifecycle()
     val blockExercises by vm.blockExercises.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
-    val program = programs.find { it.id == programId } ?: return
-    var name by remember(program.id) { mutableStateOf(program.name) }
-    val myBlocks = blocks.filter { it.programId == programId }.sortedBy { it.sortOrder }
-    EditorScaffold("Programs", program.name, onBack = { nav.popBackStack() }, onDone = { vm.run { vm.repo.saveProgram(program.copy(name = name.ifBlank { program.name })) }; nav.popBackStack() }) {
-        GroupedList {
-            FieldRow("Name", divider = false) { InlineTextField(name, { name = it }, placeholder = "Program name") }
-            FieldRow("Active") { Switch(program.active, { on -> if (on) vm.run { vm.repo.setActiveProgram(program.id) } }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
+    val draft = rememberSaveable(saver = ProgramDraft.Saver) { ProgramDraft(isNew = programId == null) }
+    // Done, Back and Delete leave: the first one in a frame runs, the others do nothing ([ExitGuard]).
+    val leave = rememberExitGuard(nav)
+    val id = draft.programId(programId)
+    val program = id?.let { pid -> programs.find { it.id == pid } }
+    if (!draft.isNew && program == null) return
+    val onlyProgram = programs.none { it.id != id }
+    val savedActive = program?.active == true
+    val myBlocks = if (id == null) emptyList() else blocks.filter { it.programId == id }.sortedBy { it.sortOrder }
+    val confirmDelete = rememberConfirm<Program>()
+    fun done() = leave action@{
+        val save = draft.done(newId(), program, onlyProgram)
+        val target = draft.programId(programId) ?: return@action leave.release()
+        vm.run {
+            save.create?.let { vm.repo.createProgram(it) }
+            save.rename?.let { vm.repo.setProgramName(target, it) }
         }
-        SectionTitle("Blocks", Modifier.padding(top = 24.dp)) { PlusButton() {
-            val id = newId(); vm.run { vm.repo.saveBlock(Block(id, programId, myBlocks.size, true)) }; nav.navigate(Routes.block(programId, id))
-        } }
+        leave.pop()
+    }
+    fun addBlock() {
+        draft.programForBlock(newId(), onlyProgram)?.let { p -> vm.run { vm.repo.createProgram(p) } }
+        draft.programId(programId)?.let { nav.navigate(Routes.newBlock(it)) }
+    }
+    EditorScaffold("Plan", program?.name ?: "New program", onBack = { leave { leave.pop() } }, onDone = ::done) {
+        GroupedList {
+            FieldRow("Name", divider = false) { InlineTextField(draft.name ?: program?.name ?: "", { draft.name = it }, placeholder = "Program name", label = "Name") }
+            // A saved active program stays on: turning another one on is what moves the mark.
+            ToggleRow("Active", draft.shownActive(savedActive, onlyProgram), enabled = !draft.activeLocked(savedActive, onlyProgram)) { on ->
+                if (draft.isDraft) draft.activeChoice = on else if (on && id != null) vm.run { vm.repo.setActiveProgram(id) }
+            }
+        }
+        GroupFooter("One program is active: the one you train now. Turning another one on moves it there.")
+        SectionTitle("Blocks", Modifier.padding(top = 24.dp))
         GroupedList {
             myBlocks.forEachIndexed { i, b ->
-                val names = blockExercises.filter { it.blockId == b.id }.sortedBy { it.slot }.mapNotNull { be -> exercises.find { it.id == be.exerciseId }?.name }
-                ListRow(names.joinToString(" · ").ifEmpty { "Empty block" }, secondary = "${blockExercises.filter { it.blockId == b.id }.sumOf { it.sets }} sets", divider = i > 0) { nav.navigate(Routes.block(programId, b.id)) }
+                val mine = blockExercises.filter { it.blockId == b.id }.sortedBy { it.slot }
+                val names = mine.mapNotNull { be -> exercises.find { it.id == be.exerciseId }?.name }
+                ListRow(names.joinToString(" · ").ifEmpty { "Empty block" }, secondary = setsText(mine.sumOf { it.sets }), divider = i > 0, leading = { IndexBadge(i) }) { nav.navigate(Routes.block(b.programId, b.id)) }
             }
             if (myBlocks.isEmpty()) ListRow("No blocks yet", chevron = false, divider = false, titleColor = K.Muted)
         }
-        BottomActions {
-            if (programs.size > 1) TextButton("Delete program", K.Red) { vm.run { vm.repo.deleteProgram(programId) }; nav.popBackStack() }
+        TintedButton("Add block", Modifier.padding(top = 12.dp), onClick = ::addBlock)
+        // Nothing to delete before Done; the last program cannot go, Today always plans from one.
+        if (draft.showDelete(programs.size) && program != null) EditorActions {
+            GroupedList { ActionRow(Icons.Trash, "Delete program", K.Red, divider = false) { confirmDelete.ask(program) } }
         }
+    }
+    ConfirmSheet(confirmDelete, title = { "Delete ${it.name}?" }, body = { "The program and its blocks go away. Past sessions keep their sets." }) { p ->
+        leave { vm.run { vm.repo.deleteProgram(p.id) }; leave.pop() }
     }
 }
 
+/**
+ * Block editor: Superset and what it does, one or two exercises with sets and rep range, order, Delete. A new block
+ * (`new`) is a draft ([BlockDraft]) until its first exercise is picked, which saves the two together, so backing
+ * out of it leaves no empty block behind. Each edit writes its own column onto the stored row.
+ */
 @Composable
-fun BlockEditorScreen(vm: AppViewModel, nav: NavHostController, programId: String, blockId: String) {
+fun BlockEditorScreen(vm: AppViewModel, nav: NavHostController, programId: String, blockId: String?) {
     val blocks by vm.blocks.collectAsStateWithLifecycle()
     val blockExercises by vm.blockExercises.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
-    val block = blocks.find { it.id == blockId } ?: return
-    val mine = blockExercises.filter { it.blockId == blockId }.sortedBy { it.slot }
-    var picking by remember { mutableStateOf<Int?>(null) } // slot
+    val draft = rememberSaveable(saver = BlockDraft.Saver) { BlockDraft(isNew = blockId == null) }
+    var draftSuperset by rememberSaveable { mutableStateOf(true) }
+    // Done, Back and Delete leave: the first one in a frame runs ([ExitGuard]).
+    val leave = rememberExitGuard(nav)
+    val id = draft.blockId(blockId)
+    val block = id?.let { b -> blocks.find { it.id == b } }
+    if (!draft.isNew && block == null) return
+    // Saved by the first pick but not read back yet: no second pick until it is.
+    val loading = id != null && block == null
     val siblings = blocks.filter { it.programId == programId }.sortedBy { it.sortOrder }
-    val index = siblings.indexOfFirst { it.id == blockId }
-    EditorScaffold("Program", "Block ${index + 1}", onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) {
+    val index = if (block != null) siblings.indexOf(block) else siblings.size
+    val superset = block?.superset ?: draftSuperset
+    val mine = if (id == null) emptyList() else blockExercises.filter { it.blockId == id }.sortedBy { it.slot }
+    var picking by rememberSaveable { mutableStateOf<Int?>(null) } // slot
+    val removal = rememberConfirm<BlockExercise>()
+    val confirmDelete = rememberConfirm<Block>()
+    fun name(be: BlockExercise) = exercises.find { it.id == be.exerciseId }?.name
+    fun pick(slot: Int, exerciseId: String) {
+        picking = null
+        draft.firstPick(newId(), programId, superset, newId(), slot, exerciseId)?.let { (b, first) -> vm.run { vm.repo.createBlock(b, first) }; return }
+        if (id == null || loading) return
+        // The stored rows decide, not the list on screen: a slot row saved meanwhile gets the pick, not a second row.
+        vm.run { vm.repo.setSlotExercise(id, slot, exerciseId) }
+    }
+    EditorScaffold("Program", "Block ${index + 1}", onBack = { leave { leave.pop() } }, onDone = { leave { leave.pop() } }) {
         GroupedList {
-            FieldRow("Superset", divider = false) { Switch(block.superset, { on -> vm.run { vm.repo.saveBlock(block.copy(superset = on)) } }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
+            ToggleRow("Superset", superset, divider = false) { on -> if (block == null) draftSuperset = on else vm.run { vm.repo.setBlockSuperset(block.id, on) } }
         }
-        mine.forEachIndexed { i, be ->
-            val ex = exercises.find { it.id == be.exerciseId }
-            SectionTitle(('A' + be.slot).toString(), Modifier.padding(top = 20.dp)) { TextButton("Remove", K.Red) { vm.run { vm.repo.deleteBlockExercise(be.id) } } }
+        GroupFooter(supersetNote(superset))
+        mine.forEach { be ->
+            SectionTitle(slotTitle(be.slot), Modifier.padding(top = 20.dp)) { TextButton("Remove", K.Red, description = "Remove ${slotTitle(be.slot)}") { removal.ask(be) } }
             GroupedList {
-                FieldRow("Exercise", divider = false, onClick = { picking = be.slot }) { Text(ex?.name ?: "Choose", fontWeight = FontWeight.SemiBold); Chevron() }
-                NumberRow("Sets", be.sets.toDouble(), "", 1.0, 0, true) { v -> vm.run { vm.repo.saveBlockExercise(be.copy(sets = (v ?: 1.0).toInt().coerceIn(1, 10))) } }
-                NumberRow("Min reps", be.minReps.toDouble(), "", 1.0, 0, true) { v -> vm.run { vm.repo.saveBlockExercise(run { val m = (v ?: 1.0).toInt().coerceIn(1, 50); be.copy(minReps = m, maxReps = maxOf(be.maxReps, m)) }) } }
-                NumberRow("Max reps", be.maxReps.toDouble(), "", 1.0, 0, true) { v -> vm.run { vm.repo.saveBlockExercise(run { val m = (v ?: 1.0).toInt().coerceIn(1, 50); be.copy(maxReps = m, minReps = minOf(be.minReps, m)) }) } }
+                FieldRow("Exercise", divider = false, onClick = { picking = be.slot }) { FieldValue(name(be) ?: "Choose") }
+                NumberRow("Sets", be.sets.toDouble(), "", 1.0, 0, true, min = 1.0, max = 10.0) { v -> vm.run { vm.repo.setBlockExerciseSets(be.id, (v ?: 1.0).toInt()) } }
+                NumberRow("Min reps", be.minReps.toDouble(), "", 1.0, 0, true, min = 1.0, max = 50.0) { v -> vm.run { vm.repo.setBlockExerciseMinReps(be.id, (v ?: 1.0).toInt()) } }
+                NumberRow("Max reps", be.maxReps.toDouble(), "", 1.0, 0, true, min = 1.0, max = 50.0) { v -> vm.run { vm.repo.setBlockExerciseMaxReps(be.id, (v ?: 1.0).toInt()) } }
             }
         }
-        if (mine.size < 2) Row(Modifier.padding(top = 16.dp)) { TextButton(if (mine.isEmpty()) "Add exercise" else "Add second exercise") { picking = mine.size } }
-        BottomActions {
-            if (index > 0) TextButton("Move up") { vm.run { vm.repo.saveBlocks(listOf(block.copy(sortOrder = index - 1), siblings[index - 1].copy(sortOrder = index))) } }
-            if (index < siblings.size - 1) TextButton("Move down") { vm.run { vm.repo.saveBlocks(listOf(block.copy(sortOrder = index + 1), siblings[index + 1].copy(sortOrder = index))) } }
-            TextButton("Delete block", K.Red) { vm.run { vm.repo.deleteBlock(blockId) }; nav.popBackStack() }
+        freeSlot(mine.map { it.slot })?.let { slot ->
+            if (!loading) TintedButton(if (mine.isEmpty()) "Add exercise" else "Add second exercise", Modifier.padding(top = 12.dp)) { picking = slot }
+        }
+        // Order and Delete come once the block is saved.
+        if (block != null) EditorActions {
+            if (siblings.size > 1) GroupedList {
+                if (index > 0) ActionRow(Icons.ArrowUp, "Move up", divider = false) { vm.run { vm.repo.moveBlock(block.id, -1) } }
+                if (index < siblings.size - 1) ActionRow(Icons.ArrowDown, "Move down", divider = index > 0) { vm.run { vm.repo.moveBlock(block.id, 1) } }
+            }
+            GroupedList { ActionRow(Icons.Trash, "Delete block", K.Red, divider = false) { confirmDelete.ask(block) } }
         }
     }
     picking?.let { slot ->
         val existing = mine.find { it.slot == slot }
-        Sheet("Exercise", { picking = null }) {
-            ChoiceList {
-                exercises.filter { it.kind == Kind.STRENGTH && !it.archived }.forEachIndexed { i, e ->
-                    ChoiceRow(e.name, existing?.exerciseId == e.id, divider = i > 0) {
-                        vm.run { vm.repo.saveBlockExercise(existing?.copy(exerciseId = e.id) ?: BlockExercise(newId(), blockId, slot, e.id)) }; picking = null
-                    }
-                }
-            }
-        }
+        ChoiceSheet(
+            "Exercise", exercises.filter { it.kind == Kind.STRENGTH && !it.archived }.map { Choice(it.id, it.name) },
+            onPick = { pick(slot, it) }, onDismiss = { picking = null }, isSelected = { it == existing?.exerciseId }, searchable = true,
+        )
+    }
+    ConfirmSheet(removal, title = { "Remove ${name(it) ?: "this exercise"}?" }, body = { "Its sets and rep range leave this block. Past sessions keep their sets." }, action = "Remove") { be ->
+        vm.run { vm.repo.deleteBlockExercise(be.id) }
+    }
+    ConfirmSheet(confirmDelete, title = { "Delete block ${index + 1}?" }, body = { "Its exercises go with it. Past sessions keep their sets." }) { b ->
+        leave { vm.run { vm.repo.deleteBlock(b.id) }; leave.pop() }
     }
 }
 
 // ---------- Exercise ----------
 
+/**
+ * Exercise editor: fields in groups (name and kind; muscles and details, or cardio, intervals and notes), Archive,
+ * Merge into… and Delete at the bottom. The kind cannot change once the exercise is used ([kindLocked]); Delete
+ * only while nothing uses it, and only after asking. A null [exerciseId] opens a new one of [newKind]. A cardio workout's
+ * Type picks one of the types or adds a new one ([NewTypeSheet]); a type colors the workout's past sessions too.
+ */
 @Composable
-fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: String) {
+fun ExerciseEditorScreen(vm: AppViewModel, nav: NavHostController, exerciseId: String?, newKind: String = Kind.STRENGTH) {
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
-    val sessions by vm.sessions.collectAsStateWithLifecycle()
-    val isNew = exerciseId == "new"
-    val original = exercises.find { it.id == exerciseId }
+    val isNew = exerciseId == null
+    // Done, Back, Archive, Merge and Delete leave: the first one in a frame runs; a refused merge or delete gives it back.
+    val leave = rememberExitGuard(nav)
+    // Why the last merge was refused, under the actions.
+    var refusal by remember { mutableStateOf<String?>(null) }
+    val original = exerciseId?.let { id -> exercises.find { it.id == id } }
     if (!isNew && original == null) return
-    var draft by remember(exerciseId, original == null) { mutableStateOf(original ?: Exercise(newId(), "", Kind.STRENGTH, primaryMuscle = "chest")) }
+    // What the editor opened with: Done writes only the fields that differ from it, onto the row as it is then.
+    val opened = remember(exerciseId, original == null) { original }
+    var draft by remember(exerciseId, original == null) { mutableStateOf(opened ?: if (newKind == Kind.CARDIO) Exercise(newId(), "", Kind.CARDIO, intensity = Intensity.LOW, fields = "time,distance,avgHr") else Exercise(newId(), "", Kind.STRENGTH, primaryMuscle = "chest")) }
+    // A type added here shows on the Type row before the type list reads it back.
+    var addedType by remember { mutableStateOf<Modality?>(null) }
+    val types = modalities + listOfNotNull(addedType?.takeIf { a -> modalities.none { it.id == a.id } })
     var sheet by remember { mutableStateOf<String?>(null) }
-    var usage by remember { mutableStateOf(0) }
-    LaunchedEffect(exerciseId) { if (!isNew) usage = vm.repo.exerciseUsage(exerciseId) }
+    // Null while the count loads, which keeps the kind locked and Delete off.
+    var usage by remember { mutableStateOf<Int?>(if (isNew) 0 else null) }
+    LaunchedEffect(exerciseId) { if (exerciseId != null) usage = vm.repo.exerciseUsage(exerciseId) }
+    val confirmDelete = rememberConfirm<Exercise>()
+    val confirmMerge = rememberConfirm<MergeAsk>()
+    val locked = kindLocked(isNew, usage)
     val isStrength = draft.kind == Kind.STRENGTH
-    EditorScaffold("Library", if (isNew) "New exercise" else original!!.name, onBack = { nav.popBackStack() }, onDone = {
-        if (draft.name.isNotBlank()) vm.run { vm.repo.saveExercise(draft) }; nav.popBackStack()
+    EditorScaffold(if (draft.kind == Kind.CARDIO) "Plan" else "Exercises", if (!isNew) original!!.name else if (draft.kind == Kind.CARDIO) "New cardio workout" else "New exercise", onBack = { leave { leave.pop() } }, onDone = {
+        leave { if (draft.name.isNotBlank()) vm.run { vm.repo.saveExerciseEdits(opened, draft.copy(name = draft.name.trim())) }; leave.pop() }
     }) {
         GroupedList {
-            FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Exercise name") }
-            FieldRow("Kind", onClick = { if (usage == 0) sheet = "kind" }) { Text(cap(draft.kind), fontWeight = FontWeight.SemiBold); Chevron() }
-            if (isStrength) {
-                FieldRow("Primary muscle", onClick = { sheet = "primary" }) { Text(cap(draft.primaryMuscle ?: ""), fontWeight = FontWeight.SemiBold); Chevron() }
-                FieldRow("Secondary muscles", onClick = { sheet = "secondary" }) { Text(draft.secondaryList.joinToString(", ") { cap(it) }.ifEmpty { "None" }, fontWeight = FontWeight.SemiBold, maxLines = 2); Chevron() }
-                NumberRow("Weight step", draft.stepKg, "kg", 0.5, 1, true) { draft = draft.copy(stepKg = it ?: 2.5) }
-            } else {
-                FieldRow("Modality", onClick = { sheet = "modality" }) { Text(modalities.find { it.id == draft.modalityId }?.name ?: "Choose", fontWeight = FontWeight.SemiBold); Chevron() }
-                FieldRow("Intensity", onClick = { sheet = "intensity" }) { Text(cap(draft.intensity ?: "low"), fontWeight = FontWeight.SemiBold); Chevron() }
-                FieldRow("Intervals") { Switch(draft.intervals, { draft = draft.copy(intervals = it, rounds = if (it && draft.rounds == 0) 4 else draft.rounds, workSec = if (it && draft.workSec == 0) 240 else draft.workSec, restSec = if (it && draft.restSec == 0) 180 else draft.restSec) }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
+            FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Exercise name", label = "Name") }
+            FieldRow("Kind", onClick = if (locked) null else ({ sheet = "kind" })) { FieldValue(cap(draft.kind), locked = locked) }
+        }
+        if (locked && usage != null) GroupFooter("The kind is fixed: sessions, programs or the plan already use this exercise as it is.")
+        val notes = @Composable { divider: Boolean -> FieldRow("Notes", divider = divider) { InlineTextField(draft.notes, { draft = draft.copy(notes = it) }, placeholder = "Seat height, grip…", label = "Notes") } }
+        if (isStrength) {
+            SectionTitle("Muscles", Modifier.padding(top = 24.dp))
+            GroupedList {
+                FieldRow("Primary", divider = false, onClick = { sheet = "primary" }) { FieldValue(cap(draft.primaryMuscle ?: "")) }
+                FieldRow("Secondary", onClick = { sheet = "secondary" }) { FieldValue(draft.secondaryList.joinToString(", ") { cap(it) }.ifEmpty { "None" }, maxLines = 2) }
+            }
+            SectionTitle("Details", Modifier.padding(top = 24.dp))
+            GroupedList {
+                NumberRow("Weight step", draft.stepKg, "kg", 0.5, 1, false) { draft = draft.copy(stepKg = it ?: 2.5) }
+                notes(true)
+            }
+        } else {
+            SectionTitle("Cardio", Modifier.padding(top = 24.dp))
+            GroupedList {
+                FieldRow("Type", divider = false, onClick = { sheet = "type" }) { FieldValue(types.find { it.id == draft.modalityId }?.name ?: "Choose") }
+            }
+            if (!isNew) GroupFooter(TYPE_NOTE)
+            GroupedList(Modifier.padding(top = 24.dp)) {
+                FieldRow("Intensity", divider = false, onClick = { sheet = "intensity" }) { FieldValue(cap(draft.intensity ?: "low")) }
+                FieldRow("Fields", onClick = { sheet = "fields" }) { FieldValue(draft.fieldList.joinToString(", ") { fieldLabel(it) }.ifEmpty { "None" }, maxLines = 2) }
+            }
+            GroupedList(Modifier.padding(top = 24.dp)) {
+                ToggleRow("Intervals", draft.intervals, divider = false) { draft = draft.copy(intervals = it, rounds = if (it && draft.rounds == 0) 4 else draft.rounds, workSec = if (it && draft.workSec == 0) 240 else draft.workSec, restSec = if (it && draft.restSec == 0) 180 else draft.restSec) }
                 if (draft.intervals) {
-                    NumberRow("Warm-up", draft.warmupSec / 60.0, "min", 1.0, 0, true) { draft = draft.copy(warmupSec = ((it ?: 0.0) * 60).toInt()) }
+                    NumberRow("Warm-up", draft.warmupSec / 60.0, "min", 1.0, 0, true) { draft = draft.copy(warmupSec = scaled(it ?: 0.0, 60.0)) }
                     NumberRow("Work", draft.workSec.toDouble(), "s", 10.0, 0, true) { draft = draft.copy(workSec = (it ?: 0.0).toInt()) }
                     NumberRow("Rest", draft.restSec.toDouble(), "s", 10.0, 0, true) { draft = draft.copy(restSec = (it ?: 0.0).toInt()) }
-                    NumberRow("Rounds", draft.rounds.toDouble(), "", 1.0, 0, true) { draft = draft.copy(rounds = (it ?: 1.0).toInt().coerceIn(1, 30)) }
+                    NumberRow("Rounds", draft.rounds.toDouble(), "", 1.0, 0, true, min = 1.0, max = 30.0) { draft = draft.copy(rounds = (it ?: 1.0).toInt()) }
                 }
-                FieldRow("Fields", onClick = { sheet = "fields" }) { Text(draft.fieldList.joinToString(", ") { fieldLabel(it) }.ifEmpty { "None" }, fontWeight = FontWeight.SemiBold, maxLines = 2); Chevron() }
             }
-            FieldRow("Notes") { InlineTextField(draft.notes, { draft = draft.copy(notes = it) }, placeholder = "Seat height, grip…") }
+            GroupedList(Modifier.padding(top = 24.dp)) { notes(false) }
         }
-        if (!isNew) {
-            BottomActions {
-                TextButton(if (draft.archived) "Unarchive" else "Archive") { vm.run { vm.repo.saveExercise(draft.copy(archived = !draft.archived)) }; nav.popBackStack() }
-                TextButton("Merge into…") { sheet = "merge" }
-                TextButton("Delete", K.Red, enabled = usage == 0) { vm.run { vm.repo.deleteExercise(exerciseId) }; nav.popBackStack() }
+        if (!isNew) EditorActions(note = refusal ?: if ((usage ?: 0) > 0) "Used in a session, program, or plan: archive or merge it instead." else null) {
+            GroupedList {
+                val archived = original!!.archived
+                ActionRow(if (archived) Icons.Unarchive else Icons.Archive, if (archived) "Unarchive" else "Archive", divider = false) {
+                    // Archive keeps the edits made on the page: they save first, then the one column, in one transaction.
+                    leave { vm.run { vm.repo.archiveExerciseWithEdits(opened!!, draft.copy(name = draft.name.trim()), !archived) }; leave.pop() }
+                }
+                ActionRow(Icons.Merge, "Merge into…") { sheet = "merge" }
             }
-            if (usage > 0) Text("Used in a session, program, or plan. Archive or merge instead.", color = K.Dim, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+            GroupedList { ActionRow(Icons.Trash, "Delete", K.Red, enabled = canDeleteExercise(usage), divider = false) { confirmDelete.ask(original!!) } }
         }
     }
+    fun close() { sheet = null }
     when (sheet) {
-        "kind" -> Sheet("Kind", { sheet = null }) { ChoiceList {
-            ChoiceRow("Strength", isStrength, divider = false) { draft = draft.copy(kind = Kind.STRENGTH, primaryMuscle = draft.primaryMuscle ?: "chest"); sheet = null }
-            ChoiceRow("Cardio", !isStrength) { draft = draft.copy(kind = Kind.CARDIO, modalityId = draft.modalityId ?: modalities.firstOrNull()?.id, intensity = draft.intensity ?: Intensity.LOW, fields = draft.fields.ifEmpty { "time,distance,avgHr" }); sheet = null }
-        } }
-        "primary" -> Sheet("Primary muscle", { sheet = null }) { ChoiceList { MUSCLE_GROUPS.forEachIndexed { i, m -> ChoiceRow(cap(m), draft.primaryMuscle == m, divider = i > 0) { draft = draft.copy(primaryMuscle = m); sheet = null } } } }
-        "secondary" -> Sheet("Secondary muscles", { sheet = null }) { ChoiceList { MUSCLE_GROUPS.filter { it != draft.primaryMuscle }.forEachIndexed { i, m ->
+        "kind" -> ChoiceSheet("Kind", listOf(Choice(Kind.STRENGTH, "Strength"), Choice(Kind.CARDIO, "Cardio")), onPick = { k ->
+            draft = if (k == Kind.STRENGTH) draft.copy(kind = Kind.STRENGTH, primaryMuscle = draft.primaryMuscle ?: "chest")
+            else draft.copy(kind = Kind.CARDIO, modalityId = draft.modalityId ?: modalities.firstOrNull()?.id, intensity = draft.intensity ?: Intensity.LOW, fields = draft.fields.ifEmpty { "time,distance,avgHr" })
+            close()
+        }, onDismiss = ::close, isSelected = { it == draft.kind })
+        "primary" -> ChoiceSheet("Primary muscle", MUSCLE_GROUPS.map { Choice(it, cap(it)) }, onPick = { draft = draft.copy(primaryMuscle = it); close() }, onDismiss = ::close, isSelected = { it == draft.primaryMuscle })
+        "secondary" -> ChoiceSheet("Secondary muscles", MUSCLE_GROUPS.filter { it != draft.primaryMuscle }.map { Choice(it, cap(it)) }, onPick = { m ->
             val on = m in draft.secondaryList
-            ChoiceRow(cap(m), on, divider = i > 0) { draft = draft.copy(secondaryMuscles = (if (on) draft.secondaryList - m else draft.secondaryList + m).joinToString(",")) }
-        } } }
-        "modality" -> Sheet("Modality", { sheet = null }) { ChoiceList { modalities.forEachIndexed { i, m -> ChoiceRow(m.name, draft.modalityId == m.id, Color(m.color), divider = i > 0) { draft = draft.copy(modalityId = m.id); sheet = null } } } }
-        "intensity" -> Sheet("Intensity", { sheet = null }) { ChoiceList { listOf(Intensity.LOW, Intensity.MODERATE, Intensity.HIGH).forEachIndexed { i, v -> ChoiceRow(cap(v), draft.intensity == v, divider = i > 0) { draft = draft.copy(intensity = v); sheet = null } } } }
-        "fields" -> Sheet("Fields", { sheet = null }) { ChoiceList { listOf("time", "distance", "avgHr", "watts", "laps", "poolLength", "stroke").forEachIndexed { i, f ->
+            draft = draft.copy(secondaryMuscles = (if (on) draft.secondaryList - m else draft.secondaryList + m).joinToString(","))
+        }, onDismiss = ::close, isSelected = { it in draft.secondaryList })
+        "type" -> ChoiceSheet("Type", typeChoices(types, draft.modalityId).map { Choice(it.id, it.name, Color(it.color)) },
+            onPick = { draft = draft.copy(modalityId = it); close() }, onDismiss = ::close, isSelected = { it == draft.modalityId },
+            addLabel = "New type…", onAdd = { sheet = "newtype" })
+        "newtype" -> NewTypeSheet(onDismiss = ::close) { type ->
+            addedType = type; draft = draft.copy(modalityId = type.id); close()
+            vm.run { vm.repo.saveModalityEdits(null, type) }
+        }
+        "intensity" -> ChoiceSheet("Intensity", listOf(Intensity.LOW, Intensity.MODERATE, Intensity.HIGH).map { Choice(it, cap(it)) }, onPick = { draft = draft.copy(intensity = it); close() }, onDismiss = ::close, isSelected = { it == draft.intensity })
+        "fields" -> ChoiceSheet("Fields", listOf("time", "distance", "avgHr", "watts", "laps", "poolLength", "stroke").map { Choice(it, fieldLabel(it)) }, onPick = { f ->
             val on = f in draft.fieldList
-            ChoiceRow(fieldLabel(f), on, divider = i > 0) { draft = draft.copy(fields = (if (on) draft.fieldList - f else draft.fieldList + f).joinToString(",")) }
-        } } }
-        "merge" -> Sheet("Merge ${draft.name} into", { sheet = null }) { ChoiceList { exercises.filter { it.id != exerciseId && it.kind == draft.kind }.forEachIndexed { i, e ->
-            ChoiceRow(e.name, false, divider = i > 0) { vm.run { vm.repo.mergeExercise(exerciseId, e.id) }; sheet = null; nav.popBackStack() }
-        } } }
+            draft = draft.copy(fields = (if (on) draft.fieldList - f else draft.fieldList + f).joinToString(","))
+        }, onDismiss = ::close, isSelected = { it in draft.fieldList })
+        "merge" -> ChoiceSheet("Merge ${draft.name} into", exercises.filter { it.id != exerciseId && it.kind == draft.kind }.map { Choice(it.id, it.name) }, onPick = { into ->
+            // The target picked, the confirm says what moves before anything is written.
+            close()
+            val target = exercises.find { it.id == into }
+            if (exerciseId != null && target != null) vm.run { val (sets, sessions) = vm.repo.mergeCounts(exerciseId); confirmMerge.ask(MergeAsk(target, sets, sessions)) }
+        }, onDismiss = ::close, searchable = true)
+    }
+    val sourceName = original?.name ?: draft.name
+    // Merge and Delete are checked again when they run ([KhonDao.mergeExercise], [KhonDao.deleteExerciseIfUnused]): the
+    // editor leaves only once one wrote; a refusal keeps it open with the reason.
+    ConfirmSheet(confirmMerge, title = { "Merge $sourceName into ${it.into.name}?" }, body = { mergeBody(sourceName, it.into.name, it.sets, it.sessions) }, action = "Merge") { m ->
+        if (exerciseId != null) leave { vm.run { if (vm.repo.mergeExercise(exerciseId, m.into.id)) leave.pop() else { refusal = MERGE_REFUSED; leave.release() } } }
+    }
+    ConfirmSheet(confirmDelete, title = { "Delete ${it.name}?" }, body = { "It goes from the library for good." }) { e ->
+        leave { vm.run { if (vm.repo.deleteExercise(e.id)) leave.pop() else { usage = vm.repo.exerciseUsage(e.id); leave.release() } } }
     }
 }
 
 fun fieldLabel(f: String) = when (f) { "time" -> "Time"; "distance" -> "Distance"; "avgHr" -> "Avg heart rate"; "watts" -> "Watts"; "laps" -> "Laps"; "poolLength" -> "Pool length"; "stroke" -> "Stroke"; else -> f }
 
-// ---------- Modality ----------
+// ---------- Type ----------
 
+/**
+ * New type: a name and a color from the presets, as a sheet over the cardio workout's editor. Add type is off
+ * while the name is blank; [onAdd] gets the new type, which the caller saves.
+ */
 @Composable
-fun ModalityEditorScreen(vm: AppViewModel, nav: NavHostController, modalityId: String) {
-    val modalities by vm.modalities.collectAsStateWithLifecycle()
-    val isNew = modalityId == "new"
-    val original = modalities.find { it.id == modalityId }
-    if (!isNew && original == null) return
-    var draft by remember(modalityId, original == null) { mutableStateOf(original ?: Modality(newId(), "", PRESET_COLORS[3])) }
-    var picking by remember { mutableStateOf(false) }
-    EditorScaffold("Modalities", if (isNew) "New modality" else original!!.name, onBack = { nav.popBackStack() }, onDone = { if (draft.name.isNotBlank()) vm.run { vm.repo.saveModality(draft) }; nav.popBackStack() }) {
-        GroupedList {
-            FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Bike, rowing…") }
-            FieldRow("Color", onClick = { picking = true }) { Dot(Color(draft.color)); Chevron() }
-        }
-        if (!isNew) BottomActions { TextButton(if (draft.archived) "Unarchive" else "Archive") { vm.run { vm.repo.saveModality(draft.copy(archived = !draft.archived)) }; nav.popBackStack() } }
+private fun NewTypeSheet(onDismiss: () -> Unit, onAdd: (Modality) -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var color by rememberSaveable { mutableStateOf(PRESET_COLORS[3]) }
+    Sheet("New type", onDismiss) {
+        GroupedList(elevated = true) { FieldRow("Name", divider = false) { InlineTextField(name, { name = it }, placeholder = "Bike, rowing…", label = "Type name") } }
+        SectionTitle("Color", Modifier.padding(top = 20.dp))
+        ColorGrid(color, elevated = true) { color = it }
+        PrimaryButton("Add type", Modifier.padding(top = 20.dp), enabled = name.isNotBlank()) { onAdd(Modality(newId(), name.trim(), color)) }
     }
-    if (picking) Sheet("Color", { picking = false }) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            PRESET_COLORS.take(6).forEach { c -> ColorSwatch(c, draft.color == c) { draft = draft.copy(color = c); picking = false } }
-        }
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            PRESET_COLORS.drop(6).forEach { c -> ColorSwatch(c, draft.color == c) { draft = draft.copy(color = c); picking = false } }
+}
+
+/**
+ * The twelve preset colors in two rows of six on a card, right in the editor: one tap picks, the chosen one in a
+ * white ring 2.5 dp wide with a 2 dp gap. Each 34 dp swatch sits on a 48 dp target.
+ */
+@Composable
+private fun ColorGrid(selected: Long, elevated: Boolean = false, onPick: (Long) -> Unit) {
+    GroupedList(elevated = elevated) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            PRESET_COLORS.chunked(6).forEachIndexed { r, row ->
+                Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    row.forEachIndexed { i, c -> ColorSwatch(c, c == selected, "Color ${r * 6 + i + 1}") { onPick(c) } }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun ColorSwatch(color: Long, selected: Boolean, onClick: () -> Unit) {
-    Box(Modifier.size(44.dp).clip(CircleShape).background(if (selected) Color.White else Color.Transparent).padding(3.dp).clip(CircleShape).background(Color(color)).clickable(onClick = onClick))
+private fun ColorSwatch(color: Long, selected: Boolean, label: String, onClick: () -> Unit) {
+    Box(
+        Modifier.size(48.dp).clip(CircleShape).selectable(selected, role = Role.RadioButton, onClick = onClick).semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.size(43.dp).border(2.5.dp, if (selected) Color.White else Color.Transparent, CircleShape), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(34.dp).clip(CircleShape).background(Color(color)))
+        }
+    }
 }

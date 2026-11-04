@@ -1,28 +1,34 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.components.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import dev.mirzohidkhon.khonfitness.ui.theme.K
-import java.time.LocalDate
 import java.time.LocalDateTime
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.clearAndSetSemantics
 
 /** Secondary text for the Today row and the widget: "closes in 2 h 10 m", "opens 12:00", "Off". */
 fun windowSummary(w: EatingWindow?, day: WindowDay?, now: LocalDateTime = LocalDateTime.now()): Pair<Boolean, String> {
@@ -31,48 +37,104 @@ fun windowSummary(w: EatingWindow?, day: WindowDay?, now: LocalDateTime = LocalD
     return st.open to if (st.open) "closes in " + EatingWindowRules.untilText(now, st.changesAt) else "opens " + EatingWindowRules.hhmm(w.startMinute)
 }
 
-/** The eating-window sheet: Open now or Close now, the hours, the switch, and the strip of kept days. */
+/**
+ * The eating-window sheet: where the window stands now in words and on a day bar, Open now or Close now, then the
+ * switch, the hours and the reminder, and the last 28 days as four weeks: filled when the fixed hours were kept, a
+ * ring when opened or closed by hand, today in white.
+ */
 @Composable
 fun WindowSheet(vm: AppViewModel, onDismiss: () -> Unit) {
     val w = vm.eatingWindow.collectAsState().value ?: EatingWindow()
     val days by vm.windowDays.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
-    val today = LocalDate.now()
+    // The clock moves on each minute while the sheet is open, so the headline and the now mark stay true.
+    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(60_000L - System.currentTimeMillis() % 60_000L); now = LocalDateTime.now() } }
+    val today = now.toLocalDate()
     val day = days.find { it.date == today.iso() }
-    val now = LocalDateTime.now()
-    val st = EatingWindowRules.state(w, day, now)
-    fun save(n: EatingWindow) { vm.run { vm.repo.saveEatingWindow(n); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) } }
+    val open = w.enabled && EatingWindowRules.state(w, day, now).open
+    // History counts from the first enable date; an existing user with none gets the fallback stored once.
+    val storedSince by vm.repo.windowSince.collectAsState(null)
+    LaunchedEffect(w.enabled) { if (w.enabled) vm.repo.keepWindowSince() }
+    val since = storedSince ?: windowSinceFallback(days, today)
+    // Each control writes its own setting onto the stored row ([KhonDao.setWindowStart] and the others), then re-arms the alarms.
+    fun save(write: suspend () -> Unit) { vm.run { write(); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) } }
     Sheet("Eating window", onDismiss) {
-        GroupedList {
-            if (w.enabled) {
-                if (st.open) ListRow("Close now", chevron = false, divider = false, titleColor = K.Accent) { vm.run { vm.repo.closeWindowNow(today.iso(), System.currentTimeMillis()); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) }; onDismiss() }
-                else ListRow("Open now", chevron = false, divider = false, titleColor = K.Accent) { vm.run { vm.repo.openWindowNow(today.iso(), System.currentTimeMillis()); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context) }; onDismiss() }
-            }
-            FieldRow("Opens", divider = w.enabled) { TimeStepper(w.startMinute, "Opens") { m -> save(w.copy(startMinute = m.coerceIn(0, w.endMinute - 60))) } }
-            FieldRow("Closes") { TimeStepper(w.endMinute, "Closes") { m -> save(w.copy(endMinute = m.coerceIn(w.startMinute + 60, 24 * 60 - 1))) } }
-            FieldRow("Remind before", divider = true) { NumberField(w.remindBeforeMin.toDouble(), { v -> save(w.copy(remindBeforeMin = (v ?: 0.0).toInt().coerceIn(0, 120))) }, 5.0, "min", Modifier.width(176.dp), 0, 38) }
-            FieldRow("On") { Switch(w.enabled, { save(w.copy(enabled = it)) }, colors = SwitchDefaults.colors(checkedTrackColor = K.Green, checkedThumbColor = Color.White, uncheckedTrackColor = K.Surface3, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent)) }
-        }
-        if (w.enabled) {
-            Text("Last 28 days", color = K.Muted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 6.dp))
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (i in 27 downTo 0) {
-                    val d = today.minusDays(i.toLong()); val wd = days.find { it.date == d.iso() }
-                    val kept = wd == null || (wd.openedAt == null && wd.closedAt == null)
-                    val m = Modifier.size(8.dp).clip(CircleShape)
-                    Box(if (d == today) m.border(1.5.dp, K.Green, CircleShape) else if (kept) m.background(K.Green) else m.border(1.5.dp, K.Green, CircleShape))
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            GroupedList(elevated = true) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Dot(if (open) K.Green else K.Muted, filled = open, size = 10)
+                        Text(windowStatus(w, day, now), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    }
+                    if (w.enabled) WindowDayBar(w, now)
                 }
+            }
+            if (w.enabled) TintedButton(if (open) "Close now" else "Open now", Modifier.padding(top = 12.dp)) {
+                vm.run {
+                    if (open) vm.repo.closeWindowNow(today.iso(), System.currentTimeMillis()) else vm.repo.openWindowNow(today.iso(), System.currentTimeMillis())
+                    dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context)
+                }
+                onDismiss()
+            }
+            GroupedList(Modifier.padding(top = 20.dp), elevated = true) {
+                ToggleRow("On", w.enabled, divider = false) { on -> save { vm.repo.setWindowEnabled(on) } }
+                FieldRow("Opens") { TimeStepper(w.startMinute, "Opens", EatingWindowRules.startRange(w.endMinute), elevated = true) { m -> save { vm.repo.setWindowStart(m) } } }
+                FieldRow("Closes") { TimeStepper(w.endMinute, "Closes", EatingWindowRules.endRange(w.startMinute), elevated = true) { m -> save { vm.repo.setWindowEnd(m) } } }
+                FieldRow("Remind before") {
+                    NumberField(w.remindBeforeMin.toDouble(), { v -> save { vm.repo.setWindowRemind((v ?: 0.0).toInt()) } }, 5.0, "min", width = 176.dp, decimals = 0, height = 38, max = 120.0, elevated = true, label = "Remind before, minutes")
+                }
+            }
+            if (w.enabled) {
+                val strip = windowStrip(days, today, since)
+                val summary = stripSummary(strip, since)
+                SheetGroupTitle("Last 28 days")
+                WindowWeeks(strip, summary)
+                GroupFooter("$summary A ring is a day opened or closed by hand; today is white." + if (StripCell.BEFORE in strip) " Grey days came before tracking." else "")
             }
         }
     }
 }
 
-/** hh:mm with 15-minute steps, in the number-widget shape. */
+/**
+ * hh:mm with 15-minute steps, in the number-widget shape, kept inside [range]. Like the number widget's steppers
+ * ([Stepper]), a tap steps once with a click and saves; held, it repeats and saves once on release. [elevated] inside
+ * a sheet's elevated group, where the box takes Surface3.
+ */
 @Composable
-fun TimeStepper(minute: Int, name: String, onChange: (Int) -> Unit) {
-    Row(Modifier.width(150.dp).height(38.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).background(K.Surface2), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Box(Modifier.width(40.dp).fillMaxHeight().clickable(role = androidx.compose.ui.semantics.Role.Button) { onChange(minute - 15) }.clearAndSetSemantics { contentDescription = "$name 15 minutes earlier" }, contentAlignment = androidx.compose.ui.Alignment.Center) { Text("−", fontWeight = FontWeight.Medium) }
-        Text(EatingWindowRules.hhmm(minute), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        Box(Modifier.width(40.dp).fillMaxHeight().clickable(role = androidx.compose.ui.semantics.Role.Button) { onChange(minute + 15) }.clearAndSetSemantics { contentDescription = "$name 15 minutes later" }, contentAlignment = androidx.compose.ui.Alignment.Center) { Text("+", fontWeight = FontWeight.Medium) }
+fun TimeStepper(minute: Int, name: String, range: IntRange, elevated: Boolean = false, onChange: (Int) -> Unit) {
+    val tick = dev.mirzohidkhon.khonfitness.ui.components.rememberTick()
+    val stepper = remember { Stepper(15.0) }.also { it.min = range.first.toDouble(); it.max = range.last.toDouble() }
+    // The time shown while a step is held, and after a save until a new value comes. A new value shows unless a hold
+    // is in progress.
+    var shown by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(minute) { if (stepper.arrived()) shown = null }
+    fun step(sign: Int, save: Boolean) {
+        val s = stepper.step(sign, save, shown?.toString() ?: "", minute.toDouble(), null)
+        tick(false)
+        shown = s.shown.toInt()
+        s.save?.let { onChange(it.toInt()) }
+    }
+    fun release() { stepper.release()?.let { shown = it.toInt(); onChange(it.toInt()) } }
+    val text = EatingWindowRules.hhmm(shown ?: minute)
+    // 166 dp wide; a large font widens the value, which stays on one line. The row is MIN_TAP tall so each step is a
+    // MIN_TAP square to the touch; the box is drawn 38 dp tall in its middle, as [NumberField] draws its own.
+    val fill = if (elevated) K.Surface3 else K.Surface2
+    Row(
+        Modifier.widthIn(min = 166.dp).height(MIN_TAP.dp).drawWithContent {
+            val inset = (size.height - 38.dp.toPx()).coerceAtLeast(0f) / 2
+            val box = Path().apply { addRoundRect(RoundRect(0f, inset, size.width, size.height - inset, CornerRadius(10.dp.toPx()))) }
+            clipPath(box) { drawRect(fill); this@drawWithContent.drawContent() }
+        },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.width(MIN_TAP.dp).fillMaxHeight().repeatPress("$name 15 minutes earlier", { step(-1, true) }, { step(-1, false) }, ::release), contentAlignment = Alignment.Center) { Text("−", fontSize = 22.sp, fontWeight = FontWeight.Medium) }
+        Box(Modifier.width(1.dp).fillMaxHeight().background(K.Divider))
+        Text(
+            text, fontSize = 19.sp, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), textAlign = TextAlign.Center,
+            maxLines = 1, softWrap = false, modifier = Modifier.widthIn(min = 68.dp).padding(horizontal = 6.dp).semantics { contentDescription = "$name $text" },
+        )
+        Box(Modifier.width(1.dp).fillMaxHeight().background(K.Divider))
+        Box(Modifier.width(MIN_TAP.dp).fillMaxHeight().repeatPress("$name 15 minutes later", { step(1, true) }, { step(1, false) }, ::release), contentAlignment = Alignment.Center) { Text("+", fontSize = 22.sp, fontWeight = FontWeight.Medium) }
     }
 }

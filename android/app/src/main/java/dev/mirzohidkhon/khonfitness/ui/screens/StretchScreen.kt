@@ -22,6 +22,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,6 +35,7 @@ import dev.mirzohidkhon.khonfitness.timer.Phase
 import dev.mirzohidkhon.khonfitness.timer.PhaseKind
 import dev.mirzohidkhon.khonfitness.timer.mmss
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
+import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
@@ -72,6 +75,8 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
     }
     val routine = routines.find { it.id == routineId }
     val sessionId = remember { "$routineId:" + newId() }
+    // Every exit (the run's end, the delayed close, Stop before a run, system Back) pops this screen at most once.
+    val exit = rememberExitGuard(nav)
 
     LaunchedEffect(routine?.id, routineStretches.size, stretches.size) {
         val r = routine ?: return@LaunchedEffect
@@ -86,34 +91,37 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
     }
     LaunchedEffect(finished) {
         val f = finished ?: return@LaunchedEffect
-        if (f.sessionId == sessionId || f.sessionId == observedSessionId) { nav.popBackStack(); TimerService.finished.value = null }
+        if (f.sessionId == sessionId || f.sessionId == observedSessionId) { exit { exit.pop() }; TimerService.finished.value = null }
     }
     var sawRunning by remember { mutableStateOf(false) }
     LaunchedEffect(state?.sessionId) { if (state?.sessionId?.startsWith("$routineId:") == true) sawRunning = true }
-    LaunchedEffect(sawRunning, state == null) { if (sawRunning && state == null) { delay(1500); if (TimerService.state.value == null) nav.popBackStack() } }
+    LaunchedEffect(sawRunning, state == null) { if (sawRunning && state == null) { delay(1500); if (TimerService.state.value == null) exit { exit.pop() } } }
 
     val st = state?.takeIf { it.stretch && it.sessionId.startsWith("$routineId:") }
     val phase = st?.takeUnless { it.done }?.phase
-    val bg by animateColorAsState(if (st?.active == true) Color(0xFF14532D) else K.Bg, label = "bg")
+    val bg by animateColorAsState(if (st?.active == true) K.WorkFill else K.Bg, label = "bg")
     BoxWithConstraints(Modifier.fillMaxSize().background(bg)) {
         val compact = maxHeight < 680.dp
         Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-                PlayerTextButton("Stop", Modifier.width(64.dp)) {
-                    if (st != null) TimerService.send(context, TimerService.ACTION_STOP) else nav.popBackStack()
+                // Equal 96 dp sides keep the title centered: Stop on the left, Back and Skip on the right.
+                Box(Modifier.width(96.dp), contentAlignment = Alignment.CenterStart) {
+                    PlayerButton(Icons.Close, "Stop") { if (st != null) TimerService.send(context, TimerService.ACTION_STOP) else exit { exit.pop() } }
                 }
-                Text(st?.title ?: routine?.name ?: "Stretching", color = Color.White,
-                    style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                PlayerTextButton("Skip", Modifier.width(64.dp), enabled = phase != null) { TimerService.send(context, TimerService.ACTION_SKIP) }
+                Text(st?.title ?: routine?.name ?: "Stretching", color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).semantics { heading() }, textAlign = TextAlign.Center)
+                Row(Modifier.width(96.dp), horizontalArrangement = Arrangement.End) {
+                    PlayerButton(Icons.SkipBack, "Back to the previous stretch", enabled = st?.canGoBack == true) { TimerService.send(context, TimerService.ACTION_BACK) }
+                    PlayerButton(Icons.SkipForward, "Skip", enabled = phase != null) { TimerService.send(context, TimerService.ACTION_SKIP) }
+                }
             }
+            if (st != null && phase != null) RoutineProgress(runSegments(st.phases.size, st.index), st.index, playerProgress(st), Modifier.padding(top = 10.dp))
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 if (phase != null) {
                     Text(phase.label, color = Color.White, style = MaterialTheme.typography.titleLarge,
                         textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                    Text(listOfNotNull(phase.side.takeIf { it.isNotEmpty() },
-                        if (phase.reps > 0) "${phase.reps} reps" else "Hold").joinToString(" · "),
-                        color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.bodyLarge,
+                    Text(sideLine(phase), color = K.OnPhaseMuted, style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.padding(top = 8.dp))
                     val motion = if (phase.reps > 0) {
                         val cycle = ((phase.seconds - st.remaining) / (phase.seconds.toDouble() / phase.reps)) % 1.0
@@ -122,32 +130,25 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
                     key(st.sessionId, st.index) {
                         StretchDemonstration(phase.figure, mirror = phase.side == "Right",
                             preview = st.awaitingStart, exerciseProgress = if (phase.reps > 0) motion else null,
-                            compact = compact, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+                            compact = compact, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), onPhase = true)
                     }
-                    Text(when { st.paused -> "Paused"; st.awaitingStart -> "${if (st.index == 0) "Ready" else "Next stretch"} · ${mmss(st.remaining)}";
-                        st.preparing -> "Get ready"; else -> if (phase.reps > 0) "Move" else "Hold" },
-                        color = Color.White.copy(alpha = .75f), style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                    // A ready screen has no status line: its length is in the line under the name, the button says what comes.
+                    playerStatus(st, phase)?.let { status ->
+                        Text(status, color = K.OnPhaseMuted, style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite })
+                    }
                     if (!st.awaitingStart) Text(if (st.preparing) kotlin.math.ceil(st.preparation).toInt().toString() else mmss(st.remaining),
                         color = Color.White, style = TextStyle(fontFamily = MaterialTheme.typography.headlineLarge.fontFamily,
                             fontSize = if (compact) 72.sp else 88.sp, fontWeight = FontWeight.Bold,
                             fontFeatureSettings = "tnum", textAlign = TextAlign.Center),
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
-                    Text("${st.index + 1} of ${st.phases.size} · ${mmss(st.workRemaining)} remaining",
-                        color = Color.White.copy(alpha = .65f), style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 } else {
                     Text(if (routine == null) "Loading routine" else "No stretches to play", color = Color.White)
                 }
             }
             if (st != null && phase != null) {
                 val action = when { st.awaitingStart -> TimerService.ACTION_BEGIN; st.paused -> TimerService.ACTION_RESUME; else -> TimerService.ACTION_PAUSE }
-                val label = when {
-                    st.awaitingStart && phase.side.isNotEmpty() -> "Start ${phase.side.lowercase()} side"
-                    st.awaitingStart -> if (st.index == 0) "Start stretch" else "Start next stretch"
-                    st.paused -> "Resume"
-                    else -> "Pause"
-                }
+                val label = playerAction(st, phase)
                 Button(onClick = { TimerService.send(context, action) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),

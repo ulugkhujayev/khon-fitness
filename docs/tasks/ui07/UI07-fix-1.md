@@ -36,3 +36,10 @@ drags, so a swipe that starts on a bar did not scroll (0 px). Redesign: each bar
 handle (`scrollHandle` in `Shell.kt`): a plain `draggable` that forwards the drag and its fling to the list's own
 scroll state. It is still a hit target, so taps on the background stop there; it adds no scroll semantics. Tests:
 `TitleBarTouchTest` and `SessionBarTouchTest` drag from each bar and from the line.
+
+Verify 4 found that `dispatchRawDelta` did not take the list's scroll, so a finger on a bar did not stop a running
+fling (P2), and that bar drags skip the list's overscroll effect (P3). Fix: `scrollHandle` takes the list's scroll at
+the first touch (`list.scroll(MutatePriority.UserInput)`), as a touch on the list does, moves it by the drag, and
+flings on release. Tests: a finger that holds still on each bar and on the line stops a fling (the content is the
+control). P3 is left as a known limit: Compose BOM 2024.12 has no way to share a list's overscroll effect, and it only
+shows when a drag from a bar reaches the top or bottom end.

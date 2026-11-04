@@ -106,4 +106,39 @@ class TitleBarTouchTest {
         assertTrue("scroll ${scroll.value} after a drag down from $before", scroll.value < before - 200 * compose.density.density)
         assertEquals("rows tapped by the drag", 0, rowTaps)
     }
+
+    /**
+     * A flick on the content starts a fling; a finger then lands on the bar at [yDp] (or on the content, as a
+     * control) and holds still. The content stops as it does under a finger on the content.
+     */
+    private fun holdStopsFling(pinned: Boolean, yDp: Float) {
+        compose.setContent {
+            KhonTheme {
+                scroll = rememberScrollState()
+                val rows: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = { repeat(60) { Box(Modifier.fillMaxWidth().height(60.dp)) } }
+                if (pinned) TabScreen(trailing = null, scroll = scroll, title = { Text("Pinned") }, content = rows)
+                else TabScreen("Folding", scroll = scroll, content = rows)
+            }
+        }
+        compose.waitForIdle()
+        val px = compose.density.density
+        runBlocking { scroll.scrollTo((600 * px).toInt()) }
+        compose.mainClock.autoAdvance = false
+        compose.onRoot().performTouchInput { swipe(Offset(180 * px, 600 * px), Offset(180 * px, 450 * px), durationMillis = 200) }
+        compose.mainClock.advanceTimeBy(32)
+        compose.runOnIdle { assertTrue("the fling started", scroll.isScrollInProgress) }
+        compose.onRoot().performTouchInput { down(Offset(180 * px, yDp * px)); moveTo(Offset(180 * px, (yDp + 60) * px), delayMillis = 16) }
+        compose.mainClock.advanceTimeBy(16)
+        val held = scroll.value
+        compose.mainClock.advanceTimeBy(128)
+        val after = scroll.value
+        compose.onRoot().performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        assertEquals("the content moved under a finger that holds still at $yDp dp", held, after)
+    }
+
+    @Test fun `a finger on the content stops a fling (control)`() = holdStopsFling(pinned = false, yDp = 400f)
+    @Test fun `a finger on the folding bar stops a fling`() = holdStopsFling(pinned = false, yDp = 35f)
+    @Test fun `a finger on the pinned bar stops a fling`() = holdStopsFling(pinned = true, yDp = 35f)
 }

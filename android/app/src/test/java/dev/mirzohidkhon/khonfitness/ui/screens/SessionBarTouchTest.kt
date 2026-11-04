@@ -141,4 +141,31 @@ class SessionBarTouchTest {
         compose.waitForIdle()
         assertEquals("block 8 after a tap on the line", before, block8().config.getOrNull(SemanticsProperties.StateDescription))
     }
+
+    /** A flick on the list starts a fling; a finger on [yDp] then holds still, and the list stops. */
+    private fun holdStopsFling(yDp: Float) {
+        openSession()
+        block8UnderTheLine()
+        compose.mainClock.autoAdvance = false
+        val px = compose.density.density
+        fun offset(): Float = compose.onNode(hasScrollAction()).fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value()
+        compose.onRoot().performTouchInput { swipe(Offset(180 * px, 600 * px), Offset(180 * px, 450 * px), durationMillis = 200) }
+        compose.mainClock.advanceTimeBy(32)
+        val earlier = offset()
+        compose.mainClock.advanceTimeBy(16)
+        assertTrue("the fling started", offset() > earlier)
+        compose.onRoot().performTouchInput { down(Offset(180 * px, yDp * px)); moveTo(Offset(180 * px, (yDp + 60) * px), delayMillis = 16) }
+        compose.mainClock.advanceTimeBy(16)
+        val held = offset()
+        compose.mainClock.advanceTimeBy(128)
+        val after = offset()
+        compose.onRoot().performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        assertEquals("the list moved under a finger that holds still at $yDp dp", held, after, 0.00001f)
+    }
+
+    @Test fun `a finger on the list stops a fling (control)`() = holdStopsFling(400f)
+    @Test fun `a finger on the session bar stops a fling`() = holdStopsFling(28f)
+    @Test fun `a finger on the folded progress line stops a fling`() = holdStopsFling(57f)
 }

@@ -4,11 +4,20 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.ScrollableDefaults
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.MutatePriority
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.verticalDrag
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.pointer.util.addPointerInputChange
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -182,9 +191,34 @@ fun PinnedTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Uni
  * would. The bar's own controls sit above this and keep their taps.
  */
 fun Modifier.scrollHandle(list: ScrollableState): Modifier = composed {
-    // A plain drag, not `scrollable`: the bar adds no scroll action of its own for screen readers.
     val fling = ScrollableDefaults.flingBehavior()
-    draggable(rememberDraggableState { list.dispatchRawDelta(-it) }, Orientation.Vertical, onDragStopped = { v -> list.scroll { with(fling) { performFling(-v) } } })
+    val scope = rememberCoroutineScope()
+    // Plain pointer input, not `scrollable`: the bar adds no scroll action of its own for screen readers.
+    pointerInput(list, fling) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            val drags = Channel<Float>(Channel.UNLIMITED)
+            var velocity = 0f
+            // The touch holds the list as a touch on the list does: its scroll is taken at once, so a running fling
+            // stops; the list then moves by the drag and flings on release.
+            scope.launch {
+                list.scroll(MutatePriority.UserInput) {
+                    for (dy in drags) scrollBy(-dy)
+                    with(fling) { performFling(-velocity) }
+                }
+            }
+            try {
+                val tracker = VelocityTracker().apply { addPointerInputChange(down) }
+                val start = awaitVerticalTouchSlopOrCancellation(down.id) { change, over -> change.consume(); tracker.addPointerInputChange(change); drags.trySend(over) }
+                if (start != null) {
+                    verticalDrag(start.id) { change -> tracker.addPointerInputChange(change); drags.trySend(change.positionChange().y); change.consume() }
+                    velocity = tracker.calculateVelocity().y
+                }
+            } finally {
+                drags.close()
+            }
+        }
+    }
 }
 
 /** Hairline on a bar's bottom edge; [opacity] is read in the draw layer. */

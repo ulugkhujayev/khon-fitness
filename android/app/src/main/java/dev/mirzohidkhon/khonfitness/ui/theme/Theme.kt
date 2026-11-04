@@ -40,6 +40,10 @@ object K {
     val Muted = Color(0xFFAEAEB2)
     /** systemGray2: chevrons, the grabber, decorative dots and off controls. Never readable text (2.8:1 on [Surface]). */
     val Dim = Color(0xFF636366)
+    /** History's closed title tab: a dark gray that still reads as large text on [Bg] (4.0:1). */
+    val TitleOff = Color(0xFF6C6C70)
+    /** systemGray: the rest symbol on Plan's week, 3:1 or more on its circle's [Surface2]. */
+    val RestSymbol = Color(0xFF8E8E93)
     /** systemOrange, the app accent. */
     val Accent = Color(0xFFFF9F0A)
     /** Text and symbols on an accent fill: dark ink, 10:1 (white on orange is 2.1:1). */
@@ -139,6 +143,13 @@ val TextPairs: List<TextPair> = buildList {
         for ((cn, c) in listOf("Text" to K.Text, "Accent" to K.Accent, "Green" to K.Green)) add(TextPair("$cn on the today row over $n", c, K.Accent.copy(alpha = 0.12f).compositeOver(under)))
         for ((cn, c) in listOf("Text" to K.Text, "Muted" to K.Muted, "Accent" to K.Accent, "Green" to K.Green)) add(TextPair("$cn on a done set row over $n", c, K.Green.copy(alpha = 0.05f).compositeOver(under)))
     }
+    // History's closed title tab, a large title on the page.
+    add(TextPair("TitleOff on Bg", K.TitleOff, K.Bg, large = true))
+    // Plan's week symbols on a day's circle: gym, rest, cardio without a type, each type's own color.
+    for ((sn, c) in listOf("Accent" to K.Accent, "RestSymbol" to K.RestSymbol, "Muted" to K.Muted)) add(TextPair("$sn week symbol on Surface2", c, K.Surface2, large = true))
+    for (c in PRESET_COLORS.map { Color(it) }) add(TextPair("Type #%06X week symbol on Surface2".format(c.value.toLong() ushr 32 and 0xFFFFFF), c, K.Surface2, large = true))
+    // Plan's selected day: its accent ring between the page and the day's circle. A mark needs 3:1.
+    for ((n, bg) in listOf("Bg" to K.Bg, "Surface2" to K.Surface2)) add(TextPair("Accent selection ring on $n", K.Accent, bg, large = true))
     // The demonstration's round controls: a white symbol on black at 45 percent over the light image.
     add(TextPair("Text on the demo glass", K.Text, Color.Black.copy(alpha = 0.45f).compositeOver(Color(0xFFF2F2F2)), large = true))
 }

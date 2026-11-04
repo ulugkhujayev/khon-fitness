@@ -37,6 +37,9 @@ object Icons {
     /** What a day holds (Today's card, plan sheets): a program, cardio, rest. */
     val Dumbbell = icon("dumbbell.fill") { fill("M4.5 6.5a1.5 1.5 0 0 1 3 0v11a1.5 1.5 0 0 1-3 0zM16.5 6.5a1.5 1.5 0 0 1 3 0v11a1.5 1.5 0 0 1-3 0zM1.5 9.5a1 1 0 0 1 2 0v5a1 1 0 0 1-2 0zM20.5 9.5a1 1 0 0 1 2 0v5a1 1 0 0 1-2 0z"); stroke("M7.5 12h9") }
     val Runner = icon("figure.run") { fill("M15.5 2.4a2 2 0 1 0 0 4a2 2 0 1 0 0-4z"); stroke("M6.5 10l3-2.5h4.5l2.5 3.5 3 .5M14 7.5l-2.5 5.5 3.5 2.5-1.5 5M11.5 13l-2.5 3H5") }
+    /** Plan's week: a bike day and a swim day. */
+    val Bike = icon("bicycle") { stroke("M5.5 13a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7zM18.5 13a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7z"); stroke("M5.5 16.5L9 10h6.5l3 6.5M9 10l3 6.5 3.5-6.5M5.5 16.5H12M8.5 7h2.5M15.5 10l-1-3h2") }
+    val Swim = icon("figure.pool.swim") { fill("M17.5 6a2 2 0 1 0 0 4a2 2 0 1 0 0-4z"); stroke("M4 12.5l5.5-4 3 3.5 2.5-1.5"); stroke("M2.5 16.5c1.6 0 1.6-1.2 3.2-1.2s1.6 1.2 3.2 1.2 1.6-1.2 3.1-1.2 1.6 1.2 3.2 1.2 1.6-1.2 3.2-1.2 1.6 1.2 3.1 1.2M2.5 20.5c1.6 0 1.6-1.2 3.2-1.2s1.6 1.2 3.2 1.2 1.6-1.2 3.1-1.2 1.6 1.2 3.2 1.2 1.6-1.2 3.2-1.2 1.6 1.2 3.1 1.2") }
     val Moon = icon("moon.fill") { fill("M20.5 14.6A8.5 8.5 0 1 1 9.4 3.5a7 7 0 0 0 11.1 11.1z") }
     /** Today's rows: the stretch routine, the eating window, band sessions. */
     val Stretch = icon("figure.flexibility") { fill("M12 2.2a2 2 0 1 0 0 4a2 2 0 1 0 0-4z"); stroke("M4.5 8l7.5 1.5 7.5-1.5M12 9.5v5M7 21l5-6.5 5 6.5") }

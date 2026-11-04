@@ -442,10 +442,13 @@ object Seed {
     private fun strength(id: String, name: String, primary: String, secondary: String = "", step: Double = 2.5) =
         Exercise(id = id, name = name, kind = Kind.STRENGTH, primaryMuscle = primary, secondaryMuscles = secondary, stepKg = step, builtin = true)
 
+    /** The cardio types a new install starts with. */
+    val modalities = listOf(
+        Modality("bike", "Bike", 0xFFB39DFF), Modality("run", "Run", 0xFF7CE0A8), Modality("swim", "Swim", 0xFF71B7FF), Modality("row", "Row", 0xFFFF8FA3),
+    )
+
     suspend fun apply(dao: KhonDao) {
-        dao.upsertModalities(listOf(
-            Modality("bike", "Bike", 0xFFB39DFF), Modality("run", "Run", 0xFF7CE0A8), Modality("swim", "Swim", 0xFF71B7FF), Modality("row", "Row", 0xFFFF8FA3),
-        ))
+        dao.upsertModalities(modalities)
         val ex = listOf(
             strength("bench", "Barbell Bench Press", "chest", "shoulders,triceps"),
             strength("legpress", "Leg Press", "quads", "glutes", 5.0),

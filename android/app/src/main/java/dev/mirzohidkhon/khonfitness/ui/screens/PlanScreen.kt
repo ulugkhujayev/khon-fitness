@@ -6,12 +6,16 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -21,8 +25,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -33,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -82,7 +87,7 @@ fun PlanScreen(vm: AppViewModel, nav: NavHostController) {
     TabScreen("Plan", trailing = { TitleAddButton("New") { adding = true } }) {
         SectionTitle("This week", trailing = { SectionAction("Edit", "Edit week plan") { nav.navigate(Routes.WEEK_PLAN) } })
         val cells = plan.weekCells(vm.today())
-        WeekGrid(cells, cells.map { it.spoken(plan.itemFor(it.date).name) })
+        WeekStrip(cells, cells.map { it.spoken(plan.itemFor(it.date).name) }, modalities)
 
         SectionTitle("Gym programs", Modifier.padding(top = 24.dp))
         GroupedList {
@@ -160,42 +165,83 @@ private fun SectionAction(text: String, description: String, onClick: () -> Unit
 }
 
 /**
- * The week Monday to Sunday in seven cells of one height: the weekday, the item's short name (muted for rest), today's
- * cell tinted accent, and a small accent dot under a day that a one-day change set. Each cell reads as one spoken
- * line. The text grows with the font scale. Above [WEEK_GRID_ONE_ROW_MAX_SCALE] seven cells are too narrow for it, so
- * the week wraps to two rows, Monday to Thursday and Friday to Sunday. A name longer than two lines ends in "…"; the
- * full names are in the spoken lines and in the rows below.
+ * The week Monday to Sunday as a strip of seven columns across the screen width, inset [WEEK_STRIP_INSET] on each
+ * side: the weekday's letter over a circle with the day's symbol ([weekSymbol]), and a small accent dot under a day
+ * that a one-day change set. Today's letter is accent and bold. A tap on a column selects that day (today at first;
+ * not saved): a 2 dp accent ring goes around its circle, and the line under the strip gives its full name. Each column
+ * reads as one spoken line and is a tab with its selected state. Letters and symbols are small, so the strip stays one
+ * row at every font scale. On a screen narrower than seven 48 dp columns, each column is 48 dp and the strip scrolls
+ * sideways, today in view at first.
  */
 @Composable
-private fun WeekGrid(cells: List<WeekCell>, spoken: List<String>) {
-    val perRow = if (LocalDensity.current.fontScale > WEEK_GRID_ONE_ROW_MAX_SCALE) 4 else 7
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        cells.indices.chunked(perRow).forEach { row ->
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                row.forEach { i ->
-                    val c = cells[i]
-                    Column(
-                        Modifier.weight(1f).fillMaxHeight().heightIn(min = 64.dp).clip(RoundedCornerShape(12.dp)).background(if (c.today) K.AccentSoft else K.Surface)
-                            .clearAndSetSemantics { contentDescription = spoken[i] }.padding(horizontal = 2.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(weekdayShort(c.date.dayOfWeek.value), fontSize = 11.sp, color = if (c.today) K.Accent else K.Muted, maxLines = 1)
-                        Text(c.name, fontSize = WEEK_CELL_NAME_SP.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, color = if (c.rest) K.Muted else K.Text, textAlign = TextAlign.Center,
-                            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
-                        if (c.changed) Box(Modifier.padding(top = 4.dp).size(5.dp).clip(CircleShape).background(K.Accent))
-                    }
+private fun WeekStrip(cells: List<WeekCell>, spoken: List<String>, modalities: List<Modality>) {
+    val todayAt = cells.indexOfFirst { it.today }.coerceAtLeast(0)
+    var selected by remember(todayAt) { mutableIntStateOf(todayAt) }
+    BoxWithConstraints(Modifier.bleed(16.dp)) {
+        val narrow = maxWidth < WEEK_COLUMN * 7
+        // The inset lines the end circles up with the page margin; each column stays a 48 dp tap target.
+        val inset = ((maxWidth - WEEK_COLUMN * 7) / 2).coerceIn(0.dp, WEEK_STRIP_INSET)
+        val row = if (!narrow) Modifier.fillMaxWidth().padding(horizontal = inset) else {
+            val start = with(LocalDensity.current) { (WEEK_COLUMN * (todayAt + 1) - maxWidth).coerceAtLeast(0.dp).roundToPx() }
+            Modifier.horizontalScroll(rememberScrollState(start))
+        }
+        Row(row.selectableGroup()) {
+            cells.forEachIndexed { i, c ->
+                Column(
+                    (if (narrow) Modifier.width(WEEK_COLUMN) else Modifier.weight(1f)).selectable(i == selected, role = Role.Tab) { selected = i }
+                        .semantics { contentDescription = spoken[i] }.padding(vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        weekdayShort(c.date.dayOfWeek.value).take(1), fontSize = 12.sp, maxLines = 1,
+                        color = if (c.today) K.Accent else K.Muted, fontWeight = if (c.today) FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier.clearAndSetSemantics {},
+                    )
+                    // The ring sits around the circle, so every circle keeps its 40 dp.
+                    Box(
+                        Modifier.padding(top = 6.dp).size(44.dp).then(if (i == selected) Modifier.border(2.dp, K.Accent, CircleShape) else Modifier).padding(2.dp)
+                            .clip(CircleShape).background(K.Surface2),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(weekIcon(c), contentDescription = null, tint = weekSymbolColor(c, modalities), modifier = Modifier.size(22.dp)) }
+                    Box(Modifier.padding(top = 4.dp).size(5.dp).clip(CircleShape).background(if (c.changed) K.Accent else Color.Transparent))
                 }
-                // The short last row keeps the cell width of the rows above it.
-                repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
+    cells.getOrNull(selected)?.let { c ->
+        Text(c.line(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = K.Text, modifier = Modifier.padding(start = 16.dp, top = 4.dp))
+    }
 }
 
-/** The largest font scale at which the week grid fits on one row of seven cells. */
-const val WEEK_GRID_ONE_ROW_MAX_SCALE = 1.15f
-/** The week cell's name size, before the font scale. */
-const val WEEK_CELL_NAME_SP = 12f
+/** The week strip's side inset at most: the columns stay 48 dp or wider, so on a narrow screen it shrinks. */
+const val WEEK_STRIP_INSET_DP = 10
+private val WEEK_STRIP_INSET = WEEK_STRIP_INSET_DP.dp
+/** The narrowest week column: a tap target. */
+private val WEEK_COLUMN = MIN_TAP.dp
+
+/** A day's symbol on the week strip. */
+private fun weekIcon(c: WeekCell): androidx.compose.ui.graphics.vector.ImageVector = when (c.symbol) {
+    DaySymbol.GYM -> Icons.Dumbbell
+    DaySymbol.RUN -> Icons.Runner
+    DaySymbol.BIKE -> Icons.Bike
+    DaySymbol.SWIM -> Icons.Swim
+    DaySymbol.CARDIO -> Icons.Heart
+    DaySymbol.REST -> Icons.Moon
+}
+
+/** A day's symbol color: gym in accent, a cardio workout in its type's own color (muted without one), rest in gray. */
+fun weekSymbolColor(c: WeekCell, modalities: List<Modality>): Color = when (c.symbol) {
+    DaySymbol.GYM -> K.Accent
+    DaySymbol.REST -> K.RestSymbol
+    else -> modalities.find { it.id == c.typeId }?.let { Color(it.color) } ?: K.Muted
+}
+
+/** Reaches past the screen's side margins of [margin] each, so the content spans the whole width. */
+private fun Modifier.bleed(margin: androidx.compose.ui.unit.Dp) = layout { m, c ->
+    val extra = (margin * 2).roundToPx()
+    val p = m.measure(c.copy(minWidth = c.maxWidth + extra, maxWidth = c.maxWidth + extra))
+    layout(c.maxWidth, p.height) { p.place(-extra / 2, 0) }
+}
 
 /** A Plan list row: [leading] mark, the title over its muted [line], a chevron. The whole row opens [onClick]. */
 @Composable

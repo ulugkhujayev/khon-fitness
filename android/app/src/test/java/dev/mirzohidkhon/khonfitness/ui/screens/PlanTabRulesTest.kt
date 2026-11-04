@@ -1,6 +1,8 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
 import dev.mirzohidkhon.khonfitness.data.*
+import androidx.compose.ui.graphics.Color
+import dev.mirzohidkhon.khonfitness.ui.theme.K
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
@@ -57,6 +59,23 @@ class PlanTabRulesTest {
         assertEquals("Zone 2 run", cells[2].name)
         assertEquals("Tempo run", cells[4].name)
         assertEquals(listOf(false, false, false, false, true, false, false), cells.map { it.changed })
+    }
+
+    @Test fun `each day takes its symbol, a cardio day by its type id, and its line names it in full`() {
+        val swim = Exercise("swim", "Zone 2 swim", Kind.CARDIO, modalityId = "swim")
+        val row = Exercise("row", "Row intervals", Kind.CARDIO, modalityId = "row")
+        val plain = Exercise("plain", "Jump rope", Kind.CARDIO)
+        val cells = KhonRepository.PlanData(
+            listOf(WeekPlan(1, ItemType.PROGRAM, "push"), WeekPlan(2, ItemType.CARDIO, "z2run"), WeekPlan(4, ItemType.CARDIO, "nor"),
+                WeekPlan(5, ItemType.CARDIO, "swim"), WeekPlan(6, ItemType.CARDIO, "row"), WeekPlan(7, ItemType.CARDIO, "plain")),
+            emptyList(), listOf(push), listOf(run, bike, swim, row, plain),
+        ).weekCells(wednesday)
+        assertEquals(listOf(DaySymbol.GYM, DaySymbol.RUN, DaySymbol.REST, DaySymbol.BIKE, DaySymbol.SWIM, DaySymbol.CARDIO, DaySymbol.CARDIO), cells.map { it.symbol })
+        assertEquals(listOf(null, "run", null, "bike", "swim", "row", null), cells.map { it.typeId })
+        assertEquals(listOf("Mon · Push", "Wed · Rest", "Thu · Norwegian 4x4"), listOf(cells[0], cells[2], cells[3]).map { it.line() })
+        // Colors: gym in accent, a type in its own color, a type that is gone or none in muted, rest in gray.
+        val colors = cells.map { weekSymbolColor(it, types) }
+        assertEquals(listOf(K.Accent, Color(0xFF7CE0A8), K.RestSymbol, Color(0xFFB39DFF), K.Muted, K.Muted, K.Muted), colors)
     }
 
     @Test fun `with no plan every day is rest`() {

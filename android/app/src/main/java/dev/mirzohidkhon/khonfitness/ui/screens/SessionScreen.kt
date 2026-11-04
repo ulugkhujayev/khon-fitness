@@ -27,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.foundation.rememberScrollState
@@ -267,7 +266,7 @@ private fun SessionHeader(
 ) {
     val label = "$done of $total sets done"
     val local = LocalDensity.current
-    Box(Modifier.fillMaxWidth()) {
+    Box(Modifier.fillMaxWidth().passTouchesBelow()) {
         // Drawn before the bar, so it slides under it. Taps pass through to the list.
         Row(
             Modifier.padding(top = nav).fillMaxWidth().height(row)
@@ -279,12 +278,13 @@ private fun SessionHeader(
             ProgressBar(done, total, label, Modifier.weight(1f))
             Text("$done / $total", style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.clearAndSetSemantics {})
         }
-        // The bar takes its taps, so nothing under it is hit by mistake.
+        // The bar takes its taps, so nothing under it is hit by mistake; a drag on it still scrolls the list.
         Box(
-            Modifier.fillMaxWidth().background(K.Bg).onSizeChanged { onNavHeight(with(local) { it.height.toDp() }) }
-                .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } },
-        ) { EditorTopBar("Today", title, onBack, done = "Finish", onDone = onFinish) }
-        Box(Modifier.padding(top = nav).fillMaxWidth().graphicsLayer { alpha = sessionLineAlpha(scrollPx() / density, row.value) }.clearAndSetSemantics {}) {
+            Modifier.fillMaxWidth().background(K.Bg).onSizeChanged { onNavHeight(with(local) { it.height.toDp() }) }.passTouchesBelow(),
+        ) { TapCover(); EditorTopBar("Today", title, onBack, done = "Finish", onDone = onFinish) }
+        // The folded line draws over the list like the bar, so it takes its taps too.
+        Box(Modifier.padding(top = nav).fillMaxWidth().graphicsLayer { alpha = sessionLineAlpha(scrollPx() / density, row.value) }.clearAndSetSemantics {}.passTouchesBelow()) {
+            TapCover()
             ProgressBar(done, total, label, thin = true)
         }
     }

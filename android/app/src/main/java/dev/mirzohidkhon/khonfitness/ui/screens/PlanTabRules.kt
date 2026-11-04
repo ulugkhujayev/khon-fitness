@@ -28,8 +28,27 @@ fun cardioLine(ex: Exercise, weekdays: List<Int>): String {
     return "$plan · ${everyLine(weekdays)}"
 }
 
-/** One day of the Plan tab's week grid: the item's name, whether it is today, and whether a one-day change set it. */
-data class WeekCell(val date: LocalDate, val name: String, val rest: Boolean, val today: Boolean, val changed: Boolean)
+/**
+ * One day of the Plan tab's week strip: the item's name, whether it is today, whether a one-day change set it, its
+ * [symbol], and a cardio workout's type id ([typeId]), whose color the symbol takes.
+ */
+data class WeekCell(
+    val date: LocalDate, val name: String, val rest: Boolean, val today: Boolean, val changed: Boolean,
+    val symbol: DaySymbol = DaySymbol.REST, val typeId: String? = null,
+)
+
+/** The symbol a day shows on the week strip: a gym program, a run, a ride, a swim, any other cardio, rest. */
+enum class DaySymbol { GYM, RUN, BIKE, SWIM, CARDIO, REST }
+
+/** A day's symbol: gym for a program; for cardio, by the type id (run, bike, swim; any other or none is CARDIO). */
+fun daySymbol(item: PlanItem): DaySymbol = when (item.itemType) {
+    ItemType.PROGRAM -> DaySymbol.GYM
+    ItemType.CARDIO -> when (item.cardio?.modalityId) { "run" -> DaySymbol.RUN; "bike" -> DaySymbol.BIKE; "swim" -> DaySymbol.SWIM; else -> DaySymbol.CARDIO }
+    else -> DaySymbol.REST
+}
+
+/** The line under the week strip for the selected day: "Wed · Rest", "Thu · Norwegian 4×4". */
+fun WeekCell.line(): String = "${weekdayShort(date.dayOfWeek.value)} · $name"
 
 /**
  * The week of [today], Monday to Sunday, as the plan resolves it: a dated change wins over the template. Each day
@@ -39,7 +58,7 @@ fun KhonRepository.PlanData.weekCells(today: LocalDate): List<WeekCell> {
     val monday = today.minusDays(today.dayOfWeek.value - 1L)
     return (0L until 7L).map { monday.plusDays(it) }.map { d ->
         val item = itemFor(d)
-        WeekCell(d, item.name, item.isRest, d == today, item.overridden)
+        WeekCell(d, item.name, item.isRest, d == today, item.overridden, daySymbol(item), item.cardio?.modalityId)
     }
 }
 

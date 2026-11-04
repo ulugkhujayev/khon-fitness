@@ -30,6 +30,9 @@ import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.performSemanticsAction
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -145,7 +148,7 @@ class HistoryScreenTest {
         io { plan(); lastWeek() }
         show()
         waitFor("Today: Push")
-        compose.onNodeWithText("Log").assertHeightIsAtLeast(48.dp)
+        compose.onNodeWithText("Log").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
         assertTrue(compose.onNodeWithText("Log").fetchSemanticsNode().config.getOrElse(SemanticsProperties.Selected) { false })
         compose.onNodeWithText(weekTitle(weekOf(today))).assertExists()
         compose.onNodeWithContentDescription("Previous week").assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
@@ -205,7 +208,7 @@ class HistoryScreenTest {
         waitFor("Today: Push")
         compose.onNodeWithText("Progress").performClick()
         waitFor("Personal records · heaviest weight lifted")
-        compose.onNodeWithText("Progress").assertHeightIsAtLeast(48.dp)
+        compose.onNodeWithText("Progress").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
         assertShows("62.5 kg × 6")
         assertShows("Sets per muscle · this week / last week")
         assertShows("No cardio in the last 30 days.")
@@ -347,8 +350,8 @@ class HistoryScreenTest {
         compose.onNodeWithText("Progress").performClick()
         waitFor("Personal records · heaviest weight lifted")
         compose.onNodeWithText("No cardio in the last 30 days.").performScrollTo()
-        // The page switch scrolls with the page, as in the prototype: scroll up to it a little, and keep that place.
-        compose.onNodeWithText("Log").performScrollTo()
+        // The closed page's word hides as the bar folds: scroll up until the bar opens, and keep that place.
+        scrollNearTop()
         val progressY = top("No cardio in the last 30 days.")
         assertTrue(progressY > 0)
         compose.onNodeWithText("Log").performClick()
@@ -362,7 +365,7 @@ class HistoryScreenTest {
         waitFor("planned done")
         compose.waitForIdle()
         assertEquals(logY, top("planned done"), 0.5f)
-        compose.onNodeWithText("Log").performScrollTo()
+        scrollNearTop()
         compose.onNodeWithText("Progress").performClick()
         waitFor("No cardio in the last 30 days.")
         compose.waitForIdle()
@@ -403,7 +406,8 @@ class HistoryScreenTest {
         assertTrue(compose.onNodeWithText("Progress").fetchSemanticsNode().config.getOrElse(SemanticsProperties.Selected) { false })
         assertEquals(y, top("No cardio in the last 30 days."), 0.5f)
         assertShows("−1.0 kg since")
-        compose.onNodeWithText("Log").performScrollTo().performClick()
+        scrollNearTop()
+        compose.onNodeWithText("Log").performClick()
         waitFor(weekTitle(lastMonday))
     }
 
@@ -470,6 +474,14 @@ class HistoryScreenTest {
         assertShows("Easy run · 8 km · 50 min · 6:15\u00A0/\u2060km")
         compose.onNodeWithText("Easy run · 8 km", substring = true).performClick()
         waitFor("Cardio r2")
+    }
+
+    /** Scrolls the open page up to 10 dp from its top: the bar opens and both page words show. */
+    private fun scrollNearTop() {
+        val page = compose.onNode(hasScrollAction())
+        page.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, -100_000f) }
+        page.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 10 * compose.density.density) }
+        compose.waitForIdle()
     }
 
     private fun top(text: String) = compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().first().positionInRoot.y

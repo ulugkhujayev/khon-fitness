@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -165,22 +167,28 @@ private fun SectionAction(text: String, description: String, onClick: () -> Unit
 /**
  * The week Monday to Sunday as a strip of seven columns across the screen width, inset [WEEK_STRIP_INSET] on each
  * side: the weekday's letter over a circle with the day's symbol ([weekSymbol]), and a small accent dot under a day
- * that a one-day change set. Today's
- * letter is accent and bold, its circle ringed in accent. A tap on a column selects that day (today at first; not
- * saved): its circle fills, and the line under the strip gives its full name. Each column reads as one spoken line
- * and is a tab with its selected state. Letters and symbols are small, so the strip stays one row at every font scale.
+ * that a one-day change set. Today's letter is accent and bold. A tap on a column selects that day (today at first;
+ * not saved): a 2 dp accent ring goes around its circle, and the line under the strip gives its full name. Each column
+ * reads as one spoken line and is a tab with its selected state. Letters and symbols are small, so the strip stays one
+ * row at every font scale. On a screen narrower than seven 48 dp columns, each column is 48 dp and the strip scrolls
+ * sideways, today in view at first.
  */
 @Composable
 private fun WeekStrip(cells: List<WeekCell>, spoken: List<String>, modalities: List<Modality>) {
     val todayAt = cells.indexOfFirst { it.today }.coerceAtLeast(0)
     var selected by remember(todayAt) { mutableIntStateOf(todayAt) }
     BoxWithConstraints(Modifier.bleed(16.dp)) {
+        val narrow = maxWidth < WEEK_COLUMN * 7
         // The inset lines the end circles up with the page margin; each column stays a 48 dp tap target.
-        val inset = ((maxWidth - 48.dp * 7) / 2).coerceIn(0.dp, WEEK_STRIP_INSET)
-        Row(Modifier.fillMaxWidth().padding(horizontal = inset).selectableGroup()) {
+        val inset = ((maxWidth - WEEK_COLUMN * 7) / 2).coerceIn(0.dp, WEEK_STRIP_INSET)
+        val row = if (!narrow) Modifier.fillMaxWidth().padding(horizontal = inset) else {
+            val start = with(LocalDensity.current) { (WEEK_COLUMN * (todayAt + 1) - maxWidth).coerceAtLeast(0.dp).roundToPx() }
+            Modifier.horizontalScroll(rememberScrollState(start))
+        }
+        Row(row.selectableGroup()) {
             cells.forEachIndexed { i, c ->
                 Column(
-                    Modifier.weight(1f).selectable(i == selected, role = Role.Tab) { selected = i }
+                    (if (narrow) Modifier.width(WEEK_COLUMN) else Modifier.weight(1f)).selectable(i == selected, role = Role.Tab) { selected = i }
                         .semantics { contentDescription = spoken[i] }.padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -191,8 +199,8 @@ private fun WeekStrip(cells: List<WeekCell>, spoken: List<String>, modalities: L
                     )
                     // The ring sits around the circle, so every circle keeps its 40 dp.
                     Box(
-                        Modifier.padding(top = 6.dp).size(44.dp).then(if (c.today) Modifier.border(2.dp, K.Accent, CircleShape) else Modifier).padding(2.dp)
-                            .clip(CircleShape).background(if (i == selected) K.Surface3 else K.Surface2),
+                        Modifier.padding(top = 6.dp).size(44.dp).then(if (i == selected) Modifier.border(2.dp, K.Accent, CircleShape) else Modifier).padding(2.dp)
+                            .clip(CircleShape).background(K.Surface2),
                         contentAlignment = Alignment.Center,
                     ) { Icon(weekIcon(c), contentDescription = null, tint = weekSymbolColor(c, modalities), modifier = Modifier.size(22.dp)) }
                     Box(Modifier.padding(top = 4.dp).size(5.dp).clip(CircleShape).background(if (c.changed) K.Accent else Color.Transparent))
@@ -208,6 +216,8 @@ private fun WeekStrip(cells: List<WeekCell>, spoken: List<String>, modalities: L
 /** The week strip's side inset at most: the columns stay 48 dp or wider, so on a narrow screen it shrinks. */
 const val WEEK_STRIP_INSET_DP = 10
 private val WEEK_STRIP_INSET = WEEK_STRIP_INSET_DP.dp
+/** The narrowest week column: a tap target. */
+private val WEEK_COLUMN = MIN_TAP.dp
 
 /** A day's symbol on the week strip. */
 private fun weekIcon(c: WeekCell): androidx.compose.ui.graphics.vector.ImageVector = when (c.symbol) {

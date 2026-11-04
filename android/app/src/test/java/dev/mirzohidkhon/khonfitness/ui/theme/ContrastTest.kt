@@ -55,12 +55,13 @@ class ContrastTest {
     }
 
     /**
-     * UI07 rows 1 and 7: History's closed title word on the page, and Plan's week symbols on a day's circle and on the
-     * selected day's: gym, rest, cardio without a type and each seeded type's color. Each is a pair at 3:1 or more.
+     * UI07 rows 1, 7 and 8: History's closed title word on the page, Plan's week symbols on a day's circle (gym, rest,
+     * cardio without a type and each seeded type's color), and the selected day's accent ring between the page and the
+     * circle. Each is a pair at 3:1 or more.
      */
     @Test fun titleTabAndWeekSymbolsRead() {
-        val wanted = listOf(K.TitleOff to K.Bg) +
-            listOf(K.Surface2, K.Surface3).flatMap { bg -> (listOf(K.Accent, K.RestSymbol, K.Muted) + Seed.modalities.map { Color(it.color) }).map { it to bg } }
+        val wanted = listOf(K.TitleOff to K.Bg, K.Accent to K.Bg, K.Accent to K.Surface2) +
+            (listOf(K.Accent, K.RestSymbol, K.Muted) + Seed.modalities.map { Color(it.color) }).map { it to K.Surface2 }
         for ((fg, bg) in wanted) {
             val name = "%08X on %08X".format(fg.value.toLong() ushr 32, bg.value.toLong() ushr 32)
             assertTrue("$name is no pair", TextPairs.any { it.fg == fg && it.bg == bg })

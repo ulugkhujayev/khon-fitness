@@ -6,8 +6,14 @@ import android.content.ContextWrapper
 import androidx.compose.material3.Text
 import android.content.res.Configuration
 import androidx.compose.runtime.CompositionLocalProvider
+import kotlin.math.abs
+import org.robolectric.annotation.GraphicsMode
+import dev.mirzohidkhon.khonfitness.ui.theme.K
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.onRoot
@@ -63,6 +69,7 @@ class PlanScreenTest {
     private lateinit var app: KhonApp
     private lateinit var vm: AppViewModel
     private lateinit var nav: NavHostController
+    private lateinit var view: android.view.View
     private val dao get() = app.db.dao()
 
     @Before fun open() {
@@ -90,6 +97,7 @@ class PlanScreenTest {
             val d = LocalDensity.current
             val config = Configuration(LocalConfiguration.current).apply { fontScale = scale }
             CompositionLocalProvider(LocalDensity provides Density(d.density, scale), LocalConfiguration provides config) {
+            view = LocalView.current
             KhonTheme {
                 val nav = rememberNavController().also { nav = it }
                 NavHost(nav, Routes.TODAY) {
@@ -241,6 +249,66 @@ class PlanScreenTest {
         tap(day("Monday,"))
         assertShows("Mon · Push")
         assertFalse(shows("Thu · $long"))
+    }
+
+    /** Accent pixels in a node's image: the ring, today's letter and accent symbols are drawn in accent. */
+    private fun accentPixels(node: SemanticsNodeInteraction): Int {
+        val bmp = compose.nodeImage(view, node)
+        val a = K.Accent.toArgb()
+        var n = 0
+        for (y in 0 until bmp.height) for (x in 0 until bmp.width) {
+            val p = bmp.getPixel(x, y)
+            if (abs(android.graphics.Color.red(p) - android.graphics.Color.red(a)) <= 24 && abs(android.graphics.Color.green(p) - android.graphics.Color.green(a)) <= 24 &&
+                abs(android.graphics.Color.blue(p) - android.graphics.Color.blue(a)) <= 24) n++
+        }
+        return n
+    }
+
+    /**
+     * Fix 1, F5: the accent ring marks the selected day (today at first), and the circle keeps its Surface2 fill. Tap
+     * Thursday: Thursday has the ring, Wednesday not. Wednesday is a rest day and Thursday a run, so no accent symbol.
+     */
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test fun `the accent ring follows the selected day`() {
+        seed()
+        io { dao.upsert(WeekPlan(4, ItemType.CARDIO, "z2run")) }
+        openPlan()
+        waitFor { compose.onAllNodes(hasContentDescription("Thursday, Zone 2 run", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        val px = compose.density.density
+        // The ring is about 2 dp around a 42 dp circle, some 260 dp²; today's bold letter is far less.
+        val ring = (150 * px * px).toInt()
+        val todayName = vm.today().dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+        assertTrue("today's ring", accentPixels(day("$todayName,")) > ring)
+        tap(day("Thursday,"))
+        day("Thursday,").assertIsSelected()
+        assertTrue("Thursday's ring", accentPixels(day("Thursday,")) > ring)
+        assertTrue("no ring on Wednesday", accentPixels(day("Wednesday,")) < ring)
+        if (todayName != "Thursday") assertTrue("no ring on today once Thursday is selected", accentPixels(day("$todayName,")) < ring)
+    }
+
+    /**
+     * Fix 1, F4: on a 320 dp screen seven columns do not fit at 48 dp: each column is exactly 48 dp and the strip
+     * scrolls sideways, with today in view at first. Scrolled, Sunday and then Monday come fully into view.
+     */
+    @Config(qualifiers = "w320dp-h780dp-xxhdpi")
+    @Test fun `on a narrow screen the week columns stay 48 dp and the strip scrolls`() {
+        seed()
+        openPlan()
+        val px = compose.density.density
+        val root = compose.onRoot().fetchSemanticsNode().size.width
+        val names = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+        names.forEach { assertEquals("$it width", 48 * px, day("$it,").fetchSemanticsNode().size.width.toFloat(), 1f) }
+        // Bounds in root are cut to the strip's clip, so the column's own place and width tell whether it is all in view.
+        fun inView(name: String) = day("$name,").fetchSemanticsNode().let { it.positionInRoot.x >= -0.5f && it.positionInRoot.x + it.size.width <= root + 0.5f }
+        assertTrue("today in view", inView(vm.today().dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)))
+        val strip = compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange))
+        strip.performSemanticsAction(SemanticsActions.ScrollBy) { it(100_000f, 0f) }
+        compose.waitForIdle()
+        assertTrue("Sunday in view", inView("Sunday"))
+        strip.performSemanticsAction(SemanticsActions.ScrollBy) { it(-100_000f, 0f) }
+        compose.waitForIdle()
+        assertTrue("Monday in view", inView("Monday"))
+        assertFalse("Sunday out of view", inView("Sunday"))
     }
 
     /** UI07 row 10: each column is a tab with its selected state, spoken as its day's line. */

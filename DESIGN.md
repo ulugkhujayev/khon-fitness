@@ -43,7 +43,8 @@ padded cards, per-item buttons, "Updated" lines.
   rises with the content (60 pt to 48), over the first 40 pt the title
   shrinks toward its leading edge to about 20 pt, and a hairline fades in
   once content passes under it. At a large font scale the title row grows
-  to the title's line height and the fold distance stays 12 pt.
+  to the title's line height and the fold distance stays 12 pt. History's
+  title row is the one exception: it does not fold (see History).
 - Tab bar: a floating capsule 60 pt tall, 24 pt from the sides, 10 pt above
   the bottom edge, group surface with a 1 pt hairline and a soft shadow;
   three items with filled symbols and 11 pt labels; the selected item sits
@@ -132,18 +133,19 @@ padded cards, per-item buttons, "Updated" lines.
   program, Cardio workout, Stretch routine, Exercise. Then This week with
   an accent "Edit" (48 px target) on its section title, over a strip of
   seven columns, Monday to Sunday, across the screen width with a 10 px
-  inset on each side (no card), each 1/7 of the rest (48.6 px at 360,
-  never under 48) and a full tap target:
+  inset on each side (no card), each 1/7 of the rest (48.6 px at 360)
+  and a full tap target. Below 336 px each column is exactly 48 px and the
+  strip scrolls sideways, with today in view at first. Each column holds
   the day's letter (M T W T F S S) in 12 px muted, under it a 40 px
   Surface2 circle with the day's symbol at 22 px. A gym program is a
   dumbbell in accent; a cardio workout by its type id, run a runner,
   bike a bike, swim a swimmer, any other or none a heart, in the type's
   own color (muted without a type); rest is a moon in RestSymbol
-  (#8E8E93). Every symbol color reads at 3:1 or more on Surface2 and on
-  Surface3. Today's letter is accent and bold and its circle has a 2 px
-  accent ring; a day a one-day change set keeps its 5 px accent dot,
-  under the circle. A tap selects a day (today at first; not saved): its
-  circle fills Surface3, and one line under the strip, 15 medium, names
+  (#8E8E93). Every symbol color reads at 3:1 or more on Surface2.
+  Today's letter is accent and bold. A day a one-day change set keeps its
+  5 px accent dot, under the circle. A tap selects a day (today at first;
+  not saved). The selected day's circle gets a 2 px accent ring (3:1 on
+  the page and on Surface2), and one line under the strip, 15 medium, names
   it in full ("Wed · Rest", "Thu · Norwegian 4×4"; long names wrap). The
   strip stays one row at every font scale. Each column is a tab with its
   selected state and speaks its day, full item name, "Today" and
@@ -394,10 +396,10 @@ Two lines, 88 px total, hairline between rows.
   "History". No "History" word shows. When the words do not fit, their
   size steps down a whole size at a time, not below 22. Android scales
   large text less than small text, so at font scale 1.6 on a 360 px
-  screen they fit at 34. As the bar folds the words shrink like a title,
-  the closed word and the bar fade, and the open word moves to the
-  leading edge: the small bar title is the open page's word. Once the bar
-  is half folded the closed word takes no taps; scroll up to switch.
+  screen they fit at 34. The title row does not fold. It stays at the top
+  at full size and the page scrolls under it, with the hairline fading in.
+  Both words keep their size, color and 48 px target at every scroll
+  offset, so a switch never needs a scroll back up.
 - History Log: the week title 17/600 centered between 48 px chevron
   buttons (accent, Surface3 at the first or last week). The week card on
   the group surface (16 px padding): "<done> of <planned> planned done"

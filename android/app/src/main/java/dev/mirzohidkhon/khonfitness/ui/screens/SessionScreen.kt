@@ -27,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.foundation.rememberScrollState
@@ -281,10 +280,10 @@ private fun SessionHeader(
         }
         // The bar takes its taps, so nothing under it is hit by mistake.
         Box(
-            Modifier.fillMaxWidth().background(K.Bg).onSizeChanged { onNavHeight(with(local) { it.height.toDp() }) }
-                .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } },
+            Modifier.fillMaxWidth().background(K.Bg).onSizeChanged { onNavHeight(with(local) { it.height.toDp() }) }.takeTouches(),
         ) { EditorTopBar("Today", title, onBack, done = "Finish", onDone = onFinish) }
-        Box(Modifier.padding(top = nav).fillMaxWidth().graphicsLayer { alpha = sessionLineAlpha(scrollPx() / density, row.value) }.clearAndSetSemantics {}) {
+        // The folded line draws over the list like the bar, so it takes its taps too.
+        Box(Modifier.padding(top = nav).fillMaxWidth().graphicsLayer { alpha = sessionLineAlpha(scrollPx() / density, row.value) }.clearAndSetSemantics {}.takeTouches()) {
             ProgressBar(done, total, label, thin = true)
         }
     }

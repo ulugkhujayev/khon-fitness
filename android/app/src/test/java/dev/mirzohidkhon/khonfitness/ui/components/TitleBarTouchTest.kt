@@ -16,7 +16,6 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
@@ -70,7 +69,7 @@ class TitleBarTouchTest {
         show(pinned = false)
         tapBarBackground(180f, 35f)
         assertEquals("rows tapped through the folding bar", 0, rowTaps)
-        compose.onNodeWithText("Bar button").performClick()
+        compose.onNodeWithText("Bar button").performTouchInput { click() }
         assertEquals("the bar's button", 1, buttonTaps)
     }
 
@@ -79,7 +78,7 @@ class TitleBarTouchTest {
         tapBarBackground(275f, 58f)
         tapBarBackground(180f, 35f)
         assertEquals("rows tapped through the pinned bar", 0, rowTaps)
-        compose.onNodeWithText("Bar button").performClick()
+        compose.onNodeWithText("Bar button").performTouchInput { click() }
         assertEquals("the bar's button", 1, buttonTaps)
     }
 }

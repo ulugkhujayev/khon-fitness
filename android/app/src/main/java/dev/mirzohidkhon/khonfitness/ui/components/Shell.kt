@@ -172,10 +172,10 @@ fun PinnedTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Uni
 }
 
 /**
- * A bar draws over the content that scrolls under it, so it takes every touch on its background too: a tap there
- * never reaches a row behind it. The bar's own controls sit above this and still take their taps.
+ * A bar, or a line drawn with it, draws over the content that scrolls under it, so it takes every touch on its
+ * background too: a tap there never reaches a row behind it. The bar's own controls sit above this and keep their taps.
  */
-private fun Modifier.takeTouches(): Modifier = pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
+fun Modifier.takeTouches(): Modifier = pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
 
 /** Hairline on a bar's bottom edge; [opacity] is read in the draw layer. */
 @Composable

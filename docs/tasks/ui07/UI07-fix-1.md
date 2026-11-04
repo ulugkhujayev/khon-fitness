@@ -26,3 +26,7 @@ Contract: `UI07-title-tabs-week-symbols.md`; this file replaces its rows 5 and 9
 | # | Class | Finding (Sol) | Fix |
 |---|---|---|---|
 | F6 | Taps pass through an opaque bar | The pinned bar (History) and the folding bar (Today, Plan) draw over the content but take no input, so a tap on the bar's background opens the row scrolled under it (`Shell.kt:143`, `:164`). The folding instance predates UI07. | Both bars take every touch on their background (`takeTouches` in `Shell.kt`); their own controls still take taps. `TitleBarTouchTest` covers both bars, so all three tabs. |
+
+Verify 2 found one missed F6 instance: the session's folded progress line (`SessionScreen.kt:287`) drew over the list
+without taking input. It now uses the shared `takeTouches`, as the session bar does; `SessionBarTouchTest` taps the line
+over a block header. `TitleBarTouchTest` now taps the bar buttons with real touches.

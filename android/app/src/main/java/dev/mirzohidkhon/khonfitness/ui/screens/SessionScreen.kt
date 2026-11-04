@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -169,7 +170,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
             if (running) SessionHeader(
                 s.programName ?: "Session", done, logs.size, navHeight, rowHeight, lineHeight,
                 onNavHeight = { navHeight = max(SESSION_NAV.dp, it) },
-                onBack = { leave { leave.pop() } }, onFinish = openSummary, scrollPx = { listState.barOffset() },
+                onBack = { leave { leave.pop() } }, onFinish = openSummary, list = listState, scrollPx = { listState.barOffset() },
             )
         }
     }
@@ -262,7 +263,7 @@ private fun SessionDetails(s: Session, live: Boolean, onDate: (java.time.LocalDa
 @Composable
 private fun SessionHeader(
     title: String, done: Int, total: Int, nav: Dp, row: Dp, line: Dp,
-    onNavHeight: (Dp) -> Unit, onBack: () -> Unit, onFinish: () -> Unit, scrollPx: () -> Int,
+    onNavHeight: (Dp) -> Unit, onBack: () -> Unit, onFinish: () -> Unit, list: ScrollableState, scrollPx: () -> Int,
 ) {
     val label = "$done of $total sets done"
     val local = LocalDensity.current
@@ -278,12 +279,12 @@ private fun SessionHeader(
             ProgressBar(done, total, label, Modifier.weight(1f))
             Text("$done / $total", style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.clearAndSetSemantics {})
         }
-        // The bar takes its taps, so nothing under it is hit by mistake.
+        // The bar takes its taps, so nothing under it is hit by mistake; a drag on it scrolls the list.
         Box(
-            Modifier.fillMaxWidth().background(K.Bg).onSizeChanged { onNavHeight(with(local) { it.height.toDp() }) }.takeTouches(),
+            Modifier.fillMaxWidth().background(K.Bg).onSizeChanged { onNavHeight(with(local) { it.height.toDp() }) }.scrollHandle(list),
         ) { EditorTopBar("Today", title, onBack, done = "Finish", onDone = onFinish) }
-        // The folded line draws over the list like the bar, so it takes its taps too.
-        Box(Modifier.padding(top = nav).fillMaxWidth().graphicsLayer { alpha = sessionLineAlpha(scrollPx() / density, row.value) }.clearAndSetSemantics {}.takeTouches()) {
+        // The folded line draws over the list like the bar, so it takes its taps and drags too.
+        Box(Modifier.padding(top = nav).fillMaxWidth().graphicsLayer { alpha = sessionLineAlpha(scrollPx() / density, row.value) }.clearAndSetSemantics {}.scrollHandle(list)) {
             ProgressBar(done, total, label, thin = true)
         }
     }

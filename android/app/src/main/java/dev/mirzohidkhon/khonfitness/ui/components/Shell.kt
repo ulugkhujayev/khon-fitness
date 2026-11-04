@@ -4,7 +4,12 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.ScrollableState
+import androidx.compose.foundation.gestures.ScrollableDefaults
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -84,7 +89,7 @@ private val TAB_CONTENT_BOTTOM = 24.dp
 @Composable
 fun TabScreen(title: String, trailing: (@Composable () -> Unit)? = null, scroll: ScrollState = rememberScrollState(), content: @Composable ColumnScope.() -> Unit) {
     val geometry = rememberTitleFold()
-    TabScreenFrame(geometry, scroll, content) { LargeTitleHeader(geometry, trailing, { scroll.value }) { scale -> LargeTitle(title, scale) } }
+    TabScreenFrame(geometry, scroll, content) { LargeTitleHeader(geometry, trailing, scroll, { scroll.value }) { scale -> LargeTitle(title, scale) } }
 }
 
 /**
@@ -95,7 +100,7 @@ fun TabScreen(title: String, trailing: (@Composable () -> Unit)? = null, scroll:
 @Composable
 fun TabScreen(trailing: (@Composable () -> Unit)?, scroll: ScrollState, title: @Composable RowScope.() -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val geometry = rememberTitleFold()
-    TabScreenFrame(geometry, scroll, content) { PinnedTitleHeader(geometry, trailing, { scroll.value }, title) }
+    TabScreenFrame(geometry, scroll, content) { PinnedTitleHeader(geometry, trailing, scroll, { scroll.value }, title) }
 }
 
 /** The title bar's geometry. The row is a tap target tall, or as tall as the title's line at a large font scale. */
@@ -136,12 +141,12 @@ private fun RowScope.LargeTitle(title: String, scale: () -> Float) {
  * not recompose the header.
  */
 @Composable
-fun LargeTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit)?, scrollPx: () -> Int, title: @Composable RowScope.(scale: () -> Float) -> Unit) {
+fun LargeTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit)?, list: ScrollableState, scrollPx: () -> Int, title: @Composable RowScope.(scale: () -> Float) -> Unit) {
     val density = LocalDensity.current.density
     Box(
         Modifier.fillMaxWidth().height(geometry.height.dp)
             .graphicsLayer { translationY = -geometry.barShift(scrollPx() / density).dp.toPx() }
-            .background(K.Bg).takeTouches(),
+            .background(K.Bg).scrollHandle(list),
     ) {
         Row(
             Modifier.padding(top = geometry.rowTop.dp).height(geometry.row.dp).padding(horizontal = 16.dp)
@@ -160,9 +165,9 @@ fun LargeTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit
  * hairline fades in once it does. The scroll offset is read in the draw layer only.
  */
 @Composable
-fun PinnedTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit)?, scrollPx: () -> Int, title: @Composable RowScope.() -> Unit) {
+fun PinnedTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Unit)?, list: ScrollableState, scrollPx: () -> Int, title: @Composable RowScope.() -> Unit) {
     val density = LocalDensity.current.density
-    Box(Modifier.fillMaxWidth().height(geometry.height.dp).background(K.Bg).takeTouches()) {
+    Box(Modifier.fillMaxWidth().height(geometry.height.dp).background(K.Bg).scrollHandle(list)) {
         Row(Modifier.padding(top = geometry.rowTop.dp).height(geometry.row.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             title()
             trailing?.invoke()
@@ -172,10 +177,15 @@ fun PinnedTitleHeader(geometry: LargeTitleFold, trailing: (@Composable () -> Uni
 }
 
 /**
- * A bar, or a line drawn with it, draws over the content that scrolls under it, so it takes every touch on its
- * background too: a tap there never reaches a row behind it. The bar's own controls sit above this and keep their taps.
+ * A bar, or a line drawn with it, draws over the [list] that scrolls under it. It takes the touches on its background,
+ * so a tap there never reaches a row behind it, and a drag that starts on it scrolls [list] as a drag on the list
+ * would. The bar's own controls sit above this and keep their taps.
  */
-fun Modifier.takeTouches(): Modifier = pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
+fun Modifier.scrollHandle(list: ScrollableState): Modifier = composed {
+    // A plain drag, not `scrollable`: the bar adds no scroll action of its own for screen readers.
+    val fling = ScrollableDefaults.flingBehavior()
+    draggable(rememberDraggableState { list.dispatchRawDelta(-it) }, Orientation.Vertical, onDragStopped = { v -> list.scroll { with(fling) { performFling(-v) } } })
+}
 
 /** Hairline on a bar's bottom edge; [opacity] is read in the draw layer. */
 @Composable

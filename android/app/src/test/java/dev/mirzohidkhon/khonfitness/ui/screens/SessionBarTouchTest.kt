@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -39,6 +40,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -50,7 +52,8 @@ import org.robolectric.annotation.Config
 
 /**
  * UI07 verify 2: the folded session header's progress line, drawn just under the bar, takes the taps on it, so a tap
- * there never opens or closes the block header that scrolled under it.
+ * there never opens or closes the block header that scrolled under it. A drag that starts on the bar or on the line
+ * scrolls the list.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -94,6 +97,32 @@ class SessionBarTouchTest {
     }
 
     private fun block8() = compose.onAllNodes(hasContentDescription("Block 8,", substring = true)).fetchSemanticsNodes().single()
+
+    /** Scrolls block 8's 52 dp header to span 50 to 102 dp, under the 56 dp bar and its line at 56 to 58 dp. */
+    private fun block8UnderTheLine() {
+        val px = compose.density.density
+        compose.onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Block 8,", substring = true))
+        compose.waitForIdle()
+        val dy = block8().boundsInRoot.top - 50 * px
+        compose.onNode(hasScrollAction()).performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, dy) }
+        compose.waitForIdle()
+        assertEquals("block 8's header top in dp", 50f, block8().boundsInRoot.top / px, 1f)
+    }
+
+    private fun dragDownFrom(yDp: Float) {
+        block8UnderTheLine()
+        val px = compose.density.density
+        val before = block8().boundsInRoot.top
+        val state = block8().config.getOrNull(SemanticsProperties.StateDescription)
+        compose.onRoot().performTouchInput { swipe(Offset(180 * px, yDp * px), Offset(180 * px, (yDp + 250) * px), durationMillis = 300) }
+        compose.waitForIdle()
+        assertTrue("block 8 moved ${(block8().boundsInRoot.top - before) / px} dp", block8().boundsInRoot.top - before > 150 * px)
+        assertEquals("block 8 after the drag", state, block8().config.getOrNull(SemanticsProperties.StateDescription))
+    }
+
+    @Test fun `a drag that starts on the session bar scrolls the list`() { openSession(); dragDownFrom(28f) }
+
+    @Test fun `a drag that starts on the folded progress line scrolls the list`() { openSession(); dragDownFrom(57f) }
 
     @Test fun `a tap on the folded progress line does not toggle the block header under it`() {
         openSession()

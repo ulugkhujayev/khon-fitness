@@ -570,9 +570,11 @@ Two lines, 88 px total, hairline between rows.
 
 ## Frame
 
-- A tab's title bar (folding or pinned) takes every tap on its
-  background, so a tap there never opens a row scrolled under it; its
-  own buttons keep their taps.
+- A bar drawn over scrolling content (a tab's title bar, folding or
+  pinned; the session bar and its folded progress line) takes the taps on
+  its background, so a tap there never opens a row scrolled under it, and
+  a drag that starts on it scrolls the content. Its own buttons keep their
+  taps.
 - The bottom nav is pinned to the bottom of the frame at all times. The
   content area scrolls above it. Short screens leave empty space above
   the nav, never below it.

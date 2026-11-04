@@ -17,10 +17,12 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.unit.dp
 import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -30,7 +32,7 @@ import org.robolectric.annotation.Config
 /**
  * UI07 verify 1: a tab screen's title bar takes the taps on its background, so a tap there never reaches a row that
  * scrolled under it. Both bars: the folding one (Today, Plan) and the pinned one (History). The bar's own controls
- * still take their taps.
+ * still take their taps, and a drag that starts on a bar scrolls the content as a drag on the content does.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -80,5 +82,28 @@ class TitleBarTouchTest {
         assertEquals("rows tapped through the pinned bar", 0, rowTaps)
         compose.onNodeWithText("Bar button").performTouchInput { click() }
         assertEquals("the bar's button", 1, buttonTaps)
+    }
+
+    /** A real finger drag that starts on the bar background at [yDp] and moves [byDp] down. */
+    private fun dragFromBar(yDp: Float, byDp: Float) {
+        val px = compose.density.density
+        compose.onRoot().performTouchInput { swipe(Offset(180 * px, yDp * px), Offset(180 * px, (yDp + byDp) * px), durationMillis = 300) }
+        compose.waitForIdle()
+    }
+
+    @Test fun `a drag that starts on the folding bar scrolls the content`() {
+        show(pinned = false)
+        val before = scroll.value
+        dragFromBar(35f, 300f)
+        assertTrue("scroll ${scroll.value} after a drag down from $before", scroll.value < before - 200 * compose.density.density)
+        assertEquals("rows tapped by the drag", 0, rowTaps)
+    }
+
+    @Test fun `a drag that starts on the pinned bar scrolls the content`() {
+        show(pinned = true)
+        val before = scroll.value
+        dragFromBar(35f, 300f)
+        assertTrue("scroll ${scroll.value} after a drag down from $before", scroll.value < before - 200 * compose.density.density)
+        assertEquals("rows tapped by the drag", 0, rowTaps)
     }
 }

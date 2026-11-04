@@ -30,3 +30,9 @@ Contract: `UI07-title-tabs-week-symbols.md`; this file replaces its rows 5 and 9
 Verify 2 found one missed F6 instance: the session's folded progress line (`SessionScreen.kt:287`) drew over the list
 without taking input. It now uses the shared `takeTouches`, as the session bar does; `SessionBarTouchTest` taps the line
 over a block header. `TitleBarTouchTest` now taps the bar buttons with real touches.
+
+Verify 3 found a side effect of the F6 fix (design alarm, second failed round on F6): the touch shield also blocked
+drags, so a swipe that starts on a bar did not scroll (0 px). Redesign: each bar and the session line is a scroll
+handle (`scrollHandle` in `Shell.kt`): a plain `draggable` that forwards the drag and its fling to the list's own
+scroll state. It is still a hit target, so taps on the background stop there; it adds no scroll semantics. Tests:
+`TitleBarTouchTest` and `SessionBarTouchTest` drag from each bar and from the line.

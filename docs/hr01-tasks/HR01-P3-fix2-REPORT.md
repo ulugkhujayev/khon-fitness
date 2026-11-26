@@ -38,19 +38,20 @@ Witness F1: base of this task `e375cbd` prints `fixed` (lead record); `e62d21a`:
 
 | ID | Instance | Status | Test | Found by |
 |---|---|---|---|---|
-| W1.1 | committed row replaced by an automatic pass before the lookup | fixed: no lookup, no line for committed outcomes | `an automatic pass that replaces the row as the explicit read returns leaves no line` | verify F1 (V1.6) |
-| W1.2 | range change and back before the row appears | fixed: holders keyed by range and row | `a late failure after a range change and a change back shows nothing` (B2) | verify V1.2 |
-| W1.3 | Remove confirmed, failure before Room publishes `off` | fixed: Remove tap disposes the sheet and cancels the read | `a late failure after Remove confirmed before Room publishes the off row shows nothing` (B4) | verify V1.1 |
-| W1.4 | leave, change range, return, tap before the held read ends | fixed: read cancelled with the sheet; the new tap reads its own range | `an old request after leaving the screen...` (B1) | verify V1.4 sibling |
-| W1.5 | Remove tapped, then Cancel | fixed | `a late failure after Remove tapped and cancelled shows nothing` (B4) | fixer |
-| W1.6 | session-id sets `reading` and `confirming` in the screen | fixed: both are sheet state | U4 search | fixer |
-| W1.7 | rotation lost the open sheet and its line | fixed: `rememberSaveable` with a hash check | `a failure stays after a recomposition and a rotation` (B5) | contract U2 |
-| W1.8 | "Use this time range" with a read in flight | fixed in code (`asked = null`); no test: the two actions never show together (Read again needs a range, Use this time range needs none; shot `360-f1.3-3-sheet-use-range`) | none | fixer |
-| W1.9 | old cases: range change, new row, close and reopen, delete, Remove | kept | the 5 `a late failure after ...` tests, `a late result after Remove...` | fix1 |
-| W1.10 | refused: two ranges sharing one data-layer read | not in scope; through the UI it no longer occurs because the old read is cancelled when the sheet goes | W1.4 test | lead |
-| W5.1 | charts swapped at the screen | fixed: one list of (title, points) | B7 | verify F5 (V5.3) |
-| W5.2 | close and delete tests reopened only after release | fixed by W1.4 test (second request before release) | W1.4 | verify V5.2 |
-| W7.1 | data, timer, health, Room, manifest, dependencies, version | kept | U7 diff | task |
+| U1.1 | committed row replaced by an automatic pass before the lookup | fixed: no lookup, no line for committed outcomes | `an automatic pass that replaces the row as the explicit read returns leaves no line` | verify F1 (V1.6) |
+| U3.1 | range change and back before the row appears | fixed: holders keyed by range and row | `a late failure after a range change and a change back shows nothing` (B2) | verify V1.2 |
+| U3.2 | Remove confirmed, failure before Room publishes `off` | fixed: Remove tap disposes the sheet and cancels the read | `a late failure after Remove confirmed before Room publishes the off row shows nothing` (B4) | verify V1.1 |
+| U3.3 | leave, change range, return, tap before the held read ends | fixed: read cancelled with the sheet; the new tap reads its own range | `an old request after leaving the screen...` (B1) | verify V1.4 sibling |
+| U3.4 | Remove tapped, then Cancel | fixed | `a late failure after Remove tapped and cancelled shows nothing` (B4) | fixer |
+| U4.1 | session-id sets `reading` and `confirming` in the screen | fixed: both are sheet state | U4 search | fixer |
+| U2.1 | rotation lost the open sheet and its line | fixed: `rememberSaveable` with a hash check | `a failure stays after a recomposition and a rotation` (B5) | contract U2 |
+| U3.5 | "Use this time range" with a read in flight | fixed in code (`asked = null`); the two actions never show together (Read again needs a range, Use this time range needs none) | `HeartShotsTest.sheetsOfOtherStates` (`360-f1.3-3-sheet-use-range`: only "Use this time range") | fixer |
+| U3.6 | old cases: range change, new row, close and reopen, delete, Remove | kept | the 5 `a late failure after ...` tests, `a late result after Remove...` | fix1 |
+| U3.7 | refused: two ranges sharing one data-layer read | kept: refused by the lead; through the UI it no longer occurs because the old read is cancelled when the sheet goes | U3.3 test | lead |
+| U5.1 | charts swapped at the screen | fixed: one list of (title, points) | B7 | verify F5 (V5.3) |
+| U3.8 | close and delete tests reopened only after release | fixed by U3.3 test (second request before release) | U3.3 | verify V5.2 |
+| U6.1 | old rows of the first task and the first fix | kept: except the removed line texts (listed in U6) | Tests command 810/0; 17 shots looked at | task |
+| U7.1 | data, timer, health, Room, manifest, dependencies, version | kept | U7 diff | task |
 
 ## Contract
 

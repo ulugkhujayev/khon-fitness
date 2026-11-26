@@ -46,8 +46,7 @@ private const val RECORDS_SHOWN = 5
 
 /**
  * The Progress page: personal records (heaviest weight lifted), sets per muscle this week against last week,
- * bodyweight over a range, and cardio of the last 30 days by type, then the row that opens the compare screen. A section
- * without data shows one line.
+ * bodyweight over a range, and cardio of the last 30 days by type. A section without data shows one line.
  */
 @Composable
 fun HistoryProgress(vm: AppViewModel, nav: NavHostController, today: LocalDate) {

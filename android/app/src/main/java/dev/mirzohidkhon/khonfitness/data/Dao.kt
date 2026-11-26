@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -217,10 +218,37 @@ interface KhonDao {
     @Query("UPDATE sessions SET note = :note WHERE id = :id") suspend fun setSessionNote(id: String, note: String)
     @Query("UPDATE sessions SET timeSec = :timeSec WHERE id = :id") suspend fun setSessionTime(id: String, timeSec: Int?)
     @Query("UPDATE sessions SET finishedAt = :finishedAt WHERE id = :id") suspend fun setSessionFinishedAt(id: String, finishedAt: Long?)
-    @Query("UPDATE set_logs SET status = '${SetStatus.SKIPPED}' WHERE sessionId = :sessionId AND status = '${SetStatus.PENDING}'")
+    @Query("UPDATE set_logs SET status = '${SetStatus.SKIPPED}', checkedAt = NULL WHERE sessionId = :sessionId AND status = '${SetStatus.PENDING}'")
     suspend fun skipPendingSets(sessionId: String)
-    /** Ends a session: its pending sets become skipped, then only [Session.finishedAt] is set. */
-    @Transaction suspend fun finishSession(id: String, finishedAt: Long) { skipPendingSets(id); setSessionFinishedAt(id, finishedAt) }
+    @Query("UPDATE sessions SET timedFrom = :from, timedTo = :to WHERE id = :id AND timedFrom IS NULL")
+    suspend fun setSessionRangeIfNone(id: String, from: Long, to: Long): Int
+    /**
+     * Ends an unfinished session: its pending sets become skipped and [Session.finishedAt] is set. A gym session also
+     * stores its range ([gymRange]) when it has none. A missing or finished session writes nothing. Returns whether it
+     * finished the session.
+     */
+    @Transaction suspend fun finishSession(id: String, finishedAt: Long, elapsedMs: Long): Boolean {
+        val session = session(id) ?: return false
+        if (session.finished) return false
+        skipPendingSets(id)
+        setSessionFinishedAt(id, finishedAt)
+        if (session.itemType == ItemType.PROGRAM && session.timedFrom == null) {
+            val stamps = setLogsOnce(id).filter { it.status == SetStatus.DONE }.mapNotNull { it.checkedAt }
+            gymRange(session, stamps, finishedAt, elapsedMs)?.let { setSessionRangeIfNone(id, it.fromMs, it.toMs) }
+        }
+        return true
+    }
+    /**
+     * "Use this time range" for a finished gym session without a range ([confirmableRange]): stored only while [from] and
+     * [to] are still the session's `startedAt` and `finishedAt`, checked in this transaction. Else nothing is written.
+     */
+    @Transaction suspend fun confirmRange(id: String, from: Long, to: Long, zone: ZoneId): ConfirmRangeResult {
+        val session = session(id) ?: return ConfirmRangeResult.Refused(RangeRefusal.MISSING)
+        confirmableRange(session, zone)?.let { return ConfirmRangeResult.Refused(it) }
+        if (session.startedAt != from || session.finishedAt != to) return ConfirmRangeResult.Refused(RangeRefusal.BOUNDS_CHANGED)
+        if (setSessionRangeIfNone(id, from, to) == 0) return ConfirmRangeResult.Refused(RangeRefusal.HAS_RANGE)
+        return ConfirmRangeResult.Confirmed
+    }
     /**
      * The cardio form's Save: the columns changed from [opened] to [edited] go onto the row as it is now, so a timer
      * write since the form opened stays ([mergeCardioEdits]); then each interval field the user touched, alone, by id
@@ -283,15 +311,29 @@ interface KhonDao {
     @Upsert suspend fun upsertSetLogs(list: List<SetLog>)
     // One field of a set the user edits in the live session: a whole-row write from the row on screen would undo
     // another field's save that has not come back yet (a weight typed, then the check tapped at once).
-    @Query("UPDATE set_logs SET status = :status WHERE id = :id") suspend fun setSetStatus(id: String, status: String)
+    /** A set's status; a status other than done also clears its [SetLog.checkedAt]. */
+    @Query("UPDATE set_logs SET status = :status, checkedAt = CASE WHEN :status = '${SetStatus.DONE}' THEN checkedAt ELSE NULL END WHERE id = :id")
+    suspend fun setSetStatus(id: String, status: String)
     @Query("UPDATE set_logs SET weightKg = :weightKg WHERE id = :id") suspend fun setSetWeight(id: String, weightKg: Double?)
     @Query("UPDATE set_logs SET reps = :reps WHERE id = :id") suspend fun setSetReps(id: String, reps: Int?)
     /**
      * The check on a set, written only when the stored set has reps above 0 and, unless it is a bodyweight one (step
      * 0 kg), a weight above 0 ([dev.mirzohidkhon.khonfitness.ui.screens.setMissing]). Returns whether it wrote. The
      * stored row decides, so a weight typed just before the check counts: writes run in the order they were sent.
+     * In the same statement a pending or skipped set of an unfinished session gets [stamp] as its `checkedAt`; a done
+     * set, or a set of a finished session, keeps its own.
      */
-    @Query("UPDATE set_logs SET status = 'done' WHERE id = :id AND reps > 0 AND (stepKg <= 0 OR weightKg > 0)") suspend fun checkSet(id: String): Int
+    @Query(
+        "UPDATE set_logs SET status = '${SetStatus.DONE}', checkedAt = CASE WHEN status != '${SetStatus.DONE}' " +
+            "AND EXISTS (SELECT 1 FROM sessions WHERE sessions.id = set_logs.sessionId AND sessions.finishedAt IS NULL) " +
+            "THEN :stamp ELSE checkedAt END WHERE id = :id AND reps > 0 AND (stepKg <= 0 OR weightKg > 0)"
+    )
+    suspend fun checkSetStamped(id: String, stamp: Long?): Int
+    @Query("SELECT sessions.* FROM sessions JOIN set_logs ON set_logs.sessionId = sessions.id WHERE set_logs.id = :setId")
+    suspend fun sessionOfSet(setId: String): Session?
+    /** [checkSetStamped] with the wall time [wallMs] as the stamp, only when the clocks are in step since the session's anchor. */
+    @Transaction suspend fun checkSet(id: String, wallMs: Long, elapsedMs: Long): Int =
+        checkSetStamped(id, verifiedWall(sessionOfSet(id)?.anchor, wallMs, elapsedMs))
     @Query("UPDATE set_logs SET exerciseId = :toId, exerciseName = :toName, stepKg = :stepKg WHERE sessionId = :sessionId AND blockIndex = :blockIndex AND slot = :slot")
     suspend fun swapSetExercise(sessionId: String, blockIndex: Int, slot: Int, toId: String, toName: String, stepKg: Double)
     /**
@@ -315,7 +357,7 @@ interface KhonDao {
         return SwapResult.ProgramUpdated(programSnapshot(origin.programId)?.fingerprint ?: return refused)
     }
     /** A session with its set and interval logs: all or nothing. */
-    @Transaction suspend fun deleteSessionWithLogs(id: String) { deleteSetLogsFor(id); deleteIntervalLogsFor(id); deleteSession(id) }
+    @Transaction suspend fun deleteSessionWithLogs(id: String) { deleteSetLogsFor(id); deleteIntervalLogsFor(id); deleteSessionHr(id); deleteSession(id) }
     @Query("DELETE FROM set_logs WHERE sessionId = :sessionId") suspend fun deleteSetLogsFor(sessionId: String)
 
     @Query("SELECT * FROM interval_logs WHERE sessionId = :sessionId ORDER BY `index`") fun intervalLogs(sessionId: String): Flow<List<IntervalLog>>
@@ -326,6 +368,16 @@ interface KhonDao {
     @Query("UPDATE interval_logs SET avgHr = :avgHr WHERE id = :id") suspend fun setIntervalAvgHr(id: String, avgHr: Int?)
     @Query("UPDATE interval_logs SET watts = :watts WHERE id = :id") suspend fun setIntervalWatts(id: String, watts: Int?)
     @Query("DELETE FROM interval_logs WHERE sessionId = :sessionId") suspend fun deleteIntervalLogsFor(sessionId: String)
+
+    // heart rate rows
+    @Query("SELECT * FROM session_hr WHERE sessionId = :sessionId") suspend fun sessionHr(sessionId: String): SessionHr?
+    @Query("SELECT * FROM session_hr WHERE sessionId = :sessionId") fun sessionHrFlow(sessionId: String): Flow<SessionHr?>
+    @Query("SELECT * FROM session_hr") suspend fun sessionHrOnce(): List<SessionHr>
+    @Query("SELECT * FROM session_hr") fun allSessionHr(): Flow<List<SessionHr>>
+    @Upsert suspend fun upsertSessionHr(row: SessionHr)
+    @Upsert suspend fun upsertSessionHrs(list: List<SessionHr>)
+    @Query("DELETE FROM session_hr WHERE sessionId = :sessionId") suspend fun deleteSessionHr(sessionId: String)
+    @Query("DELETE FROM session_hr") suspend fun clearSessionHr()
 
     // bodyweight
     @Query("SELECT * FROM bodyweights ORDER BY date") fun bodyweights(): Flow<List<Bodyweight>>
@@ -579,7 +631,7 @@ interface KhonDao {
 
     @Transaction
     suspend fun clearAll() {
-        clearSetLogs(); clearIntervalLogs(); clearSessions(); clearBlockExercises(); clearBlocks(); clearPrograms()
+        clearSetLogs(); clearIntervalLogs(); clearSessionHr(); clearSessions(); clearBlockExercises(); clearBlocks(); clearPrograms()
         clearExercises(); clearModalities(); clearBodyweights(); clearWeekPlan(); clearOverrides()
         clearRoutineStretches(); clearStretchSessions(); clearStretchRoutines(); clearStretches(); clearEatingWindow(); clearWindowDays()
     }

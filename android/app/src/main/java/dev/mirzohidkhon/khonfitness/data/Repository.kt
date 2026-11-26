@@ -2,6 +2,7 @@ package dev.mirzohidkhon.khonfitness.data
 
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
@@ -122,9 +123,16 @@ fun programLogs(sessionId: String, detail: ProgramDetail, previous: Map<String, 
 
 /**
  * The app's data. [since] and [origins] live in DataStore; without [origins] no session has an origin, so a swap never
- * updates the program.
+ * updates the program. [clocks] give every clock fact; [requestFill] asks the heart rate fill to run and never waits.
  */
-class KhonRepository(private val dao: KhonDao, private val since: WindowSince? = null, private val origins: SessionOrigins? = null) {
+class KhonRepository(
+    private val dao: KhonDao,
+    private val since: WindowSince? = null,
+    private val origins: SessionOrigins? = null,
+    private val clocks: Clocks = SystemClocks,
+    private val zone: () -> ZoneId = ZoneId::systemDefault,
+    private val requestFill: () -> Unit = {},
+) {
     /**
      * The one lock over session origins ([SessionOrigins]): session start, the swap with "Update the program too",
      * finish and discard, import and reset run only while holding it, each with its DataStore edit awaited inside, so
@@ -265,7 +273,9 @@ class KhonRepository(private val dao: KhonDao, private val since: WindowSince? =
      * program's fingerprint ([SessionOrigins]), under the origin lock. Null when the program is gone.
      */
     suspend fun startProgramSession(programId: String, date: LocalDate = LocalDate.now()): Session? = originLock.withLock {
-        val draft = Session(id = newId(), date = date.iso(), startedAt = System.currentTimeMillis(), itemType = ItemType.PROGRAM, programId = programId)
+        val wall = clocks.wallMs()
+        val elapsed = clocks.elapsedMs()
+        val draft = Session(id = newId(), date = date.iso(), startedAt = wall, startedElapsed = elapsed, itemType = ItemType.PROGRAM, programId = programId)
         val (session, fingerprint) = dao.startProgramSession(programId, draft) ?: return@withLock null
         origins?.write(session.id, SessionOrigin(programId, session.startedAt, fingerprint))
         session
@@ -282,8 +292,8 @@ class KhonRepository(private val dao: KhonDao, private val since: WindowSince? =
     }
 
     suspend fun setSetStatus(id: String, status: String) = dao.setSetStatus(id, status)
-    /** Checks a set only when it holds what a check needs ([KhonDao.checkSet]); false when refused. */
-    suspend fun checkSet(id: String): Boolean = dao.checkSet(id) > 0
+    /** Checks a set only when it holds what a check needs ([KhonDao.checkSet]), stamped when its clocks are in step; false when refused. */
+    suspend fun checkSet(id: String): Boolean = dao.checkSet(id, clocks.wallMs(), clocks.elapsedMs()) > 0
     suspend fun setSetWeight(id: String, weightKg: Double?) = dao.setSetWeight(id, weightKg)
     suspend fun setSetReps(id: String, reps: Int?) = dao.setSetReps(id, reps)
     /**
@@ -298,15 +308,23 @@ class KhonRepository(private val dao: KhonDao, private val since: WindowSince? =
     suspend fun setSessionNote(sessionId: String, note: String) = dao.setSessionNote(sessionId, note)
     suspend fun setSessionTime(sessionId: String, timeSec: Int?) = dao.setSessionTime(sessionId, timeSec)
     /**
-     * Pending sets become skipped and the session gets its finish time, in one transaction; nothing else is written.
-     * Then its origin goes, under the origin lock.
+     * Pending sets become skipped, the session gets its finish time and, for a gym session with verified set stamps,
+     * its range, in one transaction ([KhonDao.finishSession]); a finished session is not finished again. Then its
+     * origin goes, under the origin lock, and a fill is asked.
      */
-    suspend fun finishSession(sessionId: String, now: Long = System.currentTimeMillis()) {
-        originLock.withLock {
-            dao.finishSession(sessionId, now)
+    suspend fun finishSession(sessionId: String, now: Long = clocks.wallMs(), elapsed: Long = clocks.elapsedMs()) {
+        val finished = originLock.withLock {
+            val finished = dao.finishSession(sessionId, now, elapsed)
             origins?.remove(sessionId)
+            finished
         }
+        if (finished) requestFill()
     }
+    /** "Use this time range" with the bounds the screen showed ([KhonDao.confirmRange]); a fill is asked when stored. */
+    suspend fun confirmRange(sessionId: String, from: Long, to: Long): ConfirmRangeResult =
+        dao.confirmRange(sessionId, from, to, zone()).also { if (it == ConfirmRangeResult.Confirmed) requestFill() }
+    fun sessionHr(sessionId: String): Flow<SessionHr?> = dao.sessionHrFlow(sessionId)
+    val allSessionHr: Flow<List<SessionHr>> = dao.allSessionHr()
     /** A session with its logs, then its origin, under the origin lock. */
     suspend fun deleteSession(sessionId: String) {
         originLock.withLock {

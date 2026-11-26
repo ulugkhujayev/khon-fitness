@@ -5,6 +5,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.sync.Mutex
@@ -124,6 +126,7 @@ fun programLogs(sessionId: String, detail: ProgramDetail, previous: Map<String, 
 /**
  * The app's data. [since] and [origins] live in DataStore; without [origins] no session has an origin, so a swap never
  * updates the program. [clocks] give every clock fact; [requestFill] asks the heart rate fill to run and never waits.
+ * [timer] is the running timer that a Replace import and a reset stop.
  */
 class KhonRepository(
     private val dao: KhonDao,
@@ -132,7 +135,24 @@ class KhonRepository(
     private val clocks: Clocks = SystemClocks,
     private val zone: () -> ZoneId = ZoneId::systemDefault,
     private val requestFill: () -> Unit = {},
+    private val timer: TimerControl = TimerControl.None,
 ) {
+    private val generationCounter = AtomicLong()
+
+    /**
+     * Raised inside the transaction of every backup import (Replace and Merge) and of reset. A commit that read it when
+     * it began and finds another value inside its own transaction writes nothing. In memory only: no read and no held
+     * commit outlives the process.
+     */
+    val generation: Long get() = generationCounter.get()
+    private val raiseGeneration: () -> Unit = { generationCounter.incrementAndGet() }
+
+    /** Orders the end of a timer run ([endTimerRun]) against a Replace import and a reset, snapshot included. */
+    private val timerLock = Mutex()
+
+    /** Runs after a timer commit read its generation and before it takes [timerLock]; a test holds a commit here. */
+    internal var beforeTimerCommit: suspend () -> Unit = {}
+
     /**
      * The one lock over session origins ([SessionOrigins]): session start, the swap with "Update the program too",
      * finish and discard, import and reset run only while holding it, each with its DataStore edit awaited inside, so
@@ -307,6 +327,34 @@ class KhonRepository(
     suspend fun setSessionEffort(sessionId: String, effort: Int?) = dao.setSessionEffort(sessionId, effort)
     suspend fun setSessionNote(sessionId: String, note: String) = dao.setSessionNote(sessionId, note)
     suspend fun setSessionTime(sessionId: String, timeSec: Int?) = dao.setSessionTime(sessionId, timeSec)
+
+    /** The Start action of a cardio timer run: its number, stored in the session ([KhonDao.startTimerRun]). */
+    suspend fun startTimerRun(sessionId: String): TimerStart? = dao.startTimerRun(sessionId)
+
+    /**
+     * The end of a cardio timer run, the one place that writes a run's result. [ended] gives the run under the timer
+     * lock (null: no run waits); its result goes through [KhonDao.commitTimerRun] against [generation] (the value when
+     * the run ended, else the value now), and its snapshot is cleared only when the outcome is settled. A throw is
+     * [TimerCommit.FAILED] and keeps the snapshot.
+     */
+    suspend fun endTimerRun(generation: Long? = null, ended: () -> EndedRun?): TimerCommit {
+        val began = generation ?: this.generation
+        beforeTimerCommit()
+        return timerLock.withLock {
+            val run = ended() ?: return@withLock TimerCommit.NOTHING
+            val result = run.result
+            val outcome = if (result == null) TimerCommit.NOTHING else try {
+                dao.commitTimerRun(result) { generationCounter.get() == began }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                TimerCommit.FAILED
+            }
+            if (outcome.settled) run.clear()
+            outcome
+        }
+    }
+
     /**
      * Pending sets become skipped, the session gets its finish time and, for a gym session with verified set stamps,
      * its range, in one transaction ([KhonDao.finishSession]); a finished session is not finished again. Then its
@@ -387,20 +435,40 @@ class KhonRepository(
      */
     suspend fun importJson(text: String, replace: Boolean) {
         val backup = Json { ignoreUnknownKeys = true }.decodeFromString<Backup>(text)
-        originLock.withLock {
-            origins?.clearAll()
-            dao.importBackup(backup, replace)
-        }
+        if (replace) replacingTimer { importBackup(backup, true) } else importBackup(backup, false)
         since?.clear()
+    }
+
+    private suspend fun importBackup(backup: Backup, replace: Boolean) = originLock.withLock {
+        origins?.clearAll()
+        dao.importBackup(backup, replace, raiseGeneration)
+    }
+
+    /**
+     * A write that replaces every session ([importJson] with replace, [resetToSeed]): the timer stops first, and its
+     * snapshot goes only after the write succeeded. A failed write keeps the old data and the snapshot, and the timer
+     * comes back from it.
+     */
+    private suspend fun replacingTimer(write: suspend () -> Unit) = timerLock.withLock {
+        timer.halt()
+        try {
+            write()
+        } catch (e: Throwable) {
+            timer.resume()
+            throw e
+        }
+        timer.clear()
     }
 
     suspend fun seedIfEmpty() = dao.seedIfEmpty()
     suspend fun seedStretchesIfEmpty() = dao.seedStretchesIfEmpty()
     /** Back to the built-in data: under the origin lock, every session origin goes first, then the tables. */
     suspend fun resetToSeed() {
-        originLock.withLock {
-            origins?.clearAll()
-            dao.resetToSeed()
+        replacingTimer {
+            originLock.withLock {
+                origins?.clearAll()
+                dao.resetToSeed(raiseGeneration)
+            }
         }
         since?.clear()
     }

@@ -218,6 +218,44 @@ interface KhonDao {
     @Query("UPDATE sessions SET note = :note WHERE id = :id") suspend fun setSessionNote(id: String, note: String)
     @Query("UPDATE sessions SET timeSec = :timeSec WHERE id = :id") suspend fun setSessionTime(id: String, timeSec: Int?)
     @Query("UPDATE sessions SET finishedAt = :finishedAt WHERE id = :id") suspend fun setSessionFinishedAt(id: String, finishedAt: Long?)
+    @Query("UPDATE sessions SET timerRun = :run WHERE id = :id") suspend fun setTimerRun(id: String, run: Int)
+    @Query("UPDATE sessions SET timedFrom = :from, timedTo = :to, timerDone = :run WHERE id = :id")
+    suspend fun setTimerClock(id: String, from: Long?, to: Long?, run: Int)
+    @Query("UPDATE interval_logs SET startedAt = NULL, endedAt = NULL WHERE sessionId = :sessionId") suspend fun clearRoundTimes(sessionId: String)
+    @Query("UPDATE interval_logs SET startedAt = :startedAt, endedAt = :endedAt WHERE sessionId = :sessionId AND `index` = :index")
+    suspend fun setRoundTimes(sessionId: String, index: Int, startedAt: Long, endedAt: Long)
+
+    /** The Start of a timer run: the session's next run number (`timerRun + 1`) is stored and returned. Null when the session is gone. */
+    @Transaction suspend fun startTimerRun(id: String): TimerStart? {
+        val session = session(id) ?: return null
+        val run = (session.timerRun ?: 0) + 1
+        setTimerRun(id, run)
+        return TimerStart(run, session.timeSec)
+    }
+
+    /**
+     * The end of a timer run, accepted only when the session exists, [current] (the repository generation is still the
+     * one the commit call began with), `timerRun` is the run's number, and `timerDone` is not. Then the duration when
+     * `timeSec` is still the value noted at Start, the range and every round's times by index (null for an untrusted
+     * run and for rounds that did not run), and `timerDone`. A run without a number writes only the duration, and only
+     * into a session with neither a duration nor a run.
+     */
+    @Transaction suspend fun commitTimerRun(r: TimerRunResult, current: () -> Boolean): TimerCommit {
+        if (!current()) return TimerCommit.RETRY
+        val session = session(r.sessionId) ?: return TimerCommit.GONE
+        val run = r.run
+        if (run == null) {
+            if (session.timeSec != null || session.timerRun != null) return TimerCommit.DROPPED
+            setSessionTime(r.sessionId, r.durationSec)
+            return TimerCommit.COMMITTED
+        }
+        if (session.timerRun != run || session.timerDone == run) return TimerCommit.DROPPED
+        if (session.timeSec == r.notedTimeSec) setSessionTime(r.sessionId, r.durationSec)
+        setTimerClock(r.sessionId, r.from, r.to, run)
+        clearRoundTimes(r.sessionId)
+        r.rounds.forEach { setRoundTimes(r.sessionId, it.index, it.startedAt, it.endedAt) }
+        return TimerCommit.COMMITTED
+    }
     @Query("UPDATE set_logs SET status = '${SetStatus.SKIPPED}', checkedAt = NULL WHERE sessionId = :sessionId AND status = '${SetStatus.PENDING}'")
     suspend fun skipPendingSets(sessionId: String)
     @Query("UPDATE sessions SET timedFrom = :from, timedTo = :to WHERE id = :id AND timedFrom IS NULL")
@@ -587,8 +625,8 @@ interface KhonDao {
     @Transaction suspend fun seedIfEmpty() { if (programsOnce().isEmpty() && exercisesOnce().isEmpty()) Seed.apply(this); seedStretchesIfEmpty() }
     /** Older installs have no stretches yet; the routine arrives on first start after the update. */
     @Transaction suspend fun seedStretchesIfEmpty() { if (stretchesOnce().isEmpty()) Seed.applyStretches(this) }
-    /** Wipe and built-in data: all or nothing, so a failed reset keeps the old data. */
-    @Transaction suspend fun resetToSeed() { clearAll(); Seed.apply(this); Seed.applyStretches(this) }
+    /** Wipe and built-in data: all or nothing, so a failed reset keeps the old data. [inside] runs first in the transaction. */
+    @Transaction suspend fun resetToSeed(inside: () -> Unit = {}) { inside(); clearAll(); Seed.apply(this); Seed.applyStretches(this) }
 
     @Query("SELECT id FROM programs WHERE active = 1 ORDER BY sortOrder, name LIMIT 1") suspend fun firstActiveProgramId(): String?
     @Query("SELECT id FROM programs ORDER BY sortOrder, name LIMIT 1") suspend fun firstProgramId(): String?
@@ -601,9 +639,11 @@ interface KhonDao {
      * active routine, or none when none is active; a replace, or a merge onto a phone with no routine, takes the backup's
      * first active routine by sortOrder, id, else none. One statement after every write (the seed too) marks only that
      * one. Routine rows whose routine or stretch is missing go, and the eating-window settings row exists afterwards.
-     * Stretch sessions take the backup's rows, the one overwrite of a recorded session.
+     * Stretch sessions take the backup's rows, the one overwrite of a recorded session. [inside] runs first in the
+     * transaction.
      */
-    @Transaction suspend fun importBackup(b: Backup, replace: Boolean) {
+    @Transaction suspend fun importBackup(b: Backup, replace: Boolean, inside: () -> Unit = {}) {
+        inside()
         val kept = if (replace) null else firstActiveProgramId()
         val backupRoutine = b.stretchRoutines.filter { it.active }.minWithOrNull(compareBy({ it.sortOrder }, { it.id }))?.id
         val routineWinner = if (!replace && stretchRoutinesOnce().isNotEmpty()) firstActiveRoutineId() else backupRoutine

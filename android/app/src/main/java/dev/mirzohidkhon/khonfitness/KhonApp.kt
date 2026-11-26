@@ -5,6 +5,7 @@ import dev.mirzohidkhon.khonfitness.data.KhonDatabase
 import dev.mirzohidkhon.khonfitness.data.KhonRepository
 import dev.mirzohidkhon.khonfitness.data.SessionOrigins
 import dev.mirzohidkhon.khonfitness.data.WindowSince
+import dev.mirzohidkhon.khonfitness.timer.ServiceTimerControl
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
@@ -22,7 +23,7 @@ class KhonApp : Application() {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     /** App settings outside the database and the backup ([WindowSince], [SessionOrigins]); one store per process. */
     val settings: DataStore<Preferences> by lazy { PreferenceDataStoreFactory.create(scope = scope) { preferencesDataStoreFile("settings") } }
-    val repo: KhonRepository by lazy { KhonRepository(db.dao(), WindowSince(settings), SessionOrigins(settings)) }
+    val repo: KhonRepository by lazy { KhonRepository(db.dao(), WindowSince(settings), SessionOrigins(settings), timer = ServiceTimerControl(this)) }
 
     override fun onCreate() {
         super.onCreate()

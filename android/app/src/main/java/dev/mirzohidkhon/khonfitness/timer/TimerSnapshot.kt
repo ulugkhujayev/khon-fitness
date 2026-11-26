@@ -12,6 +12,17 @@ import kotlinx.serialization.json.Json
 data class TimerSnapshot(val state: TimerState, val savedAt: Long) {
     /** What the live timer would show at [now]: the same tick runs over the gap, so a stretch still stops before the next Start. */
     fun advanced(now: Long): TimerState = state.tick((now - savedAt).coerceAtLeast(0L) / 1000.0)
+    /**
+     * [advanced] at the instant [wallMs], [elapsedMs] for a run with a clock: the clocks are checked first, each boundary
+     * crossed in the gap gets its own time from the phase lengths, and a run that reaches its end there ends. An ended
+     * run stays as it ended.
+     */
+    fun advancedAt(wallMs: Long, elapsedMs: Long): TimerState {
+        if (state.done) return state
+        val gap = (wallMs - savedAt).coerceAtLeast(0L) / 1000.0
+        val s = state.checkClock(wallMs, elapsedMs).tickAt(gap, elapsedMs)
+        return if (s.done) s.finishedAt(wallMs, elapsedMs) else s
+    }
     /** Too old to trust: more than an hour past the moment the timer would have ended. The workout stays open for a manual entry. */
     fun expired(now: Long): Boolean = !state.done && now - savedAt > ((state.remaining + state.phases.drop(state.index + 1).sumOf { it.seconds }) * 1000).toLong() + 3_600_000L
     fun encode(): String = json.encodeToString(this)
@@ -35,4 +46,10 @@ object TimerSnapshots {
     fun clear(context: Context, sessionId: String) {
         if (load(context)?.state?.sessionId == sessionId) prefs(context).edit { remove(KEY) }
     }
+    /** Clears the snapshot only while it is still [run]'s: the same session, [TimerState.runId] and run number. */
+    fun clearRun(context: Context, run: TimerState) {
+        val stored = load(context)?.state ?: return
+        if (stored.sessionId == run.sessionId && stored.runId == run.runId && stored.clock?.number == run.clock?.number) prefs(context).edit { remove(KEY) }
+    }
+    fun clearAll(context: Context) = prefs(context).edit { remove(KEY) }
 }

@@ -39,6 +39,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import dev.mirzohidkhon.khonfitness.data.EndedRun
+import dev.mirzohidkhon.khonfitness.data.KhonRepository
+import dev.mirzohidkhon.khonfitness.data.TimerCommit
+import dev.mirzohidkhon.khonfitness.data.TimerControl
+import dev.mirzohidkhon.khonfitness.data.newId
 
 /** Foreground service that owns the countdown. UI observes [TimerService.state]. */
 class TimerService : Service() {
@@ -54,6 +59,7 @@ class TimerService : Service() {
     private var finishing = false
     private var teardown: Job? = null
     private var restoring: Job? = null
+    private var beginning: Job? = null
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
@@ -68,15 +74,16 @@ class TimerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        live = this
         androidx.core.content.ContextCompat.registerReceiver(this, noisyReceiver,
             IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),
             androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
         // Persist on transitions only (phase, pause, start, countdown, speed); the remaining time follows from the wall clock.
         scope.launch {
-            var saved: List<Any>? = null
+            var saved: List<Any?>? = null
             state.collect { s ->
                 if (s == null || s.done) { saved = null; return@collect }
-                val key = listOf(s.sessionId, s.index, s.paused, s.awaitingStart, s.preparing, s.speed)
+                val key = listOf(s.sessionId, s.runId, s.index, s.paused, s.awaitingStart, s.preparing, s.speed, s.clock?.number, s.clock?.broken)
                 if (key != saved) { saved = key; TimerSnapshots.save(this@TimerService, s) }
             }
         }
@@ -85,12 +92,12 @@ class TimerService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        lastTickNanos = System.nanoTime()
+        lastTickNanos = SystemClock.elapsedRealtimeNanos()
         when (intent?.action) {
             ACTION_START -> {
                 if (continueExisting(intent.getStringExtra("sessionId") ?: "", stretch = false)) return START_STICKY
                 val phases = buildPhases(intent.getIntExtra("warmup", 0), intent.getIntExtra("work", 240), intent.getIntExtra("rest", 180), intent.getIntExtra("rounds", 4))
-                val s = TimerState(intent.getStringExtra("sessionId") ?: "", intent.getStringExtra("title") ?: "Timer", phases, remaining = phases.firstOrNull()?.seconds?.toDouble() ?: 0.0, speed = intent.getDoubleExtra("speed", 1.0), awaitingStart = true, startedAt = System.currentTimeMillis())
+                val s = TimerState(intent.getStringExtra("sessionId") ?: "", intent.getStringExtra("title") ?: "Timer", phases, remaining = phases.firstOrNull()?.seconds?.toDouble() ?: 0.0, speed = intent.getDoubleExtra("speed", 1.0), awaitingStart = true, startedAt = System.currentTimeMillis(), runId = newId())
                 if (phases.isEmpty()) { stopSelf(); return START_NOT_STICKY }
                 finished.value = null
                 state.value = s
@@ -100,7 +107,7 @@ class TimerService : Service() {
             ACTION_START_STRETCH -> {
                 if (continueExisting(intent.getStringExtra("sessionId") ?: "", stretch = true)) return START_STICKY
                 val phases = Json.decodeFromString<List<Phase>>(intent.getStringExtra("steps") ?: "[]")
-                val s = TimerState(intent.getStringExtra("sessionId") ?: "", intent.getStringExtra("title") ?: "Stretching", phases, remaining = phases.firstOrNull()?.seconds?.toDouble() ?: 0.0, speed = intent.getDoubleExtra("speed", 1.0), stretch = true, startedAt = System.currentTimeMillis())
+                val s = TimerState(intent.getStringExtra("sessionId") ?: "", intent.getStringExtra("title") ?: "Stretching", phases, remaining = phases.firstOrNull()?.seconds?.toDouble() ?: 0.0, speed = intent.getDoubleExtra("speed", 1.0), stretch = true, startedAt = System.currentTimeMillis(), runId = newId())
                 if (phases.isEmpty()) { stopSelf(); return START_NOT_STICKY }
                 finished.value = null
                 state.value = s
@@ -109,14 +116,16 @@ class TimerService : Service() {
             }
             ACTION_BEGIN -> {
                 val s = state.value ?: return START_NOT_STICKY
-                val next = s.begin()
-                if (next != s) { state.value = next; silence(); beep(short = true); updateNotification(next) }
+                if (s.stretch) {
+                    val next = s.begin()
+                    if (next != s) { state.value = next; silence(); beep(short = true); updateNotification(next) }
+                } else beginRun(s)
             }
             ACTION_SKIP -> {
                 val s = state.value ?: return START_NOT_STICKY
                 if (s.done) return START_NOT_STICKY
                 silence()
-                val next = s.skip()
+                val next = s.skipAt(SystemClock.elapsedRealtime())
                 state.value = next
                 if (next.done) finish(early = false)
                 else { say("Ready for ${phaseSpeech(next)}"); updateNotification(next) }
@@ -136,7 +145,7 @@ class TimerService : Service() {
                     state.value = it.copy(paused = false); updateNotification(state.value!!)
                 }
             }
-            ACTION_STOP -> finish(early = true)
+            ACTION_STOP -> if (beginning?.isActive == true) scope.launch { beginning?.join(); finish(early = true) } else finish(early = true)
             // A null intent is the system restarting the sticky service after it killed the process.
             ACTION_RESTORE, null -> restore()
         }
@@ -154,7 +163,7 @@ class TimerService : Service() {
         val now = System.currentTimeMillis()
         val snap = TimerSnapshots.load(this)?.takeIf { it.state.stretch == stretch && same(it.state.sessionId) && !it.expired(now) } ?: return false
         restoring?.cancel()
-        val s = snap.advanced(now)
+        val s = snap.advancedAt(now, SystemClock.elapsedRealtime())
         finished.value = null
         state.value = s
         startInForeground(s)
@@ -168,14 +177,22 @@ class TimerService : Service() {
         if (state.value != null || restoring?.isActive == true) return
         val snap = TimerSnapshots.load(this) ?: return stopIfIdle()
         val app = applicationContext as KhonApp
+        if (snap.state.done && !snap.state.stretch) {
+            // An ended run whose commit did not settle: commit it now, whatever the session's state.
+            app.scope.launch { commitPending(app) }
+            return stopIfIdle()
+        }
         restoring = scope.launch {
             val open = runCatching { withContext(Dispatchers.IO) { stillOpen(app.repo, snap.state) } }.getOrNull() ?: return@launch stopIfIdle()
             if (state.value != null) return@launch
-            if (!open || snap.expired(System.currentTimeMillis())) { TimerSnapshots.clear(app, snap.state.sessionId); return@launch stopIfIdle() }
-            val s = snap.advanced(System.currentTimeMillis())
+            if (!open || snap.expired(System.currentTimeMillis())) { TimerSnapshots.clearRun(app, snap.state); return@launch stopIfIdle() }
+            val s = snap.advancedAt(System.currentTimeMillis(), SystemClock.elapsedRealtime())
             if (s.done) {
                 // The workout ended while the process was dead: write the result the live timer would have written.
-                app.scope.launch { recordTimer(app, s); TimerSnapshots.clear(app, s.sessionId) }
+                // The ended snapshot never expires, so a commit that does not settle is tried again at the next start.
+                TimerSnapshots.save(app, s)
+                val generation = app.repo.generation
+                app.scope.launch { recordTimer(app, s, generation) }
                 return@launch stopIfIdle()
             }
             // Android can refuse a foreground start from the background; the snapshot stays for the next app open.
@@ -188,6 +205,38 @@ class TimerService : Service() {
     }
 
     private fun stopIfIdle() { if (state.value == null) stopSelf() }
+
+    /**
+     * The Start action of a cardio run, from the screen or the notification: the session gives the run its number,
+     * then the run begins with the anchor of that instant. Without a number (the session is gone, the write failed)
+     * it begins without a clock.
+     */
+    private fun beginRun(s: TimerState) {
+        if (s.done || !s.awaitingStart || beginning?.isActive == true) return
+        val app = applicationContext as KhonApp
+        beginning = scope.launch {
+            val start = runCatching { withContext(Dispatchers.IO) { app.repo.startTimerRun(s.sessionId) } }.getOrNull()
+            val current = state.value?.takeIf { it.runId == s.runId && it.awaitingStart && !it.done } ?: return@launch
+            val next = current.beginRun(start, System.currentTimeMillis(), SystemClock.elapsedRealtime())
+            lastTickNanos = SystemClock.elapsedRealtimeNanos()
+            state.value = next; silence(); beep(short = true); updateNotification(next)
+        }
+    }
+
+    /** Ends the live timer without its result, for a Replace import or a reset; the snapshot stays. */
+    private fun halt() {
+        restoring?.cancel()
+        beginning?.cancel()
+        loop?.cancel()
+        teardown?.cancel()
+        finishing = true
+        silence()
+        state.value = null
+        finished.value = null
+        wakeLock?.let { if (it.isHeld) it.release() }
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
 
     private fun runLoop() {
         loop?.cancel()
@@ -207,16 +256,17 @@ class TimerService : Service() {
             }
         }
         state.value?.takeIf { it.active }?.let { say(phaseSpeech(it)) }
-        lastTickNanos = System.nanoTime()
+        lastTickNanos = SystemClock.elapsedRealtimeNanos()
         loop = scope.launch {
             while (true) {
                 delay(50)
-                val now = System.nanoTime()
+                val now = SystemClock.elapsedRealtimeNanos()
                 val dt = (now - lastTickNanos) / 1e9
                 lastTickNanos = now
                 val before = state.value ?: break
                 if (before.done) break
-                val next = before.tick(dt)
+                val ticked = before.tickAt(dt, now / 1_000_000L)
+                val next = if (ticked.index != before.index) ticked.checkClock(System.currentTimeMillis(), now / 1_000_000L) else ticked
                 if (next == before) continue
                 state.value = next
                 if (next.done) { finish(early = false); break }
@@ -275,16 +325,16 @@ class TimerService : Service() {
         val s = state.value
         if (s != null) {
             val elapsed = s.elapsed.toInt()
-            val done = s.copy(index = s.phases.size, remaining = 0.0)
+            val done = s.finishedAt(System.currentTimeMillis(), SystemClock.elapsedRealtime())
             state.value = done
             // A done snapshot until the result is written: if the process dies in between, restore writes it.
             TimerSnapshots.save(this, done)
             if (!early) { beep(short = false); say(if (s.stretch) "Routine done" else "All rounds done") }
             // The service writes the duration itself, so it survives even when no screen is watching.
             val app = applicationContext as KhonApp
+            val generation = app.repo.generation
             app.scope.launch {
-                recordTimer(app, done)
-                TimerSnapshots.clear(app, s.sessionId)
+                recordTimer(app, done, generation)
                 if (state.value?.sessionId == s.sessionId) {
                     finished.value = FinishedTimer(s.sessionId, elapsed, early)
                     state.value = null
@@ -353,6 +403,7 @@ class TimerService : Service() {
     }
 
     override fun onDestroy() {
+        if (live === this) live = null
         unregisterReceiver(noisyReceiver)
         scope.cancel()
         tone?.release()
@@ -370,6 +421,10 @@ class TimerService : Service() {
         const val ACTION_BEGIN = "begin"; const val ACTION_RESTORE = "restore"
         val state = MutableStateFlow<TimerState?>(null)
         val finished = MutableStateFlow<FinishedTimer?>(null)
+        @Volatile private var live: TimerService? = null
+
+        /** Stops the live timer without writing its result ([halt]); its snapshot stays. */
+        suspend fun halt() = withContext(Dispatchers.Main.immediate) { live?.halt() ?: run { state.value = null } }
 
         fun start(context: Context, sessionId: String, title: String, warmup: Int, work: Int, rest: Int, rounds: Int, speed: Double = 1.0) {
             val i = Intent(context, TimerService::class.java).setAction(ACTION_START)
@@ -390,10 +445,34 @@ class TimerService : Service() {
     }
 }
 
-/** Writes the timer result: the stretch session, or the cardio duration. Repeating it for the same state changes nothing. */
-internal suspend fun recordTimer(app: KhonApp, s: TimerState) = runCatching {
-    if (s.stretch) stretchResult(s, java.time.LocalDate.now())?.let { app.repo.recordStretchSession(it) } // written once per session id
-    else app.repo.setSessionTime(s.sessionId, s.elapsed.toInt()) // Only the duration: an effort or note typed meanwhile stays.
+/**
+ * Writes the timer result and clears the run's own snapshot: the stretch session, or the cardio run through
+ * [KhonRepository.endTimerRun] against [generation], the repository generation when the run ended. Repeating it for
+ * the same state changes nothing.
+ */
+internal suspend fun recordTimer(app: KhonApp, s: TimerState, generation: Long) {
+    if (s.stretch) {
+        runCatching { stretchResult(s, java.time.LocalDate.now())?.let { app.repo.recordStretchSession(it) } } // written once per session id
+        TimerSnapshots.clear(app, s.sessionId)
+    } else recordRun(app.repo, app, s, generation)
+}
+
+/** A cardio run's end: its result, and the clear of its snapshot only while the snapshot is still this run's. */
+internal suspend fun recordRun(repo: KhonRepository, context: Context, s: TimerState, generation: Long?): TimerCommit =
+    repo.endTimerRun(generation) { EndedRun(s.runResult()) { TimerSnapshots.clearRun(context, s) } }
+
+/** The ended cardio run that a snapshot holds, committed at the app's start under the same rules as at its end. */
+internal suspend fun commitPending(app: KhonApp): TimerCommit = commitPending(app.repo, app)
+
+internal suspend fun commitPending(repo: KhonRepository, context: Context): TimerCommit = repo.endTimerRun {
+    TimerSnapshots.load(context)?.state?.takeIf { it.done && !it.stretch }?.let { s -> EndedRun(s.runResult()) { TimerSnapshots.clearRun(context, s) } }
+}
+
+/** The timer as [KhonRepository] stops and clears it for a Replace import and a reset. */
+class ServiceTimerControl(private val context: Context) : TimerControl {
+    override suspend fun halt() = TimerService.halt()
+    override fun clear() = TimerSnapshots.clearAll(context)
+    override fun resume() = TimerService.restore(context)
 }
 
 /**

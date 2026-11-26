@@ -97,7 +97,8 @@ average.
   `timedFrom < timedTo`.
 - The session's `date` equals the local date of `timedFrom` or the local
   date of `startedAt` (a session made at 23:59 whose timer starts at
-  00:01 keeps its range). (A session moved to another date has no range. After a time zone change a session
+  00:01 keeps its range, on either of the two dates: both are days of
+  the workout). (A session moved to any other date has no range. After a time zone change a session
   near midnight can lose its range; accepted.)
 - Gym: `[timedFrom, timedTo)`, length from 10 minutes to 4 hours.
 - App cardio (`sourceId` null): `[timedFrom, min(timedTo + 60 s,
@@ -164,7 +165,8 @@ into a typed column.
   read changes nothing and is not a try.
 - Commit, in one Room transaction, deny by default. Write the row only
   when all hold: the session exists; the repository generation is the one
-  the read started with (replace import and reset raise it); `hrWindow`
+  the read started with (every backup import, Replace or Merge, and
+  reset raise it); `hrWindow`
   gives the range that was read; and the session's row is the row the
   read started from (same `state` and `fetchedAt`, or still absent). Else
   drop the result.
@@ -173,7 +175,8 @@ into a typed column.
   returns filled, waiting, none, failed, or no range.
 - `removeHeartRate(sessionId)`: the row becomes `off` with empty samples,
   null values, and a new `fetchedAt`, so a read that was already running
-  cannot commit.
+  cannot commit. With no row, an `off` row is written for the current
+  range; with no row and no range nothing is written.
 
 ## Verified clocks
 
@@ -189,7 +192,7 @@ when the clocks are in step at that instant.
 - A gym session stores its anchor at its start: `startedAt` and
   `startedElapsed`.
 - `checkSet` stamps `checkedAt = now` in the same statement that turns a
-  pending set to done, and only when the session is unfinished and its
+  pending or skipped set to done, and only when the session is unfinished and its
   clocks are in step at that instant (else the set is done with a null
   stamp). A done set
   that is checked again keeps its first stamp. A check in a finished
@@ -201,12 +204,13 @@ when the clocks are in step at that instant.
   `timedTo = min(finishedAt, last stamp + 5 min)`. With no stamp or clocks not in step, nothing
   is written, and the session has no range. Later edits of sets never
   change the stored range.
-- **"Use this time range"** (`confirmRange(sessionId)`): for a finished
+- **"Use this time range"** (`confirmRange(sessionId, from, to)`): for a finished
   gym session with no `timedFrom`, whose `date` is the local date of
   `startedAt`, and whose `startedAt` to `finishedAt` lasts from 10
   minutes to 4 hours. The screen shows that range as clock times and the
-  owner confirms it; then `timedFrom = startedAt`, `timedTo =
-  finishedAt`, and a fill is asked. Any other session: refused, nothing
+  owner confirms it. The write checks in its transaction that `from`
+  and `to` are still the session's `startedAt` and `finishedAt`; then
+  `timedFrom = startedAt`, `timedTo = finishedAt`, and a fill is asked. Any other session: refused, nothing
   written. This is the only way a session from before this version, or a
   session whose clocks were not in step, gets a range.
 - **The timer run.** A run carries its session id, its run number, and
@@ -214,8 +218,9 @@ when the clocks are in step at that instant.
   takes the anchor and, in one transaction, gives the run its number:
   `timerRun + 1` (1 for the first), written to `sessions.timerRun`, and
   notes the session's `timeSec` at that instant. A snapshot of the old
-  app version, restored after the upgrade, gets its number in the same
-  way at the restore and is untrusted. The
+  app version has no number and no anchor: it gets none, and its end
+  writes the duration only, when the session's `timeSec` and `timerRun`
+  are both null; else it is dropped. The
   timer takes no anchor and no number while it waits on Ready; a Stop
   before Start stores nothing. Every time of the run is `anchor wall +
   (elapsed-realtime now - anchor elapsed)`.
@@ -234,7 +239,8 @@ when the clocks are in step at that instant.
     the times of every round by index (rounds that did not run get null).
     An untrusted run writes the duration (under the same condition) and
     sets all its clock fields to null.
-  - The commit of run n is accepted only when the session exists,
+  - The commit of run n is accepted only when the session exists, the
+    repository generation is the one read when the commit call began,
     `timerRun = n` (no newer run started), and `timerDone` is not n (not
     committed yet). It then sets `timerDone = n`. So a replay and a late
     older run change nothing, whatever the clocks did, also after an
@@ -243,7 +249,9 @@ when the clocks are in step at that instant.
     returns, and only when the stored snapshot is still that run. A
     failed commit keeps it; the app commits it at its next start, under
     the same rules.
-- Replace import and reset stop the timer and clear its snapshot first.
+- Replace import and reset stop the timer first and clear its snapshot
+  only after their write succeeded. A failed write keeps the old data
+  and the snapshot; the run is then restored as after a process death.
 - Stretch runs are not affected.
 
 ## Backup
@@ -256,15 +264,23 @@ when the clocks are in step at that instant.
   parses. Other HR rows are dropped; they never fail the import or its preview,
   also when one row does not decode (each row is decoded by itself). Of two
   rows with one id the last wins.
-- Replace: only the file's rows remain. Merge: a file HR row replaces the
-  local row of the same session; a local row whose session survives
-  stays (and `hrFacts` hides it when the range no longer matches).
-- Merge only: a null `checkedAt`, `startedAt`, `endedAt`, `timedFrom`,
-  `timedTo`, or `linkedIds` in the file never erases the local value of
-  the same row; for `timedFrom` and `timedTo` only when the file row has
-  the local row's `startedAt` and `finishedAt`. `timerRun` and
-  `timerDone` keep the greater of the local and the file value, so a file
-  never reopens a committed run.
+- An accepted HR row also has: every sample with an offset inside the
+  range and a bpm from 30 to 230; for `filled`, at least one sample and
+  `avgHr`, `maxHr` from 30 to 230; for `off`, no samples and null
+  values.
+- `startedElapsed` is never taken from a file (null after every import):
+  an anchor is valid only on the phone and the boot that made it.
+- Replace: only the file's rows remain.
+- Merge, **the local unit wins**. For a session, a set, or a round that
+  exists in this database, Merge never takes a column of this task from
+  the file: the local `checkedAt`, round times, `timedFrom`, `timedTo`,
+  `startedElapsed`, `timerRun`, `timerDone`, and `linkedIds` stay, and
+  so does the local HR row. A row that is new to this database takes the
+  file's values, with its HR row.
+- Merge then clears, in the same transaction, what no longer fits the
+  merged rows: a session whose `startedAt`, `finishedAt`, `itemType`, or
+  `exerciseId` changed loses `timedFrom`, `timedTo`, and its round
+  times; a set that is not done after the merge has no `checkedAt`.
 
 ## Band workouts (phase 2)
 
@@ -357,5 +373,7 @@ when the clocks are in step at that instant.
 | R5: time on Ready or a typed duration makes a false old pair | The app deletes nothing by itself. The owner decision of 2026-11-26 ("merge them once") becomes: the app lists the candidate pairs once found, and the owner merges them with one action. The lead reports this change to the owner. |
 | R6: a late older timer run after a backward clock correction; a merge confirmed on facts that changed; a new candidate after "Merge all" | Run numbers without a clock (`timerRun`, `timerDone`); `mergePairs` checks the rows the owner saw; "Merge all" checks one-to-one again on fresh rows. |
 | R7: a timer commit lands after the owner typed a duration; an old snapshot after the upgrade; a file lowers run numbers; a timer that starts after midnight; facts for "Merge all" | The duration is written only over the value noted at Start; old snapshots get a number at restore; merge keeps the greater run numbers; the date rule also accepts the creation date; "Merge all" shows each pair's facts before the owner accepts. The lead ended the combined attack here: each later phase gets its own attack round before its build. |
+| R8: timer and backup merge as one unit; stale confirmation; HR rows with bad values in a file; a skipped set checked directly; a failed Replace | Merge: the local unit wins, and what no longer fits is cleared. `confirmRange` carries the shown bounds. File HR rows are checked by value. A check from skipped stamps. The snapshot is cleared after a successful Replace only. The old-version snapshot gets no number. Every import raises the generation, and the timer commit checks it. |
+| R8, refused by the lead | A typed Time that returns to its value at Start while a timer commit is held (the commit waits only after a process death at the timer's end, and the app retries it at its start). A reboot whose new uptime matches the old anchor within 2 s (needs an anchor taken in the first 2 s after a boot, or a clock change of the same size together with a reboot). A date edit between the creation day and the timer's start day (both are days of the workout). The attack loop ends here after eight rounds without a closed verdict; the deep review of the built code follows. |
 | R1: a Room journal for the merge, generations on disk, platform backup rules, a recovery screen | Not taken. The merge has no automatic pass any more; replace stops the timer; the existing Restore sheet is the recovery route; platform backup is an owner question. |
 | R1: the import's default exercise choice and "Import all" against the no-suggestion rule | Not changed: it maps a band record to one of the owner's own exercises and exists today. Reported to the owner. |

@@ -489,3 +489,17 @@ Paths omit `android/app/src/main/java/dev/mirzohidkhon/khonfitness/` unless they
 - **D22.** Extend M3 from the date saved at Ready through Start, Save, `hrWindow`, `runRange`, and import. Distinguish midnight with no date edit from a deliberate date edit. [Coverage:458], [Repository.kt:277], [Repository.kt:46]
 - **E12.** Extend the R6 P4 entry to trace stored `timeSec` separately from the displayed clock bounds on both sides. [Coverage:481], [CardioScreen.kt:78]
 - **E13.** Extend the R6 P3 entry from the actual batch preview to the exact pair IDs and facts supplied to `mergePairs`. [Coverage:480]
+
+## R. Entries added by attack R8 (phase 1)
+
+- **R8 C36.** READ. The commit compares values. Both form saves can write real changes. Trace the successful Time writes and the commit through the same transaction check.
+- **R8 C37.** READ. The anchor contains two numbers and C13 tests only a reboot with smaller uptime. Trace boot identity through gym Start, set check, Finish, timer restore, and backup of an unfinished session.
+- **R8 C38.** READ. The merge picks counters and clock fields independently. Trace null clock fields from untrusted commits, older non-null file fields, and equal numbers from different runs. Verify Replace separately.
+- **R8 C39.** GUESS. Clearing the snapshot before a rolled-back write can destroy the only copy of the completed result. Extend C16 and C17 through the rollback path and confirm the snapshot survives.
+- **R8 C40.** GUESS. A database counter and the saved snapshot can disagree across a crash. Trace both writes during legacy adoption and distinguish resuming adoption from supersession.
+- **R8 C41.** READ. Both dates pass the stated predicate, but Common also rules out a moved session. Extend the midnight case through the Date save and a later HR read.
+- **R8 C42.** READ. The owner confirms shown times, but the API takes only an ID. Trace the selected bounds through `confirmRange` against same-ID Merge and Replace.
+- **R8 C43.** READ. Merge replaces the row, and the read check compares only state and wall time. Trace both read entry points through a same-time row replacement.
+- **R8 C44.** READ. The restore predicate checks syntax and range order only. Remove also applies when the session has no range. Trace one state rule through write, preview, Replace, Merge and `hrFacts`.
+- **R8 C45.** READ. The status transition rule clears stamps, but the merge rule keeps the local stamp when the file supplies null. Extend the set status inventory to the backup upsert.
+- **R8 C46.** READ. The common rule stamps only a pending-to-done check, but C5 expects a new stamp after skipped. The existing check can write any status. Trace both pending and skipped through the same check.

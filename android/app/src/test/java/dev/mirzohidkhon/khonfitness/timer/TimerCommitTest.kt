@@ -576,12 +576,12 @@ class TimerCommitTest {
             assertNull(session().timedFrom)
             if (replace) {
                 assertNull(snapshot())
-                assertEquals(TimerCommit.NOTHING, commitPending(newRepo(), context))
+                assertEquals(emptyList<TimerCommit>(), commitPending(newRepo(), context))
             } else {
-                assertEquals("r1", snapshot()?.runId)
+                assertEquals(listOf("r1"), pendingIds())
                 val restarted = newRepo()
-                assertEquals(TimerCommit.COMMITTED, commitPending(restarted, context))
-                assertEquals(TimerCommit.NOTHING, commitPending(restarted, context))
+                assertEquals(listOf(TimerCommit.COMMITTED), commitPending(restarted, context))
+                assertEquals(emptyList<TimerCommit>(), commitPending(restarted, context))
                 val s = session()
                 assertEquals(ended.runResult()!!.from, s.timedFrom)
                 assertEquals(999, s.timeSec)

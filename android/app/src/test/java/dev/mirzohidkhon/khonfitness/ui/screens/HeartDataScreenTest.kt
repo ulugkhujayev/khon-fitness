@@ -183,7 +183,7 @@ class HeartDataScreenTest {
         }
         assertEquals(tops.sorted(), tops)
         assertTrue(said("Old,").isEmpty()); assertTrue(said("Open,").isEmpty())
-        compose.onNodeWithText("avg 128 · max 164", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("avg\u00A0128 · max\u00A0164", useUnmergedTree = true).assertExists()
     }
 
     @Test fun `the sheet's facts, one read for two taps, a failed read keeps the facts`() {

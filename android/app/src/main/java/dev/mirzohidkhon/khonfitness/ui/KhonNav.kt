@@ -83,7 +83,6 @@ object Routes {
     fun cardioType(id: String) = "cardiotype/$id"
     /** Every strength exercise, searchable; each opens its exercise detail. */
     const val LIFTS = "lifts"
-    /** Two periods side by side (Progress). */
     const val COMPARE = "compare"
     const val STRETCHES = "stretches"
     const val IMPORT = "import"

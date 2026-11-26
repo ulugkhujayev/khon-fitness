@@ -435,3 +435,16 @@ Paths omit `android/app/src/main/java/dev/mirzohidkhon/khonfitness/` unless they
 | src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/update/Updater.kt:21 | Existing update URL. Verify the new HR and recovery paths never feed this request or add another outbound path. |
 | src/android/app/build.gradle.kts:19, :57 | Version fields and Room schema output configuration. |
 | src/android/app/src/test/java/dev/mirzohidkhon/khonfitness/ui/screens/TimerExitTest.kt:43, TapTargetTest.kt:55, HistoryShotsTest.kt:47 and ../theme/ContrastTest.kt:13 | Existing exit, touch target, screen capture and contrast checks that P3 uses or must extend. Test paths after TimerExitTest are relative to its directory. |
+
+## L. Entries added by attack R2
+
+| ID | Entry | Add to coverage |
+|---|---|---|
+| L1 | [CardioScreen.kt:39], [Dao.kt:232] | Expand A18 and K from form snapshots to explicit scalar and interval edits. Trace same-value and blank edits to the same write as ownership, including edits before any HR row. |
+| L2 | [Dao.kt:554], [Dao.kt:572], [Repository.kt:370] | Expand F2, F5 and F6 to cover which version supplied each surviving HR row, its ownership and range inputs, omitted source claims, and atomic reconciliation. Trace the export snapshot to the deletion transaction's revision check. |
+| L3 | [SessionScreen.kt:122], [Dao.kt:223] | Expand A17 and B27 to cover an existing gym session losing its final stamp in History. Trace how the range distinguishes that case from a migrated record. |
+| L4 | [TimerService.kt:210], [TimerService.kt:330], [TimerService.kt:355], [TimerSnapshot.kt:35] | Add normal clock jumps, the notification action's identity, suspended app-scope completion after service destruction, and snapshot cleanup for a second run on the same session. |
+| L5 | [TimerService.kt:172], [TimerService.kt:410], [CardioScreen.kt:60] | Expand A99 and D19 to distinguish a live snapshot from a failed completed write after the owner saves a typed duration. |
+| L6 | [HealthImport.kt:104], [HealthImport.kt:121], [HealthImport.kt:150], [Repository.kt:341] | Expand E5–E7 and E10 to trace raw member ranges through the write check. Trace the existing draft HR, distance, and round calculation through the new reader rules or its removal from the write path. |
+| L7 | [TodayScreen.kt:103], [TodayScreen.kt:143], [Dao.kt:232], [Dao.kt:271] | Add the band-first order. Today offers Import while an app session is unfinished. Trace both serialized save orders through the same-workout check. |
+| L8 | [ReviewScreen.kt:28], [ReviewScreen.kt:80], [2-HR01-COMMON.md:115] | Add the stale-result and removal paths. Trace the facts shown by Review and the new list and sheet when the current range, stored row, or user action changes. |

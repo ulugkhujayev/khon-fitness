@@ -23,12 +23,24 @@ fact or an action name.
 
 ## Scope
 
+- **One rule for every screen**: what is shown comes from `hrFacts` of
+  phase 1 and nothing else. A typed average is shown where it exists; the
+  measured one only where the typed one is null. The maximum is always
+  the measured one. No screen reads a `session_hr` row directly.
 - **Review screen** (a finished session, gym and cardio): one line with
   the heart rate facts next to the existing figures: "avg 128 · max 164
   bpm"; with one value only "avg 128 bpm" or "max 164 bpm"; with none, no
   line. Spoken text: "average 128, maximum 164 beats per minute". It
-  follows the session's flow, so a fill that lands while the screen is
-  open shows up.
+  follows the flows of the session and of its HR row, so a fill that
+  lands while the screen is open shows up.
+- **Every other place that shows a session's or a round's average heart
+  rate today** (History rows, the cardio type screens, the rounds of a
+  cardio session on Review): a null typed value shows the measured one
+  (for a round: the round average of phase 1). List each place in the
+  report.
+- **Cardio form**: an empty average field, and an empty round field,
+  shows the measured value as its placeholder in the muted color. Save
+  never writes a placeholder.
 - **Settings**: one row "Heart rate data" that opens a new screen.
 - **"Heart rate data" screen**: the finished sessions of the last 30
   days, newest first, one row each: the name over the date, and on the
@@ -37,11 +49,11 @@ fact or an action name.
   - `waiting`: "Waiting for data"
   - `none`: "No data"
   - `off`: "Removed"
-  - a range and no row: "Not read"
+  - not read (also a row of another range): "Not read"
   - no range: "No time range"
   A tap opens a sheet for that session with rows of facts: the range as
   clock times ("18:02 to 19:14"), readings ("412 read · 398 used"), first
-  and last reading as clock times, the longest gap ("45 s"), the source
+  and last reading as clock times, the longest gap ("45 s"), the average of each work round that has one, the source
   (the package's app label when the system knows it, else the package
   name; other packages seen on a second row), average, maximum. Rows
   without a value are absent. Two actions under the facts: "Read again"
@@ -68,12 +80,14 @@ Import screen, the version number, the manifest. No new dependency.
 | # | Part | Case | Expected result |
 |---|---|---|---|
 | E1 | Review | Sessions with both values, avg only, max only, none; gym and cardio | The line as in Scope, or absent. The spoken text holds the full words. |
-| E2 | Review | A fill commits while Review is open | The line appears or changes without leaving the screen. |
+| E2 | Review | A fill commits while Review is open; "Remove" runs; the range changes so that the row is stale | The line appears, changes, or goes without leaving the screen. A stale row shows nothing. |
+| E2a | Other places | A session with typed average; with measured only; rounds with typed, measured, and no value | Typed wins; measured fills the gaps; nothing where neither exists. Each place listed in the report has a test or is covered by a shared function with a test. |
+| E2b | Cardio form | Empty fields with measured values; the owner saves without typing; the owner types a value | Placeholders show the measured values; after Save the typed columns are still null; a typed value is saved and shown instead. |
 | E3 | Settings | The row | "Heart rate data" opens the screen; back returns to Settings. |
-| E4 | List | Sessions in each of the six states; a session 31 days old; an unfinished session | Each state text as in Scope; the old and the unfinished session are absent; newest first. |
+| E4 | List | Sessions in each of the six states, and one with a filled row of another range ("Not read"); a session 31 days old; an unfinished session | Each state text as in Scope; the old and the unfinished session are absent; newest first. |
 | E5 | Sheet | A filled row; a sparse row (3 readings, one gap); a row with two packages; a row with no reading | Facts as in Scope, absent when null; one reading shows no gap; clock times in the phone's zone. |
 | E6 | Read again | Tap once; tap twice fast; the read fails; the read is sparse; the session is deleted during the read | One request; the old facts stay on a failure; the result line as in Scope; no crash, the sheet closes on delete. |
-| E7 | Remove | Tap on a filled row | The row shows "Removed"; the session's reader values are gone as phase 1 defines; "Remove" is absent now; "Read again" brings the data back. |
+| E7 | Remove | Tap on a filled row | The row shows "Removed"; Review and the other places show no measured value for that session; typed values still show; "Remove" is absent now; "Read again" brings the data back. |
 | E8 | Provider | No Health Connect; no heart rate permission; heart rate without distance | The Import screen's state and action for the first two; the third works with no prompt. |
 | E9 | Restore | A `before-merge` copy and a `before-import` copy exist | Both listed, each named by kind and time; restoring the merge copy works as the existing restore. |
 | E10 | Layout | The new screen and sheet at font scale 1.0 and 1.3, widths 360 and 411 dp | No clipped or overlapping text; touch targets at least 48 dp; contrast as `ContrastTest` requires; the existing `TapTargetTest` rules pass for the new screen. |

@@ -7,7 +7,7 @@ Workdir: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/pr01
 Base: 9d1ba17
 Capabilities: static
 Tests: JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" android/gradlew -p android :app:testDebugUnitTest :app:assembleDebug :app:lintVitalRelease
-Report: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/pr01/docs/tasks/pr01/PR01-rep-records-weight-trend-REPORT.md
+Report: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/pr01/docs/pr01-tasks/PR01-rep-records-weight-trend-REPORT.md
 
 ## Why
 

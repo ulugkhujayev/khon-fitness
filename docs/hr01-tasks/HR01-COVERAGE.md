@@ -411,3 +411,27 @@
 ## Not covered
 
 No explicit migration test exists in the current test suite.
+
+## K. Entries added by attack R1
+
+Paths omit `android/app/src/main/java/dev/mirzohidkhon/khonfitness/` unless they begin with `src/` (then `src/` stands for the repository root).
+
+| File and line | Entry |
+|---|---|
+| data/Dao.kt:16, :27, :46, :63 | Exercise lookup and edits change modality, distance fields and round shape. Exercise merge reassigns existing sessions and set logs. Revalidate before HR and duplicate writes. |
+| data/Dao.kt:282, :539, :581 | Direct set upsert can bypass clock transitions. Reset and clearAll are distinct DAO entry points for HR deletion. A9/A10 use upsert. Keep a regression guard against parent replacement deleting valid HR. |
+| data/Repository.kt:46, :335, :341 | Expand A90 to cover user-owned average, distance and cardio dates plus the open-form snapshot rule. A43/A44 also define old source ID semantics and import refusal handling. |
+| health/HealthImport.kt:38, :52, :80, :87, :104, :145 | Draft date uses the current zone. Provider checks and separate record reads gate these actions. The plan/modality defaults influence Import as. Both record reads need pagination and consistent grouping coverage. |
+| ui/screens/ImportScreen.kt:55, :94, :106, :124, :137, :160 | Default choice, Import all, explicit Import as, permission actions and row accessibility labels. These decide what the user can see and what can save without a fresh pick. |
+| ui/screens/TodayScreen.kt:28, :95, :100 | Foreground clock refresh already exists. Today checks updates and reads the pending count once per composition. The count can remain stale after a database change. |
+| timer/TimerService.kt:110, :139, :175, :281, :387, :389 | Record both restore-to-completion and normal completion as writer callers. A timer command carries no session or run ID. Note the direct replay and snapshot clear even when recordTimer returns a failed Result. |
+| ui/screens/TimerScreen.kt:53, :74, :84, :124 | Session-flow guard, finish handoff, delayed exit and debug speed change. The speed change updates the timer state outside the normal command path. |
+| ui/screens/StretchScreen.kt:84, :109, :152, :159 | Shared service controls and debug speed write. Track these as preserved behavior when adding workout clock data. |
+| ui/components/Components.kt:254 and ui/screens/CardioScreen.kt:45, :74, :79, :80 | Capture what counts as touching or clearing numeric input. Session scalar edits compare snapshots while round edits record explicit changes. |
+| ui/AppViewModel.kt:16, :21, :24, :27, :50 | Session and log streams start from empty values. New data screens and count refresh need a loaded state. The existing update call is a separate network entry point. |
+| ui/KhonNav.kt:121, :126, :143, :146 and ui/screens/PlanScreen.kt:363 | Navigation, Review, Import and Settings entries for foreground read, screen replacement and back behavior. |
+| ui/screens/PlanScreen.kt:392, :404, :416, :424, :481, :485 and ui/screens/EditorRules.kt:217 | Document input/output, before-import copy, recovery directory, restore and reset. The current recovery list does not look in private internal storage. |
+| src/android/app/src/main/AndroidManifest.xml:3, :25 and src/android/app/src/debug/AndroidManifest.xml:3 | Existing Internet permission, platform backup opt-in and debug-only Health Connect write permissions. Distinguish providers from automatic storage and the existing debug write. |
+| src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/update/Updater.kt:21 | Existing update URL. Verify the new HR and recovery paths never feed this request or add another outbound path. |
+| src/android/app/build.gradle.kts:19, :57 | Version fields and Room schema output configuration. |
+| src/android/app/src/test/java/dev/mirzohidkhon/khonfitness/ui/screens/TimerExitTest.kt:43, TapTargetTest.kt:55, HistoryShotsTest.kt:47 and ../theme/ContrastTest.kt:13 | Existing exit, touch target, screen capture and contrast checks that P3 uses or must extend. Test paths after TimerExitTest are relative to its directory. |

@@ -1,5 +1,6 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -36,14 +37,26 @@ import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 
+internal interface ImportSource {
+    fun status(context: Context): HcStatus
+    suspend fun granted(context: Context): Boolean
+    suspend fun drafts(context: Context, local: suspend () -> ImportLocal): List<ImportDraft>
+}
+
+internal object HealthConnectImport : ImportSource {
+    override fun status(context: Context) = HealthImport.status(context)
+    override suspend fun granted(context: Context) = HealthImport.hasPermissions(context)
+    override suspend fun drafts(context: Context, local: suspend () -> ImportLocal) = HealthImport.drafts(context, 60, local)
+}
+
 /** Reads band sessions from Health Connect and turns them into cardio sessions, one tap each. */
 @Composable
-fun ImportScreen(vm: AppViewModel, nav: NavHostController) {
+internal fun ImportScreen(vm: AppViewModel, nav: NavHostController, source: ImportSource = HealthConnectImport) {
     val context = LocalContext.current
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val plan by vm.planData.collectAsStateWithLifecycle()
-    var status by remember { mutableStateOf(HealthImport.status(context)) }
+    var status by remember { mutableStateOf(source.status(context)) }
     // Null until the permission check answers, so the Allow card does not flash.
     var granted by remember { mutableStateOf<Boolean?>(null) }
     var drafts by remember { mutableStateOf<List<ImportDraft>?>(null) }
@@ -58,14 +71,13 @@ fun ImportScreen(vm: AppViewModel, nav: NavHostController) {
     LaunchedEffect(Unit) { vm.repo.fillHeartRate() }
     LaunchedEffect(refresh, status) {
         if (status != HcStatus.AVAILABLE) return@LaunchedEffect
-        granted = runCatching { HealthImport.hasPermissions(context) }.getOrDefault(false)
+        granted = runCatching { source.granted(context) }.getOrDefault(false)
         if (granted == true) {
             error = null
-            drafts = runCatching { HealthImport.drafts(context, 60) { vm.repo.importLocal() } }.onFailure { error = it.message ?: "Read failed" }.getOrNull()
+            drafts = runCatching { source.drafts(context) { vm.repo.importLocal() } }.onFailure { error = it.message ?: "Read failed" }.getOrNull()
         }
     }
 
-    // A refused or failed import leaves its draft: the list is read again after every batch.
     fun import(items: List<Pair<ImportDraft, Exercise>>) {
         vm.run { HealthImport.importEach(items, vm.repo::importDraft); refresh++ }
     }
@@ -79,7 +91,7 @@ fun ImportScreen(vm: AppViewModel, nav: NavHostController) {
                     status, granted == true,
                     onStore = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
                     onAllow = { permLauncher.launch(HealthImport.readPermissions) },
-                    onCheckAgain = { status = HealthImport.status(context) },
+                    onCheckAgain = { status = source.status(context) },
                 )
                 granted == null -> Unit
                 else -> {

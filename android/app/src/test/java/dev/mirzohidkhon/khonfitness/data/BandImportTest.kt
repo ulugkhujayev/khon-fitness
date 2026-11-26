@@ -8,9 +8,11 @@ import dev.mirzohidkhon.khonfitness.health.HealthImport
 import dev.mirzohidkhon.khonfitness.health.ImportDraft
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.TimeZone
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -30,10 +32,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/**
- * The band import against Room: the covered rule on each original record, the grouping after it, claimed ids, the one
- * read transaction of the list and the count, and the write that checks again, rolls back, and asks for a fill.
- */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class BandImportTest {
@@ -43,6 +41,7 @@ class BandImportTest {
     private lateinit var clocks: FakeClocks
     private var fills = 0
     private val oldZone = TimeZone.getDefault()
+    private var zone: ZoneId = TEST_ZONE
     private val day = LocalDate.of(2026, 11, 20)
     private val run = Exercise("z2", "Zone 2 run", Kind.CARDIO, modalityId = "run")
     private val bike = Exercise("ride", "Easy ride", Kind.CARDIO, modalityId = "bike")
@@ -51,6 +50,7 @@ class BandImportTest {
 
     @Before fun open() {
         TimeZone.setDefault(TimeZone.getTimeZone(TEST_ZONE))
+        zone = TEST_ZONE
         clocks = FakeClocks(at(19, 0))
         fills = 0
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), KhonDatabase::class.java).build()
@@ -63,7 +63,7 @@ class BandImportTest {
 
     private fun fresh() { close(); open() }
 
-    private fun newRepo(fill: () -> Unit = { fills++ }) = KhonRepository(dao, clocks = clocks, zone = { TEST_ZONE }, requestFill = fill)
+    private fun newRepo(fill: () -> Unit = { fills++ }) = KhonRepository(dao, clocks = clocks, zone = { zone }, requestFill = fill)
 
     private fun band(
         id: String, from: Long, to: Long, modality: String? = "run", type: String = "Run", strength: Boolean = false,
@@ -73,7 +73,6 @@ class BandImportTest {
         List(samples) { Instant.ofEpochMilli(from + it * 60_000L) to (avg ?: 120) }, listOf(origin), strength = strength,
     )
 
-    /** An app cardio session with the run range `[from, to)`, finished a little after its timer unless [finished] is false. */
     private suspend fun appRun(
         id: String, from: Long?, to: Long?, ex: Exercise = run, finished: Boolean = true, startedAt: Long = from ?: at(18, 0),
         date: String = localDate(startedAt, TEST_ZONE), itemType: String = ItemType.CARDIO, sourceId: String? = null, linkedIds: String? = null,
@@ -266,11 +265,7 @@ class BandImportTest {
         assertEquals(setOf(listOf("id10")), ids(group))
     }
 
-    /**
-     * The list read held between its two queries while [write] commits one Room transaction; the read is let go
-     * without waiting for the write, which Room queues behind it.
-     */
-    private suspend fun heldRead(records: List<ImportDraft>, write: suspend () -> Unit, read: suspend (List<ImportDraft>) -> Int): Pair<Int, Int> {
+    private suspend fun readHeldWhileRoomQueuesWrite(records: List<ImportDraft>, write: suspend () -> Unit, read: suspend (List<ImportDraft>) -> Int): Pair<Int, Int> {
         val reached = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
         repo.betweenImportReads = { reached.complete(Unit); release.await() }
@@ -294,7 +289,7 @@ class BandImportTest {
                 dao.deleteSessionWithLogs("app")
                 appRun("imp", at(18, 0), at(18, 40), sourceId = "b1")
             }
-            assertEquals(0 to 0, heldRead(listOf(record), replace, read))
+            assertEquals(0 to 0, readHeldWhileRoomQueuesWrite(listOf(record), replace, read))
         }
     }
 
@@ -309,7 +304,7 @@ class BandImportTest {
                 dao.upsert(shared.copy(modalityId = "bike"))
                 dao.upsert(dao.session("x")!!.copy(timedFrom = at(18, 0), timedTo = at(18, 40)))
             }
-            assertEquals(1 to 1, heldRead(listOf(record), change, read))
+            assertEquals(1 to 1, readHeldWhileRoomQueuesWrite(listOf(record), change, read))
             assertEquals(0, fills)
             assertEquals(emptyList<Session>(), imported())
         }
@@ -383,27 +378,58 @@ class BandImportTest {
         assertEquals(1, fills)
     }
 
-    @Test fun `AT10 an import whose fill never ran keeps its id and bounds, a later fill reads them, and a replay asks nothing`() = runBlocking {
-        val dead = newRepo(fill = {})
-        assertEquals(ImportResult.SAVED, dead.importDraft(record, run))
+    @Test fun `AT10 after a restart of the database file the import keeps its id and bounds, the foreground fill reads them, and a replay asks nothing`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        context.deleteDatabase(KHON_DB)
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val before = KhonDatabase.build(context)
         try {
-            repo = newRepo()
-            val heart = FakeHeart { range -> everyMinute(range) }
-            val fill = repo.heartFill(heart, scope)
-            fill.fillHeartRate()
-            withTimeout(5_000) { fill.passes.first { it >= 1 } }
-            val s = imported().single()
-            assertEquals("b1", s.sourceId)
-            assertEquals(HrRange(at(18, 0), at(18, 40)), hrWindow(s, TEST_ZONE))
-            val row = dao.sessionHr(s.id)!!
-            assertEquals(HrState.FILLED to (at(18, 0) to at(18, 40)), row.state to (row.fromMs to row.toMs))
-            assertEquals(ImportResult.ALREADY_IMPORTED, repo.importDraft(record, run))
-            assertEquals(1, imported().size)
-            assertEquals(0, fills)
+            before.dao().upsert(run)
+            val dying = KhonRepository(before.dao(), clocks = clocks, zone = { zone }, requestFill = {})
+            assertEquals(ImportResult.SAVED, dying.importDraft(record, run))
+            before.close()
+
+            val after = KhonDatabase.build(context)
+            try {
+                var asked = 0
+                val restarted = KhonRepository(after.dao(), clocks = clocks, zone = { zone }, requestFill = { asked++ })
+                val fill = restarted.heartFill(FakeHeart { range -> everyMinute(range) }, scope)
+                fill.foreground()
+                withTimeout(5_000) { fill.passes.first { it >= 1 } }
+                val s = after.dao().sessionsOnce().single { it.sourceId != null }
+                assertEquals("b1", s.sourceId)
+                assertEquals(HrRange(at(18, 0), at(18, 40)), hrWindow(s, TEST_ZONE))
+                val row = after.dao().sessionHr(s.id)!!
+                assertEquals(HrState.FILLED to (at(18, 0) to at(18, 40)), row.state to (row.fromMs to row.toMs))
+                assertEquals(ImportResult.ALREADY_IMPORTED, restarted.importDraft(record, run))
+                assertEquals(1, after.dao().sessionsOnce().count { it.sourceId != null })
+                assertEquals(0 to 1, asked to fill.asked.value)
+            } finally {
+                after.close()
+            }
         } finally {
+            if (before.isOpen) before.close()
             scope.cancel()
+            context.deleteDatabase(KHON_DB)
         }
+    }
+
+    @Test fun `the write reads the time zone inside its transaction, not at submit`() = runBlocking {
+        appRun("app", at(18, 0), at(18, 40), date = day.toString())
+        zone = ZoneId.of("Pacific/Kiritimati")
+        assertEquals(1, count(listOf(record)))
+        val held = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val roomHolder = async { db.withTransaction { held.complete(Unit); release.await() } }
+        withTimeout(5_000) { held.await() }
+        val import = async(start = CoroutineStart.UNDISPATCHED) { repo.importDraft(record, run) }
+        assertFalse(import.isCompleted)
+        zone = TEST_ZONE
+        release.complete(Unit)
+        assertEquals(ImportResult.COVERED, withTimeout(5_000) { import.await() })
+        roomHolder.await()
+        assertEquals(emptyList<Session>(), imported())
+        assertEquals(0, fills)
     }
 
     @Test fun `AT11 an archived exercise still gives its run a modality, and a date move takes the range away`() = runBlocking {
@@ -426,3 +452,5 @@ class BandImportTest {
         assertEquals(2, fills)
     }
 }
+
+private const val KHON_DB = "khon.db"

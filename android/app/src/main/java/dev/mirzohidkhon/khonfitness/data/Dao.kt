@@ -330,33 +330,23 @@ interface KhonDao {
         }
         return result
     }
-    /**
-     * A Health Connect import ([insertSessionWithLogs]), written only while none of its source records is imported yet,
-     * checked in the same transaction: a second tap on the same draft writes nothing. Returns whether it wrote.
-     */
     @Query("SELECT * FROM sessions WHERE sourceId IS NOT NULL OR linkedIds IS NOT NULL OR (itemType = '${ItemType.CARDIO}' AND timedFrom IS NOT NULL AND timedTo IS NOT NULL)")
     suspend fun importSessions(): List<Session>
 
-    /** The import's local rows in one read transaction: the exercises' modalities, then the sessions; [between] runs in between. */
     @Transaction suspend fun importLocal(zone: ZoneId, between: suspend () -> Unit): ImportLocal {
         val modalities = exercisesOnce().associate { it.id to it.modalityId }
         between()
         return importLocal(importSessions(), modalities, zone)
     }
 
-    /**
-     * The import of a band draft, checked on fresh rows inside its own transaction: no id of [session] or of [records]
-     * is claimed, no record is covered now, and no timer result waits ([timerPending]). Else it writes nothing. [checked]
-     * runs after the checks, before the insert.
-     */
     @Transaction suspend fun insertImportedSession(
-        session: Session, intervalLogs: List<IntervalLog>, records: List<BandRecord>, timerPending: Boolean, zone: ZoneId,
+        session: Session, intervalLogs: List<IntervalLog>, records: List<BandRecord>, timerPending: () -> Boolean, zone: () -> ZoneId,
         checked: suspend () -> Unit,
     ): ImportResult {
-        val local = importLocal(zone) {}
+        val local = importLocal(zone()) {}
         if ((claimedIds(session) + records.map { it.id }).any { it in local.claimed }) return ImportResult.ALREADY_IMPORTED
         if (records.any { covered(it, local.runs) }) return ImportResult.COVERED
-        if (timerPending) return ImportResult.TIMER_PENDING
+        if (timerPending()) return ImportResult.TIMER_PENDING
         checked()
         insertSessionWithLogs(session, emptyList(), intervalLogs)
         return ImportResult.SAVED

@@ -149,10 +149,7 @@ class KhonRepository(
     val generation: Long get() = generationCounter.get()
     private val raiseGeneration: () -> Unit = { generationCounter.incrementAndGet() }
 
-    /**
-     * Orders the end of a timer run ([endTimerRun]) against a Replace import, a reset, snapshot included, and the band
-     * import ([importDraft]).
-     */
+    /** Orders the end of a timer run ([endTimerRun]) against a Replace import and a reset, snapshot included. */
     private val timerLock = Mutex()
 
     /** Runs after a timer commit read its generation and before it takes [timerLock]; a test holds a commit here. */
@@ -406,25 +403,17 @@ class KhonRepository(
         result
     }
 
-    /** Runs inside the import's local read, between its two queries; a test holds the read here. */
     internal var betweenImportReads: suspend () -> Unit = {}
-    /** Runs after an import was submitted and before it takes [timerLock]; a test holds the import here. */
     internal var beforeImportAdmission: suspend () -> Unit = {}
-    /** Runs inside the import's write after its checks passed and before its insert; a test holds the import here. */
     internal var afterImportChecks: suspend () -> Unit = {}
 
-    /** The claimed record ids and the app run ranges, from one read transaction ([KhonDao.importLocal]). */
     suspend fun importLocal(): ImportLocal = dao.importLocal(zone(), betweenImportReads)
 
-    /** Asks the heart rate fill to run, and returns at once. */
     fun fillHeartRate() = requestFill()
 
     /**
      * Creates a finished cardio session from a Health Connect draft, with per-interval heart rate when the exercise has
-     * intervals, and the band's bounds as its range. Under [timerLock], so no timer run ends between the check of the
-     * pending timer results and the write; the write checks every record of the draft again on fresh rows
-     * ([KhonDao.insertImportedSession]). A fill is asked only when the session was saved. A failed write throws and
-     * leaves nothing.
+     * intervals. A draft already imported writes nothing ([KhonDao.insertImportedSession]).
      */
     suspend fun importDraft(d: dev.mirzohidkhon.khonfitness.health.ImportDraft, ex: Exercise): ImportResult {
         val fields = ex.fieldList
@@ -439,9 +428,10 @@ class KhonRepository(
         )
         val hrs = dev.mirzohidkhon.khonfitness.health.HealthImport.intervalHeartRates(d, ex)
         val logs = hrs.mapIndexed { i, hr -> IntervalLog(newId(), session.id, i, avgHr = hr) }
+        val pendingAtSubmit = timer.resultPending()
         beforeImportAdmission()
         val result = timerLock.withLock {
-            dao.insertImportedSession(session, logs, d.records, timer.resultPending(), zone(), afterImportChecks)
+            dao.insertImportedSession(session, logs, d.records, { pendingAtSubmit || timer.resultPending() }, zone, afterImportChecks)
         }
         if (result == ImportResult.SAVED) requestFill()
         return result

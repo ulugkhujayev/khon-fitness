@@ -3,6 +3,7 @@ package dev.mirzohidkhon.khonfitness.timer
 import android.app.Application
 import android.content.Context
 import androidx.room.Room
+import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.data.CardioSaveResult
 import dev.mirzohidkhon.khonfitness.data.EndedRun
@@ -24,11 +25,14 @@ import dev.mirzohidkhon.khonfitness.health.HealthImport
 import dev.mirzohidkhon.khonfitness.health.ImportDraft
 import java.time.Instant
 import java.time.LocalDate
+import java.util.Collections
 import java.util.TimeZone
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
@@ -43,10 +47,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/**
- * The band import against the end of a cardio timer run: the one lock, the pending result store, the live snapshot
- * before the startup restore, and the commit that makes the band record covered.
- */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class ImportAdmissionTest {
@@ -60,7 +60,6 @@ class ImportAdmissionTest {
     private var fills = 0
     private lateinit var bike: dev.mirzohidkhon.khonfitness.data.Exercise
 
-    /** The band's copy of the full 4x4 run that starts at 18:00 and ends at 18:26:03. */
     private val draft = band("b1", at(18, 0), at(18, 27))
 
     @Before fun open() {
@@ -111,7 +110,6 @@ class ImportAdmissionTest {
         return s
     }
 
-    /** The service's end of a run: the done state moves to the pending store before anything else. */
     private fun TimerState.ended() = finishedAt(clocks.wall, clocks.elapsed).also { TimerSnapshots.save(context, it, clocks.wall) }
 
     private suspend fun full() = ready().started().run(1563.0).ended()
@@ -119,7 +117,6 @@ class ImportAdmissionTest {
     private suspend fun offered(d: ImportDraft = draft) = HealthImport.offered(listOf(d), repo.importLocal()).size
     private suspend fun counted(d: ImportDraft = draft) = HealthImport.countOffered(listOf(d), repo.importLocal())
 
-    /** A refused import left nothing: no imported session, no new rounds, no claim, no fill, and the draft is still offered. */
     private suspend fun nothingImported(rounds: Int = 4) {
         assertTrue(dao.sessionsOnce().none { it.sourceId != null })
         assertEquals(rounds, dao.intervalLogsOnce().size)
@@ -129,8 +126,7 @@ class ImportAdmissionTest {
         assertEquals(1, counted())
     }
 
-    /** Holds the first timer commit after it read its generation, before it takes the lock, until [release]. */
-    private inner class Hold {
+    private inner class HoldFirstCommitBeforeLock {
         val reached = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
         private var first = true
@@ -144,7 +140,7 @@ class ImportAdmissionTest {
 
     @Test fun `D7b AT07 a result held before its write refuses the import, and after its commit the import is covered`() = runBlocking {
         assertEquals(1, offered())
-        val hold = Hold()
+        val hold = HoldFirstCommitBeforeLock()
         val done = full()
         val ending = async(Dispatchers.IO) { endRun(repo, context, done) }
         withTimeout(5_000) { hold.reached.await() }
@@ -191,7 +187,7 @@ class ImportAdmissionTest {
         val import = async(Dispatchers.IO) { repo.importDraft(draft, bike) }
         withTimeout(5_000) { reached.await() }
         repo.beforeImportAdmission = {}
-        val hold = Hold()
+        val hold = HoldFirstCommitBeforeLock()
         val done = running.ended()
         val ending = async(Dispatchers.IO) { endRun(repo, context, done) }
         withTimeout(5_000) { hold.reached.await() }
@@ -203,26 +199,75 @@ class ImportAdmissionTest {
         assertEquals(ImportResult.COVERED, repo.importDraft(draft, bike))
     }
 
-    @Test fun `AT07a an admitted import saves before the timer's end commits`() = runBlocking {
+    private fun TimerState.settledRun(passing: () -> Unit = {}): EndedRun {
+        passing()
+        val s = this
+        return EndedRun(runResult()) { TimerSnapshots.settle(context, s); TimerSnapshots.clearRun(context, s) }
+    }
+
+    @Test fun `AT07a D7c a timer commit that reached the lock passes it only after the admitted import released it`() = runBlocking {
         val reached = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
+        val order = Collections.synchronizedList(mutableListOf<String>())
         val running = ready().started().run(1563.0)
-        repo.afterImportChecks = { reached.complete(Unit); release.await() }
+        repo.afterImportChecks = { reached.complete(Unit); release.await(); order += "import released" }
         val import = async(Dispatchers.IO) { repo.importDraft(draft, bike) }
         withTimeout(5_000) { reached.await() }
         val done = running.ended()
-        val ending = async(Dispatchers.IO) { endRun(repo, context, done) }
-        delay(500)
-        assertFalse(ending.isCompleted)
+        val atLock = CompletableDeferred<Unit>()
+        repo.beforeTimerCommit = { atLock.complete(Unit) }
+        val ending = async(start = CoroutineStart.UNDISPATCHED) { repo.endTimerRun { done.settledRun { order += "timer passed the lock" } } }
+        assertTrue(atLock.isCompleted)
+        assertEquals(emptyList<String>(), order.toList())
         release.complete(Unit)
         assertEquals(ImportResult.SAVED, withTimeout(5_000) { import.await() })
-        assertTrue(withTimeout(5_000) { ending.await() })
+        assertEquals(TimerCommit.COMMITTED, withTimeout(5_000) { ending.await() })
+        assertEquals(listOf("import released", "timer passed the lock"), order.toList())
         val app = dao.session("c")!!
         assertEquals(1, app.timerDone)
         assertEquals(at(18, 0), app.timedFrom)
         assertEquals("b1", dao.sessionsOnce().single { it.sourceId != null }.sourceId)
         assertEquals(1, fills)
         assertEquals(emptyList<PendingRun>(), TimerSnapshots.pending(context))
+    }
+
+    @Test fun `D7b a covering run that ends while the admitted import waits for Room refuses it at its write`() = runBlocking {
+        val running = ready().started().run(1563.0)
+        assertFalse(TimerSnapshots.resultPending(context, clocks.wall, clocks.elapsed))
+        val held = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val roomHolder = async { db.withTransaction { held.complete(Unit); release.await() } }
+        withTimeout(5_000) { held.await() }
+        val import = async(start = CoroutineStart.UNDISPATCHED) { repo.importDraft(draft, bike) }
+        assertFalse(import.isCompleted)
+        val done = running.ended()
+        release.complete(Unit)
+        assertEquals(ImportResult.TIMER_PENDING, withTimeout(5_000) { import.await() })
+        roomHolder.await()
+        nothingImported()
+        assertTrue(endRun(repo, context, done))
+        assertEquals(ImportResult.COVERED, repo.importDraft(draft, bike))
+        assertEquals(0, fills)
+    }
+
+    @Test fun `D7b a result pending at submit refuses the import that waits behind its commit, also when the commit covers nothing`() = runBlocking {
+        val started = ready().started().run(300.0)
+        clocks.moveWall(10 * 60_000L)
+        val done = started.run(1263.0).ended()
+        val insideLock = CountDownLatch(1)
+        val letGo = CountDownLatch(1)
+        val committing = async(Dispatchers.IO) { repo.endTimerRun { done.settledRun { insideLock.countDown(); letGo.await() } } }
+        assertTrue(insideLock.await(5, TimeUnit.SECONDS))
+        val import = async(start = CoroutineStart.UNDISPATCHED) { repo.importDraft(draft, bike) }
+        assertFalse(import.isCompleted)
+        letGo.countDown()
+        assertEquals(TimerCommit.COMMITTED, withTimeout(5_000) { committing.await() })
+        assertFalse(TimerSnapshots.hasPending(context))
+        assertNull(dao.session("c")!!.timedFrom)
+        assertEquals(ImportResult.TIMER_PENDING, withTimeout(5_000) { import.await() })
+        nothingImported()
+        assertEquals(ImportResult.SAVED, repo.importDraft(draft, bike))
+        assertEquals(1, fills)
     }
 
     @Test fun `AT07a on a cold start an import before the restore sees an ended snapshot as pending`() = runBlocking {

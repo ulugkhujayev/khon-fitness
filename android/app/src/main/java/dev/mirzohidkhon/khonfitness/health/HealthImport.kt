@@ -34,7 +34,6 @@ data class ImportDraft(
     val poolLength: Int? = null,
     val mergedIds: List<String> = listOf(sourceId),
     val strength: Boolean = false,
-    /** The original records of this draft, before [HealthImport.mergeOverlaps] grouped them. */
     val records: List<BandRecord> = listOf(BandRecord(sourceId, start.toEpochMilli(), end.toEpochMilli(), modalityId)),
 ) {
     val date: LocalDate get() = start.atZone(ZoneId.systemDefault()).toLocalDate()
@@ -99,14 +98,12 @@ object HealthImport {
         else -> "Workout" to null
     }
 
-    /** The exercise sessions of the last [days] days from Health Connect, without this app's own (outside debug builds). */
     private suspend fun sessionRecords(context: Context, days: Long): List<ExerciseSessionRecord> {
         val end = Instant.now(); val start = end.minus(days, ChronoUnit.DAYS)
         return client(context).readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, TimeRangeFilter.between(start, end))).records
             .filter { BuildConfig.DEBUG || it.metadata.dataOrigin.packageName != context.packageName }
     }
 
-    /** One record as a draft of its own, with no distance or heart rate read yet. */
     private fun recordDraft(rec: ExerciseSessionRecord): ImportDraft {
         val (name, modality) = modalityFor(rec.exerciseType)
         val lapLengths = rec.laps.mapNotNull { it.length?.inMeters }.filter { it > 0 }
@@ -118,15 +115,10 @@ object HealthImport {
         )
     }
 
-    /**
-     * The drafts the import offers from single-record drafts [records]: a record that a session claims or that an app
-     * run covers ([ImportLocal.available]) leaves first, each kept record goes through [enrich], then the rest group
-     * ([mergeOverlaps]). The list and the count both come from here.
-     */
     suspend fun offered(records: List<ImportDraft>, local: ImportLocal, enrich: suspend (ImportDraft) -> ImportDraft = { it }): List<ImportDraft> =
         mergeOverlaps(records.filter { d -> d.records.all(local::available) }.map { enrich(it) })
 
-    /** Sessions from the last [days] days that the app has not imported yet; [local] is read after the band records. */
+    /** Sessions from the last [days] days that the app has not imported yet. */
     suspend fun drafts(context: Context, days: Long, local: suspend () -> ImportLocal): List<ImportDraft> {
         val c = client(context)
         val records = sessionRecords(context, days).map(::recordDraft)
@@ -138,11 +130,7 @@ object HealthImport {
         }
     }
 
-    /**
-     * The band and the watch both record the same workout. Sessions of one modality that overlap in time, also through
-     * a chain, become one draft. The input order changes nothing: the records are taken by start, end and id; the
-     * drafts come out newest first.
-     */
+    /** The band and the watch both record the same workout. Sessions that overlap in time become one draft. */
     fun mergeOverlaps(drafts: List<ImportDraft>): List<ImportDraft> {
         val out = mutableListOf<ImportDraft>()
         for (d in drafts.sortedWith(compareBy<ImportDraft>({ it.start }, { it.end }, { it.sourceId }))) {
@@ -162,19 +150,14 @@ object HealthImport {
         return out.sortedWith(compareByDescending<ImportDraft> { it.start }.thenByDescending { it.end }.thenBy { it.sourceId })
     }
 
-    /** How many band sessions wait for import, strength workouts not counted. Cheap enough to run when Today opens. */
+    /** How many band sessions wait for import. Cheap enough to run when Today opens. */
     suspend fun pendingCount(context: Context, local: suspend () -> ImportLocal): Int {
         if (status(context) != HcStatus.AVAILABLE || !hasPermissions(context)) return 0
         return countOffered(sessionRecords(context, 60).map(::recordDraft), local())
     }
 
-    /** The number of drafts [offered] gives for [records] without the strength workouts. */
     suspend fun countOffered(records: List<ImportDraft>, local: ImportLocal): Int = offered(records.filter { !it.strength }, local).size
 
-    /**
-     * Imports each of [items] in turn through [import]. A draft whose write fails is skipped, and the next one goes on;
-     * the outcome is null for it.
-     */
     suspend fun importEach(items: List<Pair<ImportDraft, Exercise>>, import: suspend (ImportDraft, Exercise) -> ImportResult): List<ImportResult?> =
         items.map { (d, ex) ->
             try {

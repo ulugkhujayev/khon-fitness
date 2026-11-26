@@ -230,7 +230,7 @@ class SetupRulesTest {
         val h = history(listOf(Day("a", 0, name = name), Day("b", 2, name = name), Day("c", 4, name = name, sets = 4, min = 1, max = 1), Day("d", 6, name = name, sets = 4, min = 1, max = 1)))
         val rows = periodRows(h, today)
         assertEquals(listOf("Since Oct 5", "Oct 1 – Oct 4"), rows.map { it.dates })
-        assertEquals("Since Oct 5, Push – Pull · PM, 4 sets, 1 repetition, no rate", rows[0].spoken)
+        assertEquals("Since Oct 5, Push – Pull · PM, 4 sets, 1 rep, no rate", rows[0].spoken)
         assertEquals("Oct 1 to Oct 4, Push – Pull · PM, 3 sets, 8 to 12 reps, no rate", rows[1].spoken)
         assertEquals("Push – Pull · PM", rows[0].programName)
         assertEquals("4 sets · 1 rep", rows[0].tail)

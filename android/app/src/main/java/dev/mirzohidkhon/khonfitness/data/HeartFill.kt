@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -48,6 +49,9 @@ class HeartFill(
     private val rereads = mutableMapOf<String, CompletableDeferred<HrReread>>()
     private var lastForeground: Long? = null
 
+    private val askedCount = MutableStateFlow(0)
+    val asked: StateFlow<Int> = askedCount
+
     private val passCount = MutableStateFlow(0)
     /** The number of passes ended since the start. */
     val passes: StateFlow<Int> = passCount
@@ -57,6 +61,7 @@ class HeartFill(
 
     /** Asks for a pass and returns at once. */
     fun fillHeartRate() {
+        askedCount.update { it + 1 }
         runner
         requests.trySend(Unit)
     }

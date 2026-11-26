@@ -120,3 +120,10 @@ The status is the first word of the second cell: `done`, `deviation`, or
 
 Run `~/.config/agents/tools/task-result check <task file>` before your final
 message.
+
+## Lead decisions after the build
+
+- D7c: accepted as built. The import takes the repository timer lock for its pending check and its write; the timer commit takes the same lock; the pending store entry written at the end of a run stands for the lock at "run ended". The import does not wait for the startup restore: a live cardio snapshot that has ended, or reaches its end now, counts as pending.
+- `ImportDraft.records` holds the original records for the check inside the write.
+- Two records with equal sample counts: the group takes its values from the earliest record (start, end, id).
+- `importLocal` replaces `importedSourceIds`.

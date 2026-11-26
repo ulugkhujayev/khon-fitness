@@ -439,12 +439,16 @@ nothing. The maximum is always the measured one.
   round rows, and its "Average" row are measured values, also when the
   owner typed one.
 - The sheet has "Read again" (not without a range) and "Remove" (only
-  while a row that is not off exists; it asks first). "Read again" shows
-  its result as one line: the new values, "No data yet", or "Health
-  Connect did not answer". The line belongs to the open sheet, the range
-  that was read, and the row the read left. Remove, a range change, a new
-  row, or a closed sheet clears it. A second tap while a read runs does nothing. A session deleted
-  meanwhile closes the sheet.
+  while a row that is not off exists; it asks first). After "Read again"
+  the rows show the state: the new facts, "Waiting for data", "No data",
+  or "Not read". A read that fails shows one line, "Health Connect did not
+  answer". The line belongs to the open sheet, its range, and the row it
+  showed at the tap, and it stays through a rotation. Remove, "Use this
+  time range", a range change (also one that goes back), a new row, a
+  closed sheet, or leaving the screen clears it. Remove, a closed sheet,
+  and leaving the screen also stop the read. A
+  second tap while a read runs does nothing. A session deleted meanwhile
+  closes the sheet.
 - A finished gym session without a range that "Use this time range"
   accepts shows its start and finish as clock times and that action.
 - Without Health Connect or without the heart rate permission, the screen

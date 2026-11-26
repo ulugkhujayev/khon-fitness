@@ -158,6 +158,19 @@ class HeartShotsTest {
         shot("360-f1.0-4-sheet-waiting")
     }
 
+    @Test @Config(qualifiers = "w360dp-h800dp-xxhdpi") fun sheetFailed() {
+        fill = app.repo.heartFill(FakeHeart { throw IllegalStateException("no provider") }, scope)
+        seed()
+        screen()
+        waitSaid("Pull day,")
+        compose.onNodeWithContentDescription("Pull day,", substring = true).performSemanticsAction(SemanticsActions.OnClick)
+        waitText("Waiting for data")
+        compose.onNodeWithText("Read again").performSemanticsAction(SemanticsActions.OnClick)
+        waitText("Health Connect did not answer")
+        Thread.sleep(400)
+        shot("360-f1.0-11-sheet-failed")
+    }
+
     @Test @Config(qualifiers = "w360dp-h800dp-xxhdpi") fun confirmRemove() {
         seed()
         screen()

@@ -22,7 +22,11 @@ Witness files (each has a test patch next to it):
 `/Users/mirzohidkhon/deepvision/personal/khon-fitness/tasks/CMP01-compare-periods-W/F1.json`
 to `F4.json`. Run
 `~/.config/agents/tools/witness run <file> --sha <your commit>` for each
-and show `fixed` in the Coverage table.
+and show `fixed` in the Coverage table. Export
+`ANDROID_HOME="$HOME/Library/Android/sdk"` first: without it the witness
+clone cannot find the SDK, Gradle stops, and the witness can never say
+`fixed`. After each run, read the receipt log it names and confirm that
+the test itself ran.
 
 ## Scope
 

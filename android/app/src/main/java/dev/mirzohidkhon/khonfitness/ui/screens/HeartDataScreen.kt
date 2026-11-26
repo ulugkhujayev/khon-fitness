@@ -12,6 +12,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,7 +35,8 @@ import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.time.Clock
-import kotlinx.coroutines.flow.first
+import java.time.ZoneId
+import kotlinx.coroutines.launch
 
 class HeartAccess(val status: () -> HcStatus, val granted: suspend () -> Boolean) {
     companion object {
@@ -76,14 +78,11 @@ fun HeartDataScreen(
         if (status == HcStatus.AVAILABLE) granted = runCatching { access.granted() }.getOrDefault(false)
     }
 
-    var open by remember { mutableStateOf<String?>(null) }
-    var sheetNo by remember { mutableIntStateOf(0) }
-    var confirmRemove by remember { mutableStateOf(false) }
-    var reading by remember { mutableStateOf(setOf<String>()) }
-    var confirming by remember { mutableStateOf(setOf<String>()) }
-    var result by remember { mutableStateOf<HrReadResult?>(null) }
-    fun openSheet(id: String) { open = id; sheetNo++; confirmRemove = false; result = null }
-    fun close() { open = null; sheetNo++; confirmRemove = false; result = null }
+    var open by rememberSaveable { mutableStateOf<String?>(null) }
+    var sheetNo by rememberSaveable { mutableIntStateOf(0) }
+    var confirmRemove by rememberSaveable { mutableStateOf(false) }
+    fun openSheet(id: String) { open = id; sheetNo++; confirmRemove = false }
+    fun close() { open = null; sheetNo++; confirmRemove = false }
 
     Column(Modifier.fillMaxSize()) {
         val scroll = rememberScrollState()
@@ -111,50 +110,62 @@ fun HeartDataScreen(
     }
 
     val shown = open?.let { id -> sessions.find { it.id == id } }
-    val now = shown?.let { hrReadKey(sheetNo, it, rowOf(rows, it.id), zone) }
-    val latest by rememberUpdatedState(now)
-    LaunchedEffect(result, now) { result = result?.after(now) }
     LaunchedEffect(open, shown == null, sessions) { if (open != null && shown == null) close() }
-    if (shown == null || now == null) return
+    if (shown == null) return
     val id = shown.id
 
     if (confirmRemove) {
         ConfirmSheet("Remove heart rate?", "", "Remove", onDismiss = { confirmRemove = false }) {
             confirmRemove = false
-            result = null
             vm.run { heart.removeHeartRate(id) }
         }
         return
     }
-    val sheet = hrSheet(shown, rowOf(rows, id), intervals.filter { it.sessionId == id }, zone, result, now) { appLabel(context, it) }
-    Sheet(sessionName(shown), ::close) {
+    key(sheetNo) { HeartSheet(vm, heart, shown, rowOf(rows, id), intervals.filter { it.sessionId == id }, zone, onRemove = { confirmRemove = true }, onClose = ::close) }
+}
+
+@Composable
+private fun HeartSheet(vm: AppViewModel, heart: HeartFill, s: Session, row: SessionHr?, rounds: List<IntervalLog>, zone: ZoneId, onRemove: () -> Unit, onClose: () -> Unit) {
+    val context = LocalContext.current
+    val id = s.id
+    val range = hrWindow(s, zone)
+    val now = listOf(range, row).hashCode()
+    var asked by remember(range, row) { mutableStateOf<Any?>(null) }
+    var failedAt by rememberSaveable(range, row) { mutableStateOf<Int?>(null) }
+    var reading by remember { mutableStateOf(false) }
+    var confirming by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val sheet = hrSheet(s, row, rounds, zone, failed = failedAt == now) { appLabel(context, it) }
+    Sheet(sessionName(s), onClose) {
         Column(Modifier.verticalScroll(rememberScrollState())) {
-            Text(shown.date.toDate().format(shortDate), style = MaterialTheme.typography.bodyMedium, color = K.Muted, modifier = Modifier.padding(bottom = 12.dp))
+            Text(s.date.toDate().format(shortDate), style = MaterialTheme.typography.bodyMedium, color = K.Muted, modifier = Modifier.padding(bottom = 12.dp))
             GroupedList(elevated = true) { sheet.facts.forEachIndexed { i, (k, v) -> FactRow(k, v, divider = i > 0) } }
             val bounds = sheet.useRange
             if (sheet.reread || bounds != null) GroupedList(Modifier.padding(top = 20.dp), elevated = true) {
-                if (bounds != null) ActionRow(Icons.Check, "Use this time range", enabled = id !in confirming, divider = false) {
-                    if (id in confirming) return@ActionRow
-                    confirming = confirming + id
-                    vm.run { try { vm.repo.confirmRange(id, bounds.fromMs, bounds.toMs) } finally { confirming = confirming - id } }
+                if (bounds != null) ActionRow(Icons.Check, "Use this time range", enabled = !confirming, divider = false) {
+                    if (confirming) return@ActionRow
+                    confirming = true
+                    asked = null
+                    failedAt = null
+                    vm.run { try { vm.repo.confirmRange(id, bounds.fromMs, bounds.toMs) } finally { confirming = false } }
                 }
-                if (sheet.reread) ActionRow(Icons.Restore, "Read again", enabled = id !in reading, divider = bounds != null) {
-                    if (id in reading) return@ActionRow
-                    val asked = now
-                    reading = reading + id
-                    result = null
-                    vm.run {
+                if (sheet.reread) ActionRow(Icons.Restore, "Read again", enabled = !reading, divider = bounds != null) {
+                    if (reading) return@ActionRow
+                    val request = Any()
+                    asked = request
+                    failedAt = null
+                    reading = true
+                    scope.launch {
                         try {
-                            val outcome = heart.rereadHeartRate(id)
-                            result = readResult(asked, outcome, latest, vm.repo.sessionHr(id).first())
+                            if (heart.rereadHeartRate(id) == HrReread.FAILED && asked === request) failedAt = now
                         } finally {
-                            reading = reading - id
+                            reading = false
                         }
                     }
                 }
             }
             if (sheet.remove) GroupedList(Modifier.padding(top = 20.dp), elevated = true) {
-                ActionRow(Icons.Trash, "Remove", color = K.Red, divider = false) { confirmRemove = true }
+                ActionRow(Icons.Trash, "Remove", color = K.Red, divider = false, onClick = onRemove)
             }
             sheet.line?.let { GroupFooter(it) }
         }

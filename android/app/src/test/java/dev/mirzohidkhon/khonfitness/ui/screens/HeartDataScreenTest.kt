@@ -209,20 +209,22 @@ class HeartDataScreenTest {
         shows("128 bpm"); shows("412 read · 398 used")
         fake.answer = { r -> everyMinute(r, bpm = 140) }
         click("Read again")
-        shows("avg 140 · max 140 bpm")
+        shows("140 bpm")
         assertEquals(2, fake.calls.size)
         gone("Health Connect did not answer")
+        assertTrue(texts("avg 140 · max 140 bpm").isEmpty())
     }
 
-    @Test fun `a sparse read says no data yet, and a session deleted during a read closes the sheet`() {
+    @Test fun `a sparse read shows the waiting row, and a session deleted during a read closes the sheet`() {
         val push = gym("g", "Push", yesterday)
         io { dao.upsert(push) }
         screen()
         openSheet("Push")
         fake.answer = { r -> sparse(r) }
         click("Read again")
-        shows("No data yet")
         shows("Waiting for data")
+        readDone()
+        assertTrue(texts("No data yet").isEmpty())
         fake.hold()
         click("Read again")
         reached()
@@ -278,7 +280,7 @@ class HeartDataScreenTest {
         assertNull(hrLine(push, hrFacts(push, removed, zone)))
         fake.answer = { r -> everyMinute(r, bpm = 128) }
         click("Read again")
-        shows("avg 128 · max 128 bpm")
+        shows("128 bpm")
         assertEquals(HrState.FILLED, io2 { dao.sessionHr("g") }!!.state)
 
         val runRow = io2 { dao.sessionHr("c") }!!
@@ -451,6 +453,108 @@ class HeartDataScreenTest {
         assertTrue(texts(failure).isEmpty())
     }
 
+    @Test fun `a late failure after Remove tapped and cancelled shows nothing`() {
+        lateFailure { click("Remove"); shows("Remove heart rate?"); click("Cancel"); shows("Time range") }
+        readDone()
+        assertTrue(texts(failure).isEmpty())
+    }
+
+    @Test fun `a late failure after Remove confirmed before Room publishes the off row shows nothing`() {
+        lateFailure { click("Remove"); shows("Remove heart rate?"); click("Remove") }
+        shows("Removed")
+        readDone()
+        assertTrue(texts(failure).isEmpty())
+    }
+
+    @Test fun `a late failure after a range change and a change back shows nothing`() {
+        lateFailure { push ->
+            io { dao.upsert(push.copy(timedTo = push.timedTo!! + 60_000)) }; shows("18:02 to 19:15")
+            io { dao.upsert(push) }; shows("18:02 to 19:14")
+        }
+        readDone()
+        assertTrue(texts(failure).isEmpty())
+    }
+
+    @Test fun `an automatic pass that replaces the row as the explicit read returns leaves no line`() {
+        val push = gym("g", "Push", yesterday)
+        io { dao.upsert(push) }
+        val answers = ArrayDeque<suspend (HrRange) -> List<HeartRecord>>()
+        fake.answer = { r -> answers.removeFirst()(r) }
+        screen()
+        openSheet("Push")
+        answers += { r -> sparse(r) }; answers += { r -> everyMinute(r, bpm = 150) }
+        fake.hold()
+        click("Read again")
+        reached()
+        fill.fillHeartRate()
+        fake.release()
+        shows("150 bpm")
+        readDone()
+        assertEquals(2, fake.calls.size)
+        assertTrue(texts("No data yet").isEmpty()); assertTrue(texts("avg 150 · max 150 bpm").isEmpty()); assertTrue(texts(failure).isEmpty())
+
+        io { dao.upsertSessionHr(state(push, HrState.WAITING)) }
+        shows("Waiting for data")
+        answers += { throw IllegalStateException("no provider") }; answers += { r -> everyMinute(r, bpm = 160) }
+        fake.hold()
+        click("Read again")
+        reached()
+        fill.fillHeartRate()
+        fake.release()
+        shows("160 bpm")
+        gone(failure)
+        readDone()
+        assertEquals(4, fake.calls.size)
+    }
+
+    @Test fun `an old request after leaving the screen and a range change shows nothing, the new request shows its own outcome`() {
+        val push = gym("g", "Push", yesterday)
+        val old = hrWindow(push, zone)!!
+        io { dao.upsert(push); dao.upsertSessionHr(filled(push)) }
+        fake.answer = { r -> if (r == old) throw IllegalStateException("no provider") else everyMinute(r, bpm = 150) }
+        screen()
+        openSheet("Push")
+        fake.hold()
+        click("Read again")
+        reached()
+        show { androidx.compose.material3.Text("Settings screen") }
+        shows("Settings screen")
+        io { dao.upsert(push.copy(timedTo = push.timedTo!! + 60_000)) }
+        screen()
+        openSheet("Push")
+        shows("18:02 to 19:15")
+        click("Read again")
+        fake.release()
+        compose.waitUntil(5_000) { compose.waitForIdle(); fake.active == 0 }
+        readDone()
+        shows("150 bpm")
+        assertTrue(texts(failure).isEmpty())
+    }
+
+    @Test fun `a failure stays after a recomposition and a rotation`() {
+        val push = gym("g", "Push", yesterday)
+        io { dao.upsert(push); dao.upsertSessionHr(filled(push)) }
+        fake.answer = { throw IllegalStateException("no provider") }
+        val restore = androidx.compose.ui.test.junit4.StateRestorationTester(compose)
+        restore.setContent {
+            KhonTheme {
+                androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) {
+                    HeartDataScreen(vm, rememberNavController(), heart = fill, access = access)
+                }
+            }
+        }
+        openSheet("Push")
+        click("Read again")
+        shows(failure)
+        io { dao.upsert(gym("p", "Pull", today.minusDays(2))) }
+        waitSaid("Pull,")
+        assertTrue(texts(failure).isNotEmpty())
+        restore.emulateSavedInstanceStateRestore()
+        shows("Time range")
+        shows(failure)
+        shows("128 bpm")
+    }
+
     private fun closeSheet() {
         compose.onNodeWithContentDescription("Close sheet").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         compose.waitForIdle()
@@ -483,7 +587,7 @@ class HeartDataScreenTest {
         openSheet("Push")
         assertTrue(texts("Read heart rate").isEmpty()); assertTrue(texts("Allow").isEmpty())
         click("Read again")
-        shows("avg 133 · max 133 bpm")
+        shows("133 bpm")
         assertEquals(HrState.FILLED, io2 { dao.sessionHr("g") }!!.state)
         access = HeartAccess.withPermissions({ HcStatus.AVAILABLE }, { emptySet() })
         screen()

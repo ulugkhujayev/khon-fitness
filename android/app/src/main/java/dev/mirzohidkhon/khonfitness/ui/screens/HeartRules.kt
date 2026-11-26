@@ -31,6 +31,12 @@ fun workHrPoints(sessions: List<Session>, rounds: List<IntervalLog>, facts: Map<
             ?.let { ChartPoint(s.date.toDate(), it.average()) }
     }
 
+const val AVG_HR_CHART = "Average heart rate"
+
+fun cardioHrCharts(sessions: List<Session>, intervalSessions: List<Session>, rounds: List<IntervalLog>, facts: Map<String, HrFacts>): List<Pair<String, List<ChartPoint>>> =
+    listOf(AVG_HR_CHART to avgHrPoints(sessions, facts), "Heart rate in work intervals" to workHrPoints(intervalSessions, rounds, facts))
+        .filter { it.second.isNotEmpty() }
+
 private fun avgMax(avg: Int?, max: Int?): String? =
     listOfNotNull(avg?.let { "avg $it" }, max?.let { "max $it" }).joinToString(" · ").ifEmpty { null }
 
@@ -100,34 +106,6 @@ fun hrFactRows(s: Session, facts: HrFacts, rounds: List<IntervalLog>, zone: Zone
     return rows
 }
 
-data class HrReadKey(val sheet: Int, val sessionId: String, val range: HrRange?, val row: SessionHr?)
-
-fun hrReadKey(sheet: Int, s: Session, row: SessionHr?, zone: ZoneId) = HrReadKey(sheet, s.id, hrWindow(s, zone), row)
-
-data class HrReadResult(val key: HrReadKey, val outcome: HrReread, val seen: Boolean)
-
-private val COMMITTED = setOf(HrReread.FILLED, HrReread.WAITING, HrReread.NONE)
-
-fun readResult(asked: HrReadKey, outcome: HrReread, now: HrReadKey?, left: SessionHr?): HrReadResult? = when {
-    now == null || now.sheet != asked.sheet || now.sessionId != asked.sessionId || now.range != asked.range -> null
-    outcome in COMMITTED -> HrReadResult(asked.copy(row = left), outcome, seen = now.row == left)
-    now == asked -> HrReadResult(asked, outcome, seen = true)
-    else -> null
-}
-
-fun HrReadResult.after(now: HrReadKey?): HrReadResult? = when {
-    key == now -> if (seen) this else copy(seen = true)
-    seen -> null
-    else -> this
-}
-
-fun rereadLine(result: HrReread?, s: Session, facts: HrFacts): String? = when (result) {
-    HrReread.FILLED -> if (facts is HrFacts.Filled) hrLine(s, facts) else null
-    HrReread.WAITING, HrReread.NONE -> if (facts is HrFacts.Waiting || facts is HrFacts.None) "No data yet" else null
-    HrReread.FAILED -> "Health Connect did not answer"
-    HrReread.NO_RANGE, HrReread.DROPPED, null -> null
-}
-
 data class HrSheet(
     val facts: List<Pair<String, String>>,
     val reread: Boolean,
@@ -137,7 +115,7 @@ data class HrSheet(
 )
 
 fun hrSheet(
-    s: Session, row: SessionHr?, rounds: List<IntervalLog>, zone: ZoneId, result: HrReadResult?, now: HrReadKey?, appLabel: (String) -> String,
+    s: Session, row: SessionHr?, rounds: List<IntervalLog>, zone: ZoneId, failed: Boolean, appLabel: (String) -> String,
 ): HrSheet {
     val facts = hrFacts(s, row, zone)
     val bounds = confirmableBounds(s, zone)
@@ -146,6 +124,6 @@ fun hrSheet(
         reread = facts != HrFacts.NoRange,
         remove = row != null && row.state != HrState.OFF,
         useRange = bounds,
-        line = result?.takeIf { now != null && it.key == now }?.let { rereadLine(it.outcome, s, facts) },
+        line = if (failed) "Health Connect did not answer" else null,
     )
 }

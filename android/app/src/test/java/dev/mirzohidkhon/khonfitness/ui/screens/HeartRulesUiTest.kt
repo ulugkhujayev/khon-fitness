@@ -142,7 +142,7 @@ class HeartRulesUiTest {
         assertEquals("45 s", gapText(45)); assertEquals("2 min", gapText(120)); assertEquals("16 min 5 s", gapText(965))
     }
 
-    private fun sheet(s: Session, r: SessionHr?) = hrSheet(s, r, emptyList(), zone, null, null) { it }
+    private fun sheet(s: Session, r: SessionHr?) = hrSheet(s, r, emptyList(), zone, failed = false) { it }
 
     @Test fun `the sheet's model holds the facts and the action flags, Remove for every row that is not off`() {
         val s = gym()
@@ -190,49 +190,22 @@ class HeartRulesUiTest {
             IntervalLog("m1", "m", 0, startedAt = at(7, 5), endedAt = at(7, 6)), IntervalLog("n1", "n", 0, startedAt = at(7, 0), endedAt = at(7, 1)),
         )
         assertEquals(listOf(ChartPoint(day, 152.0), ChartPoint(day, 155.0)), workHrPoints(listOf(typed, measured, neither), rounds, f))
+        assertEquals(
+            listOf(
+                "Average heart rate" to listOf(ChartPoint(day, 150.0), ChartPoint(day, 144.0)),
+                "Heart rate in work intervals" to listOf(ChartPoint(day, 152.0), ChartPoint(day, 155.0)),
+            ),
+            cardioHrCharts(listOf(typed, measured, neither), listOf(typed, measured, neither), rounds, f),
+        )
+        assertEquals(listOf("Heart rate in work intervals" to listOf(ChartPoint(day, 160.0))), cardioHrCharts(listOf(neither), listOf(typed), rounds.take(1), f))
     }
 
-    @Test fun `a result belongs to its sheet, range and row, and a late one writes nothing`() {
+    @Test fun `the sheet's only line is the failure line`() {
         val s = gym()
-        val r = row(s)
-        val asked = hrReadKey(1, s, r, zone)
-        assertEquals(HrReadResult(asked, HrReread.FAILED, seen = true), readResult(asked, HrReread.FAILED, asked, r))
-        val off = r.copy(state = HrState.OFF, fetchedAt = at(21, 0))
-        val newer = r.copy(avgHr = 130, fetchedAt = at(21, 0))
-        val moved = s.copy(timedTo = gymRange.toMs + 60_000)
-        for (now in listOf(hrReadKey(1, s, off, zone), hrReadKey(1, s, newer, zone), hrReadKey(1, moved, r, zone), hrReadKey(2, s, r, zone), null)) {
-            assertNull(now.toString(), readResult(asked, HrReread.FAILED, now, r))
-            assertNull(now.toString(), readResult(asked, HrReread.DROPPED, now, r))
+        for (state in listOf(HrState.FILLED, HrState.WAITING, HrState.NONE, HrState.OFF)) {
+            assertNull(state, hrSheet(s, row(s, state), emptyList(), zone, failed = false) { it }.line)
+            assertEquals("Health Connect did not answer", hrSheet(s, row(s, state), emptyList(), zone, failed = true) { it }.line)
         }
-        assertNull(readResult(asked, HrReread.FILLED, hrReadKey(2, s, r, zone), newer))
-        assertNull(readResult(asked, HrReread.FILLED, hrReadKey(1, moved, r, zone), newer))
-
-        val pending = readResult(asked, HrReread.FILLED, asked, newer)!!
-        assertEquals(hrReadKey(1, s, newer, zone), pending.key); assertFalse(pending.seen)
-        assertEquals(pending, pending.after(asked))
-        val shown = pending.after(hrReadKey(1, s, newer, zone))!!
-        assertTrue(shown.seen)
-        assertEquals("avg 130 · max 164 bpm", hrSheet(s, newer, emptyList(), zone, shown, hrReadKey(1, s, newer, zone)) { it }.line)
-        assertNull(shown.after(hrReadKey(1, s, off, zone)))
-        assertNull(shown.after(hrReadKey(1, moved, newer, zone)))
-        assertNull(shown.after(null))
-
-        val failed = readResult(asked, HrReread.FAILED, asked, r)!!
-        assertEquals("Health Connect did not answer", hrSheet(s, r, emptyList(), zone, failed, asked) { it }.line)
-        assertNull(hrSheet(s, off, emptyList(), zone, failed, hrReadKey(1, s, off, zone)) { it }.line)
-        assertNull(hrSheet(s, r, emptyList(), zone, failed, hrReadKey(2, s, r, zone)) { it }.line)
-    }
-
-    @Test fun `the result line of Read again follows the facts of now`() {
-        val s = gym()
-        val filled = facts(s, row(s))
-        assertEquals("avg 128 · max 164 bpm", rereadLine(HrReread.FILLED, s, filled))
-        assertEquals("No data yet", rereadLine(HrReread.WAITING, s, facts(s, row(s, HrState.WAITING))))
-        assertEquals("No data yet", rereadLine(HrReread.NONE, s, facts(s, row(s, HrState.NONE))))
-        assertEquals("Health Connect did not answer", rereadLine(HrReread.FAILED, s, filled))
-        assertNull(rereadLine(HrReread.DROPPED, s, filled)); assertNull(rereadLine(HrReread.NO_RANGE, s, HrFacts.NoRange)); assertNull(rereadLine(null, s, filled))
-        assertNull(rereadLine(HrReread.FILLED, s, HrFacts.Removed))
-        assertNull(rereadLine(HrReread.WAITING, s, HrFacts.Removed))
-        assertNull(rereadLine(HrReread.FILLED, s, HrFacts.NotRead))
+        assertNull(sheet(s, null).line)
     }
 }

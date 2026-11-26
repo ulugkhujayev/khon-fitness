@@ -158,7 +158,9 @@ a session is its program id, the count of the exercise's set rows (every
 status) and the rep range of its first row. A period is a run of sessions
 with one setup. A single session inside a run is a one-day deviation and
 stays in the period before it (or the next one when there is none before).
-The latest run is always a period. A renamed program keeps its id, so it is
+The latest run is always a period. After the single sessions join, two
+neighbor periods with one setup are one period, so A A B A is one period
+and A A B is two. A renamed program keeps its id, so it is
 no change. When an exercise has two periods or more, its detail shows
 "Est. 1RM per week" between the Best card and "Most reps by weight", or
 "Reps per week" for an exercise that never had a counted set above 0 kg.
@@ -170,8 +172,9 @@ counted sets above 0 kg, or the most reps for an exercise without weight.
 It needs 3 valued sessions over 14 days or more, else the row shows "–".
 It rounds like the bodyweight trend ("+0.8", "−0.3", "±0.0"). The app
 says nothing about which setup was better. The "Heaviest set per session"
-chart draws a thin muted vertical line at the first session of each new
-period.
+chart draws a thin muted vertical line at the first charted session of
+each period after the first. A period with no charted session gets no
+line.
 
 One bodyweight entry can move a kilogram from water alone, so the trend
 uses a 7-day average: the mean of the entries from 6 days before a date to

@@ -32,11 +32,7 @@ import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.time.LocalDate
 
-/**
- * Screenshots of the exercise detail with setup changes: the bench in three periods at 360 and 411 dp and at font
- * scale 1.3, pull-ups without weight, and a row under a 40-character program name. Runs only when
- * `app/build/shots-setup` exists; the PNGs land there.
- */
+/** Runs only when `app/build/shots-setup` exists; the PNGs land there. */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w360dp-h1900dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

@@ -446,7 +446,8 @@ Two lines, 88 px total, hairline between rows.
   ("+0.8", "−0.3", "±0.0", or "–"). Both signs are white. A long program
   name ends with an ellipsis and the sets and reps stay. The rows have no
   chevron and do not open anything. TalkBack reads the dates, the setup and
-  the rate in words ("plus 0.8 kilograms per week", "no rate").
+  the rate in words ("Oct 2 to Nov 2, TP v4, 4 sets, 5 to 8 repetitions,
+  plus 0.8 kilograms per week", "no rate").
 
 ## Stretch player
 
@@ -617,4 +618,4 @@ labels 12/500 muted, the last one 13/700 in white. The value axis is as
 wide as its widest label plus 8 px, the right inset 8 px, so the chart
 sits even between the screen margins. The exercise chart marks each setup
 change with a 1 px muted vertical line through the plot at the first point
-on or after the change.
+of the new period. A period without a point has no line.

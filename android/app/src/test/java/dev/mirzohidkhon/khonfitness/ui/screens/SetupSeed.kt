@@ -10,14 +10,8 @@ import dev.mirzohidkhon.khonfitness.data.SetStatus
 import dev.mirzohidkhon.khonfitness.data.iso
 import java.time.LocalDate
 
-/** A 40-character program name, for the ellipsis. */
 const val LONG_PROGRAM = "Upper Body Strength Block Twelve Weeks A"
 
-/**
- * Exercises with setup changes, dated back from [today]: the bench in three periods (TP v3 3 × 8–12, TP v4 4 × 5–8
- * with a one-day 5-set deviation, TP v4 4 × 6–10), pull-ups without weight in two, a row under [LONG_PROGRAM] in two,
- * and curls in one.
- */
 suspend fun seedSetupChanges(dao: KhonDao, today: LocalDate) {
     dao.upsertExercises(listOf(
         Exercise("bench", "Barbell Bench Press", Kind.STRENGTH, primaryMuscle = "chest"),

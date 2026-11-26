@@ -384,10 +384,7 @@ fun weekRate(all: List<Bodyweight>, today: LocalDate): Double? {
 /** The entries' sum as the decimals they were entered as, so a mean or a change that ends in 5 rounds up as written. */
 private fun decimalSum(week: List<Bodyweight>): BigDecimal = week.fold(BigDecimal.ZERO) { s, b -> s + BigDecimal.valueOf(b.kg) }
 
-/**
- * [numerator] / [denominator] (above 0) to one decimal with its sign: "+0.3", "−0.3", "±0.0". The size rounds half up
- * on its decimal value before the sign, so ±0.25 reads ±0.3 and "±" means below 0.05.
- */
+/** [denominator] must be above 0: the sign comes from [numerator] alone. */
 fun signedTenths(numerator: BigDecimal, denominator: BigDecimal): String {
     val size = numerator.abs().divide(denominator, 1, RoundingMode.HALF_UP)
     val sign = when { size.signum() == 0 -> "±"; numerator.signum() > 0 -> "+"; else -> "−" }
@@ -404,7 +401,7 @@ fun trendText(all: List<Bodyweight>, today: LocalDate): String? {
     val avg = nowSum.divide(BigDecimal(now.size), 1, RoundingMode.HALF_UP)
     val rate = weekEntries(all, today.minusDays(7))?.let { before ->
         val scaled = nowSum * BigDecimal(before.size) - decimalSum(before) * BigDecimal(now.size)
-        " · ${signedTenths(scaled, BigDecimal(now.size * before.size))} kg/week"
+        " · ${signedTenths(scaled, BigDecimal(now.size) * BigDecimal(before.size))} kg/week"
     }.orEmpty()
     return "7-day avg ${avg.toPlainString()} kg$rate"
 }

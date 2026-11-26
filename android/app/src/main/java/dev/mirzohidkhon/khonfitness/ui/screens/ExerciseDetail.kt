@@ -91,7 +91,7 @@ fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
             // Sessions where every set was skipped list below, with no best and no chart point.
             val record = history.lastOrNull { it.record }
             val periodRows = remember(history, today) { periodRows(history, today) }
-            val changes = remember(history) { changeDates(history) }
+            val bestPoints = remember(history) { bestPoints(history) }
             val recordBest = record?.best
             if (record != null && recordBest != null) Column(Modifier.fillMaxWidth().clip(GroupShape).background(K.Surface).padding(16.dp, 14.dp, 16.dp, 12.dp)) {
                 Text("Best", style = MaterialTheme.typography.bodySmall, color = K.Muted)
@@ -103,7 +103,7 @@ fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
                     fontSize = 24.sp, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR),
                 )
                 Text("Heaviest set per session", style = MaterialTheme.typography.bodySmall, color = K.Muted, modifier = Modifier.padding(top = 12.dp))
-                LineChart(history.mapNotNull { h -> h.best?.let { ChartPoint(h.session.date.toDate(), it.weightKg ?: 0.0, mark = h.record) } }, "kg", changes = changes)
+                LineChart(bestPoints, "kg")
             }
             if (periodRows.isNotEmpty()) PeriodGroup(rateTitle(withWeight(history)), periodRows, Modifier.padding(top = if (record != null) 24.dp else 0.dp))
             val repBests = remember(history) { repBests(history) }
@@ -214,14 +214,12 @@ private fun RepBestRow(l: SetLog, session: Session, divider: Boolean) {
     }
 }
 
-/** The rates per setup period: [title] over one row per period, newest first. */
 @Composable
 fun PeriodGroup(title: String, rows: List<PeriodRow>, modifier: Modifier = Modifier) {
     SectionTitle(title, modifier)
     GroupedList { rows.forEachIndexed { i, r -> PeriodRateRow(r, divider = i > 0) } }
 }
 
-/** The dates over the setup (a long program name ends with an ellipsis), the rate or "–" on the right. Opens nothing. */
 @Composable
 private fun PeriodRateRow(r: PeriodRow, divider: Boolean) {
     Column(Modifier.fillMaxWidth()) {

@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -59,9 +60,10 @@ fun LiftListScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Cloc
 }
 
 /**
- * One exercise's progress: the Best card with the heaviest set per session (records green), then every session
- * newest first with every saved set (the record set green, skipped ones marked), each opening the session. An
- * exercise without sets shows its muscle and "No sets yet".
+ * One exercise's progress: the Best card with the heaviest set per session (records green), the most reps by weight
+ * ([repBests]) when there are two or more, then every session newest first with every saved set (the record set
+ * green, rep record sets bold, skipped ones marked), each opening the session. An exercise without sets shows its
+ * muscle and "No sets yet".
  */
 @Composable
 fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: String, clock: Clock = Clock.systemDefaultZone()) {
@@ -95,6 +97,13 @@ fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
                 Text("Heaviest set per session", style = MaterialTheme.typography.bodySmall, color = K.Muted, modifier = Modifier.padding(top = 12.dp))
                 LineChart(history.mapNotNull { h -> h.best?.let { ChartPoint(h.session.date.toDate(), it.weightKg ?: 0.0, mark = h.record) } }, "kg")
             }
+            val repBests = remember(history) { repBests(history) }
+            if (repBests.size >= 2) {
+                SectionTitle("Most reps by weight", Modifier.padding(top = 24.dp))
+                GroupedList {
+                    repBests.take(REP_BESTS_SHOWN).forEachIndexed { i, (l, session) -> RepBestRow(l, session, divider = i > 0) }
+                }
+            }
             SectionTitle("Sessions · newest first", Modifier.padding(top = if (record != null) 24.dp else 0.dp))
             GroupedList {
                 val firstRecord = history.firstOrNull { it.record }
@@ -105,12 +114,18 @@ fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
                             if (k > 0) append(" · ")
                             when {
                                 h.record && l === h.best -> withStyle(SpanStyle(color = K.Green, fontWeight = FontWeight.SemiBold)) { append(shortSet(l)) }
+                                h.repRecords.any { it === l } -> withStyle(SpanStyle(color = K.Text, fontWeight = FontWeight.SemiBold)) { append(shortSet(l)) }
                                 l.status == SetStatus.SKIPPED -> withStyle(SpanStyle(color = K.Muted)) { append(shortSet(l)) }
                                 else -> append(shortSet(l))
                             }
                         }
                     }
-                    SessionRow(h.session.date.toDate().format(shortDate), sets, chip = if (h.record && !first) "PR" else null, divider = i > 0) { openSession(nav, h.session) }
+                    val chip = when {
+                        h.record && !first -> "PR" to K.Green
+                        h.repRecords.isNotEmpty() -> "Rep PR" to K.Text
+                        else -> null
+                    }
+                    SessionRow(h.session.date.toDate().format(shortDate), sets, chip = chip, divider = i > 0) { openSession(nav, h.session) }
                 }
             }
         }
@@ -169,9 +184,29 @@ private fun ChartTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
 }
 
-/** A session in a detail list: the date (with a [chip]) over its [line], a chevron; opens the session. */
+private const val REP_BESTS_SHOWN = 6
+
+/** A row of "Most reps by weight": the weight over the date, the reps bold on the right. */
 @Composable
-private fun SessionRow(date: String, line: androidx.compose.ui.text.AnnotatedString, chip: String? = null, divider: Boolean, onClick: () -> Unit) {
+private fun RepBestRow(l: SetLog, session: Session, divider: Boolean) {
+    Column(Modifier.fillMaxWidth()) {
+        if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).semantics(mergeDescendants = true) {}.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("${fmt(l.weightKg ?: 0.0).ifEmpty { "0" }} kg", style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR))
+                Text(monthDay(session.date.toDate()), style = MaterialTheme.typography.bodySmall, color = K.Muted, modifier = Modifier.padding(top = 2.dp))
+            }
+            Text("× ${l.reps ?: 0}", style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+        }
+    }
+}
+
+/** A session in a detail list: the date (with a [chip] in its color) over its [line], a chevron; opens the session. */
+@Composable
+private fun SessionRow(date: String, line: androidx.compose.ui.text.AnnotatedString, chip: Pair<String, androidx.compose.ui.graphics.Color>? = null, divider: Boolean, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
         Row(
@@ -181,7 +216,7 @@ private fun SessionRow(date: String, line: androidx.compose.ui.text.AnnotatedStr
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(date, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    if (chip != null) { Spacer(Modifier.width(6.dp)); LabelChip(chip) }
+                    if (chip != null) { Spacer(Modifier.width(6.dp)); LabelChip(chip.first, chip.second) }
                 }
                 Text(line, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp))
             }

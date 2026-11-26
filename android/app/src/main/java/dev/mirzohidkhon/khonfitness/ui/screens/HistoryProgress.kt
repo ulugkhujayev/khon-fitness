@@ -130,8 +130,9 @@ fun HistoryProgress(vm: AppViewModel, nav: NavHostController, today: LocalDate) 
                 Spacer(Modifier.weight(1f))
                 if (change != null) Text(change, style = MaterialTheme.typography.bodySmall, color = if (change.startsWith("+")) K.Muted else K.Green, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp))
             }
+            trendText(bodyweights, today)?.let { Text(it, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted) }
             if (inRange.isEmpty()) Text("No entries in this range", style = MaterialTheme.typography.bodyMedium, color = K.Muted, modifier = Modifier.padding(top = 12.dp))
-            else LineChart(inRange.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp))
+            else LineChart(inRange.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp), trend = trendPoints(bodyweights, inRange))
         }
     }
 

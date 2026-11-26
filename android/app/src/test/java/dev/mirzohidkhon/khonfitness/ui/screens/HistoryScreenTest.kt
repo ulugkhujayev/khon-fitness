@@ -202,6 +202,58 @@ class HistoryScreenTest {
         assertShows("30 min cardio · 5 km")
     }
 
+    /** The styles over [part] of the text of the node that shows it. */
+    private fun stylesOf(part: String): List<androidx.compose.ui.text.SpanStyle> {
+        val text = compose.onNodeWithText(part, substring = true).fetchSemanticsNode().config[SemanticsProperties.Text].first { part in it.text }
+        val at = text.text.indexOf(part)
+        return text.spanStyles.filter { it.start <= at && it.end >= at + part.length }.map { it.item }
+    }
+
+    @Test fun `a rep record shows next to the weight record in the Log and the exercise detail`() {
+        io {
+            plan()
+            dao.upsertSessions(listOf(gym("mon", lastMonday), gym("wed", lastMonday.plusDays(2)), gym("fri", lastMonday.plusDays(4))))
+            dao.upsertSetLogs(listOf(set("mon", 62.5, 6), set("wed", 60.0, 8), set("fri", 65.0, 3), set("fri", 60.0, 10)))
+        }
+        show()
+        waitFor("Today: Push")
+        compose.onNodeWithContentDescription("Previous week").performClick()
+        waitFor(weekTitle(lastMonday))
+        assertShows("1 of 1 set · 0.5 t · 58 min · 1\u00A0rep\u00A0PR")
+        assertShows("2 of 2 sets · 0.8 t · 58 min · 1 PR")
+        assertFalse(shows("1 PR · 1\u00A0rep"))
+        val rep = stylesOf("1\u00A0rep\u00A0PR").single()
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Text, rep.color)
+        assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, rep.fontWeight)
+        compose.runOnIdle { nav.navigate(Routes.exerciseDetail("bench")) }
+        waitFor("Most reps by weight")
+        compose.onNodeWithText("Most reps by weight").performScrollTo()
+        assertShows("× 10")
+        assertShows("× 6")
+        assertShows("× 3")
+        compose.onNodeWithText("Rep PR").assertExists()
+        compose.onNodeWithText("PR").assertExists()
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Green, stylesOf("65×3").single().color)
+        val tenReps = stylesOf("60×10").single()
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Text, tenReps.color)
+        assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, tenReps.fontWeight)
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Text, stylesOf("60×8").single().color)
+    }
+
+    @Test fun `the exercise detail has no most reps group with one such set`() {
+        io {
+            plan()
+            dao.upsertSessions(listOf(gym("mon", lastMonday), gym("wed", lastMonday.plusDays(2))))
+            dao.upsertSetLogs(listOf(set("mon", 60.0, 8), set("wed", 62.5, 8)))
+        }
+        show()
+        waitFor("Today: Push")
+        compose.runOnIdle { nav.navigate(Routes.exerciseDetail("bench")) }
+        waitFor("Heaviest set per session")
+        assertFalse(shows("Most reps by weight"))
+        assertFalse(shows("Rep PR"))
+    }
+
     @Test fun `progress lists records and opens the exercise detail`() {
         io { plan(); lastWeek() }
         show()

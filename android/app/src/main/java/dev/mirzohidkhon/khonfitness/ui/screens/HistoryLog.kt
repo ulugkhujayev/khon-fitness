@@ -140,10 +140,12 @@ private fun LogRowView(
         DayKind.PLANNED -> "Planned: $name" to K.Muted
     }
     val records = if (row.kind == DayKind.DONE && s != null) recordCount(s.id, histories) else 0
+    val repRecords = if (row.kind == DayKind.DONE && s != null) repRecordCount(s.id, histories) else 0
     val line = when (row.kind) {
         DayKind.DONE -> buildAnnotatedString {
             append(sessionLine(s!!, logs, exercises.find { it.id == s.exerciseId }))
             if (records > 0) { append(" · "); withStyle(SpanStyle(color = K.Green, fontWeight = FontWeight.SemiBold)) { append("$records PR") } }
+            if (repRecords > 0) { append(" · "); withStyle(SpanStyle(color = K.Text, fontWeight = FontWeight.SemiBold)) { append("$repRecords\u00A0rep\u00A0PR") } }
         }
         DayKind.RUNNING -> buildAnnotatedString { append(if (s!!.itemType == ItemType.PROGRAM) "In progress · ${setsLine(s.id, logs)}" else "In progress") }
         DayKind.TODAY -> buildAnnotatedString { append(listOfNotNull("Not started", extra).joinToString(" · ")) }

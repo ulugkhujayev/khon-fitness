@@ -267,12 +267,14 @@ fun stepKg(text: String, sign: Int, fallback: Double): Double {
 private val monthDay = DateTimeFormatter.ofPattern("MMM d", Locale.US)
 
 /**
- * The status line under "Bodyweight": "No entry yet"; "Last: 83.4 kg · Oct 30" before today's entry; then
- * "Saved for today · −0.4 kg since Oct 30" against the last entry before today ("Saved for today" when there is none).
+ * The status line under "Bodyweight": "No entry yet"; "Last: 83.4 kg · Oct 30" before today's entry; then the trend
+ * ([trendText]) when the week has one, else "Saved for today · −0.4 kg since Oct 30" against the last entry before
+ * today ("Saved for today" when there is none).
  */
 fun bodyweightStatus(bodyweights: List<Bodyweight>, today: LocalDate): String {
     val latest = bodyweights.lastOrNull() ?: return "No entry yet"
     val todays = bodyweights.find { it.date == today.iso() } ?: return "Last: ${kgText(latest.kg)} kg · ${latest.date.toDate().format(monthDay)}"
+    trendText(bodyweights, today)?.let { return it }
     val before = bodyweights.lastOrNull { it.date < today.iso() } ?: return "Saved for today"
     val since = before.date.toDate().format(monthDay)
     val diff = Math.round((todays.kg - before.kg) * 10) / 10.0

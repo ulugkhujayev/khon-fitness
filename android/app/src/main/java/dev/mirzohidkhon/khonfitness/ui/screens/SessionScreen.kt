@@ -198,6 +198,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                     ListRow("Sets done", secondary = "${sum.done} of ${sum.total}", chevron = false)
                     ListRow("Volume", secondary = "${fmt(sum.volume, 0)} kg", chevron = false)
                     ListRow("New bests", secondary = sum.bests.toString(), chevron = false)
+                    ListRow("Rep records", secondary = sum.repRecords.toString(), chevron = false)
                 }
                 GroupedList(Modifier.padding(top = 12.dp), elevated = true) {
                     FieldRow("Effort", divider = false) { EffortField(s.effort) { v -> vm.run { vm.repo.setSessionEffort(s.id, v) } } }

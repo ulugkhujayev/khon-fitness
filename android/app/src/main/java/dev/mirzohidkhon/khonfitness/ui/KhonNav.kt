@@ -87,6 +87,7 @@ object Routes {
     const val STRETCHES = "stretches"
     const val IMPORT = "import"
     const val LIBRARY = "library"; const val WEEK_PLAN = "weekplan"; const val SETTINGS = "settings"
+    const val HEART_DATA = "heartdata"
 }
 
 @Composable
@@ -146,6 +147,7 @@ fun KhonNav() {
                 composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }
                 composable(Routes.WEEK_PLAN) { WeekPlanScreen(vm, nav) }
                 composable(Routes.SETTINGS) { SettingsScreen(vm, nav) }
+                composable(Routes.HEART_DATA) { HeartDataScreen(vm, nav) }
             }
         }
     }

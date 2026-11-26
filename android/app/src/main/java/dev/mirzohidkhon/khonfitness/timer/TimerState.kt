@@ -31,6 +31,12 @@ data class TimerState(
     val startedAt: Long = 0L,
     /** The indexes of the phases skipped so far, so [back] takes back the count its phase added. */
     val skippedPhases: List<Int> = emptyList(),
+    /** Set when the service creates the run; empty in a snapshot of an older version. [TimerSnapshots.clearRun] matches on it. */
+    val runId: String = "",
+    /** The cardio run's number, anchor and round times, from its Start ([beginRun]); null before Start and in older snapshots. */
+    val clock: RunClock? = null,
+    /** The elapsed realtime that [remaining] and [preparation] stand for, set by the step that computed them. */
+    val instant: Long? = null,
 ) {
     val phase: Phase get() = phases[index.coerceIn(0, phases.size - 1)]
     val done: Boolean get() = phases.isEmpty() || index >= phases.size
@@ -72,29 +78,42 @@ data class TimerState(
     }
 
     /** Called by the service's monotonic clock. A stretch boundary discards overshoot. */
-    fun tick(seconds: Double): TimerState {
+    fun tick(seconds: Double): TimerState = tickAt(seconds, null)
+
+    /**
+     * [tick] that also stamps the round boundaries of a run with a [clock]: [elapsedEnd] is the elapsed realtime at the
+     * end of [seconds], and each boundary inside them gets its own time from the phase lengths.
+     */
+    fun tickAt(seconds: Double, elapsedEnd: Long?): TimerState {
         if (done || paused || awaitingStart || seconds <= 0.0) return this
+        val base = elapsedEnd?.let { it - seconds * 1000.0 }
+        var real = 0.0
+        fun at(): Long? = base?.let { Math.round(it + real * 1000.0) }
         var delta = seconds
         var next = this
         if (preparing) {
             val used = minOf(delta, preparation)
             next = copy(preparation = (preparation - used).coerceAtLeast(0.0))
             delta -= used
-            if (delta <= 0.0) return next
+            real += used
+            if (!next.preparing) next = next.workBegins(at())
+            if (delta <= 0.0) return next.standingAt(elapsedEnd)
         }
         delta *= speed
         while (delta > 0.0 && !next.done) {
             val used = minOf(delta, next.remaining)
             next = next.copy(remaining = (next.remaining - used).coerceAtLeast(0.0), elapsed = next.elapsed + used)
             delta -= used
+            real += used / speed
             if (next.remaining > 0.0) break
-            next = next.advance()
+            next = next.workEnds(at()).advance().let { if (it.done) it.ended(at()) else it.workBegins(at()) }
             if (next.stretch) break
         }
-        return next
+        return next.standingAt(elapsedEnd)
     }
-}
 
+    private fun standingAt(elapsed: Long?): TimerState = if (elapsed == null) this else copy(instant = elapsed)
+}
 /** Builds the phase list from an interval exercise: warmup, then work/rest per round, no trailing rest. */
 fun buildPhases(warmupSec: Int, workSec: Int, restSec: Int, rounds: Int): List<Phase> {
     val out = mutableListOf<Phase>()

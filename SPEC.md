@@ -95,7 +95,8 @@ Three tabs.
     sparkline "Distance per session" with the first and last value and
     date). Every type with a session ever has a row; one without sessions
     in the 30 days says "No sessions in 30 days". A type opens its detail: pace, average heart rate, heart rate
-    in work intervals (else time), and its sessions. Each section without
+    in work intervals (else time), time at or above 85 % and time in zone (see
+    "Heart rate"), and its sessions. Each section without
     data shows one line.
   - Compare two periods: the last row of Progress. Two rows name the
     left and the right column's period as a date range ("Oct 3 – Oct 30",
@@ -253,10 +254,24 @@ no native spinner arrows. The accessible name lives in the aria-label.
   Per exercise in the block: set count, min reps, max reps.
 - Session: date-time (editable, can be backdated), what was done: a
   program snapshot (gym) or a cardio exercise snapshot, note, effort
-  1-10, finished flag.
+  1-10, finished flag. Clock facts, all nullable: `timedFrom` and
+  `timedTo` (the workout's range, see "Heart rate"), `startedElapsed`
+  (elapsed realtime at the start of a gym session), `timerRun` and
+  `timerDone` (the numbers of the latest timer run that started and of the
+  latest one that committed), and `linkedIds` (Health Connect record ids
+  merged into this app session).
 - SetLog: session, exercise, set index, weight kg, reps, status
-  (done | skipped | pending). Every tap saves. Reopening resumes an
-  unfinished session.
+  (done | skipped | pending), `checkedAt`. Every tap saves. Reopening
+  resumes an unfinished session.
+- IntervalLog: one per work round, with typed average heart rate and
+  watts, and `startedAt`, `endedAt`: the clock times of that round. A
+  round has both or neither.
+- SessionHr: at most one per session, written only by the heart rate
+  reader, "Remove", session delete, and backup import. It holds the range
+  that was read, a state (filled, waiting, none, off), the 5-second
+  buckets as `offsetSec:bpm`, the sample counts, the packages, and the
+  average and maximum (filled only). It has no foreign key, so every path
+  that deletes a session deletes this row too.
 - CardioLog (phase 2): per type fields, see below.
 - Bodyweight: date, kg.
 - WeekPlan: seven rows, each one item: a program (gym day), a cardio
@@ -381,6 +396,23 @@ show one row per work interval for manual entry.
   one row per work interval. You add HR or watts and save. Save of an
   unfinished session lands on Today, wherever the form was opened; Save of
   an edit to a saved session goes back to History.
+- Each run has a number. The Start action, on the screen or in the
+  notification, writes `timerRun + 1` to the session and takes the anchor
+  (wall time and elapsed realtime at that instant). Ready takes no anchor,
+  and Stop on Ready stores nothing. Every time of the run is the anchor's
+  wall time plus the elapsed realtime since it. A work round gets its start
+  when work begins and its end at its last second, Skip, or Stop. A pause
+  stays inside its round.
+- A run is trusted while its clocks stay in step at every restore and at
+  its end. A reboot, a changed phone clock, or a snapshot of the older app
+  version makes it untrusted for good. On finish and on Stop one
+  transaction writes the duration (only when the owner typed nothing since
+  Start), and for a trusted run the range and every round's times. An
+  untrusted run writes null clock fields. The commit of run n is accepted
+  only while `timerRun` is n, `timerDone` is not n, and no import or reset
+  ran since the commit began. A replay or an older run writes nothing. The
+  snapshot of an ended run goes only after its commit returns; a failed
+  commit runs again at the next app start.
 - After Stop, or after the last round, the timer stores its time. If you
   leave the form without saving, Today shows "Timer stopped" with Save
   (the form with the time and rounds) and Discard, not Resume. The stored
@@ -391,6 +423,156 @@ show one row per work interval for manual entry.
   confirmed to write swim laps or interval splits, so those fields stay manual.
   Nothing is saved until the user confirms a draft.
   A draft that is already imported saves nothing, so a second tap adds no copy.
+
+## Heart rate
+
+The app reads the band's heart rate from Health Connect for the time range
+of each workout. It reads only, writes only `session_hr`, and never writes a
+column the owner can type into. A typed value shows where it exists; a
+measured value shows only where the typed one is empty. No data is better
+than wrong data: an uncertain time gives no range, and a thin read shows
+nothing.
+
+Clocks. A wall time counts as a clock fact only when the wall clock and
+elapsed realtime moved by the same amount since the anchor, within 2 s. A
+gym session takes its anchor at Start. A set check stamps `checkedAt` only
+in an unfinished session with clocks in step; else the set is done without
+a stamp. A second check keeps the first stamp. Every path that makes a set
+pending or skipped clears it.
+
+The range is stored once, by the code that saw the workout:
+
+- Gym Finish, with at least one stamp and clocks in step: from the start
+  to the last stamp plus 5 minutes, at most the finish time.
+- The timer commit of a trusted cardio run.
+- The band's own start and end for an imported cardio session.
+- "Use this time range": the owner confirms the start and finish of a
+  finished gym session without a range, 10 minutes to 4 hours long, on
+  the date of its start. The write checks that the shown times are still
+  the session's.
+
+The range a read uses needs a finished session whose date is the local
+date of `timedFrom` or of its start. Gym: 10 minutes to 4 hours. App cardio
+adds 60 s after `timedTo`, but never past the finish; cardio ranges are 2
+minutes to 6 hours. A session moved to another date has no range.
+
+A read takes every record that touches the range from every page. It
+accepts samples inside the range with 30 to 230 bpm, and drops exact
+duplicates. The package with the most accepted samples is the origin, and
+only its samples count, one per instant. The read is complete with 10 or
+more instants that span at least half of the range. Complete gives
+`filled`. Else the row is `waiting` while the range ended 7 days ago or
+less, then `none`. A missing Health Connect, a missing heart rate
+permission, or any error writes nothing and does not count as a try.
+
+One runner reads, one read at a time. Gym Finish, cardio Save, and the app
+coming to the foreground (at most once per 10 minutes of elapsed time) ask
+it to run; none of them waits. A pass first deletes each row that is not
+off and no longer matches its session's range. Then it reads each session
+whose range ended in the last 30 days and that has no row or a waiting row.
+It never reads off or none. A result is written only when, in its
+transaction, the session still exists, no import or reset ran since the
+read began, the range is unchanged, and the row is the one the read started
+from.
+
+Reread reads one session now, at any age and from any state. Remove turns
+the row off with no samples and no values, and no pass reads it again.
+
+The average of a work round is computed when shown, from the buckets of a
+filled row inside the round's times, when 2 or more buckets fall inside.
+
+What the screens show comes from one rule, `hrFacts`, and no screen reads a
+row directly. A row for another range than the session's current one shows
+nothing. The maximum is always the measured one.
+
+- Review shows "avg 128 · max 164 bpm" under the stats line, or only the
+  value that exists, or no line. A screen reader hears "average 128,
+  maximum 164 beats per minute". The line follows the session and its row,
+  so a read that lands while Review is open shows up.
+- Review's average heart rate row and its rounds, and the cardio type
+  screen's two heart rate charts, show the measured value where the typed
+  one is empty.
+- The cardio form shows the measured average, and each round's measured
+  average, as the placeholder of an empty field. Save writes only what the
+  owner typed.
+- Settings has a "Heart rate data" row. Its screen lists the finished
+  sessions of the last 30 days, newest first: the name over the date, and
+  the state on the right ("avg 128 · max 164", "Waiting for data", "No
+  data", "Removed", "Not read", "No time range"). A tap opens a sheet with
+  the facts of the read: the range as clock times, readings read and used,
+  first and last reading, the longest gap, each work round's average, the
+  source app and other apps seen, average and maximum. A fact without a
+  value is left out.
+- The sheet has "Read again" (not without a range) and "Remove" (only
+  while a row that is not off exists; it asks first). "Read again" shows
+  its result as one line: the new values, "No data yet", or "Health
+  Connect did not answer". A result that no longer matches the row shows
+  nothing. A second tap while a read runs does nothing. A session deleted
+  meanwhile closes the sheet.
+- A finished gym session without a range that "Use this time range"
+  accepts shows its start and finish as clock times and that action.
+- Without Health Connect or without the heart rate permission, the screen
+  shows the Import screen's card for that case. It asks only for heart
+  rate.
+
+Review of a finished session with a range shows its heart rate as one
+picture. What it shows comes from `hrFacts` alone, so a stale, removed, or
+waiting row shows nothing. With a filled row, a chart sits under the header
+figures: the buckets as a curve, cut where two neighbors are more than 60 s
+apart (a lone bucket is a dot), a tick at the bottom at each set check
+inside the range (gym), and a band behind each timed round (cardio). Nothing
+is drawn between buckets. A gym session with 2 or more checks inside the
+range also gets "Sets in order" after its exercises: each checked set in
+time order, with the clock time of its check, the time since the check
+before, and the highest bucket from that check to its own when 2 or more
+buckets fall in between. The group shows without heart rate too, then with
+no bpm. An unfinished session or one without a range shows neither.
+
+The maximum heart rate is a setting, a whole number from 100 to 230 bpm,
+empty by default. It sits in the Health group of Settings as "Maximum heart
+rate" with the typed value on the right ("186 bpm"). Without a typed value
+the row shows the measured one in muted ("183 bpm"). That is the highest
+maximum of the filled reads of sessions that finished in the last 365 days.
+With neither, the row says "Not set". A tap opens a sheet with one number
+field and Save. Save is off for a value outside 100 to 230, and an empty
+field removes the typed value. The setting lives in DataStore next to the
+other app settings, so a backup does not carry it. Reset removes it.
+
+The app uses the typed maximum, else the measured one. With no maximum,
+none of the figures below show. Each figure counts the 5-second buckets of
+a filled read and nothing else. A bucket stands for 5 s, and a gap adds no
+time.
+
+- Hard line: 85 % of the maximum, rounded up. A maximum of 186 gives 159
+  bpm. The time at or above it is the bucket count times 5 s.
+- Zone: from 60 % of the maximum rounded up to 70 % rounded down, both
+  ends inside. A maximum of 186 gives 112 to 130 bpm. The shares below, in
+  and above the zone are rounded half up. When the three do not sum to 100,
+  the part with the largest remainder takes the step. On a tie the order is
+  below, in, above, so 1, 1 and 1 buckets give 34, 33 and 33.
+- Round peak: the highest bucket inside the round's `[startedAt,
+  endedAt)`. It needs 2 or more buckets there.
+- Round drop: the round's last bucket minus the lowest bucket of the rest
+  after it. The rest runs from `endedAt` to the next round's `startedAt`,
+  or to the range end after the last round. The drop needs a peak and 2 or
+  more buckets in the rest. A negative drop shows as it is.
+- A round without both times, or one that starts outside the range, has no
+  figures.
+
+Review of a finished cardio session with a filled read adds a "Heart rate"
+group after its rounds, or after its figures when it has no rounds. A
+high-intensity exercise gets "At or above 159 bpm" with the time ("11:35").
+A low-intensity one gets "Below 112 bpm", "112 to 130 bpm" and "Above 130
+bpm" with their percents. Moderate intensity gets neither. Each round with
+a peak adds "Round 1" with "peak 168 · drop 41". The rows are not
+tappable. They speak in full words: "At or above 159 beats per minute, 11
+minutes 35 seconds", "Round 1, peak 168, drop 41 beats per minute". They
+follow the setting and the read while Review is open.
+
+The cardio type screen adds "At or above 85 %", minutes per session of its
+high-intensity exercises, and "In zone", the percent per session of its
+low-intensity ones. Each point uses today's maximum, and a chart needs 2
+points.
 
 ## Day plan
 
@@ -420,6 +602,23 @@ It creates the eating-window settings row with defaults when neither the
 backup nor the phone has one. It writes the backup's stretch sessions over the
 phone's, the one case where a recorded session changes. After an import, a
 restore or a reset, the app re-arms the window alarms and redraws the widgets.
+
+The clock columns and the heart rate rows travel in the file. A file from
+before them imports as before, and its sessions have no range. No import
+takes `startedElapsed` from a file: an anchor holds only on the phone and
+the boot that took it. Each heart rate row is decoded and checked by
+itself, and a bad one never fails the preview or the import. A row is
+taken only when its session exists after the import, its range is not
+empty, its state is one of the four, every sample lies inside the range
+with 30 to 230 bpm, a filled row has samples and values in that range, and
+an off row has neither. Of two rows for one session the last wins.
+
+Replace takes the file's rows. Merge keeps the local unit: a session, set,
+or round that exists on the phone keeps its own range, anchor, run numbers,
+linked ids, stamp, round times, and heart rate row. A new one takes the
+file's values with its row. Then, in the same transaction, a session whose
+start, finish, kind, or exercise changed loses its range, anchor, and round
+times, and a set that is not done loses its stamp.
 
 ## Update
 

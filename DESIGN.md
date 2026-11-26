@@ -170,11 +170,15 @@ padded cards, per-item buttons, "Updated" lines.
   new workout). Type opens a sheet of the live types with their colors
   and "New type…", which opens a sheet with Name, Color and Add type (off
   while the name is blank).
-- Settings has three groups: Backup (export, import, restore a saved
-  copy), App (version, the APK updater's state, reopen after updates)
-  and Reset to built-in data in red on its own. A footnote under each
-  says what it holds or does; the backup footnote shows how the last
-  export or import went, red on error.
+- Settings has four groups: Backup (export, import, restore a saved
+  copy), Health ("Heart rate data" with a red heart tile, then "Maximum
+  heart rate" with a red heart-square tile and its value on the right in
+  15 tabular figures: white when typed, muted when measured, "Not set"
+  muted without either), App (version,
+  the APK updater's state, reopen after updates) and Reset to built-in
+  data in red on its own. A footnote under Backup, App and Reset says
+  what it holds or does; the backup footnote shows how the last export
+  or import went, red on error.
 - The compare screen (from the last row of Progress, a plain row with a
   chevron) has the nav bar "Compare", then a group of two rows, the left
   and the right period: the date range, the choice in muted text, a
@@ -190,6 +194,24 @@ padded cards, per-item buttons, "Updated" lines.
   When a value part does not fit that width (a large font on a narrow
   phone), every row puts the label on its own line over the two columns.
   A row speaks its label and each value with its period's range.
+- Heart rate data: the editor bar with Back, then one grouped list of
+  56 px rows: the session name 17 over the date 15 muted, the state on
+  the right in 15 muted with tabular figures ("avg 128 · max 164",
+  "Waiting for data", "No data", "Removed", "Not read", "No time range"),
+  at most 136 px wide so the date keeps its line, and a chevron. A row
+  speaks its name, date and state in words. Without Health Connect or
+  its heart rate permission, the Import screen's card sits over the
+  list ("Read heart rate" and Allow). A tap opens a sheet: the name as
+  its title, the date in muted, then an elevated group of label/value
+  rows (Time range "18:02 to 19:14", Readings "412 read · 398 used",
+  First reading, Last reading, Longest gap "45 s", Round 1, Source, Also
+  seen, Average, Maximum; "Heart rate" with the state when there is no
+  filled read; "Workout" with start and finish for a gym session that can
+  take its time range). Under it, 20 px down, action rows: "Use this time
+  range" (a check) and "Read again" (a clock arrow) in accent, dim while
+  they run, and "Remove" (a trash can) in red in a group of its own,
+  which asks in a confirm sheet first. The result of "Read again" is a
+  muted footnote under the groups.
 - Empty state: one muted line, no illustration. Where a screen has nothing
   to show yet and an action fixes it, a card shows a 32 px symbol, a title
   in Headline, a muted 15 line and the action (iOS content-unavailable
@@ -372,7 +394,8 @@ Two lines, 88 px total, hairline between rows.
   Edit, no Delete): the date 17/600 over the stats line in muted, then
   one group per exercise with "Set 1  80 kg × 10" rows, a set not done
   reading "skipped" in muted; cardio shows its values as label/value rows.
-  History's entry keeps Edit.
+  A session with heart rate adds "avg 128 · max 164 bpm" in muted under
+  the stats line. History's entry keeps Edit.
 - 16 px gap. One group of 64 px rows sized for the home screen: the
   symbol in a 40 px circle of its color like the item card's, the name
   17/600 over a line of state 15 muted (green when it is good news), a
@@ -581,6 +604,8 @@ Two lines, 88 px total, hairline between rows.
 - Intervals, when the session has them: one row per work interval,
   "Round 1", with heart rate and watts as two stacked number widgets.
   Their spoken labels are "Round 1 heart rate" and "Round 1 watts".
+  An empty heart rate field, the session's or a round's, shows the
+  measured value as its placeholder in muted.
 - Notes: Effort (1 to 10, spoken "Effort, 1 to 10") and Note. Under them
   a red text button, "Delete session" for a saved session or "Discard"
   for a new one, asks in a confirm sheet first.
@@ -634,3 +659,37 @@ wide as its widest label plus 8 px, the right inset 8 px, so the chart
 sits even between the screen margins. The exercise chart marks each setup
 change with a 1 px muted vertical line through the plot at the first point
 of the new period. A period without a point has no line.
+
+The heart rate picture on Review is the one chart without markers and
+value labels: it draws hundreds of 5-second buckets. It keeps the grid,
+axis labels, insets and 190 px height of the other charts. The bpm grid
+has 3 to 5 lines 10 or 20 apart. The curve is 2 px accent, a lone bucket
+a 4 px accent dot. Gym set checks are 8 px muted ticks on the bottom grid
+line; cardio rounds are Surface2 bands the full plot height behind the
+curve. The range's start and end clock times sit under the two ends. No
+legend, no caption, no colors per zone. The chart speaks as one line:
+"Heart rate from 18:02 to 19:14, lowest 92 beats per minute, highest 164
+beats per minute, 18 sets marked".
+
+"Sets in order" follows a gym session's exercise groups, before Notes. Each
+row is two lines and nothing to tap: the exercise name (ellipsis when
+long) with the check's clock time on the right, over the set text with
+the time since the set before and "151 bpm" on the right. Time and bpm sit
+in fixed columns as wide as the group's widest value, in muted tabular 15.
+Each row speaks as one line with full unit words.
+
+The "Maximum heart rate" sheet holds one elevated group with a "Maximum"
+row and a number widget in bpm (the measured value as its placeholder),
+then a full-width Save, dim while the value is outside 100 to 230.
+
+A finished cardio Review with figures gets a "Heart rate" group after
+Intervals: 48 px label and value rows in body, values white with tabular
+figures, nothing to tap. "At or above 159 bpm" with "11:35"; or "Below
+112 bpm", "112 to 130 bpm", "Above 130 bpm" with "7 %"; then "Round 1"
+with "peak 168 · drop 41". No green or red for a value, no target line,
+no arrows, no verdict words. Each row speaks as one line with full unit
+words.
+
+The cardio type screen's "At or above 85 %" chart labels its points as
+minutes and seconds ("9:50 min" on the last); "In zone" labels percents
+("86 %"). Both are ordinary charts, no point marked green.

@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -31,17 +32,24 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     LeaveIfSessionMissing(nav, "review/{id}", sessionId, loaded = sessionState.second, missing = session == null)
     val logs by vm.repo.setLogs(sessionId).collectAsStateWithLifecycle(emptyList())
     val intervals by vm.repo.intervalLogs(sessionId).collectAsStateWithLifecycle(emptyList())
+    val hrRow by remember(sessionId) { vm.repo.sessionHr(sessionId) }.collectAsStateWithLifecycle(null)
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val s = session ?: return
+    val picture = rememberWorkoutPicture(vm, s, logs, intervals)
+    val facts = hrFacts(s, hrRow, java.time.ZoneId.systemDefault())
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize()) {
         EditorTopBar("Today", s.programName ?: s.exerciseName ?: "Session", scrollPx = { scroll.value }, onBack = { nav.popBackStack() })
         Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             Text(s.date.toDate().format(shortDate), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-            Text(statLine(s, logs), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp))
+            Text(statLine(s, logs), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = if (hrLine(s, facts) == null) 16.dp else 0.dp))
+            hrLine(s, facts)?.let { Text(it, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp).semantics { contentDescription = hrSpoken(s, facts).orEmpty() }) }
+            if (picture?.hasChart == true) HeartPicture(picture, Modifier.padding(bottom = 16.dp))
             if (s.itemType == ItemType.PROGRAM) reviewExercises(logs).forEach { sets -> ExerciseReview(sets) }
-            else CardioReview(s, intervals, exercises.find { it.id == s.exerciseId }?.let { ex -> modalities.find { it.id == ex.modalityId }?.name })
+            if (s.itemType == ItemType.PROGRAM) picture?.let { SetsInOrder(it.rows) }
+            else CardioReview(s, facts, intervals, exercises.find { it.id == s.exerciseId }?.let { ex -> modalities.find { it.id == ex.modalityId }?.name })
+            if (s.itemType == ItemType.CARDIO) ReviewScores(vm, s, exercises.find { it.id == s.exerciseId }, facts, intervals)
             if (s.note.isNotBlank() || s.effort != null) {
                 SectionTitle("Notes", Modifier.padding(top = 12.dp))
                 GroupedList {
@@ -77,13 +85,13 @@ private fun ExerciseReview(sets: List<SetLog>) {
 }
 
 @Composable
-private fun CardioReview(s: Session, intervals: List<IntervalLog>, type: String?) {
+private fun CardioReview(s: Session, facts: HrFacts, intervals: List<IntervalLog>, type: String?) {
     val rows = listOfNotNull(
         type?.let { "Type" to it },
         s.timeSec?.let { "Time" to "${it / 60} min" + if (it % 60 > 0) " ${it % 60} s" else "" },
         s.distanceM?.let { "Distance" to "${fmt(it / 1000.0, 2)} km" },
         paceLine(s.timeSec, s.distanceM)?.let { "Pace" to it },
-        s.avgHr?.let { "Avg heart rate" to "$it bpm" },
+        shownAvgHr(s, facts)?.let { "Avg heart rate" to "$it bpm" },
         s.watts?.let { "Avg watts" to "$it W" },
         s.laps?.let { "Laps" to "$it" },
         s.poolLength?.takeIf { s.laps != null }?.let { "Pool length" to "$it m" },
@@ -94,7 +102,7 @@ private fun CardioReview(s: Session, intervals: List<IntervalLog>, type: String?
         SectionTitle("Intervals", Modifier.padding(top = 24.dp))
         GroupedList {
             intervals.forEachIndexed { i, iv ->
-                ReviewRow("Round ${i + 1}", listOfNotNull(iv.avgHr?.let { "$it bpm" }, iv.watts?.let { "$it W" }).joinToString(" · ").ifEmpty { "—" }, divider = i > 0)
+                ReviewRow("Round ${i + 1}", listOfNotNull(shownRoundHr(iv, facts)?.let { "$it bpm" }, iv.watts?.let { "$it W" }).joinToString(" · ").ifEmpty { "—" }, divider = i > 0)
             }
         }
     }

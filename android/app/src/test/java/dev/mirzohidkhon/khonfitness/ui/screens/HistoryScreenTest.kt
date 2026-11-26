@@ -254,7 +254,7 @@ class HistoryScreenTest {
         compose.runOnIdle { nav.navigate(Routes.exerciseDetail("bench")) }
         waitFor("Most reps by weight")
         val rows = compose.onAllNodesWithText("× ", substring = true).fetchSemanticsNodes()
-            .filter { it.config[SemanticsProperties.Text].last().text.startsWith("× ") }.sortedBy { it.boundsInRoot.top }
+            .filter { it.config[SemanticsProperties.Text].last().text.startsWith("× ") }.sortedBy { it.positionInRoot.y }
         assertEquals(
             listOf("100 kg" to "× 1", "90 kg" to "× 2", "80 kg" to "× 3", "70 kg" to "× 4", "60 kg" to "× 5", "50 kg" to "× 6"),
             rows.map { r -> r.config[SemanticsProperties.Text].map { it.text }.let { it.first() to it.last() } },

@@ -3,17 +3,25 @@
 Task-ID: HR01-P3-ui
 Class: Normal
 Protocol: ~/.config/agents/review-protocol.md
-Workdir: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/hr01
-Base: 9d1ba17
+Workdir: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/hr01-p3
+Base: 662846b
 Capabilities: static
 Tests: JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" android/gradlew -p android :app:testDebugUnitTest :app:assembleDebug :app:lintVitalRelease
-Report: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/hr01/docs/hr01-tasks/HR01-P3-ui-REPORT.md
+Report: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/hr01-p3/docs/hr01-tasks/HR01-P3-ui-REPORT.md
 
 ## Why
 
-See `docs/hr01-tasks/HR01-COMMON.md`. Phases 1 and 2 are on this branch;
-read their reports in `docs/hr01-tasks/`. This phase shows what they
-store. It changes no stored data by itself: "Read again" and "Remove" call
+See `docs/hr01-tasks/HR01-COMMON.md`. Phase 1 is on this branch; read
+its report in `docs/hr01-tasks/` (phase 2, the band import, comes later
+and this phase does not use it). This phase shows what phase 1 stores.
+Names: `repo.sessionHr(id)` and `repo.allSessionHr` are the flows of the
+rows; `KhonApp.heartFill` (`HeartFill`) has `rereadHeartRate(sessionId):
+HrReread`, `removeHeartRate(sessionId): Boolean`, and `foreground()`;
+`FakeHeart` in the test folder of the `data` package fakes the band. The
+timer code of this branch is under a separate fix, and another builder
+adds a chart to the Review screen on another branch: do not change the
+`timer` package, and keep the change to the Review screen to the one
+line. It changes no stored data by itself: "Read again" and "Remove" call
 `rereadHeartRate` and `removeHeartRate` of phase 1.
 
 Read `DESIGN.md` before any layout: no cards with per-row buttons, no

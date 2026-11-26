@@ -127,11 +127,13 @@ fun CardioTypeScreen(vm: AppViewModel, nav: NavHostController, typeId: String, c
     val sessions = rememberHistoryData(vm, rememberToday(clock)).sessions
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val intervalLogs by vm.allIntervalLogs.collectAsStateWithLifecycle()
+    val hrRows by vm.allSessionHr.collectAsStateWithLifecycle()
     val type = typeId.takeIf { it != NO_TYPE } ?: ""
     val byId = exercises.associateBy { it.id }
     val cs = sessions.filter { it.finished && it.itemType == ItemType.CARDIO && (byId[it.exerciseId]?.modalityId ?: "") == type }
         .sortedWith(compareBy({ it.date }, { it.startedAt }))
     val swim = type == "swim"
+    val facts = factsById(cs, hrRows, clock.zone)
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize()) {
         EditorTopBar("Back", modalities.find { it.id == type }?.name ?: "Other", onBack = { nav.popBackStack() }, scrollPx = { scroll.value })
@@ -145,10 +147,10 @@ fun CardioTypeScreen(vm: AppViewModel, nav: NavHostController, typeId: String, c
                 ChartTitle("Pace ${if (swim) "/100 m" else "/km"}")
                 LineChart(pace, "", format = { m -> val sec = Math.round(m * 60); "%d:%02d".format(sec / 60, sec % 60) })
             }
-            val hr = cs.mapNotNull { s -> s.avgHr?.let { ChartPoint(s.date.toDate(), it.toDouble()) } }
+            val hr = cs.mapNotNull { s -> shownAvgHr(s, facts.getValue(s.id))?.let { ChartPoint(s.date.toDate(), it.toDouble()) } }
             if (hr.isNotEmpty()) { ChartTitle("Average heart rate"); LineChart(hr, "bpm", decimals = 0) }
             val work = cs.filter { byId[it.exerciseId]?.intervals == true }.mapNotNull { s ->
-                intervalLogs.filter { it.sessionId == s.id && it.avgHr != null }.map { it.avgHr!! }.takeIf { it.isNotEmpty() }?.let { ChartPoint(s.date.toDate(), it.average()) }
+                intervalLogs.filter { it.sessionId == s.id }.mapNotNull { shownRoundHr(it, facts.getValue(s.id)) }.takeIf { it.isNotEmpty() }?.let { ChartPoint(s.date.toDate(), it.average()) }
             }
             if (work.isNotEmpty()) { ChartTitle("Heart rate in work intervals"); LineChart(work, "bpm", decimals = 0) }
             val time = cs.mapNotNull { s -> s.timeSec?.let { ChartPoint(s.date.toDate(), it / 60.0) } }

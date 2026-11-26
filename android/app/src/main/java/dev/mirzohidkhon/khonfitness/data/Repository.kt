@@ -416,6 +416,7 @@ class KhonRepository(
      * intervals. A draft already imported writes nothing ([KhonDao.insertImportedSession]).
      */
     suspend fun importDraft(d: dev.mirzohidkhon.khonfitness.health.ImportDraft, ex: Exercise): ImportResult {
+        val pendingAtSubmit = timer.resultPending()
         val fields = ex.fieldList
         val pool = d.poolLength ?: 25
         val laps = when { "laps" !in fields -> null; d.laps != null -> d.laps; d.distanceM != null -> d.distanceM / pool; else -> null }
@@ -428,7 +429,6 @@ class KhonRepository(
         )
         val hrs = dev.mirzohidkhon.khonfitness.health.HealthImport.intervalHeartRates(d, ex)
         val logs = hrs.mapIndexed { i, hr -> IntervalLog(newId(), session.id, i, avgHr = hr) }
-        val pendingAtSubmit = timer.resultPending()
         beforeImportAdmission()
         val result = timerLock.withLock {
             dao.insertImportedSession(session, logs, d.records, { pendingAtSubmit || timer.resultPending() }, zone, afterImportChecks)

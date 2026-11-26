@@ -93,5 +93,16 @@ Write the report to the `Report:` path. Use one table row per contract row:
 The status is the first word of the second cell: `done`, `deviation`, or
 `blocked`. Give the reason after the colon for `deviation` and `blocked`.
 
+Add a `## Coverage` section with one row per instance of each class. Every
+contract row ID needs at least one row:
+
+| # | Instance | Status | Test | Found by |
+|---|---|---|---|---|
+| X1.1 | <file:line or name> | fixed: <what changed> | <test name> | <grep pattern, caller trace, or coverage list entry> |
+
+The row ID is `<contract ID>.<n>`. The status is `fixed`, `kept` (the
+instance stays, and the test proves that it is safe), or `blocked:
+<reason>`. The test cell is `none` only for `blocked`.
+
 Run `~/.config/agents/tools/task-result check <task file>` before your final
 message.

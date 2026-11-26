@@ -133,6 +133,7 @@ class HeartReadTest {
     @Test fun `clocks whose difference overflows are not in step`() {
         assertFalse(inStep(Anchor(-1, 0), Long.MAX_VALUE, 0))
         assertFalse(inStep(Anchor(Long.MAX_VALUE, 0), Long.MIN_VALUE, 0))
+        assertFalse(inStep(Anchor(0, Long.MIN_VALUE), Long.MIN_VALUE, 0))
         assertTrue(inStep(Anchor(1_000, 0), 1_000 + CLOCK_STEP_MS, 0))
     }
 

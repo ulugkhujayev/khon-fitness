@@ -27,7 +27,7 @@ const val CLOCK_STEP_MS = 2_000L
 fun inStep(anchor: Anchor?, wallMs: Long, elapsedMs: Long): Boolean {
     if (anchor == null || elapsedMs < anchor.elapsedMs) return false
     val drift = try {
-        Math.subtractExact(Math.subtractExact(wallMs, anchor.wallMs), elapsedMs - anchor.elapsedMs)
+        Math.subtractExact(Math.subtractExact(wallMs, anchor.wallMs), Math.subtractExact(elapsedMs, anchor.elapsedMs))
     } catch (e: ArithmeticException) {
         return false
     }

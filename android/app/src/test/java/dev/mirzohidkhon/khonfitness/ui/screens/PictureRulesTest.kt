@@ -66,7 +66,7 @@ class PictureRulesTest {
         )
         assertEquals(listOf("first", "b", "a"), setMarks(range, logs).map { it.id })
         val p = workoutPicture(gym, hrFacts(gym, null, zone), logs, emptyList(), zone)!!
-        assertEquals(listOf(0L, 10 * MIN, 20 * MIN), p.marks)
+        assertEquals(listOf(0L, 10 * MIN, 20 * MIN), p.markOffsetsMs)
     }
 
     @Test fun `set rows give the clock, the time since the mark before, and the highest bpm of the span`() {
@@ -102,7 +102,41 @@ class PictureRulesTest {
         assertEquals(RoundBand(29 * MIN, r.lengthMs), bands.last())
         val p = workoutPicture(c, hrFacts(c, filledRow("c", r, every5(0, 600)), zone), emptyList(), four + long + noTimes + zero, zone)!!
         assertEquals(bands, p.bands)
-        assertTrue(p.marks.isEmpty() && p.rows.isEmpty())
+        assertTrue(p.markOffsetsMs.isEmpty() && p.rows.isEmpty())
+    }
+
+    @Test fun `a bucket and a set in the last partial second of the range count, a bucket at the range length does not`() {
+        val partial = gym.copy(timedTo = from + 600_002)
+        val partialRange = hrWindow(partial, zone)!!
+        val buckets = every5(0, 600) + HrSample(600, 180)
+        val logs = listOf(set("a", 0, from + 590_000), set("b", 1, from + 600_001), set("end", 2, partialRange.toMs))
+        val p = workoutPicture(partial, hrFacts(partial, row(buckets, partial), zone), logs, emptyList(), zone)!!
+        assertEquals(buckets, p.curve.flatten())
+        assertEquals(BpmAxis(120, 180, 20), p.axis)
+        assertTrue(p.spoken, p.spoken.contains("highest 180 beats per minute"))
+        assertEquals(listOf(590_000L, 600_001L), p.markOffsetsMs)
+        assertEquals(180, p.rows[1].maxBpm)
+        assertTrue(p.rows[1].spoken, p.rows[1].spoken.endsWith("highest 180 beats per minute"))
+
+        val whole = gym.copy(timedTo = from + 600_000)
+        val atLength = every5(0, 600) + HrSample(600, 180)
+        val q = workoutPicture(whole, hrFacts(whole, row(atLength, whole), zone), logs, emptyList(), zone)!!
+        assertEquals(every5(0, 600), q.curve.flatten())
+        assertEquals(BpmAxis(110, 130, 10), q.axis)
+        assertTrue(q.spoken, q.spoken.contains("highest 120 beats per minute"))
+        assertEquals(listOf(590_000L), q.markOffsetsMs)
+    }
+
+    @Test fun `a round that starts in the last partial second of the range gets a band cut at the range end`() {
+        val c = Session("c", day.iso(), from, from + 600_002, ItemType.CARDIO, exerciseName = "4×4", timedFrom = from, timedTo = from + 600_002)
+        val r = hrWindow(c, zone)!!
+        assertEquals(600_002L, r.lengthMs)
+        val rounds = listOf(
+            IntervalLog("first", "c", 0, startedAt = from, endedAt = from + MIN),
+            IntervalLog("last", "c", 1, startedAt = from + 600_001, endedAt = from + 11 * MIN),
+            IntervalLog("atEnd", "c", 2, startedAt = r.toMs, endedAt = r.toMs + MIN),
+        )
+        assertEquals(listOf(RoundBand(0, MIN), RoundBand(600_001, 600_002)), roundBands(r, rounds))
     }
 
     @Test fun `the bpm axis has 3 to 5 lines in steps of 10 or 20 over every bucket`() {

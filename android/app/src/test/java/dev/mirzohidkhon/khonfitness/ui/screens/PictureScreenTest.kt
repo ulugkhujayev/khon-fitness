@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.compose.rememberNavController
+import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.KhonApp
 import dev.mirzohidkhon.khonfitness.data.*
@@ -58,8 +59,12 @@ import org.robolectric.annotation.GraphicsMode
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 
-/** The heart rate picture on Review: its pixels, which sessions get it, a live fill and remove, and its layout. */
+private const val PICTURE_PAD_RIGHT_DP = 8
+private const val TICK_HEIGHT_DP = 8.0
+
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w360dp-h2400dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -78,7 +83,16 @@ class PictureScreenTest {
         vm = AppViewModel(app)
     }
 
-    @After fun close() { if (::app.isInitialized) { if (::vm.isInitialized) vm.viewModelScope.cancel(); app.scope.cancel(); app.db.close() } }
+    @After fun close() {
+        if (!::app.isInitialized) return
+        compose.runOnIdle { reviewId = ""; shown = null }
+        compose.waitForIdle()
+        io { app.db.withTransaction {} }
+        if (::vm.isInitialized) vm.viewModelScope.cancel()
+        app.scope.cancel()
+        compose.waitForIdle()
+        app.db.close()
+    }
 
     private fun io(block: suspend () -> Unit) = runBlocking(Dispatchers.IO) { block() }
     private fun seed(f: PictureFixture) = io {
@@ -96,7 +110,7 @@ class PictureScreenTest {
             val d = LocalDensity.current
             val config = Configuration(LocalConfiguration.current).apply { fontScale = scale }
             CompositionLocalProvider(LocalDensity provides Density(d.density, scale), LocalConfiguration provides config) {
-                KhonTheme { Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) { ReviewScreen(vm, rememberNavController(), reviewId) } }
+                KhonTheme { Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) { if (reviewId.isNotEmpty()) ReviewScreen(vm, rememberNavController(), reviewId) } }
             }
         }
     }
@@ -104,33 +118,52 @@ class PictureScreenTest {
     private fun waitFor(text: String) = compose.waitUntil(5_000) { shows(text) }
     private fun chartShown() = compose.onAllNodesWithTag(HEART_PICTURE_TAG).fetchSemanticsNodes().isNotEmpty()
 
-    // Pixels ------------------------------------------------------------------------------------------------------
-
     private var shown by mutableStateOf<WorkoutPicture?>(null)
     private fun chart(p: WorkoutPicture) {
         shown = p
         compose.setContent { KhonTheme { Box(Modifier.background(K.Bg).padding(16.dp)) { shown?.let { HeartPicture(it) } } } }
     }
     private fun image(): Bitmap = compose.nodeImage(compose.activity.window.decorView, compose.onNodeWithTag(HEART_PICTURE_TAG))
+    private val pxPerDp: Double get() = compose.density.density.toDouble()
 
     private fun near(argb: Int, c: Color, tol: Int): Boolean {
         val t = c.toArgb()
         return abs((argb shr 16 and 255) - (t shr 16 and 255)) <= tol && abs((argb shr 8 and 255) - (t shr 8 and 255)) <= tol && abs((argb and 255) - (t and 255)) <= tol
     }
+    private fun Bitmap.at(x: Double, y: Double): Int = getPixel(floor(x).toInt().coerceIn(0, width - 1), floor(y).toInt().coerceIn(0, height - 1))
+    private fun Bitmap.accentNear(x: Double, y: Double, radiusPx: Int) =
+        (-radiusPx..radiusPx).any { dx -> (-radiusPx..radiusPx).any { dy -> near(at(x + dx, y + dy), K.Accent, 30) } }
 
-    /** The plot as drawn: the bottom grid line's center row and first pixel, and the right inset. */
-    private data class Plot(val left: Int, val bottom: Int, val right: Int)
-    private fun plot(img: Bitmap): Plot {
-        val gridRows = (0 until img.height).filter { y -> (0 until img.width).count { x -> near(img.getPixel(x, y), K.Divider, 6) } > img.width / 5 }
-        val last = gridRows.max()
-        val run = gridRows.filter { it > last - 6 }
-        val bottom = (run.min() + run.max()) / 2
-        val left = (0 until img.width).first { near(img.getPixel(it, bottom), K.Divider, 6) }
-        return Plot(left, bottom, img.width - (8 * compose.density.density).toInt())
+    private data class Expected(val lengthMs: Long, val buckets: List<HrSample>, val marks: List<Long>, val bands: List<Pair<Long, Long>>) {
+        val gaps = buckets.zipWithNext().filter { (a, b) -> b.offsetSec - a.offsetSec > CURVE_MAX_JOINED_GAP_SEC }
+        val lone = buckets.filterIndexed { i, b ->
+            (i == 0 || b.offsetSec - buckets[i - 1].offsetSec > CURVE_MAX_JOINED_GAP_SEC) && (i == buckets.lastIndex || buckets[i + 1].offsetSec - b.offsetSec > CURVE_MAX_JOINED_GAP_SEC)
+        }
+        val axis = bpmAxis(buckets)!!
     }
-    private fun Plot.x(ms: Long, p: WorkoutPicture) = left + ms.toDouble() * (right - left) / p.range.lengthMs
+    private fun expected(f: PictureFixture): Expected {
+        val range = hrWindow(f.session, zone)!!
+        val buckets = parseSamples(f.row!!.samples)!!.filter { it.offsetSec >= 0 && range.fromMs + it.offsetSec * 1000L < range.toMs }.sortedBy { it.offsetSec }
+        val marks = f.logs.filter { it.status == SetStatus.DONE }.mapNotNull { it.checkedAt }.filter { it >= range.fromMs && it < range.toMs }.map { it - range.fromMs }.sorted()
+        val bands = f.rounds.mapNotNull { r -> r.startedAt?.let { s -> r.endedAt?.let { e -> (s - range.fromMs) to (minOf(e, range.toMs) - range.fromMs) } } }
+        return Expected(range.lengthMs, buckets, marks, bands)
+    }
 
-    /** Runs of [c] along row [y]: first and last column of each. */
+    private data class Plot(val left: Double, val right: Double, val lines: List<Double>, val e: Expected) {
+        val top get() = lines.first()
+        val bottom get() = lines.last()
+        fun x(ms: Long) = left + ms * (right - left) / e.lengthMs
+        fun y(bpm: Int) = top + (e.axis.high - bpm) * (bottom - top) / (e.axis.high - e.axis.low)
+    }
+    private fun plot(img: Bitmap, e: Expected): Plot {
+        val gridRows = (0 until img.height).filter { y -> (0 until img.width).count { x -> near(img.getPixel(x, y), K.Divider, 6) } > img.width / 5 }
+        val lineRows = mutableListOf<MutableList<Int>>()
+        gridRows.forEach { r -> if (lineRows.lastOrNull()?.last() == r - 1) lineRows.last() += r else lineRows += mutableListOf(r) }
+        val bottomRow = lineRows.last()[lineRows.last().size / 2]
+        val left = (0 until img.width).first { near(img.getPixel(it, bottomRow), K.Divider, 6) }.toDouble()
+        return Plot(left, img.width - PICTURE_PAD_RIGHT_DP * pxPerDp, lineRows.map { (it.first() + it.last() + 1) / 2.0 }, e)
+    }
+
     private fun runs(img: Bitmap, y: Int, c: Color, tol: Int): List<IntRange> {
         val out = mutableListOf<IntRange>()
         var start = -1
@@ -142,54 +175,96 @@ class PictureScreenTest {
         return out
     }
 
-    private fun curveDrawn(img: Bitmap): Boolean = (0 until img.height).sumOf { y -> (0 until img.width).count { x -> near(img.getPixel(x, y), K.Accent, 30) } } > 300
-
-    /** A tick stands at each of [marks]' columns and at no other. */
-    private fun ticksAt(img: Bitmap, p: WorkoutPicture, marks: List<Long>): Boolean {
-        val plot = plot(img)
-        val y = plot.bottom - (4 * compose.density.density).toInt()
-        val found = runs(img, y, K.Muted, 40).filter { it.first >= plot.left }.map { (it.first + it.last) / 2.0 }
-        return found.size == marks.size && found.zip(marks).all { (fx, ms) -> abs(fx - plot.x(ms, p)) <= 2.5 }
+    private fun curveMisses(img: Bitmap, plot: Plot): List<String> {
+        val e = plot.e
+        val misses = mutableListOf<String>()
+        e.buckets.forEach { b ->
+            if (!img.accentNear(plot.x(b.offsetSec * 1000L), plot.y(b.bpm), 2)) misses += "no curve at ${b.offsetSec} s, ${b.bpm} bpm"
+        }
+        e.lone.forEach { b ->
+            if (!img.accentNear(plot.x(b.offsetSec * 1000L), plot.y(b.bpm), 1)) misses += "no lone dot at ${b.offsetSec} s"
+        }
+        val margin = 2 * pxPerDp
+        val empty = e.gaps.map { (a, b) -> plot.x(a.offsetSec * 1000L) + margin to plot.x(b.offsetSec * 1000L) - margin } +
+            listOf(0.0 to plot.x(e.buckets.first().offsetSec * 1000L) - margin, plot.x(e.buckets.last().offsetSec * 1000L) + margin to img.width.toDouble())
+        empty.forEach { (from, to) ->
+            val hit = (ceil(from).toInt().coerceAtLeast(0) until floor(to).toInt().coerceAtMost(img.width)).firstOrNull { x -> (0 until img.height).any { y -> near(img.getPixel(x, y), K.Accent, 30) } }
+            if (hit != null) misses += "curve pixel in the empty columns ${from.toInt()}..${to.toInt()} at x $hit"
+        }
+        return misses
     }
 
-    /** A band covers each of [bands]' columns and no other along the plot's bottom. */
-    private fun bandsAt(img: Bitmap, p: WorkoutPicture, bands: List<RoundBand>): Boolean {
-        val plot = plot(img)
-        val y = plot.bottom - (3 * compose.density.density).toInt()
-        val found = runs(img, y, K.Surface2, 3).filter { it.first >= plot.left }
-        return found.size == bands.size && found.zip(bands).all { (r, b) -> abs(r.first - plot.x(b.fromMs, p)) <= 2.5 && abs(r.last + 1 - plot.x(b.toMs, p)) <= 2.5 }
+    private fun tickMisses(img: Bitmap, plot: Plot, marks: List<Long>): List<String> {
+        val misses = mutableListOf<String>()
+        fun muted(x: Double, dpAboveBottom: Double) = near(img.at(x, plot.bottom - dpAboveBottom * pxPerDp), K.Muted, 40)
+        marks.forEach { ms ->
+            val x = plot.x(ms)
+            if (!muted(x, 1.0)) misses += "no tick foot on the plot bottom at $ms ms"
+            if (!muted(x, TICK_HEIGHT_DP - 1.0)) misses += "no tick top at $ms ms"
+            if (muted(x, TICK_HEIGHT_DP + 1.5)) misses += "tick higher than $TICK_HEIGHT_DP dp at $ms ms"
+            if (muted(x, -1.5)) misses += "tick under the plot bottom at $ms ms"
+        }
+        val found = runs(img, floor(plot.bottom - TICK_HEIGHT_DP / 2 * pxPerDp).toInt(), K.Muted, 40).filter { it.first >= plot.left - 1 }.map { (it.first + it.last + 1) / 2.0 }
+        if (found.size != marks.size || found.zip(marks).any { (fx, ms) -> abs(fx - plot.x(ms)) > 2.5 }) misses += "tick columns $found, expected ${marks.map { plot.x(it) }}"
+        return misses
+    }
+
+    private fun Plot.bandHeights() = listOf(top + 2 * pxPerDp, lines.let { (it[(it.size - 1) / 2] + it[(it.size - 1) / 2 + 1]) / 2 }, bottom - 2 * pxPerDp)
+
+    private fun bandMisses(img: Bitmap, plot: Plot, heights: List<Double>): List<String> {
+        val misses = mutableListOf<String>()
+        val edge = pxPerDp
+        for (y in heights) for ((fromMs, toMs) in plot.e.bands) {
+            val x0 = plot.x(fromMs)
+            val x1 = plot.x(toMs)
+            listOf(x0 + edge, (x0 + x1) / 2, x1 - edge).forEach { x -> if (!near(img.at(x, y), K.Surface2, 3)) misses += "no band at ($x, $y) for $fromMs..$toMs ms" }
+            listOf(x0 - edge, x1 + edge).forEach { x -> if (!near(img.at(x, y), K.Bg, 3)) misses += "band beyond its edge at ($x, $y) for $fromMs..$toMs ms" }
+        }
+        val runsAtBottom = runs(img, floor(plot.bottom - 2 * pxPerDp).toInt(), K.Surface2, 3).filter { it.first >= plot.left }
+        if (runsAtBottom.size != plot.e.bands.size) misses += "${runsAtBottom.size} bands along the bottom, expected ${plot.e.bands.size}"
+        return misses
     }
 
     @Test fun `the gym chart draws the curve and a tick at each set mark only`() {
-        val p = picture(gymFixture(day, zone))
-        assertEquals(18, p.marks.size)
+        val f = gymFixture(day, zone)
+        val p = picture(f)
+        val e = expected(f)
+        assertEquals(18, e.marks.size)
+        assertEquals(listOf(GYM_LONE_BUCKET_SEC), e.lone.map { it.offsetSec })
         chart(p)
         var img = image()
-        assertTrue("curve", curveDrawn(img))
-        assertTrue("ticks", ticksAt(img, p, p.marks))
-        assertFalse("ticks at other columns pass", ticksAt(img, p, p.marks.drop(1)))
-        compose.runOnIdle { shown = p.copy(marks = emptyList()) }
+        val plot = plot(img, e)
+        assertEquals(e.axis.lines.size, plot.lines.size)
+        curveMisses(img, plot).let { assertTrue("$it", it.isEmpty()) }
+        tickMisses(img, plot, e.marks).let { assertTrue("$it", it.isEmpty()) }
+        assertTrue("a tick at no expected column passes", tickMisses(img, plot, e.marks.drop(1)).isNotEmpty())
+        compose.runOnIdle { shown = p.copy(markOffsetsMs = emptyList()) }
         img = image()
-        assertFalse("marks removed: the tick check still passes", ticksAt(img, p, p.marks))
+        assertTrue("marks removed: the tick check still passes", tickMisses(img, plot, e.marks).isNotEmpty())
         compose.runOnIdle { shown = p.copy(curve = emptyList()) }
         img = image()
-        assertFalse("curve removed: the curve check still passes", curveDrawn(img))
+        assertTrue("curve removed: the curve check still passes", curveMisses(img, plot).isNotEmpty())
     }
 
     @Test fun `the cardio chart draws the curve over a band at each round`() {
-        val p = picture(cardioFixture(day, zone))
-        assertEquals(4, p.bands.size)
+        val f = cardioFixture(day, zone)
+        val p = picture(f)
+        val e = expected(f)
+        assertEquals(4, e.bands.size)
         chart(p)
         var img = image()
-        assertTrue("curve", curveDrawn(img))
-        assertTrue("bands", bandsAt(img, p, p.bands))
-        assertTrue("no ticks", ticksAt(img, p, emptyList()))
+        val plot = plot(img, e)
+        assertEquals(e.axis.lines.size, plot.lines.size)
+        curveMisses(img, plot).let { assertTrue("$it", it.isEmpty()) }
+        bandMisses(img, plot, listOf(plot.bottom - 2 * pxPerDp)).let { assertTrue("$it", it.isEmpty()) }
+        tickMisses(img, plot, emptyList()).let { assertTrue("$it", it.isEmpty()) }
+        compose.runOnIdle { shown = p.copy(curve = emptyList()) }
+        img = image()
+        bandMisses(img, plot, plot.bandHeights()).let { assertTrue("$it", it.isEmpty()) }
         compose.runOnIdle { shown = p.copy(bands = emptyList()) }
         img = image()
-        assertFalse("bands removed: the band check still passes", bandsAt(img, p, p.bands))
+        assertTrue("bands removed: the band check still passes", bandMisses(img, plot, plot.bandHeights()).isNotEmpty())
     }
-
-    // Screen ------------------------------------------------------------------------------------------------------
 
     private fun assertExistingGym() {
         assertTrue(shows("Barbell Bench Press") && shows("Set 1") && shows("Pull-up"))
@@ -257,8 +332,6 @@ class PictureScreenTest {
         assertFalse(shows("bpm"))
         assertTrue(shows("Sets in order"))
     }
-
-    // Layout ------------------------------------------------------------------------------------------------------
 
     private val longName = "Single-Arm Cable Rear Delt Fly to Raise X"
 

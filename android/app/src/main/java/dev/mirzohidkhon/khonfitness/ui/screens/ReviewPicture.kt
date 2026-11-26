@@ -46,7 +46,6 @@ const val HEART_PICTURE_TAG = "heart-picture"
 private const val PICTURE_HEIGHT = 190
 private const val AXIS_GAP = 8
 
-/** The picture of [s] from its `session_hr` row, through [hrFacts] only; null when the session has no range. */
 @Composable
 fun rememberWorkoutPicture(vm: AppViewModel, s: Session, logs: List<SetLog>, rounds: List<IntervalLog>): WorkoutPicture? {
     val row by remember(s.id) { vm.repo.sessionHr(s.id) }.collectAsStateWithLifecycle(null)
@@ -54,11 +53,6 @@ fun rememberWorkoutPicture(vm: AppViewModel, s: Session, logs: List<SetLog>, rou
     return remember(s, row, logs, rounds, zone) { workoutPicture(s, hrFacts(s, row, zone), logs, rounds, zone) }
 }
 
-/**
- * The heart rate curve over the session's range: dashed bpm grid labelled on the left as [LineChart] draws it, the
- * curve in accent (a lone bucket is a dot), a muted tick at the bottom at each set mark, a faint band behind each
- * round, the range's start and end clock times along the bottom.
- */
 @Composable
 fun HeartPicture(p: WorkoutPicture, modifier: Modifier = Modifier) {
     val axis = p.axis ?: return
@@ -90,16 +84,12 @@ fun HeartPicture(p: WorkoutPicture, modifier: Modifier = Modifier) {
             if (pts.size == 1) drawCircle(K.Accent, 2.dp.toPx(), pts[0])
             else drawPath(Path().apply { moveTo(pts[0].x, pts[0].y); pts.drop(1).forEach { lineTo(it.x, it.y) } }, K.Accent, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
-        p.marks.forEach { ms -> drawLine(K.Muted, Offset(x(ms), bottom), Offset(x(ms), bottom - 8.dp.toPx()), strokeWidth = 1.5.dp.toPx()) }
+        p.markOffsetsMs.forEach { ms -> drawLine(K.Muted, Offset(x(ms), bottom), Offset(x(ms), bottom - 8.dp.toPx()), strokeWidth = 1.5.dp.toPx()) }
         drawText(start, topLeft = Offset(padL, size.height - start.size.height))
         drawText(end, topLeft = Offset(size.width - padR - end.size.width, size.height - end.size.height))
     }
 }
 
-/**
- * "Sets in order": each marked set, its name with the clock time of its check on the right, over its set text with the
- * time since the set before and the highest bpm of that span in fixed columns on the right. Nothing to tap.
- */
 @Composable
 fun SetsInOrder(rows: List<SetMarkRow>) {
     if (rows.size < 2) return

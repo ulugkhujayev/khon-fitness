@@ -21,6 +21,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.unit.Density
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.compose.rememberNavController
+import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.KhonApp
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
@@ -42,11 +43,6 @@ import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
 
-/**
- * Screenshots of Review with the heart rate picture: a gym session of 18 sets over 70 minutes, a 4×4 cardio session,
- * and a gym session with stamps and no heart rate, at 360 and 411 dp and font scale 1.0 and 1.3. Runs only when
- * `app/build/shots-picture` exists; the PNGs land there.
- */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w360dp-h3200dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -66,7 +62,16 @@ class PictureShotsTest {
         vm = AppViewModel(app)
     }
 
-    @After fun close() { if (::app.isInitialized) { if (::vm.isInitialized) vm.viewModelScope.cancel(); app.scope.cancel(); app.db.close() } }
+    @After fun close() {
+        if (!::app.isInitialized) return
+        compose.runOnIdle { id = "" }
+        compose.waitForIdle()
+        runBlocking(Dispatchers.IO) { app.db.withTransaction {} }
+        if (::vm.isInitialized) vm.viewModelScope.cancel()
+        app.scope.cancel()
+        compose.waitForIdle()
+        app.db.close()
+    }
 
     private fun shot(name: String) {
         compose.waitForIdle()
@@ -91,7 +96,7 @@ class PictureShotsTest {
             val d = LocalDensity.current
             val config = Configuration(LocalConfiguration.current).apply { fontScale = scale }
             CompositionLocalProvider(LocalDensity provides Density(d.density, scale), LocalConfiguration provides config) {
-                KhonTheme { Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) { key(id, scale) { ReviewScreen(vm, rememberNavController(), id) } } }
+                KhonTheme { Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) { key(id, scale) { if (id.isNotEmpty()) ReviewScreen(vm, rememberNavController(), id) } } }
             }
         }
         for (s in listOf(1f, 1.3f)) for ((f, marker) in listOf("gym" to "Sets in order", "cardio" to "Norwegian", "plain" to "Sets in order")) {

@@ -531,7 +531,7 @@ class HeartDataScreenTest {
         assertTrue(texts(failure).isEmpty())
     }
 
-    @Test fun `a failure stays after a recomposition and a rotation`() {
+    @Test fun `a failure stays after a recomposition and goes with a rotation`() {
         val push = gym("g", "Push", yesterday)
         io { dao.upsert(push); dao.upsertSessionHr(filled(push)) }
         fake.answer = { throw IllegalStateException("no provider") }
@@ -551,8 +551,8 @@ class HeartDataScreenTest {
         assertTrue(texts(failure).isNotEmpty())
         restore.emulateSavedInstanceStateRestore()
         shows("Time range")
-        shows(failure)
         shows("128 bpm")
+        assertTrue(texts(failure).isEmpty())
     }
 
     private fun closeSheet() {

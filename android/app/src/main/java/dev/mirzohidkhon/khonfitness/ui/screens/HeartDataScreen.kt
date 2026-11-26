@@ -129,13 +129,12 @@ private fun HeartSheet(vm: AppViewModel, heart: HeartFill, s: Session, row: Sess
     val context = LocalContext.current
     val id = s.id
     val range = hrWindow(s, zone)
-    val now = listOf(range, row).hashCode()
     var asked by remember(range, row) { mutableStateOf<Any?>(null) }
-    var failedAt by rememberSaveable(range, row) { mutableStateOf<Int?>(null) }
+    var failed by remember(range, row) { mutableStateOf(false) }
     var reading by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val sheet = hrSheet(s, row, rounds, zone, failed = failedAt == now) { appLabel(context, it) }
+    val sheet = hrSheet(s, row, rounds, zone, failed = failed) { appLabel(context, it) }
     Sheet(sessionName(s), onClose) {
         Column(Modifier.verticalScroll(rememberScrollState())) {
             Text(s.date.toDate().format(shortDate), style = MaterialTheme.typography.bodyMedium, color = K.Muted, modifier = Modifier.padding(bottom = 12.dp))
@@ -146,18 +145,18 @@ private fun HeartSheet(vm: AppViewModel, heart: HeartFill, s: Session, row: Sess
                     if (confirming) return@ActionRow
                     confirming = true
                     asked = null
-                    failedAt = null
+                    failed = false
                     vm.run { try { vm.repo.confirmRange(id, bounds.fromMs, bounds.toMs) } finally { confirming = false } }
                 }
                 if (sheet.reread) ActionRow(Icons.Restore, "Read again", enabled = !reading, divider = bounds != null) {
                     if (reading) return@ActionRow
                     val request = Any()
                     asked = request
-                    failedAt = null
+                    failed = false
                     reading = true
                     scope.launch {
                         try {
-                            if (heart.rereadHeartRate(id) == HrReread.FAILED && asked === request) failedAt = now
+                            if (heart.rereadHeartRate(id) == HrReread.FAILED && asked === request) failed = true
                         } finally {
                             reading = false
                         }

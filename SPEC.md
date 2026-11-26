@@ -443,9 +443,9 @@ nothing. The maximum is always the measured one.
   the rows show the state: the new facts, "Waiting for data", "No data",
   or "Not read". A read that fails shows one line, "Health Connect did not
   answer". The line belongs to the open sheet, its range, and the row it
-  showed at the tap, and it stays through a rotation. Remove, "Use this
-  time range", a range change (also one that goes back), a new row, a
-  closed sheet, or leaving the screen clears it. Remove, a closed sheet,
+  showed at the tap. Remove, "Use this time range", a range change (also
+  one that goes back), a new row, a closed sheet, a rotation, or leaving
+  the screen clears it. Remove, a closed sheet,
   and leaving the screen also stop the read. A
   second tap while a read runs does nothing. A session deleted meanwhile
   closes the sheet.

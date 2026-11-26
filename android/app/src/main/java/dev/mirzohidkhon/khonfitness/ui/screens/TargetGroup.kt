@@ -78,7 +78,7 @@ private fun TargetGroup(rows: TargetRows, kind: TargetKind, current: BigDecimal?
                 Modifier.fillMaxWidth().heightIn(min = 48.dp).clearAndSetSemantics { contentDescription = r.spoken }.padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(r.label, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), color = K.Text, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(vertical = 12.dp))
+                Text(r.label.replace("/", "\u2060/\u2060"), style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), color = K.Text, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(vertical = 12.dp))
                 if (r.value != null) Text(r.value, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Text, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
             }
         }

@@ -388,4 +388,14 @@ class HeartFillTest {
         assertEquals(HrState.FILLED, row("g")!!.state)
         assertNotNull(row("g")!!.avgHr)
     }
+    @Test fun `C30 a cardio Save asks one fill, a refused Save asks none`() = runBlocking {
+        var asked = 0
+        val counting = KhonRepository(dao, clocks = clocks, zone = { zone }, requestFill = { asked++ })
+        val empty = Session("e", "2026-11-20", at(18, 10), itemType = ItemType.CARDIO, exerciseId = "nor")
+        dao.upsert(empty)
+        assertTrue(counting.saveCardioEdits(empty, empty.copy(effort = 7), emptyMap(), at(18, 51)) is CardioSaveResult.Refused)
+        assertEquals(0, asked)
+        assertEquals(CardioSaveResult.Saved, counting.saveCardioEdits(empty, empty.copy(timeSec = 1200), emptyMap(), at(18, 51)))
+        assertEquals(1, asked)
+    }
 }

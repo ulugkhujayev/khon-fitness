@@ -55,17 +55,19 @@ fun ImportScreen(vm: AppViewModel, nav: NavHostController) {
     fun defaultExercise(d: ImportDraft): Exercise? = HealthImport.defaultExercise(d.modalityId, plan.itemFor(d.date).cardio, cardio)
 
     val permLauncher = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { refresh++ }
+    LaunchedEffect(Unit) { vm.repo.fillHeartRate() }
     LaunchedEffect(refresh, status) {
         if (status != HcStatus.AVAILABLE) return@LaunchedEffect
         granted = runCatching { HealthImport.hasPermissions(context) }.getOrDefault(false)
         if (granted == true) {
             error = null
-            drafts = runCatching { HealthImport.drafts(context, 60, vm.repo.importedSourceIds().toSet()) }.onFailure { error = it.message ?: "Read failed" }.getOrNull()
+            drafts = runCatching { HealthImport.drafts(context, 60) { vm.repo.importLocal() } }.onFailure { error = it.message ?: "Read failed" }.getOrNull()
         }
     }
 
-    fun import(d: ImportDraft, ex: Exercise) {
-        vm.run { vm.repo.importDraft(d, ex); refresh++ }
+    // A refused or failed import leaves its draft: the list is read again after every batch.
+    fun import(items: List<Pair<ImportDraft, Exercise>>) {
+        vm.run { HealthImport.importEach(items, vm.repo::importDraft); refresh++ }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -103,7 +105,7 @@ fun ImportScreen(vm: AppViewModel, nav: NavHostController) {
                                 if (ready.size == list.size) "Each one becomes a session under the exercise on its right. Tap a row to pick a different one first."
                                 else "The ones marked Choose match no exercise yet: tap one to pick it. The rest import under the exercise shown.",
                             )
-                            if (ready.isNotEmpty()) PrimaryButton(importAllLabel(ready.size, list.size), Modifier.padding(top = 20.dp)) { ready.forEach { (d, e) -> import(d, e) } }
+                            if (ready.isNotEmpty()) PrimaryButton(importAllLabel(ready.size, list.size), Modifier.padding(top = 20.dp)) { import(ready) }
                         }
                     }
                     if (strengthCount > 0) GroupFooter("$strengthCount strength ${if (strengthCount == 1) "workout" else "workouts"} from the watch not shown: gym sessions are logged in the app.")
@@ -121,7 +123,7 @@ fun ImportScreen(vm: AppViewModel, nav: NavHostController) {
         Sheet("${d.date.format(shortDate)} · ${d.typeName}", { picking = null }) {
             Text(listOfNotNull(sessionMinutes(d.seconds), d.distanceM?.let { "${fmt(it / 1000.0)} km" }, d.avgHr?.let { "avg $it bpm" }, d.laps?.let { "$it laps" }, "from " + d.originLabel).joinToString(" · "), color = K.Muted, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 12.dp))
             SheetGroupTitle("Import as")
-            ChoiceList { cardio.forEachIndexed { i, e -> ChoiceRow(e.name, e.id == current?.id, exerciseColor(e, modalities), e.intensity == Intensity.HIGH, divider = i > 0) { import(d, e); picking = null } } }
+            ChoiceList { cardio.forEachIndexed { i, e -> ChoiceRow(e.name, e.id == current?.id, exerciseColor(e, modalities), e.intensity == Intensity.HIGH, divider = i > 0) { import(listOf(d to e)); picking = null } } }
         }
     }
 }

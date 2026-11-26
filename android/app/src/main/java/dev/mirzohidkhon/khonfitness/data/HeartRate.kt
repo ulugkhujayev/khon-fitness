@@ -55,6 +55,19 @@ fun hrWindow(session: Session, zone: ZoneId): HrRange? {
     }
 }
 
+/**
+ * The timer range of an app cardio session (no `sourceId`), finished or not: `[timedFrom, timedTo)` under the date rule
+ * of [hrWindow], 2 minutes to 6 hours long, or null.
+ */
+fun runRange(session: Session, zone: ZoneId): HrRange? {
+    if (session.itemType != ItemType.CARDIO || session.sourceId != null) return null
+    val from = session.timedFrom ?: return null
+    val to = session.timedTo ?: return null
+    if (from >= to) return null
+    if (session.date != localDate(from, zone) && session.date != localDate(session.startedAt, zone)) return null
+    return HrRange(from, to).takeIf { it.lengthMs in CARDIO_RANGE_MS }
+}
+
 /** What a screen may show of a session's heart rate ([hrFacts]). */
 sealed interface HrFacts {
     data object NoRange : HrFacts

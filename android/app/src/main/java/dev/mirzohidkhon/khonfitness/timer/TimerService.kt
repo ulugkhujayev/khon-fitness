@@ -544,6 +544,7 @@ class ServiceTimerControl(private val context: Context) : TimerControl {
     override suspend fun halt() = TimerService.halt()
     override fun clear() = TimerSnapshots.clearAll(context)
     override fun resume() = TimerService.restore(context)
+    override fun resultPending(): Boolean = TimerService.wall.let { TimerSnapshots.resultPending(context, it.wallMs(), it.elapsedMs()) }
 }
 
 /**

@@ -34,6 +34,8 @@ data class ImportDraft(
     val poolLength: Int? = null,
     val mergedIds: List<String> = listOf(sourceId),
     val strength: Boolean = false,
+    /** The original records of this draft, before [HealthImport.mergeOverlaps] grouped them. */
+    val records: List<BandRecord> = listOf(BandRecord(sourceId, start.toEpochMilli(), end.toEpochMilli(), modalityId)),
 ) {
     val date: LocalDate get() = start.atZone(ZoneId.systemDefault()).toLocalDate()
     val seconds: Int get() = ChronoUnit.SECONDS.between(start, end).toInt()
@@ -97,31 +99,53 @@ object HealthImport {
         else -> "Workout" to null
     }
 
-    /** Sessions from the last [days] days that the app has not imported yet. */
-    suspend fun drafts(context: Context, days: Long, alreadyImported: Set<String>): List<ImportDraft> {
-        val c = client(context)
+    /** The exercise sessions of the last [days] days from Health Connect, without this app's own (outside debug builds). */
+    private suspend fun sessionRecords(context: Context, days: Long): List<ExerciseSessionRecord> {
         val end = Instant.now(); val start = end.minus(days, ChronoUnit.DAYS)
-        val sessions = c.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, TimeRangeFilter.between(start, end))).records
-        return sessions.filter { it.metadata.id !in alreadyImported && (BuildConfig.DEBUG || it.metadata.dataOrigin.packageName != context.packageName) }.map { rec ->
-            val range = TimeRangeFilter.between(rec.startTime, rec.endTime)
-            val distance = runCatching { c.aggregate(AggregateRequest(setOf(DistanceRecord.DISTANCE_TOTAL), range))[DistanceRecord.DISTANCE_TOTAL]?.inMeters }.getOrNull()
-            val samples = runCatching { c.readRecords(ReadRecordsRequest(HeartRateRecord::class, range)).records.flatMap { r -> r.samples.map { it.time to it.beatsPerMinute.toInt() } }.sortedBy { it.first } }.getOrDefault(emptyList())
-            val (name, modality) = modalityFor(rec.exerciseType)
-            val lapLengths = rec.laps.mapNotNull { it.length?.inMeters }.filter { it > 0 }
-            ImportDraft(
-                sourceId = rec.metadata.id, start = rec.startTime, end = rec.endTime, typeName = name,
-                modalityId = modality, distanceM = distance?.toInt()?.takeIf { it > 0 }, avgHr = samples.takeIf { it.isNotEmpty() }?.let { s -> s.map { it.second }.average().toInt() },
-                hrSamples = samples, origins = listOf(rec.metadata.dataOrigin.packageName),
-                laps = rec.laps.size.takeIf { it > 0 }, poolLength = lapLengths.takeIf { it.isNotEmpty() }?.sorted()?.let { it[it.size / 2].toInt() },
-                strength = rec.exerciseType in strengthTypes,
-            )
-        }.sortedByDescending { it.start }.let(::mergeOverlaps)
+        return client(context).readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, TimeRangeFilter.between(start, end))).records
+            .filter { BuildConfig.DEBUG || it.metadata.dataOrigin.packageName != context.packageName }
     }
 
-    /** The band and the watch both record the same workout. Sessions that overlap in time become one draft. */
+    /** One record as a draft of its own, with no distance or heart rate read yet. */
+    private fun recordDraft(rec: ExerciseSessionRecord): ImportDraft {
+        val (name, modality) = modalityFor(rec.exerciseType)
+        val lapLengths = rec.laps.mapNotNull { it.length?.inMeters }.filter { it > 0 }
+        return ImportDraft(
+            sourceId = rec.metadata.id, start = rec.startTime, end = rec.endTime, typeName = name, modalityId = modality,
+            distanceM = null, avgHr = null, hrSamples = emptyList(), origins = listOf(rec.metadata.dataOrigin.packageName),
+            laps = rec.laps.size.takeIf { it > 0 }, poolLength = lapLengths.takeIf { it.isNotEmpty() }?.sorted()?.let { it[it.size / 2].toInt() },
+            strength = rec.exerciseType in strengthTypes,
+        )
+    }
+
+    /**
+     * The drafts the import offers from single-record drafts [records]: a record that a session claims or that an app
+     * run covers ([ImportLocal.available]) leaves first, each kept record goes through [enrich], then the rest group
+     * ([mergeOverlaps]). The list and the count both come from here.
+     */
+    suspend fun offered(records: List<ImportDraft>, local: ImportLocal, enrich: suspend (ImportDraft) -> ImportDraft = { it }): List<ImportDraft> =
+        mergeOverlaps(records.filter { d -> d.records.all(local::available) }.map { enrich(it) })
+
+    /** Sessions from the last [days] days that the app has not imported yet; [local] is read after the band records. */
+    suspend fun drafts(context: Context, days: Long, local: suspend () -> ImportLocal): List<ImportDraft> {
+        val c = client(context)
+        val records = sessionRecords(context, days).map(::recordDraft)
+        return offered(records, local()) { d ->
+            val range = TimeRangeFilter.between(d.start, d.end)
+            val distance = runCatching { c.aggregate(AggregateRequest(setOf(DistanceRecord.DISTANCE_TOTAL), range))[DistanceRecord.DISTANCE_TOTAL]?.inMeters }.getOrNull()
+            val samples = runCatching { c.readRecords(ReadRecordsRequest(HeartRateRecord::class, range)).records.flatMap { r -> r.samples.map { it.time to it.beatsPerMinute.toInt() } }.sortedBy { it.first } }.getOrDefault(emptyList())
+            d.copy(distanceM = distance?.toInt()?.takeIf { it > 0 }, avgHr = samples.takeIf { it.isNotEmpty() }?.let { s -> s.map { it.second }.average().toInt() }, hrSamples = samples)
+        }
+    }
+
+    /**
+     * The band and the watch both record the same workout. Sessions of one modality that overlap in time, also through
+     * a chain, become one draft. The input order changes nothing: the records are taken by start, end and id; the
+     * drafts come out newest first.
+     */
     fun mergeOverlaps(drafts: List<ImportDraft>): List<ImportDraft> {
         val out = mutableListOf<ImportDraft>()
-        for (d in drafts) {
+        for (d in drafts.sortedWith(compareBy<ImportDraft>({ it.start }, { it.end }, { it.sourceId }))) {
             val i = out.indexOfFirst { o -> o.modalityId == d.modalityId && d.start < o.end && d.end > o.start }
             if (i < 0) { out += d; continue }
             val o = out[i]
@@ -132,20 +156,35 @@ object HealthImport {
                 distanceM = base.distanceM ?: other.distanceM, avgHr = base.avgHr ?: other.avgHr,
                 laps = base.laps ?: other.laps, poolLength = base.poolLength ?: other.poolLength,
                 origins = (o.origins + d.origins).distinct(), mergedIds = (o.mergedIds + d.mergedIds).distinct(),
+                records = (o.records + d.records).distinctBy { it.id },
             )
         }
-        return out
+        return out.sortedWith(compareByDescending<ImportDraft> { it.start }.thenByDescending { it.end }.thenBy { it.sourceId })
     }
 
-    /** How many band sessions wait for import. Cheap enough to run when Today opens. */
-    suspend fun pendingCount(context: Context, alreadyImported: Set<String>): Int {
+    /** How many band sessions wait for import, strength workouts not counted. Cheap enough to run when Today opens. */
+    suspend fun pendingCount(context: Context, local: suspend () -> ImportLocal): Int {
         if (status(context) != HcStatus.AVAILABLE || !hasPermissions(context)) return 0
-        val c = client(context)
-        val end = Instant.now(); val start = end.minus(60, ChronoUnit.DAYS)
-        val sessions = c.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, TimeRangeFilter.between(start, end))).records
-            .filter { it.metadata.id !in alreadyImported && it.exerciseType !in strengthTypes && (BuildConfig.DEBUG || it.metadata.dataOrigin.packageName != context.packageName) }
-        return mergeOverlaps(sessions.map { rec -> val (n, m) = modalityFor(rec.exerciseType); ImportDraft(rec.metadata.id, rec.startTime, rec.endTime, n, m, null, null, emptyList(), listOf(rec.metadata.dataOrigin.packageName)) }).size
+        return countOffered(sessionRecords(context, 60).map(::recordDraft), local())
     }
+
+    /** The number of drafts [offered] gives for [records] without the strength workouts. */
+    suspend fun countOffered(records: List<ImportDraft>, local: ImportLocal): Int = offered(records.filter { !it.strength }, local).size
+
+    /**
+     * Imports each of [items] in turn through [import]. A draft whose write fails is skipped, and the next one goes on;
+     * the outcome is null for it.
+     */
+    suspend fun importEach(items: List<Pair<ImportDraft, Exercise>>, import: suspend (ImportDraft, Exercise) -> ImportResult): List<ImportResult?> =
+        items.map { (d, ex) ->
+            try {
+                import(d, ex)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+        }
 
     /** Average heart rate inside each work interval, from the session start and the exercise structure. */
     fun intervalHeartRates(draft: ImportDraft, ex: Exercise): List<Int?> {

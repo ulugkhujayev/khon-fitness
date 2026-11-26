@@ -35,7 +35,7 @@ enum class TimerCommit(val settled: Boolean) {
 /** An ended run as its owner holds it: its [result] (null: nothing to write) and how to clear its own snapshot. */
 class EndedRun(val result: TimerRunResult?, val clear: () -> Unit)
 
-/** The running timer, as a Replace import and a reset see it. */
+/** The running timer, as a Replace import, a reset, and the band import see it. */
 interface TimerControl {
     /** Stops the live timer without writing its result; its snapshot stays. */
     suspend fun halt()
@@ -43,10 +43,13 @@ interface TimerControl {
     fun clear()
     /** Brings the timer back from its snapshot, as after a process death. */
     fun resume()
+    /** Whether an ended cardio run still waits for its commit, also one that the startup restore has not seen yet. */
+    fun resultPending(): Boolean
 
     object None : TimerControl {
         override suspend fun halt() {}
         override fun clear() {}
         override fun resume() {}
+        override fun resultPending(): Boolean = false
     }
 }

@@ -53,13 +53,10 @@ import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
 import androidx.compose.runtime.remember
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /** How long a block takes to open or close (ms), ease in and out. */
@@ -69,20 +66,22 @@ private const val BLOCK_MS = 250
  * A program session: live logging while unfinished, read-only with an Edit toggle after. Every tap saves; a session
  * field writes only its own column. One block is open at a time; in a running session a check moves focus on, and after
  * a block's last set the next block with work opens ([afterCheck]). A running session's header sits over the list and
- * folds as the sets scroll ([SessionHeader]). Finish reads every set with [readSets] and takes the time from [clock].
+ * folds as the sets scroll ([SessionHeader]). The finish sheet counts from [allSets], collected while the screen shows,
+ * and takes the tap time from [clock].
  */
 @Composable
 fun SessionScreen(
     vm: AppViewModel, nav: NavHostController, sessionId: String,
-    readSets: suspend () -> List<SetLog> = { vm.repo.allSetLogs.first() },
+    allSets: Flow<List<SetLog>> = vm.repo.allSetLogs,
     clock: () -> Long = System::currentTimeMillis,
 ) {
     val sessionState by remember(sessionId) { vm.repo.session(sessionId).map { it to true } }.collectAsStateWithLifecycle(null to false)
     val session = sessionState.first
     LeaveIfSessionMissing(nav, "session/{id}", sessionId, loaded = sessionState.second, missing = session == null)
-    val finishRead = remember(sessionId) { FinishRequest() }
-    val gone = sessionState.second && (session == null || session.finished)
-    LaunchedEffect(gone) { if (gone) finishRead.drop() }
+    // No other screen may be collecting every set, so this one does; null until the first list arrives.
+    val everySet by remember(allSets) { allSets.map<List<SetLog>, List<SetLog>?> { it } }.collectAsStateWithLifecycle(null)
+    // Set by Finish, cleared by Dismiss and Save: the sheet shows while it is set, once every set is loaded.
+    var finishTap by remember(sessionId) { mutableStateOf<Long?>(null) }
     val logs by vm.repo.setLogs(sessionId).collectAsStateWithLifecycle(emptyList())
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     var previous by remember { mutableStateOf<Map<String, SetLog>>(emptyMap()) }
@@ -94,7 +93,6 @@ fun SessionScreen(
     var swapLog by remember { mutableStateOf<SetLog?>(null) }
     // Why "Update the program too" changed only this workout ([SWAP_REFUSED]), until the sheet closes.
     var swapNotice by remember { mutableStateOf<String?>(null) }
-    var summary by remember { mutableStateOf<Summary?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     // Sets whose check was refused for a missing weight or reps: their rows say what to enter ([setMissing]).
     var refused by remember { mutableStateOf(emptySet<String>()) }
@@ -143,18 +141,12 @@ fun SessionScreen(
         }
     }
     val done = doneCount(logs)
-    // Every set is read from the database as the sheet opens, since no screen may be collecting them yet; this session's
-    // sets and the others' come from that one read. The session is read after it: still there and running, the sets
-    // were read before any delete or finish.
-    val openSummary: () -> Unit = {
-        val now = clock()
-        finishRead.start(scope, read = {
-            val all = readSets()
-            val current = vm.repo.session(s.id).first()
-            if (current == null || current.finished) null
-            else summarize(all.filter { it.sessionId == s.id }, all, s.id, s.startedAt, now)
-        }) { summary = it }
+    val tap = finishTap
+    val loaded = everySet
+    val summary = remember(tap, loaded == null) {
+        if (tap == null || loaded == null) null else summarize(loaded.filter { it.sessionId == s.id }, loaded, s.id, s.startedAt, tap)
     }
+    val openSummary: () -> Unit = { if (finishTap == null) finishTap = clock() }
 
     Column(Modifier.fillMaxSize()) {
         if (s.finished) EditorTopBar("History", s.programName ?: "Session", scrollPx = { listState.barOffset() }, onBack = { leave { leave.pop() } }, done = if (editing) "Done" else "Edit") { editing = !editing }
@@ -209,7 +201,7 @@ fun SessionScreen(
         if (s.finished) "Delete" else "Discard",
         onDismiss = { confirmDelete = false },
     ) { leave { confirmDelete = false; vm.openPicks.drop(s.id); vm.run { vm.repo.deleteSession(s.id) }; leave.pop() } }
-    summary?.let { sum -> Sheet("Workout done", onDismiss = { finishRead.drop(); summary = null }) {
+    if (running) summary?.let { sum -> Sheet("Workout done", onDismiss = { finishTap = null }) {
         // The figures as of opening, then effort and note (the page's own fields: both read the session, so an edit in
         // one shows in the other) so they are asked for as the workout ends. The content scrolls above the keyboard;
         // Save stays under it, in reach.
@@ -227,28 +219,9 @@ fun SessionScreen(
                     FieldRow("Note") { InlineTextField(s.note, { n -> vm.run { vm.repo.setSessionNote(s.id, n) } }, placeholder = "Optional", label = "Note") }
                 }
             }
-            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { leave { vm.openPicks.drop(s.id); vm.run { vm.repo.finishSession(s.id) }; summary = null; leave.toToday() } }
+            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { leave { vm.openPicks.drop(s.id); vm.run { vm.repo.finishSession(s.id) }; finishTap = null; leave.toToday() } }
         }
     } }
-}
-
-/**
- * The Finish tap's read: one at a time, a tap while one is pending starts none. A [drop]ped read never shows its result;
- * leaving the screen cancels its scope and so drops it too. A read that gives null shows nothing.
- */
-internal class FinishRequest {
-    private var pending: Job? = null
-
-    fun start(scope: CoroutineScope, read: suspend () -> Summary?, show: (Summary) -> Unit) {
-        if (pending?.isActive == true) return
-        pending = scope.launch {
-            val result = read()
-            ensureActive()
-            if (result != null) show(result)
-        }
-    }
-
-    fun drop() { pending?.cancel(); pending = null }
 }
 
 /** The open block of a session ([OpenPick]), kept in [picks] beyond this screen: leaving a session and returning keeps it. */

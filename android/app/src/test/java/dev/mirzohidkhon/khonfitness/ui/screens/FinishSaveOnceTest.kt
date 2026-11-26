@@ -30,6 +30,9 @@ import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -72,25 +75,27 @@ class FinishSaveOnceTest {
         SetLog(id, "s1", 0, false, 0, order, order, "bench", "Bench Press", 6, 10, step, weight, reps, status)
 
     /**
-     * Finish's read of every set, held until the test [release]s it: the query runs after the release, or before the
-     * hold when [queryFirst].
+     * Every set as the screen collects it, with the first list held until the test [release]s it: the query runs after
+     * the release, or before the hold when [queryFirst]. Later lists follow the database.
      */
-    private inner class HeldRead(private val queryFirst: Boolean = false) {
-        private val gates = mutableListOf<CompletableDeferred<Unit>>()
-        val reads get() = compose.runOnIdle { gates.size }
-        suspend fun read(): List<SetLog> {
-            val gate = CompletableDeferred<Unit>().also { gates += it }
+    private inner class HeldSets(private val queryFirst: Boolean = false) {
+        private val gate = CompletableDeferred<Unit>()
+        private val started = java.util.concurrent.atomic.AtomicInteger()
+        val collections get() = started.get()
+        val flow: Flow<List<SetLog>> = flow {
+            started.incrementAndGet()
             val early = if (queryFirst) dao.allSetLogsOnce() else null
             gate.await()
-            return early ?: dao.allSetLogsOnce()
+            if (early != null) emit(early)
+            emitAll(dao.allSetLogs())
         }
-        fun release(i: Int = 0) { compose.runOnIdle { gates[i].complete(Unit) } }
+        fun release() { gate.complete(Unit) }
     }
 
     /** Today with the session pushed on it, or on History over Today when [fromHistory] (its "In progress" row). */
     private fun openSession(
         logs: List<SetLog>, fromHistory: Boolean = false, startedAt: Long = System.currentTimeMillis(),
-        read: (suspend () -> List<SetLog>)? = null, clock: () -> Long = System::currentTimeMillis,
+        sets: Flow<List<SetLog>>? = null, clock: () -> Long = System::currentTimeMillis,
     ) {
         io {
             dao.upsert(Session(id = "s1", date = "2026-11-03", startedAt = startedAt, itemType = ItemType.PROGRAM, programId = "p1", programName = "Push"))
@@ -104,7 +109,7 @@ class FinishSaveOnceTest {
                     composable("history") { Text("History home") }
                     composable("session/{id}") { e ->
                         val id = e.arguments?.getString("id") ?: ""
-                        if (read == null) SessionScreen(vm, nav, id, clock = clock) else SessionScreen(vm, nav, id, readSets = read, clock = clock)
+                        if (sets == null) SessionScreen(vm, nav, id, clock = clock) else SessionScreen(vm, nav, id, allSets = sets, clock = clock)
                     }
                 }
             }
@@ -216,42 +221,50 @@ class FinishSaveOnceTest {
         compose.runOnUiThread { click() }
     }
 
-    @Test fun `two Finish taps while the read is held read once and open one sheet`() {
-        val held = HeldRead()
-        openSession(listOf(log("a", 0, SetStatus.DONE)), read = held::read)
+    private fun dismissSheet() {
+        val dismiss = compose.onNode(androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss)).fetchSemanticsNode().config[SemanticsActions.Dismiss].action!!
+        compose.runOnUiThread { dismiss() }
+    }
+
+    @Test fun `Finish taps before the sets load open one sheet at the first tap's time`() {
+        val held = HeldSets()
+        val started = 1_000_000_000L
+        var now = started + 10 * 60_000L
+        openSession(listOf(log("a", 0, SetStatus.DONE)), startedAt = started, sets = held.flow, clock = { now })
         doubleTap("Finish")
+        now = started + 30 * 60_000L
         settle()
         tapFinish()
         settle()
-        assertEquals(1, held.reads)
         assertEquals(0, sheets())
         held.release()
         until { shows("Workout done") }
         settle()
-        assertEquals(1, held.reads)
         assertEquals(1, sheets())
+        assertEquals(1, held.collections)
+        assertEquals("10 min", rowTexts("Time").single { it.isNotEmpty() })
     }
 
-    @Test fun `a sheet dismissed before a later read returns stays closed`() {
-        val held = HeldRead()
-        openSession(listOf(log("a", 0, SetStatus.DONE)), read = held::read)
+    @Test fun `a dismissed sheet stays closed when the sets change`() {
+        val held = HeldSets()
+        openSession(listOf(log("a", 0, SetStatus.DONE), log("b", 1, SetStatus.PENDING)), sets = held.flow)
         tapFinish()
-        held.release(0)
+        held.release()
         until { shows("Workout done") }
         tapFinish()
         settle()
-        assertEquals(2, held.reads)
-        val dismiss = compose.onNode(androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss)).fetchSemanticsNode().config[SemanticsActions.Dismiss].action!!
-        compose.runOnUiThread { dismiss() }
+        assertEquals(1, sheets())
+        dismissSheet()
         until { !shows("Workout done") }
-        held.release(1)
+        io { assertEquals(true, vm.repo.checkSet("b")) }
+        until { compose.onAllNodesWithContentDescription("2 of 2 sets done").fetchSemanticsNodes().isNotEmpty() }
         settle()
         assertEquals(0, sheets())
     }
 
-    @Test fun `a session deleted while the read is held opens no sheet`() {
-        val held = HeldRead()
-        openSession(listOf(log("a", 0, SetStatus.DONE)), read = held::read)
+    @Test fun `a session deleted before the sets load opens no sheet`() {
+        val held = HeldSets()
+        openSession(listOf(log("a", 0, SetStatus.DONE)), sets = held.flow)
         tapFinish()
         settle()
         io { vm.repo.deleteSession("s1") }
@@ -262,9 +275,9 @@ class FinishSaveOnceTest {
         assertNull(session())
     }
 
-    @Test fun `a session finished while the read is held opens no sheet`() {
-        val held = HeldRead()
-        openSession(listOf(log("a", 0, SetStatus.DONE)), read = held::read)
+    @Test fun `a session finished before the sets load opens no sheet`() {
+        val held = HeldSets()
+        openSession(listOf(log("a", 0, SetStatus.DONE)), sets = held.flow)
         tapFinish()
         settle()
         io { vm.repo.finishSession("s1") }
@@ -273,6 +286,64 @@ class FinishSaveOnceTest {
         settle()
         assertEquals(0, sheets())
         assertEquals("session/{id}", nav.currentDestination?.route)
+    }
+
+    @Test fun `sets that load after Back while the screen is still composed open no sheet`() {
+        val held = HeldSets()
+        openSession(listOf(log("a", 0, SetStatus.DONE)), sets = held.flow)
+        tapFinish()
+        settle()
+        val back = compose.onNodeWithContentDescription("Today").fetchSemanticsNode().config[SemanticsActions.OnClick].action!!
+        compose.mainClock.autoAdvance = false
+        compose.runOnUiThread { back() }
+        repeat(3) { compose.mainClock.advanceTimeByFrame() }
+        assertEquals("today", nav.currentDestination?.route)
+        assertEquals(true, shows("Bench Press"))
+        held.release()
+        repeat(5) { Thread.sleep(20); compose.mainClock.advanceTimeByFrame() }
+        assertEquals(true, shows("Bench Press"))
+        assertEquals(0, sheets())
+        compose.mainClock.autoAdvance = true
+        until { !shows("Bench Press") }
+        settle()
+        assertEquals(0, sheets())
+        assertNotNull(session())
+    }
+
+    @Test fun `an open sheet goes when the session is finished elsewhere`() {
+        openSession(listOf(log("a", 0, SetStatus.DONE)))
+        tapFinish()
+        until { shows("Workout done") }
+        io { vm.repo.finishSession("s1") }
+        until { shows("Edit") }
+        settle()
+        assertEquals(0, sheets())
+        assertEquals("session/{id}", nav.currentDestination?.route)
+    }
+
+    @Test fun `an open sheet goes when the session is deleted elsewhere`() {
+        openSession(listOf(log("a", 0, SetStatus.DONE)))
+        tapFinish()
+        until { shows("Workout done") }
+        io { vm.repo.deleteSession("s1") }
+        until { nav.currentDestination?.route == "today" }
+        settle()
+        assertEquals(0, sheets())
+        assertNull(session())
+    }
+
+    @Test fun `an open sheet keeps its figures when a set of another session changes`() {
+        seedEarlierBench()
+        openSession(listOf(log("a", 0, SetStatus.DONE, weight = 80.0, reps = 8)))
+        tapFinish()
+        until { shows("Rep records") }
+        assertEquals("1", rowValue("Rep records"))
+        io { dao.upsertSetLogs(listOf(SetLog("e2", "s0", 0, false, 0, 1, 1, "bench", "Bench Press", 6, 10, 2.5, 80.0, 10, SetStatus.DONE))) }
+        until { runBlocking(Dispatchers.IO) { dao.allSetLogsOnce() }.single { it.id == "e2" }.reps == 10 }
+        settle()
+        assertEquals(1, sheets())
+        assertEquals("1", rowValue("Rep records"))
+        assertEquals("0", rowValue("New bests"))
     }
 
     private fun seedEarlierBench() = io {
@@ -285,14 +356,15 @@ class FinishSaveOnceTest {
 
     /**
      * Set a (80 × 8) is a rep record over 80 × 6; set b (90 × 3), once checked, is a new best over 85 × 3, so the bench
-     * then counts as a best and no longer as a rep record. b is checked while the read is held, and the clock moves on.
+     * then counts as a best and no longer as a rep record. b is checked while the first list is held, and the clock moves
+     * on.
      */
     private fun finishWithACheckDuringTheRead(queryFirst: Boolean): Map<String, String> {
         seedEarlierBench()
         val started = 1_000_000_000L
         var now = started + 10 * 60_000L
-        val held = HeldRead(queryFirst)
-        openSession(listOf(log("a", 0, SetStatus.DONE, weight = 80.0, reps = 8), log("b", 1, SetStatus.PENDING, weight = 90.0, reps = 3)), startedAt = started, read = held::read, clock = { now })
+        val held = HeldSets(queryFirst)
+        openSession(listOf(log("a", 0, SetStatus.DONE, weight = 80.0, reps = 8), log("b", 1, SetStatus.PENDING, weight = 90.0, reps = 3)), startedAt = started, sets = held.flow, clock = { now })
         tapFinish()
         settle()
         now = started + 40 * 60_000L
@@ -300,6 +372,8 @@ class FinishSaveOnceTest {
         until { compose.onAllNodesWithContentDescription("2 of 2 sets done").fetchSemanticsNodes().isNotEmpty() }
         held.release()
         until { shows("Rep records") }
+        settle()
+        assertEquals(1, sheets())
         return listOf("Time", "Sets done", "New bests", "Rep records").associateWith { rowTexts(it).single { t -> t.isNotEmpty() } }
     }
 

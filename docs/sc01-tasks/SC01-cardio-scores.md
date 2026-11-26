@@ -160,3 +160,11 @@ The status is the first word of the second cell: `done`, `deviation`, or
 
 Run `~/.config/agents/tools/task-result check <task file>` before your final
 message.
+
+## Lead decisions after the build
+
+- The number sheet of the setting is built from the existing sheet, number field, and Save button; Save is off outside 100 to 230.
+- The setting is not in the backup file, because the settings store is not part of it. Reset clears it.
+- The type screen is per cardio type, so a type with exercises of both intensities shows both charts.
+- Moderate intensity shows no figures.
+- A round has no drop when the next round has no start time. A negative drop shows with a minus sign.

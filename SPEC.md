@@ -51,8 +51,8 @@ Three tabs.
   release to install (Today checks on open; tap downloads and installs,
   the row shows the download percent), the stretch routine, the eating
   window, and band sessions waiting for import. Below: a bodyweight card
-  with the last entry or today's save and its change since the day
-  before, − and + that step 0.1 kg (hold repeats, 20 to 250 kg), the value
+  with the last entry, or after today's save the 7-day average and its
+  change per week (else the change since the day before), − and + that step 0.1 kg (hold repeats, 20 to 250 kg), the value
   to type (comma or dot), and one button: Save for a new day, Update when
   today has another value (the save replaces it), Saved (off) when the
   value is today's entry. Text that is not 20 to 250 kg stays, shows
@@ -79,7 +79,8 @@ Three tabs.
     past days keep theirs, a one-day change counts. Then one row per day,
     Monday to Sunday: a finished session (gym "d of n sets · t · min",
     cardio "km · min · pace", "Health Connect" when imported, "<k> PR"
-    in green when the session set records) opens the session with Edit;
+    in green when the session set records, "<k> rep PR" when it set rep
+    records) opens the session with Edit;
     two sessions on a day give two rows; "Rest" with the bodyweight
     ("83.0 kg") when present; under a day's last row one line per stretch
     run, "Stretch: Daily · 10 min" ("· 2 skipped" when some were skipped,
@@ -87,7 +88,9 @@ Three tabs.
     <item>" opens Today; "In progress · d of n sets" opens the running
     session; "Planned: <item>" for a later day.
   - Progress: personal records, sets per muscle this week / last week,
-    bodyweight (1M / 3M / All, the change since the range's first entry),
+    bodyweight (1M / 3M / All, the change since the range's first entry,
+    the 7-day average and its change per week, the average as a second
+    line in the chart),
     cardio of the last 30 days per type (sessions, km, time, pace, a
     sparkline "Distance per session" with the first and last value and
     date). Every type with a session ever has a row; one without sessions
@@ -120,19 +123,42 @@ record when its best set beats every earlier session's; a tie on weight
 and reps keeps the record with the earlier session. Only done sets with
 reps count (a 0-rep set never does). No estimated 1RM is shown.
 
+A rep record is more reps at a weight already lifted. A done set above
+0 kg is one when an earlier session has a set at its weight or heavier
+and every such set has fewer reps. A set of the same session that is as
+heavy or heavier with as many reps or more takes its place (of two equal
+sets the first one counts), and so does the session's weight record set.
+Most weeks hold no weight record, so this is where most progress shows.
+A 0 kg exercise has no rep records: more reps there is a weight record.
+
 History's Progress lists every exercise's record, newest first: five
 rows, then "All <n> exercises", a searchable list of every strength
 exercise (its record, or "No sets yet") that opens each one's detail. "New" marks a record set this week. The
 Log's "<k> PR" counts the session's exercises that set a record, not an
 exercise's first session. The finish sheet's "New bests" uses the same rule
-and the same count.
+and the same count. "<k> rep PR" and the finish sheet's "Rep records"
+count the exercises with a rep record and no weight record. The finish
+sheet compares with every other session, also later ones when an old
+session is edited.
 
 An exercise's detail (from a record row) shows the Best card ("62.5 kg × 6
 · Oct 29"), a chart "Heaviest set per session" with record points green,
 and every session newest first with every saved set ("60×8 · 62.5×6 ·
-60×5 skipped", the record set green, skipped sets dim), each opening the
-session. A session whose sets were all skipped lists with no chart point. An exercise without sets
+60×5 skipped", the record set green, rep record sets bold, skipped sets
+dim, a "PR" chip for a weight record, else a "Rep PR" chip), each opening
+the session. Between the Best card and the sessions, "Most reps by
+weight" lists the sets that no other set matches in both weight and reps
+("80 kg" and its date, "× 8"), heaviest first, at most six, when there
+are two or more. A session whose sets were all skipped lists with no chart point. An exercise without sets
 shows its muscles and "No sets yet".
+
+One bodyweight entry can move a kilogram from water alone, so the trend
+uses a 7-day average: the mean of the entries from 6 days before a date to
+that date, shown only with 3 or more entries. The change per week is
+today's average minus the average that ends 7 days earlier ("7-day avg
+83.2 kg · −0.3 kg/week", "±0.0" inside 0.05 kg). History's chart draws the
+average for each entry as a thin muted line; its first days use entries
+from before the range.
 
 ## Copy and chrome
 
@@ -260,7 +286,7 @@ its exercises.
 - Discard workout asks first: "Discard this workout? 3 checked sets are
   lost." Cancel keeps everything.
 - Finish sits in the header only. It shows a summary: time since start,
-  sets done, total volume, new bests, then effort and note (the same values
+  sets done, total volume, new bests, rep records, then effort and note (the same values
   as the page's fields), then Save. Save finishes the session: unfinished
   sets become skipped and stay visible as empty rows in history. A set
   checked with 0 reps (older versions allowed it) counts as not done and

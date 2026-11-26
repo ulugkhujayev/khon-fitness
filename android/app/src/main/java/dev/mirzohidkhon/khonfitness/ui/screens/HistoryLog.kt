@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -112,6 +113,16 @@ private fun WeekArrow(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
 private fun dayWeight(date: LocalDate, bodyweights: List<Bodyweight>): String? =
     bodyweights.find { it.date == date.iso() }?.let { String.format(Locale.US, "%.1f kg", it.kg) }
 
+/**
+ * A done day's line: the session line, then the green "N PR" and the "N rep PR" when above 0. A no-break space joins
+ * each "·" to the count after it, so a wrap never leaves the "·" at a line end.
+ */
+internal fun doneLine(session: String, records: Int, repRecords: Int): AnnotatedString = buildAnnotatedString {
+    append(session)
+    if (records > 0) { append(" ·\u00A0"); withStyle(SpanStyle(color = K.Green, fontWeight = FontWeight.SemiBold)) { append("$records PR") } }
+    if (repRecords > 0) { append(" ·\u00A0"); withStyle(SpanStyle(color = K.Text, fontWeight = FontWeight.SemiBold)) { append("$repRecords\u00A0rep\u00A0PR") } }
+}
+
 @Composable
 private fun LogRowView(
     row: LogRow, sameDay: Boolean, divider: Boolean, isToday: Boolean,
@@ -142,11 +153,7 @@ private fun LogRowView(
     val records = if (row.kind == DayKind.DONE && s != null) recordCount(s.id, histories) else 0
     val repRecords = if (row.kind == DayKind.DONE && s != null) repRecordCount(s.id, histories) else 0
     val line = when (row.kind) {
-        DayKind.DONE -> buildAnnotatedString {
-            append(sessionLine(s!!, logs, exercises.find { it.id == s.exerciseId }))
-            if (records > 0) { append(" · "); withStyle(SpanStyle(color = K.Green, fontWeight = FontWeight.SemiBold)) { append("$records PR") } }
-            if (repRecords > 0) { append(" · "); withStyle(SpanStyle(color = K.Text, fontWeight = FontWeight.SemiBold)) { append("$repRecords\u00A0rep\u00A0PR") } }
-        }
+        DayKind.DONE -> doneLine(sessionLine(s!!, logs, exercises.find { it.id == s.exerciseId }), records, repRecords)
         DayKind.RUNNING -> buildAnnotatedString { append(if (s!!.itemType == ItemType.PROGRAM) "In progress · ${setsLine(s.id, logs)}" else "In progress") }
         DayKind.TODAY -> buildAnnotatedString { append(listOfNotNull("Not started", extra).joinToString(" · ")) }
         else -> extra?.let { buildAnnotatedString { append(it) } }

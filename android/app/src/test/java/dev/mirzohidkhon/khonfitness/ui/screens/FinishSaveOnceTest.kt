@@ -156,6 +156,30 @@ class FinishSaveOnceTest {
         until { session() == null }
     }
 
+    @Test fun `the finish sheet counts rep records against sessions no other screen has loaded`() {
+        io {
+            dao.upsert(Session(id = "s0", date = "2026-11-01", startedAt = 1L, finishedAt = 2L, itemType = ItemType.PROGRAM, programId = "p1", programName = "Push"))
+            dao.upsertSetLogs(listOf(
+                SetLog("e1", "s0", 0, false, 0, 0, 0, "bench", "Bench Press", 6, 10, 2.5, 85.0, 3, SetStatus.DONE),
+                SetLog("e2", "s0", 0, false, 0, 1, 1, "bench", "Bench Press", 6, 10, 2.5, 80.0, 6, SetStatus.DONE),
+            ))
+        }
+        openSession(listOf(log("a", 0, SetStatus.DONE, weight = 80.0, reps = 8)))
+        compose.onNodeWithText("Finish").performClick()
+        until { shows("Rep records") }
+        assertEquals("1", rowValue("Rep records"))
+        assertEquals("0", rowValue("New bests"))
+    }
+
+    /** The value shown on the line of a finish sheet row [label]. */
+    private fun rowValue(label: String): String {
+        val y = compose.onNodeWithText(label).fetchSemanticsNode().boundsInRoot.center.y
+        val texts = androidx.compose.ui.semantics.SemanticsProperties.Text
+        return compose.onAllNodes(androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(texts)).fetchSemanticsNodes()
+            .filter { kotlin.math.abs(it.boundsInRoot.center.y - y) < 2f }.flatMap { n -> n.config[texts].map { it.text } }
+            .single { it.isNotEmpty() && it.all(Char::isDigit) }
+    }
+
     @Test fun `a double tap on Back leaves once`() {
         openSession(listOf(log("a", 0, SetStatus.DONE)))
         val back = compose.onNodeWithContentDescription("Today").fetchSemanticsNode().config[SemanticsActions.OnClick].action!!

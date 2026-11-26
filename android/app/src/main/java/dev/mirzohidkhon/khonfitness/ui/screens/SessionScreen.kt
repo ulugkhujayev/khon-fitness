@@ -56,6 +56,7 @@ import dev.mirzohidkhon.khonfitness.ui.theme.K
 import kotlinx.coroutines.launch
 import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /** How long a block takes to open or close (ms), ease in and out. */
@@ -132,7 +133,8 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         }
     }
     val done = doneCount(logs)
-    val openSummary = { summary = summarize(logs, vm.allSetLogs.value, s.id, s.startedAt, System.currentTimeMillis()) }
+    // The other sessions' sets are read from the database as the sheet opens: no screen may be collecting them yet.
+    val openSummary: () -> Unit = { scope.launch { summary = summarize(logs, vm.repo.allSetLogs.first(), s.id, s.startedAt, System.currentTimeMillis()) } }
 
     Column(Modifier.fillMaxSize()) {
         if (s.finished) EditorTopBar("History", s.programName ?: "Session", scrollPx = { listState.barOffset() }, onBack = { leave { leave.pop() } }, done = if (editing) "Done" else "Edit") { editing = !editing }

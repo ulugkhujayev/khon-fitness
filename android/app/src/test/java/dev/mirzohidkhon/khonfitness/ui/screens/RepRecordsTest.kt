@@ -171,6 +171,19 @@ class RepRecordsTest {
         assertEquals("±0.0 kg/week", rate(-0.04))
     }
 
+    @Test fun `the rate rounds its size half up before its sign, and the average rounds half up as entered`() {
+        val flat = listOf(bw(7, 80.0), bw(8, 80.0), bw(9, 80.0), bw(10, 80.0))
+        fun rate(vararg kg: Double) = trendText(kg.mapIndexed { i, v -> bw(i.toLong(), v) } + flat, today)!!.substringAfter(" · ")
+        assertEquals("−0.3 kg/week", rate(79.7, 79.7, 79.8, 79.8))
+        assertEquals("+0.3 kg/week", rate(80.2, 80.2, 80.3, 80.3))
+        assertEquals("−0.1 kg/week", rate(79.9, 79.9, 80.0, 80.0))
+        assertEquals("+0.1 kg/week", rate(80.0, 80.0, 80.1, 80.1))
+        assertEquals("±0.0 kg/week", rate(79.96, 79.96, 79.96, 79.96))
+        assertEquals("±0.0 kg/week", rate(80.04, 80.04, 80.04, 80.04))
+        assertEquals("7-day avg 79.5 kg", trendText(listOf(bw(3, 79.0), bw(2, 79.0), bw(1, 79.2), bw(0, 80.6)), today))
+        assertEquals("7-day avg 79.5 kg", bodyweightStatus(listOf(bw(3, 79.0), bw(2, 79.0), bw(1, 79.2), bw(0, 80.6)), today))
+    }
+
     @Test fun `Today's line is the trend once today's entry is saved and the week has an average`() {
         val week = listOf(bw(6, 83.4), bw(3, 83.2))
         assertEquals("Last: 83.2 kg · Oct 17", bodyweightStatus(week, today))
@@ -193,5 +206,20 @@ class RepRecordsTest {
         assertEquals(82.0 to 84.0, valueBounds(main, emptyList()))
         assertEquals(82.0 to 90.0, valueBounds(main, listOf(0 to 90.0)))
         assertEquals(emptyList<Pair<Int, Double>>(), trendAt(main, listOf(ChartPoint(today.minusDays(5), 80.0))))
+    }
+
+    // ---- The Log line
+
+    @Test fun `the Log line keeps each dot with the count after it, in green and in the text color`() {
+        val line = doneLine("2 of 2 sets · 1.2 t · 58 min", 1, 2)
+        assertEquals("2 of 2 sets · 1.2 t · 58 min ·\u00A01 PR ·\u00A02\u00A0rep\u00A0PR", line.text)
+        assertTrue(Regex("·[ \n]").find(line.text.substringAfter("58 min")) == null)
+        fun style(part: String) = line.spanStyles.single { line.text.substring(it.start, it.end) == part }.item
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Green, style("1 PR").color)
+        assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, style("1 PR").fontWeight)
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Text, style("2\u00A0rep\u00A0PR").color)
+        assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, style("2\u00A0rep\u00A0PR").fontWeight)
+        assertEquals("58 min ·\u00A01\u00A0rep\u00A0PR", doneLine("58 min", 0, 1).text)
+        assertEquals("58 min", doneLine("58 min", 0, 0).text)
     }
 }

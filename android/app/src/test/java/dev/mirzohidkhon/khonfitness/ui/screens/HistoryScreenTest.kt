@@ -168,7 +168,7 @@ class HistoryScreenTest {
         compose.onNodeWithContentDescription("Previous week").performClick()
         waitFor(weekTitle(lastMonday))
         assertShows("2 of 2 sets · 1 t · 58 min")
-        assertShows("2 of 3 sets · 0.9 t · 58 min · 1 PR")
+        assertShows("2 of 3 sets · 0.9 t · 58 min ·\u00A01 PR")
         assertShows("Skipped · Push")
         assertShows("83.0 kg")
         assertShows("Stretch: Daily · 10 min · 9 of 9")
@@ -219,9 +219,9 @@ class HistoryScreenTest {
         waitFor("Today: Push")
         compose.onNodeWithContentDescription("Previous week").performClick()
         waitFor(weekTitle(lastMonday))
-        assertShows("1 of 1 set · 0.5 t · 58 min · 1\u00A0rep\u00A0PR")
-        assertShows("2 of 2 sets · 0.8 t · 58 min · 1 PR")
-        assertFalse(shows("1 PR · 1\u00A0rep"))
+        assertShows("1 of 1 set · 0.5 t · 58 min ·\u00A01\u00A0rep\u00A0PR")
+        assertShows("2 of 2 sets · 0.8 t · 58 min ·\u00A01 PR")
+        assertFalse(shows("1 PR ·\u00A01\u00A0rep"))
         val rep = stylesOf("1\u00A0rep\u00A0PR").single()
         assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Text, rep.color)
         assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, rep.fontWeight)
@@ -238,6 +238,52 @@ class HistoryScreenTest {
         assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Text, tenReps.color)
         assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, tenReps.fontWeight)
         assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Text, stylesOf("60×8").single().color)
+    }
+
+    @Test fun `most reps by weight shows the heaviest six of seven sets, none of them tappable`() {
+        io {
+            plan()
+            dao.upsertSessions(listOf(gym("mon", lastMonday), gym("wed", lastMonday.plusDays(2)), gym("fri", lastMonday.plusDays(4)), gym("sat", lastMonday.plusDays(5))))
+            dao.upsertSetLogs(listOf(
+                set("mon", 40.0, 7), set("mon", 100.0, 1), set("wed", 90.0, 2), set("wed", 80.0, 3),
+                set("fri", 70.0, 4), set("fri", 60.0, 5), set("sat", 50.0, 6),
+            ))
+        }
+        show()
+        waitFor("Today: Push")
+        compose.runOnIdle { nav.navigate(Routes.exerciseDetail("bench")) }
+        waitFor("Most reps by weight")
+        val rows = compose.onAllNodesWithText("× ", substring = true).fetchSemanticsNodes()
+            .filter { it.config[SemanticsProperties.Text].last().text.startsWith("× ") }.sortedBy { it.boundsInRoot.top }
+        assertEquals(
+            listOf("100 kg" to "× 1", "90 kg" to "× 2", "80 kg" to "× 3", "70 kg" to "× 4", "60 kg" to "× 5", "50 kg" to "× 6"),
+            rows.map { r -> r.config[SemanticsProperties.Text].map { it.text }.let { it.first() to it.last() } },
+        )
+        assertFalse(shows("40 kg"))
+        assertFalse(shows("× 7"))
+        rows.forEach { r -> assertFalse("${r.config[SemanticsProperties.Text]} has a click action", SemanticsActions.OnClick in r.config) }
+    }
+
+    @Test fun `one Log row holds a weight PR and a rep PR, each in its own style`() {
+        io {
+            plan()
+            dao.upsertSessions(listOf(gym("mon", lastMonday), gym("wed", lastMonday.plusDays(2))))
+            dao.upsertSetLogs(listOf(
+                set("mon", 60.0, 6), set("mon", 120.0, 5, ex = "legpress", name = "Leg Press"), set("mon", 100.0, 8, ex = "legpress", name = "Leg Press"),
+                set("wed", 65.0, 3), set("wed", 100.0, 10, ex = "legpress", name = "Leg Press"),
+            ))
+        }
+        show()
+        waitFor("Today: Push")
+        compose.onNodeWithContentDescription("Previous week").performClick()
+        waitFor(weekTitle(lastMonday))
+        assertShows("58 min ·\u00A01 PR ·\u00A01\u00A0rep\u00A0PR")
+        val pr = stylesOf("1 PR").single()
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Green, pr.color)
+        assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, pr.fontWeight)
+        val rep = stylesOf("1\u00A0rep\u00A0PR").single()
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Text, rep.color)
+        assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, rep.fontWeight)
     }
 
     @Test fun `the exercise detail has no most reps group with one such set`() {

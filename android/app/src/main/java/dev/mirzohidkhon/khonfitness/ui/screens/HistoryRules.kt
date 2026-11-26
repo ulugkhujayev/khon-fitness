@@ -15,6 +15,8 @@ import dev.mirzohidkhon.khonfitness.data.toDate
 import dev.mirzohidkhon.khonfitness.ui.components.ChartPoint
 import dev.mirzohidkhon.khonfitness.ui.components.fmt
 import dev.mirzohidkhon.khonfitness.ui.components.matchesQuery
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -366,11 +368,11 @@ fun bodyweightChange(inRange: List<Bodyweight>): String? {
     return "$sign${String.format(Locale.US, "%.1f", Math.abs(d))} kg since ${monthDay(inRange.first().date.toDate()).replace(' ', '\u00A0')}"
 }
 
+private fun weekEntries(all: List<Bodyweight>, end: LocalDate): List<Bodyweight>? =
+    all.filter { val d = it.date.toDate(); d >= end.minusDays(6) && d <= end }.takeIf { it.size >= 3 }
+
 /** The mean of the entries dated from 6 days before [end] to [end]; null with fewer than 3. */
-fun weekAverage(all: List<Bodyweight>, end: LocalDate): Double? {
-    val week = all.filter { val d = it.date.toDate(); d >= end.minusDays(6) && d <= end }
-    return if (week.size < 3) null else week.sumOf { it.kg } / week.size
-}
+fun weekAverage(all: List<Bodyweight>, end: LocalDate): Double? = weekEntries(all, end)?.let { week -> week.sumOf { it.kg } / week.size }
 
 /** The change of [weekAverage] over the last week: this week's against the one before; null without both. */
 fun weekRate(all: List<Bodyweight>, today: LocalDate): Double? {
@@ -379,15 +381,24 @@ fun weekRate(all: List<Bodyweight>, today: LocalDate): Double? {
     return now - before
 }
 
-/** "7-day avg 83.2 kg · −0.3 kg/week"; without a rate only the average; null without an average. */
+/** The entries' sum as the decimals they were entered as, so a mean or a change that ends in 5 rounds up as written. */
+private fun decimalSum(week: List<Bodyweight>): BigDecimal = week.fold(BigDecimal.ZERO) { s, b -> s + BigDecimal.valueOf(b.kg) }
+
+/**
+ * "7-day avg 83.2 kg · −0.3 kg/week"; without a rate only the average; null without an average. Both figures round
+ * half up on their decimal value, the rate on its size before its sign, so ±0.25 reads ±0.3 and "±" means below 0.05.
+ */
 fun trendText(all: List<Bodyweight>, today: LocalDate): String? {
-    val avg = weekAverage(all, today) ?: return null
-    val rate = weekRate(all, today)?.let { r ->
-        val d = Math.round(r * 10) / 10.0
-        val sign = when { d > 0 -> "+"; d < 0 -> "−"; else -> "±" }
-        " · $sign${String.format(Locale.US, "%.1f", Math.abs(d))} kg/week"
+    val now = weekEntries(all, today) ?: return null
+    val nowSum = decimalSum(now)
+    val avg = nowSum.divide(BigDecimal(now.size), 1, RoundingMode.HALF_UP)
+    val rate = weekEntries(all, today.minusDays(7))?.let { before ->
+        val scaled = nowSum * BigDecimal(before.size) - decimalSum(before) * BigDecimal(now.size)
+        val size = scaled.abs().divide(BigDecimal(now.size * before.size), 1, RoundingMode.HALF_UP)
+        val sign = when { size.signum() == 0 -> "±"; scaled.signum() > 0 -> "+"; else -> "−" }
+        " · $sign${size.toPlainString()} kg/week"
     }.orEmpty()
-    return "7-day avg ${String.format(Locale.US, "%.1f", avg)} kg$rate"
+    return "7-day avg ${avg.toPlainString()} kg$rate"
 }
 
 /** The trend line of the chart: for each entry of [inRange], the [weekAverage] that ends on its date, from [all] entries. */

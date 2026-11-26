@@ -279,8 +279,10 @@ when the clocks are in step at that instant.
   file's values, with its HR row.
 - Merge then clears, in the same transaction, what no longer fits the
   merged rows: a session whose `startedAt`, `finishedAt`, `itemType`, or
-  `exerciseId` changed loses `timedFrom`, `timedTo`, and its round
-  times; a set that is not done after the merge has no `checkedAt`.
+  `exerciseId` changed loses `timedFrom`, `timedTo`, its round times,
+  and its `startedElapsed` (an anchor whose start time changed would
+  check the clocks against the wrong time); a set that is not done after
+  the merge has no `checkedAt`.
 
 ## Band workouts (phase 2)
 

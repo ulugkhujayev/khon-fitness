@@ -26,7 +26,7 @@ private const val WORK_SEC = 4 * 60
 private const val REST_SEC = 3 * 60
 private const val COOL_DOWN_SEC = 4 * 60
 
-fun intervalFixture(day: LocalDate, zone: ZoneId, id: String = "hiit", rounds: Int = 4, h: Int = 18): PictureFixture {
+fun intervalFixture(day: LocalDate, zone: ZoneId, id: String = "hiit", rounds: Int = 4, h: Int = 18, lift: Int = 0): PictureFixture {
     val length = WARM_UP_SEC + rounds * WORK_SEC + (rounds - 1) * REST_SEC + COOL_DOWN_SEC
     val s = scoreSession(id, day, zone, HIGH_EXERCISE, length, h)
     val start = s.timedFrom!!
@@ -44,12 +44,12 @@ fun intervalFixture(day: LocalDate, zone: ZoneId, id: String = "hiit", rounds: I
             }
             else -> 122.0 + (166.0 - 122.0) * exp(-(t - roundStarts[inRound] - WORK_SEC) / 60.0)
         }
-        HrSample(t, bpm.roundToInt())
+        HrSample(t, bpm.roundToInt() + lift)
     }
     return PictureFixture(s, emptyList(), logs, filledRow(id, range, buckets))
 }
 
-fun zoneFixture(day: LocalDate, zone: ZoneId, id: String = "z2", h: Int = 7): PictureFixture {
+fun zoneFixture(day: LocalDate, zone: ZoneId, id: String = "z2", h: Int = 7, lift: Int = 0): PictureFixture {
     val s = scoreSession(id, day, zone, LOW_EXERCISE, 45 * 60, h)
     val range = hrWindow(s, zone)!!
     val buckets = bucketStartsSec(range).toList().map { t ->
@@ -58,7 +58,7 @@ fun zoneFixture(day: LocalDate, zone: ZoneId, id: String = "z2", h: Int = 7): Pi
             t > 40 * 60 -> 128.0 + 6.0 * (t - 40 * 60) / 300
             else -> 124.0 + 4.0 * kotlin.math.sin(t / 90.0)
         }
-        HrSample(t, bpm.roundToInt())
+        HrSample(t, bpm.roundToInt() + lift)
     }
     return PictureFixture(s, emptyList(), emptyList(), filledRow(id, range, buckets))
 }

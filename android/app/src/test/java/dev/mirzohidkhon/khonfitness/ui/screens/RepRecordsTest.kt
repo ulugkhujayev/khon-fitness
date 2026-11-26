@@ -173,13 +173,13 @@ class RepRecordsTest {
 
     @Test fun `the rate rounds its size half up before its sign, and the average rounds half up as entered`() {
         val flat = listOf(bw(7, 80.0), bw(8, 80.0), bw(9, 80.0), bw(10, 80.0))
-        fun rate(vararg kg: Double) = trendText(kg.mapIndexed { i, v -> bw(i.toLong(), v) } + flat, today)!!.substringAfter(" · ")
-        assertEquals("−0.3 kg/week", rate(79.7, 79.7, 79.8, 79.8))
-        assertEquals("+0.3 kg/week", rate(80.2, 80.2, 80.3, 80.3))
-        assertEquals("−0.1 kg/week", rate(79.9, 79.9, 80.0, 80.0))
-        assertEquals("+0.1 kg/week", rate(80.0, 80.0, 80.1, 80.1))
-        assertEquals("±0.0 kg/week", rate(79.96, 79.96, 79.96, 79.96))
-        assertEquals("±0.0 kg/week", rate(80.04, 80.04, 80.04, 80.04))
+        fun rate(vararg kg: Double) = trendText(kg.mapIndexed { i, v -> bw(i.toLong(), v) } + flat, today)
+        assertEquals("7-day avg 79.8 kg · −0.3 kg/week", rate(79.7, 79.7, 79.8, 79.8))
+        assertEquals("7-day avg 80.3 kg · +0.3 kg/week", rate(80.2, 80.2, 80.3, 80.3))
+        assertEquals("7-day avg 80.0 kg · −0.1 kg/week", rate(79.9, 79.9, 80.0, 80.0))
+        assertEquals("7-day avg 80.1 kg · +0.1 kg/week", rate(80.0, 80.0, 80.1, 80.1))
+        assertEquals("7-day avg 80.0 kg · ±0.0 kg/week", rate(79.96, 79.96, 79.96, 79.96))
+        assertEquals("7-day avg 80.0 kg · ±0.0 kg/week", rate(80.04, 80.04, 80.04, 80.04))
         assertEquals("7-day avg 79.5 kg", trendText(listOf(bw(3, 79.0), bw(2, 79.0), bw(1, 79.2), bw(0, 80.6)), today))
         assertEquals("7-day avg 79.5 kg", bodyweightStatus(listOf(bw(3, 79.0), bw(2, 79.0), bw(1, 79.2), bw(0, 80.6)), today))
     }

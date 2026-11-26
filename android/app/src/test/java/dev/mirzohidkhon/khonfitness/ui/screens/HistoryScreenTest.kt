@@ -202,11 +202,11 @@ class HistoryScreenTest {
         assertShows("30 min cardio · 5 km")
     }
 
-    /** The styles over [part] of the text of the node that shows it. */
+    /** The styles that span exactly [part] in the text of the node that shows it. */
     private fun stylesOf(part: String): List<androidx.compose.ui.text.SpanStyle> {
         val text = compose.onNodeWithText(part, substring = true).fetchSemanticsNode().config[SemanticsProperties.Text].first { part in it.text }
         val at = text.text.indexOf(part)
-        return text.spanStyles.filter { it.start <= at && it.end >= at + part.length }.map { it.item }
+        return text.spanStyles.filter { it.start == at && it.end == at + part.length }.map { it.item }
     }
 
     @Test fun `a rep record shows next to the weight record in the Log and the exercise detail`() {
@@ -255,9 +255,13 @@ class HistoryScreenTest {
         waitFor("Most reps by weight")
         val rows = compose.onAllNodesWithText("× ", substring = true).fetchSemanticsNodes()
             .filter { it.config[SemanticsProperties.Text].last().text.startsWith("× ") }.sortedBy { it.boundsInRoot.top }
+        val (mon, wed, fri, sat) = listOf(0L, 2L, 4L, 5L).map { monthDay(lastMonday.plusDays(it)) }
         assertEquals(
-            listOf("100 kg" to "× 1", "90 kg" to "× 2", "80 kg" to "× 3", "70 kg" to "× 4", "60 kg" to "× 5", "50 kg" to "× 6"),
-            rows.map { r -> r.config[SemanticsProperties.Text].map { it.text }.let { it.first() to it.last() } },
+            listOf(
+                listOf("100 kg", mon, "× 1"), listOf("90 kg", wed, "× 2"), listOf("80 kg", wed, "× 3"),
+                listOf("70 kg", fri, "× 4"), listOf("60 kg", fri, "× 5"), listOf("50 kg", sat, "× 6"),
+            ),
+            rows.map { r -> r.config[SemanticsProperties.Text].map { it.text } },
         )
         assertFalse(shows("40 kg"))
         assertFalse(shows("× 7"))
@@ -277,7 +281,7 @@ class HistoryScreenTest {
         waitFor("Today: Push")
         compose.onNodeWithContentDescription("Previous week").performClick()
         waitFor(weekTitle(lastMonday))
-        assertShows("58 min ·\u00A01 PR ·\u00A01\u00A0rep\u00A0PR")
+        until { compose.onAllNodesWithText("2 of 2 sets · 1.2 t · 58 min ·\u00A01 PR ·\u00A01\u00A0rep\u00A0PR").fetchSemanticsNodes().isNotEmpty() }
         val pr = stylesOf("1 PR").single()
         assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Green, pr.color)
         assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, pr.fontWeight)

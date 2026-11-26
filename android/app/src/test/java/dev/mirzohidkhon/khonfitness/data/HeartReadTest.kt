@@ -86,19 +86,35 @@ class HeartReadTest {
         assertEquals(HrRange(Long.MIN_VALUE, 5), askRange(HrRange(Long.MIN_VALUE + 5, 5)))
     }
 
-    @Test fun `range sums and differences hold at the ends of Long`() {
+    @Test fun `a range length that does not fit in a Long is held at the end`() {
         assertEquals(Long.MAX_VALUE, HrRange(Long.MIN_VALUE, 1).lengthMs)
         assertEquals(Long.MIN_VALUE, HrRange(1, Long.MIN_VALUE).lengthMs)
         assertEquals(40 * MIN, range.copy(toMs = range.fromMs + 40 * MIN).lengthMs)
+    }
+
+    @Test fun `a sum past the end of Long is held at the end`() {
         assertEquals(Long.MAX_VALUE, plusMs(Long.MAX_VALUE - 5, 60_000))
         assertEquals(Long.MIN_VALUE, minusMs(Long.MIN_VALUE + 5, 60_000))
+        assertEquals(10L, plusMs(5, 5))
+        assertEquals(0L, minusMs(5, 5))
+    }
+
+    @Test fun `a range that ended before the smallest age is not due and not waiting`() {
         val now = at(19, 0)
         assertFalse(fillDue(Long.MIN_VALUE + 1, now))
         assertTrue(fillDue(now - FILL_AGE_MS, now))
         val far = HrRange(Long.MIN_VALUE + 1, Long.MIN_VALUE + 1 + 40 * MIN)
         assertEquals(HrState.NONE, hrRow("s", far, readHeart(emptyList(), far), now, null).state)
+    }
+
+    @Test fun `a row after the largest stamp takes the clock`() {
+        val now = at(19, 0)
         val stamped = hrRow("s", range, readHeart(emptyList(), range), now, null)
         assertEquals(now, laterThan(stamped.copy(fetchedAt = Long.MAX_VALUE), now))
+        assertEquals(now + 1, laterThan(stamped, now))
+    }
+
+    @Test fun `completeness over a range longer than half of Long`() {
         val wide = HrRange(Long.MIN_VALUE + 1, Long.MAX_VALUE)
         fun spread(span: Long) = listOf(HeartRecord("mi", (0..9).map { HeartPoint(wide.fromMs + it * (span / 9), 130) }))
         assertTrue(readHeart(spread(Long.MAX_VALUE / 2 + 1000), wide).complete)

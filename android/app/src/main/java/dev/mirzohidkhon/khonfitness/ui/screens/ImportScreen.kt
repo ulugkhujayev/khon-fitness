@@ -134,7 +134,11 @@ private const val HEALTH_CONNECT_STORE = "market://details?id=com.google.android
  * allowed. One action each: get or update it, or ask to read.
  */
 @Composable
-private fun HealthIntro(status: HcStatus, granted: Boolean, onStore: (String) -> Unit, onAllow: () -> Unit, onCheckAgain: () -> Unit) {
+internal fun HealthIntro(
+    status: HcStatus, granted: Boolean, onStore: (String) -> Unit, onAllow: () -> Unit, onCheckAgain: () -> Unit,
+    allowTitle: String = "Read your workouts",
+    allowLine: String = "Allow this app to read workouts, heart rate and distance from Health Connect. Nothing is written back.",
+) {
     val again: @Composable ColumnScope.() -> Unit = { Box(Modifier.align(Alignment.CenterHorizontally)) { TextButton("Check again", onClick = onCheckAgain) } }
     when {
         status == HcStatus.NOT_INSTALLED -> ContentEmpty(Icons.HeartSquare, "Get Health Connect", "The band's app writes workouts to Health Connect, and this app reads them from there.", color = K.Red) {
@@ -145,7 +149,7 @@ private fun HealthIntro(status: HcStatus, granted: Boolean, onStore: (String) ->
             PrimaryButton("Update Health Connect") { onStore(HEALTH_CONNECT_STORE) }
             again()
         }
-        !granted -> ContentEmpty(Icons.HeartSquare, "Read your workouts", "Allow this app to read workouts, heart rate and distance from Health Connect. Nothing is written back.", color = K.Red) {
+        !granted -> ContentEmpty(Icons.HeartSquare, allowTitle, allowLine, color = K.Red) {
             PrimaryButton("Allow", onClick = onAllow)
         }
     }

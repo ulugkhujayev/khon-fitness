@@ -364,7 +364,7 @@ fun SettingsScreen(vm: AppViewModel, nav: NavHostController) {
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
         EditorTopBar("Today", "Settings", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() })
-        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) { Settings(vm) }
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) { Settings(vm) { nav.navigate(Routes.HEART_DATA) } }
     }
 }
 
@@ -375,7 +375,7 @@ fun SettingsScreen(vm: AppViewModel, nav: NavHostController) {
  * a safety copy of the current data first.
  */
 @Composable
-private fun Settings(vm: AppViewModel) {
+private fun Settings(vm: AppViewModel, onHeartData: () -> Unit) {
     val context = LocalContext.current
     var backupStatus by remember { mutableStateOf<BackupStatus?>(null) }
     var downloadError by remember { mutableStateOf<String?>(null) }
@@ -435,6 +435,9 @@ private fun Settings(vm: AppViewModel) {
         footnote?.text ?: "One JSON file with every program, session, bodyweight, plan and stretch. Import shows what a file holds, then merges or replaces; a copy of the current data is saved first.",
         error = footnote?.error == true,
     )
+
+    SectionTitle("Health", Modifier.padding(top = 24.dp))
+    GroupedList { ListRow("Heart rate data", divider = false, leading = { IconTile(Icons.Heart, K.Red) }, onClick = onHeartData) }
 
     val status = updateStatus(update, progress, downloadError)
     SectionTitle("App", Modifier.padding(top = 24.dp))

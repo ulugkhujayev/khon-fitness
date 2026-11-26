@@ -413,6 +413,40 @@ the row off with no samples and no values, and no pass reads it again.
 The average of a work round is computed when shown, from the buckets of a
 filled row inside the round's times, when 2 or more buckets fall inside.
 
+What the screens show comes from one rule, `hrFacts`, and no screen reads a
+row directly. A row for another range than the session's current one shows
+nothing. The maximum is always the measured one.
+
+- Review shows "avg 128 · max 164 bpm" under the stats line, or only the
+  value that exists, or no line. A screen reader hears "average 128,
+  maximum 164 beats per minute". The line follows the session and its row,
+  so a read that lands while Review is open shows up.
+- Review's average heart rate row and its rounds, and the cardio type
+  screen's two heart rate charts, show the measured value where the typed
+  one is empty.
+- The cardio form shows the measured average, and each round's measured
+  average, as the placeholder of an empty field. Save writes only what the
+  owner typed.
+- Settings has a "Heart rate data" row. Its screen lists the finished
+  sessions of the last 30 days, newest first: the name over the date, and
+  the state on the right ("avg 128 · max 164", "Waiting for data", "No
+  data", "Removed", "Not read", "No time range"). A tap opens a sheet with
+  the facts of the read: the range as clock times, readings read and used,
+  first and last reading, the longest gap, each work round's average, the
+  source app and other apps seen, average and maximum. A fact without a
+  value is left out.
+- The sheet has "Read again" (not without a range) and "Remove" (only
+  while a row that is not off exists; it asks first). "Read again" shows
+  its result as one line: the new values, "No data yet", or "Health
+  Connect did not answer". A result that no longer matches the row shows
+  nothing. A second tap while a read runs does nothing. A session deleted
+  meanwhile closes the sheet.
+- A finished gym session without a range that "Use this time range"
+  accepts shows its start and finish as clock times and that action.
+- Without Health Connect or without the heart rate permission, the screen
+  shows the Import screen's card for that case. It asks only for heart
+  rate.
+
 ## Day plan
 
 The weekly template fills future weeks. Today's Change writes a one-day

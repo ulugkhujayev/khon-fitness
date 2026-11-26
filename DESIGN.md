@@ -170,11 +170,30 @@ padded cards, per-item buttons, "Updated" lines.
   new workout). Type opens a sheet of the live types with their colors
   and "New type…", which opens a sheet with Name, Color and Add type (off
   while the name is blank).
-- Settings has three groups: Backup (export, import, restore a saved
-  copy), App (version, the APK updater's state, reopen after updates)
-  and Reset to built-in data in red on its own. A footnote under each
-  says what it holds or does; the backup footnote shows how the last
-  export or import went, red on error.
+- Settings has four groups: Backup (export, import, restore a saved
+  copy), Health ("Heart rate data" with a red heart tile), App (version,
+  the APK updater's state, reopen after updates) and Reset to built-in
+  data in red on its own. A footnote under Backup, App and Reset says
+  what it holds or does; the backup footnote shows how the last export
+  or import went, red on error.
+- Heart rate data: the editor bar with Back, then one grouped list of
+  56 px rows: the session name 17 over the date 15 muted, the state on
+  the right in 15 muted with tabular figures ("avg 128 · max 164",
+  "Waiting for data", "No data", "Removed", "Not read", "No time range"),
+  at most 136 px wide so the date keeps its line, and a chevron. A row
+  speaks its name, date and state in words. Without Health Connect or
+  its heart rate permission, the Import screen's card sits over the
+  list ("Read heart rate" and Allow). A tap opens a sheet: the name as
+  its title, the date in muted, then an elevated group of label/value
+  rows (Time range "18:02 to 19:14", Readings "412 read · 398 used",
+  First reading, Last reading, Longest gap "45 s", Round 1, Source, Also
+  seen, Average, Maximum; "Heart rate" with the state when there is no
+  filled read; "Workout" with start and finish for a gym session that can
+  take its time range). Under it, 20 px down, action rows: "Use this time
+  range" (a check) and "Read again" (a clock arrow) in accent, dim while
+  they run, and "Remove" (a trash can) in red in a group of its own,
+  which asks in a confirm sheet first. The result of "Read again" is a
+  muted footnote under the groups.
 - Empty state: one muted line, no illustration. Where a screen has nothing
   to show yet and an action fixes it, a card shows a 32 px symbol, a title
   in Headline, a muted 15 line and the action (iOS content-unavailable
@@ -357,7 +376,8 @@ Two lines, 88 px total, hairline between rows.
   Edit, no Delete): the date 17/600 over the stats line in muted, then
   one group per exercise with "Set 1  80 kg × 10" rows, a set not done
   reading "skipped" in muted; cardio shows its values as label/value rows.
-  History's entry keeps Edit.
+  A session with heart rate adds "avg 128 · max 164 bpm" in muted under
+  the stats line. History's entry keeps Edit.
 - 16 px gap. One group of 64 px rows sized for the home screen: the
   symbol in a 40 px circle of its color like the item card's, the name
   17/600 over a line of state 15 muted (green when it is good news), a
@@ -548,6 +568,8 @@ Two lines, 88 px total, hairline between rows.
 - Intervals, when the session has them: one row per work interval,
   "Round 1", with heart rate and watts as two stacked number widgets.
   Their spoken labels are "Round 1 heart rate" and "Round 1 watts".
+  An empty heart rate field, the session's or a round's, shows the
+  measured value as its placeholder in muted.
 - Notes: Effort (1 to 10, spoken "Effort, 1 to 10") and Note. Under them
   a red text button, "Delete session" for a saved session or "Discard"
   for a new one, asks in a confirm sheet first.

@@ -37,7 +37,7 @@ data class RunClock(
  */
 fun TimerState.beginRun(start: TimerStart?, wallMs: Long, elapsedMs: Long): TimerState {
     if (done || !awaitingStart) return this
-    val begun = begin()
+    val begun = begin().copy(instant = elapsedMs)
     if (stretch || start == null) return begun
     return begun.copy(clock = RunClock(start.run, wallMs, elapsedMs, start.timeSec))
 }
@@ -64,7 +64,7 @@ internal fun TimerState.ended(at: Long?): TimerState {
 /** Skip at elapsed realtime [elapsedMs]: the round in work ends there, and the round that follows starts there. */
 fun TimerState.skipAt(elapsedMs: Long): TimerState {
     if (done) return this
-    val next = workEnds(elapsedMs).skip()
+    val next = workEnds(elapsedMs).skip().copy(instant = elapsedMs)
     return if (next.done) next.ended(elapsedMs) else next.workBegins(elapsedMs)
 }
 
@@ -87,6 +87,8 @@ fun TimerState.checkClock(wallMs: Long, elapsedMs: Long): TimerState {
     if (c.broken || inStep(c.anchor, wallMs, elapsedMs)) return this
     return copy(clock = c.copy(broken = true))
 }
+
+internal fun TimerState.untrusted(): TimerState = clock?.let { copy(clock = it.copy(broken = true)) } ?: this
 
 val TimerState.trusted: Boolean get() = clock?.let { !it.broken && it.endElapsed != null } == true
 

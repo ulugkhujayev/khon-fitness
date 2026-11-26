@@ -37,6 +37,16 @@ private fun niceStep(span: Double, target: Int): Double {
 
 private val dateFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d")
 
+/** Each [trend] point as the index of the point of its date and its value; a trend point without one is left out. */
+internal fun trendAt(points: List<ChartPoint>, trend: List<ChartPoint>): List<Pair<Int, Double>> =
+    trend.mapNotNull { t -> points.indexOfFirst { it.date == t.date }.takeIf { it >= 0 }?.let { it to t.value } }
+
+/** The lowest and highest value the chart's scale covers: both series. */
+internal fun valueBounds(points: List<ChartPoint>, trendAt: List<Pair<Int, Double>>): Pair<Double, Double> {
+    val all = points.map { it.value } + trendAt.map { it.second }
+    return all.min() to all.max()
+}
+
 /** Every chart is this tall, Today's bodyweight and History's alike. */
 private const val CHART_HEIGHT = 190
 /** Room between the value axis labels and the plot. */
@@ -45,10 +55,11 @@ private const val AXIS_GAP = 8
 /**
  * Line chart: dashed grid at round values labelled on the left, a marker on every point, value labels, the last
  * point filled in accent with its unit, dates along the bottom. The value axis is as wide as its widest label plus
- * 8 dp and the right inset is 8 dp, so the chart sits even between the screen margins.
+ * 8 dp and the right inset is 8 dp, so the chart sits even between the screen margins. A [trend] point sits at the
+ * point of its date and draws as a thin muted line without markers, on the same scale.
  */
 @Composable
-fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modifier, decimals: Int = 1, format: ((Double) -> String)? = null) {
+fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modifier, decimals: Int = 1, format: ((Double) -> String)? = null, trend: List<ChartPoint> = emptyList()) {
     val measurer = rememberTextMeasurer()
     // Axis and date labels in secondary label at Caption 1: tertiary at 11 was too faint to read on black.
     val tick = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
@@ -61,7 +72,8 @@ fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modif
             drawText(t, topLeft = Offset((size.width - t.size.width) / 2, (size.height - t.size.height) / 2))
             return@Canvas
         }
-        var vmin = points.minOf { it.value }; var vmax = points.maxOf { it.value }
+        val trendAt = trendAt(points, trend)
+        var (vmin, vmax) = valueBounds(points, trendAt)
         if (vmin == vmax) { vmin -= 1; vmax += 1 }
         val step = niceStep(vmax - vmin, 3)
         val yMin = floor(vmin / step) * step; val yMax = ceil(vmax / step) * step
@@ -82,6 +94,10 @@ fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modif
         val line = Path().apply { moveTo(xs[0], ys[0]); for (i in 1 until n) lineTo(xs[i], ys[i]) }
         val area = Path().apply { addPath(line); lineTo(xs[n - 1], padT + plotH); lineTo(xs[0], padT + plotH); close() }
         drawPath(area, K.Accent.copy(alpha = 0.13f))
+        if (trendAt.size > 1) {
+            val t = Path().apply { trendAt.forEachIndexed { k, (i, v) -> if (k == 0) moveTo(xFor(i), yFor(v)) else lineTo(xFor(i), yFor(v)) } }
+            drawPath(t, K.Muted, style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
         drawPath(line, K.Accent, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         val labelAll = n <= 7
         val maxIdx = points.indices.maxByOrNull { points[it].value } ?: 0

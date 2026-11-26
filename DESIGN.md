@@ -373,8 +373,10 @@ Two lines, 88 px total, hairline between rows.
 - 16 px gap. Bodyweight on one group-surface card (radius 20, 16 padding
   at the sides, 14 top and bottom), no chart (History has it):
   "Bodyweight" 17/600, under it on its own line a status in muted 13:
-  "No entry yet", "Last: 83.4 kg · Oct 30", or "Saved for today · −0.4 kg
-  since Oct 30". Then a row: − and + as 52 px squares (radius 12,
+  "No entry yet", "Last: 83.4 kg · Oct 30", "Saved for today · −0.4 kg
+  since Oct 30", or after today's save with 3 entries in 7 days "7-day avg
+  83.2 kg · −0.3 kg/week" (the rate only when the week before also has
+  an average). Then a row: − and + as 52 px squares (radius 12,
   Surface2, accent glyph 28) around the value on Surface2 (52 px tall,
   radius 12): the number 28/700 right-aligned in a 96 px slot (it grows
   with the font scale) and "kg" in muted 15. A tap steps 0.1 kg, a hold
@@ -410,7 +412,8 @@ Two lines, 88 px total, hairline between rows.
   color; ring for rest, green once stretched or weighed; ring in the item
   color for today's open item; Surface3 for skipped, Surface2 for later),
   the title 17 (muted for rest, skipped and planned) over a muted
-  13 line, "<k> PR" in green 600, a chevron on rows that open. Stretch
+  13 line, "<k> PR" in green 600 and "<k> rep PR" in white 600 (no
+  break inside it), a chevron on rows that open. Stretch
   runs add one muted 13 line each under the day's last row. Today's
   row is tinted with the accent at 12 percent.
 - History Progress: section titles in muted 13 over grouped lists.
@@ -421,15 +424,22 @@ Two lines, 88 px total, hairline between rows.
   shares of the biggest count of either week) and "8 / 6" muted in a
   60 px column (96 at large text). Bodyweight: range chips 1M / 3M / All
   (48 px targets, the selected one on Surface3), a card with the latest
-  value 24/700 and the change in green (muted when up), the chart under
-  it. Cardio rows: dot, type, the muted line, "Distance per session" dim
+  value 24/700 and the change in green (muted when up), "7-day avg 83.2 kg
+  · −0.3 kg/week" in muted 13 tabular on the next line when there is an
+  average, the chart under it with the average as a 1.5 px muted line
+  without points. Cardio rows: dot, type, the muted line, "Distance per session" dim
   11 over a 28 px sparkline in the type color with the first and last
   value and date in muted 11. A chip is 11/600 on its color at 18 percent.
 - Detail screens (exercise, cardio type, the full exercise list) use the
   editor bar with Back. The exercise list: the search field, then list
   rows with the record or "No sets yet" muted on the right.
-  Session rows: the date 15/500 (a green "PR" chip) over the sets or the
-  stat line in muted 15. Record points on a chart are green.
+  Session rows: the date 15/500 (a green "PR" chip, else a white "Rep PR"
+  chip, one chip per row) over the sets or the stat line in muted 15; the
+  record set green 600, rep record sets white 600. Record points on a
+  chart are green. "Most reps by weight" sits between the Best card and
+  the sessions when it has two or more rows, at most six: "80 kg" over the
+  date in muted 13, "× 8" bold tabular on the right. Its rows do not open
+  anything.
 
 ## Stretch player
 

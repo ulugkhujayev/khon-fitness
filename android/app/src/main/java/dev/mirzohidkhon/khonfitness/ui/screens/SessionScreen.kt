@@ -56,6 +56,7 @@ import dev.mirzohidkhon.khonfitness.ui.theme.K
 import kotlinx.coroutines.launch
 import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /** How long a block takes to open or close (ms), ease in and out. */
@@ -65,13 +66,22 @@ private const val BLOCK_MS = 250
  * A program session: live logging while unfinished, read-only with an Edit toggle after. Every tap saves; a session
  * field writes only its own column. One block is open at a time; in a running session a check moves focus on, and after
  * a block's last set the next block with work opens ([afterCheck]). A running session's header sits over the list and
- * folds as the sets scroll ([SessionHeader]).
+ * folds as the sets scroll ([SessionHeader]). The finish sheet counts from [allSets], collected while the screen shows,
+ * and takes the tap time from [clock].
  */
 @Composable
-fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
+fun SessionScreen(
+    vm: AppViewModel, nav: NavHostController, sessionId: String,
+    allSets: Flow<List<SetLog>> = vm.repo.allSetLogs,
+    clock: () -> Long = System::currentTimeMillis,
+) {
     val sessionState by remember(sessionId) { vm.repo.session(sessionId).map { it to true } }.collectAsStateWithLifecycle(null to false)
     val session = sessionState.first
     LeaveIfSessionMissing(nav, "session/{id}", sessionId, loaded = sessionState.second, missing = session == null)
+    // No other screen may be collecting every set, so this one does; null until the first list arrives.
+    val everySet by remember(allSets) { allSets.map<List<SetLog>, List<SetLog>?> { it } }.collectAsStateWithLifecycle(null)
+    // Set by Finish, cleared by Dismiss and Save: the sheet shows while it is set, once every set is loaded.
+    var finishTap by remember(sessionId) { mutableStateOf<Long?>(null) }
     val logs by vm.repo.setLogs(sessionId).collectAsStateWithLifecycle(emptyList())
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     var previous by remember { mutableStateOf<Map<String, SetLog>>(emptyMap()) }
@@ -83,7 +93,6 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     var swapLog by remember { mutableStateOf<SetLog?>(null) }
     // Why "Update the program too" changed only this workout ([SWAP_REFUSED]), until the sheet closes.
     var swapNotice by remember { mutableStateOf<String?>(null) }
-    var summary by remember { mutableStateOf<Summary?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     // Sets whose check was refused for a missing weight or reps: their rows say what to enter ([setMissing]).
     var refused by remember { mutableStateOf(emptySet<String>()) }
@@ -132,7 +141,12 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         }
     }
     val done = doneCount(logs)
-    val openSummary = { summary = summarize(logs, vm.allSetLogs.value, s.id, s.startedAt, System.currentTimeMillis()) }
+    val tap = finishTap
+    val loaded = everySet
+    val summary = remember(tap, loaded == null) {
+        if (tap == null || loaded == null) null else summarize(loaded.filter { it.sessionId == s.id }, loaded, s.id, s.startedAt, tap)
+    }
+    val openSummary: () -> Unit = { if (finishTap == null) finishTap = clock() }
 
     Column(Modifier.fillMaxSize()) {
         if (s.finished) EditorTopBar("History", s.programName ?: "Session", scrollPx = { listState.barOffset() }, onBack = { leave { leave.pop() } }, done = if (editing) "Done" else "Edit") { editing = !editing }
@@ -187,7 +201,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         if (s.finished) "Delete" else "Discard",
         onDismiss = { confirmDelete = false },
     ) { leave { confirmDelete = false; vm.openPicks.drop(s.id); vm.run { vm.repo.deleteSession(s.id) }; leave.pop() } }
-    summary?.let { sum -> Sheet("Workout done", onDismiss = { summary = null }) {
+    if (running) summary?.let { sum -> Sheet("Workout done", onDismiss = { finishTap = null }) {
         // The figures as of opening, then effort and note (the page's own fields: both read the session, so an edit in
         // one shows in the other) so they are asked for as the workout ends. The content scrolls above the keyboard;
         // Save stays under it, in reach.
@@ -198,13 +212,14 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                     ListRow("Sets done", secondary = "${sum.done} of ${sum.total}", chevron = false)
                     ListRow("Volume", secondary = "${fmt(sum.volume, 0)} kg", chevron = false)
                     ListRow("New bests", secondary = sum.bests.toString(), chevron = false)
+                    ListRow("Rep records", secondary = sum.repRecords.toString(), chevron = false)
                 }
                 GroupedList(Modifier.padding(top = 12.dp), elevated = true) {
                     FieldRow("Effort", divider = false) { EffortField(s.effort) { v -> vm.run { vm.repo.setSessionEffort(s.id, v) } } }
                     FieldRow("Note") { InlineTextField(s.note, { n -> vm.run { vm.repo.setSessionNote(s.id, n) } }, placeholder = "Optional", label = "Note") }
                 }
             }
-            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { leave { vm.openPicks.drop(s.id); vm.run { vm.repo.finishSession(s.id) }; summary = null; leave.toToday() } }
+            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { leave { vm.openPicks.drop(s.id); vm.run { vm.repo.finishSession(s.id) }; finishTap = null; leave.toToday() } }
         }
     } }
 }

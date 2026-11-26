@@ -168,7 +168,7 @@ class HistoryScreenTest {
         compose.onNodeWithContentDescription("Previous week").performClick()
         waitFor(weekTitle(lastMonday))
         assertShows("2 of 2 sets · 1 t · 58 min")
-        assertShows("2 of 3 sets · 0.9 t · 58 min · 1 PR")
+        assertShows("2 of 3 sets · 0.9 t · 58 min ·\u00A01 PR")
         assertShows("Skipped · Push")
         assertShows("83.0 kg")
         assertShows("Stretch: Daily · 10 min · 9 of 9")
@@ -200,6 +200,108 @@ class HistoryScreenTest {
         show()
         waitFor("5 km · 30 min · 6:00\u00A0/\u2060km · Health Connect")
         assertShows("30 min cardio · 5 km")
+    }
+
+    /** The styles that span exactly [part] in the text of the node that shows it. */
+    private fun stylesOf(part: String): List<androidx.compose.ui.text.SpanStyle> {
+        val text = compose.onNodeWithText(part, substring = true).fetchSemanticsNode().config[SemanticsProperties.Text].first { part in it.text }
+        val at = text.text.indexOf(part)
+        return text.spanStyles.filter { it.start == at && it.end == at + part.length }.map { it.item }
+    }
+
+    @Test fun `a rep record shows next to the weight record in the Log and the exercise detail`() {
+        io {
+            plan()
+            dao.upsertSessions(listOf(gym("mon", lastMonday), gym("wed", lastMonday.plusDays(2)), gym("fri", lastMonday.plusDays(4))))
+            dao.upsertSetLogs(listOf(set("mon", 62.5, 6), set("wed", 60.0, 8), set("fri", 65.0, 3), set("fri", 60.0, 10)))
+        }
+        show()
+        waitFor("Today: Push")
+        compose.onNodeWithContentDescription("Previous week").performClick()
+        waitFor(weekTitle(lastMonday))
+        assertShows("1 of 1 set · 0.5 t · 58 min ·\u00A01\u00A0rep\u00A0PR")
+        assertShows("2 of 2 sets · 0.8 t · 58 min ·\u00A01 PR")
+        assertFalse(shows("1 PR ·\u00A01\u00A0rep"))
+        val rep = stylesOf("1\u00A0rep\u00A0PR").single()
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Text, rep.color)
+        assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, rep.fontWeight)
+        compose.runOnIdle { nav.navigate(Routes.exerciseDetail("bench")) }
+        waitFor("Most reps by weight")
+        compose.onNodeWithText("Most reps by weight").performScrollTo()
+        assertShows("× 10")
+        assertShows("× 6")
+        assertShows("× 3")
+        compose.onNodeWithText("Rep PR").assertExists()
+        compose.onNodeWithText("PR").assertExists()
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Green, stylesOf("65×3").single().color)
+        val tenReps = stylesOf("60×10").single()
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Text, tenReps.color)
+        assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, tenReps.fontWeight)
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Text, stylesOf("60×8").single().color)
+    }
+
+    @Test fun `most reps by weight shows the heaviest six of seven sets, none of them tappable`() {
+        io {
+            plan()
+            dao.upsertSessions(listOf(gym("mon", lastMonday), gym("wed", lastMonday.plusDays(2)), gym("fri", lastMonday.plusDays(4)), gym("sat", lastMonday.plusDays(5))))
+            dao.upsertSetLogs(listOf(
+                set("mon", 40.0, 7), set("mon", 100.0, 1), set("wed", 90.0, 2), set("wed", 80.0, 3),
+                set("fri", 70.0, 4), set("fri", 60.0, 5), set("sat", 50.0, 6),
+            ))
+        }
+        show()
+        waitFor("Today: Push")
+        compose.runOnIdle { nav.navigate(Routes.exerciseDetail("bench")) }
+        waitFor("Most reps by weight")
+        val rows = compose.onAllNodesWithText("× ", substring = true).fetchSemanticsNodes()
+            .filter { it.config[SemanticsProperties.Text].last().text.startsWith("× ") }.sortedBy { it.boundsInRoot.top }
+        val (mon, wed, fri, sat) = listOf(0L, 2L, 4L, 5L).map { monthDay(lastMonday.plusDays(it)) }
+        assertEquals(
+            listOf(
+                listOf("100 kg", mon, "× 1"), listOf("90 kg", wed, "× 2"), listOf("80 kg", wed, "× 3"),
+                listOf("70 kg", fri, "× 4"), listOf("60 kg", fri, "× 5"), listOf("50 kg", sat, "× 6"),
+            ),
+            rows.map { r -> r.config[SemanticsProperties.Text].map { it.text } },
+        )
+        assertFalse(shows("40 kg"))
+        assertFalse(shows("× 7"))
+        rows.forEach { r -> assertFalse("${r.config[SemanticsProperties.Text]} has a click action", SemanticsActions.OnClick in r.config) }
+    }
+
+    @Test fun `one Log row holds a weight PR and a rep PR, each in its own style`() {
+        io {
+            plan()
+            dao.upsertSessions(listOf(gym("mon", lastMonday), gym("wed", lastMonday.plusDays(2))))
+            dao.upsertSetLogs(listOf(
+                set("mon", 60.0, 6), set("mon", 120.0, 5, ex = "legpress", name = "Leg Press"), set("mon", 100.0, 8, ex = "legpress", name = "Leg Press"),
+                set("wed", 65.0, 3), set("wed", 100.0, 10, ex = "legpress", name = "Leg Press"),
+            ))
+        }
+        show()
+        waitFor("Today: Push")
+        compose.onNodeWithContentDescription("Previous week").performClick()
+        waitFor(weekTitle(lastMonday))
+        until { compose.onAllNodesWithText("2 of 2 sets · 1.2 t · 58 min ·\u00A01 PR ·\u00A01\u00A0rep\u00A0PR").fetchSemanticsNodes().isNotEmpty() }
+        val pr = stylesOf("1 PR").single()
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Green, pr.color)
+        assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, pr.fontWeight)
+        val rep = stylesOf("1\u00A0rep\u00A0PR").single()
+        assertEquals(dev.mirzohidkhon.khonfitness.ui.theme.K.Text, rep.color)
+        assertEquals(androidx.compose.ui.text.font.FontWeight.SemiBold, rep.fontWeight)
+    }
+
+    @Test fun `the exercise detail has no most reps group with one such set`() {
+        io {
+            plan()
+            dao.upsertSessions(listOf(gym("mon", lastMonday), gym("wed", lastMonday.plusDays(2))))
+            dao.upsertSetLogs(listOf(set("mon", 60.0, 8), set("wed", 62.5, 8)))
+        }
+        show()
+        waitFor("Today: Push")
+        compose.runOnIdle { nav.navigate(Routes.exerciseDetail("bench")) }
+        waitFor("Heaviest set per session")
+        assertFalse(shows("Most reps by weight"))
+        assertFalse(shows("Rep PR"))
     }
 
     @Test fun `progress lists records and opens the exercise detail`() {

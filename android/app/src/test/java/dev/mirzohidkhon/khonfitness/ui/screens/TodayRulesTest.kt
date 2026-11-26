@@ -88,9 +88,13 @@ class TodayRulesTest {
     @Test fun `bodyweight status says no entry, the last entry, or saved for today with the change since the day before`() {
         assertEquals("No entry yet", bodyweightStatus(emptyList(), today))
         assertEquals("Last: 80.4 kg · Oct 5", bodyweightStatus(weights, today))
-        assertEquals("Saved for today · +0.2 kg since Oct 5", bodyweightStatus(weights + Bodyweight("2026-10-07", 80.6), today))
-        assertEquals("Saved for today · −0.4 kg since Oct 5", bodyweightStatus(weights + Bodyweight("2026-10-07", 80.0), today))
-        assertEquals("Saved for today · same as Oct 5", bodyweightStatus(weights + Bodyweight("2026-10-07", 80.4), today))
+        val one = weights.drop(1)
+        assertEquals("Saved for today · +0.2 kg since Oct 5", bodyweightStatus(one + Bodyweight("2026-10-07", 80.6), today))
+        assertEquals("Saved for today · −0.4 kg since Oct 5", bodyweightStatus(one + Bodyweight("2026-10-07", 80.0), today))
+        assertEquals("Saved for today · same as Oct 5", bodyweightStatus(one + Bodyweight("2026-10-07", 80.4), today))
+        // Three entries in the 7 days to today: the week's average instead.
+        assertEquals("7-day avg 80.3 kg", bodyweightStatus(weights + Bodyweight("2026-10-07", 80.6), today))
+        assertEquals("7-day avg 80.1 kg", bodyweightStatus(weights + Bodyweight("2026-10-07", 80.0), today))
         assertEquals("Saved for today", bodyweightStatus(listOf(Bodyweight("2026-10-07", 81.0)), today))
     }
 

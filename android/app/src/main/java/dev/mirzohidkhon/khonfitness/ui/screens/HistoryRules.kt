@@ -12,8 +12,11 @@ import dev.mirzohidkhon.khonfitness.data.SetStatus
 import dev.mirzohidkhon.khonfitness.data.StretchSession
 import dev.mirzohidkhon.khonfitness.data.iso
 import dev.mirzohidkhon.khonfitness.data.toDate
+import dev.mirzohidkhon.khonfitness.ui.components.ChartPoint
 import dev.mirzohidkhon.khonfitness.ui.components.fmt
 import dev.mirzohidkhon.khonfitness.ui.components.matchesQuery
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -227,9 +230,9 @@ fun sessionLine(s: Session, logs: List<SetLog>, ex: Exercise?): String {
 
 /**
  * One session of an exercise: every saved set in order (skipped ones too), the best counted set (null when none
- * counts, e.g. all skipped), and whether that set was a new record.
+ * counts, e.g. all skipped), whether that set was a new record, and its rep records in set order ([repRecordsOf]).
  */
-data class LiftSession(val session: Session, val sets: List<SetLog>, val best: SetLog?, val record: Boolean)
+data class LiftSession(val session: Session, val sets: List<SetLog>, val best: SetLog?, val record: Boolean, val repRecords: List<SetLog> = emptyList())
 
 private val heavier = compareBy<SetLog>({ it.weightKg ?: 0.0 }, { it.reps ?: 0 })
 
@@ -242,15 +245,36 @@ fun bestSet(sets: List<SetLog>): SetLog? = sets.filter(::countsAsDone).reduceOrN
 /** Whether [best] is a record over [top], the best before it: heavier, or as heavy with more reps. A tie keeps [top]. */
 fun beats(best: SetLog?, top: SetLog?): Boolean = best != null && (top == null || heavier.compare(best, top) > 0)
 
+private fun kg(l: SetLog) = l.weightKg ?: 0.0
+private fun reps(l: SetLog) = l.reps ?: 0
+
+/**
+ * The rep records of one session's [sets] (set order) against the counted sets of the other sessions ([others]):
+ * a counted set above 0 kg with more reps than every other set at its weight or heavier, when at least one such set
+ * exists. A set of the same session as heavy or heavier with as many reps or more takes its place (of two equal sets,
+ * the earlier one stays), and so does the session's weight record set ([weightRecord]).
+ */
+fun repRecordsOf(sets: List<SetLog>, others: List<SetLog>, weightRecord: SetLog? = null): List<SetLog> {
+    val counted = sets.filter(::countsAsDone)
+    val before = others.filter(::countsAsDone)
+    return counted.filterIndexed { i, l ->
+        val w = kg(l)
+        val heavier = before.filter { kg(it) >= w }
+        w > 0 && l !== weightRecord && heavier.isNotEmpty() && reps(l) > heavier.maxOf(::reps) &&
+            counted.withIndex().none { (k, m) -> k != i && kg(m) >= w && reps(m) >= reps(l) && (kg(m) > w || reps(m) > reps(l) || k < i) }
+    }
+}
+
 /**
  * Every finished session of an exercise with a saved set, oldest first. Only counted sets are record candidates: the
  * best set of a session is the heaviest weight, then the most reps at that weight, then the earlier set. A session
  * is a record when its best beats every earlier best; a tie keeps the record with the earlier session. 0-rep and
- * skipped sets never count.
+ * skipped sets never count. Rep records count against the sets of earlier sessions only.
  */
 fun liftHistory(exerciseId: String, logs: List<SetLog>, sessions: List<Session>): List<LiftSession> {
     val finished = sessions.filter { it.finished }.associateBy { it.id }
     var top: SetLog? = null
+    val earlier = mutableListOf<SetLog>()
     return logs.filter { it.exerciseId == exerciseId && it.sessionId in finished }
         .groupBy { it.sessionId }
         .map { (id, sets) -> finished.getValue(id) to sets.sortedBy { it.order } }
@@ -259,7 +283,9 @@ fun liftHistory(exerciseId: String, logs: List<SetLog>, sessions: List<Session>)
             val best = bestSet(sets)
             val record = beats(best, top)
             if (record) top = best
-            LiftSession(s, sets, best, record)
+            val repSets = repRecordsOf(sets, earlier, if (record) best else null)
+            earlier += sets.filter(::countsAsDone)
+            LiftSession(s, sets, best, record, repSets)
         }
 }
 
@@ -270,6 +296,21 @@ fun liftHistories(logs: List<SetLog>, sessions: List<Session>): Map<String, List
 /** How many exercises of a session set a record, not counting an exercise's first record. */
 fun recordCount(sessionId: String, histories: Map<String, List<LiftSession>>): Int =
     histories.values.count { h -> h.filter { it.record }.drop(1).any { it.session.id == sessionId } }
+
+/** How many exercises of a session set a rep record and no weight record ([recordCount] counts those). */
+fun repRecordCount(sessionId: String, histories: Map<String, List<LiftSession>>): Int =
+    histories.values.count { h -> h.any { it.session.id == sessionId && it.repRecords.isNotEmpty() && !it.record } }
+
+/**
+ * The most reps by weight of an exercise: every counted set that no other matches or beats in both weight and reps
+ * (of equal sets, the earliest), heaviest first, each with its session.
+ */
+fun repBests(history: List<LiftSession>): List<Pair<SetLog, Session>> {
+    val all = history.flatMap { h -> h.sets.filter(::countsAsDone).map { it to h.session } }
+    return all.filterIndexed { i, (l, _) ->
+        all.withIndex().none { (k, p) -> val m = p.first; k != i && kg(m) >= kg(l) && reps(m) >= reps(l) && (kg(m) > kg(l) || reps(m) > reps(l) || k < i) }
+    }.sortedByDescending { kg(it.first) }
+}
 
 /** An exercise's personal record: the best set and the session that set it. */
 data class PersonalRecord(val exerciseId: String, val name: String, val best: SetLog, val session: Session)
@@ -326,6 +367,43 @@ fun bodyweightChange(inRange: List<Bodyweight>): String? {
     val sign = when { d > 0.049 -> "+"; d < -0.049 -> "−"; else -> "±" }
     return "$sign${String.format(Locale.US, "%.1f", Math.abs(d))} kg since ${monthDay(inRange.first().date.toDate()).replace(' ', '\u00A0')}"
 }
+
+private fun weekEntries(all: List<Bodyweight>, end: LocalDate): List<Bodyweight>? =
+    all.filter { val d = it.date.toDate(); d >= end.minusDays(6) && d <= end }.takeIf { it.size >= 3 }
+
+/** The mean of the entries dated from 6 days before [end] to [end]; null with fewer than 3. */
+fun weekAverage(all: List<Bodyweight>, end: LocalDate): Double? = weekEntries(all, end)?.let { week -> week.sumOf { it.kg } / week.size }
+
+/** The change of [weekAverage] over the last week: this week's against the one before; null without both. */
+fun weekRate(all: List<Bodyweight>, today: LocalDate): Double? {
+    val now = weekAverage(all, today) ?: return null
+    val before = weekAverage(all, today.minusDays(7)) ?: return null
+    return now - before
+}
+
+/** The entries' sum as the decimals they were entered as, so a mean or a change that ends in 5 rounds up as written. */
+private fun decimalSum(week: List<Bodyweight>): BigDecimal = week.fold(BigDecimal.ZERO) { s, b -> s + BigDecimal.valueOf(b.kg) }
+
+/**
+ * "7-day avg 83.2 kg · −0.3 kg/week"; without a rate only the average; null without an average. Both figures round
+ * half up on their decimal value, the rate on its size before its sign, so ±0.25 reads ±0.3 and "±" means below 0.05.
+ */
+fun trendText(all: List<Bodyweight>, today: LocalDate): String? {
+    val now = weekEntries(all, today) ?: return null
+    val nowSum = decimalSum(now)
+    val avg = nowSum.divide(BigDecimal(now.size), 1, RoundingMode.HALF_UP)
+    val rate = weekEntries(all, today.minusDays(7))?.let { before ->
+        val scaled = nowSum * BigDecimal(before.size) - decimalSum(before) * BigDecimal(now.size)
+        val size = scaled.abs().divide(BigDecimal(now.size * before.size), 1, RoundingMode.HALF_UP)
+        val sign = when { size.signum() == 0 -> "±"; scaled.signum() > 0 -> "+"; else -> "−" }
+        " · $sign${size.toPlainString()} kg/week"
+    }.orEmpty()
+    return "7-day avg ${avg.toPlainString()} kg$rate"
+}
+
+/** The trend line of the chart: for each entry of [inRange], the [weekAverage] that ends on its date, from [all] entries. */
+fun trendPoints(all: List<Bodyweight>, inRange: List<Bodyweight>): List<ChartPoint> =
+    inRange.mapNotNull { e -> val d = e.date.toDate(); weekAverage(all, d)?.let { ChartPoint(d, it) } }
 
 /** A cardio type over a time span: its sessions oldest first, totals, and pace from the sessions with both time and distance. */
 data class CardioType(val id: String, val sessions: List<Session>, val meters: Int, val seconds: Int, val pace: String?)

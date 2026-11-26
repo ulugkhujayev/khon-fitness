@@ -60,7 +60,7 @@ fun BodyTargetGroup(vm: AppViewModel, bodyweights: List<Bodyweight>, today: Loca
 @Composable
 private fun TargetGroup(rows: TargetRows, kind: TargetKind, current: BigDecimal?, modifier: Modifier, onSave: (BigDecimal?) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    SectionTitle("Target", modifier)
+    SectionTitle(if (kind == TargetKind.LIFT_KG) kind.title else "Target", modifier)
     GroupedList {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button) { open = true }

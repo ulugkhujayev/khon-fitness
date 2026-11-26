@@ -488,7 +488,8 @@ Two lines, 88 px total, hairline between rows.
   plus 0.8 kilograms per week", "no rate").
 - A strength exercise has a "Target" group after the setup periods, or
   after the Best card when there are none, and also when it has no
-  session yet. Cardio has none. Bodyweight on Progress has the same group
+  session yet. For an exercise with weight the group title is "Target
+  est. 1RM", because the chart above it shows the heaviest set. Cardio has none. Bodyweight on Progress has the same group
   under its card, with entries or without. The first row is "Target" with
   the value and a chevron: "100 kg" (a decimal only when needed), "12
   reps", "80.0 kg" (bodyweight, always one decimal), or "Not set" in

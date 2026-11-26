@@ -298,6 +298,13 @@ when the clocks are in step at that instant.
   import stores the band's bounds in `timedFrom`, `timedTo` and asks for
   a fill. What the import writes into `avgHr` and the rounds stays as
   today.
+- **Old pairs: a later task (HR02), not phase 2.** The rules below are
+  its design. The phase 2 attack found ten more cases around them (the
+  ownership of record ids across import, merge, and backup), and the
+  lead moved the whole part out so that the heart rate ships first. The
+  contract rows that were cut are in commit `5d3b553`
+  (`HR01-P2-import.md` D8 to D19, `HR01-P3-ui.md` E7b, E7c, E9) and the
+  attack is `HR01-P2-ATTACK-R1.md`.
 - **Old pairs, by the owner's hand.** No session is ever deleted by the
   app alone. The app only finds candidate pairs and shows them; the owner
   merges a pair after he sees both sessions.
@@ -375,5 +382,6 @@ when the clocks are in step at that instant.
 | R7: a timer commit lands after the owner typed a duration; an old snapshot after the upgrade; a file lowers run numbers; a timer that starts after midnight; facts for "Merge all" | The duration is written only over the value noted at Start; old snapshots get a number at restore; merge keeps the greater run numbers; the date rule also accepts the creation date; "Merge all" shows each pair's facts before the owner accepts. The lead ended the combined attack here: each later phase gets its own attack round before its build. |
 | R8: timer and backup merge as one unit; stale confirmation; HR rows with bad values in a file; a skipped set checked directly; a failed Replace | Merge: the local unit wins, and what no longer fits is cleared. `confirmRange` carries the shown bounds. File HR rows are checked by value. A check from skipped stamps. The snapshot is cleared after a successful Replace only. The old-version snapshot gets no number. Every import raises the generation, and the timer commit checks it. |
 | R8, refused by the lead | A typed Time that returns to its value at Start while a timer commit is held (the commit waits only after a process death at the timer's end, and the app retries it at its start). A reboot whose new uptime matches the old anchor within 2 s (needs an anchor taken in the first 2 s after a boot, or a clock change of the same size together with a reboot). A date edit between the creation day and the timer's start day (both are days of the workout). The attack loop ends here after eight rounds without a closed verdict; the deep review of the built code follows. |
+| Phase 2 attack R1, refused by the lead | A band record that the provider changes or removes while its draft is open, and an exercise that is deleted or changed after the owner chose it: the import does today what it did before, and this task does not change it. A count on Today that is one screen visit old. |
 | R1: a Room journal for the merge, generations on disk, platform backup rules, a recovery screen | Not taken. The merge has no automatic pass any more; replace stops the timer; the existing Restore sheet is the recovery route; platform backup is an owner question. |
 | R1: the import's default exercise choice and "Import all" against the no-suggestion rule | Not changed: it maps a band record to one of the owner's own exercises and exists today. Reported to the owner. |

@@ -1,4 +1,4 @@
-# HR01-P2-import: covered band workouts and the owner's merge of old pairs
+# HR01-P2-import: band workouts that an app session already covers
 
 Task-ID: HR01-P2-import
 Class: Risky
@@ -28,16 +28,17 @@ Phase 2 of 3. Logic only; the Import screen keeps its layout.
 - `importDraft` returns what happened (saved, already imported, covered)
   and checks inside its write. `ImportScreen.kt` reads the list again
   after a refusal, also for "Import all"; no new text.
-- Old pairs: `pairCandidates` (pure), the "Keep both" set, and
-  `mergePairs` with the safety copy and one transaction. Nothing calls
-  `mergePairs` in this phase; phase 3 adds the owner's screen. No merge
-  runs at app start.
+- Old double sessions are not in this phase. A later task (HR02) builds
+  their list and the owner's merge; this phase writes nothing into
+  `linkedIds` and deletes no session.
 - A fill request when the Import screen opens.
 - `SPEC.md`: the import section. Load the `unslop` skill first.
 
 Do not change: the exercise choice of a draft, "Import all" as a feature,
 band strength records staying hidden, any layout, the version number, the
-manifest. No "Add to" (cut from this task). No new dependency.
+manifest. No "Add to" (cut from this task). No new dependency. What the
+import does today with a band record or an exercise that changed after
+the list was read stays as it is (lead decision).
 
 ## Contract
 
@@ -49,29 +50,25 @@ manifest. No "Add to" (cut from this task). No new dependency.
 | D3 | Covered | Overlap exactly half of both ranges; half of the record and 40 % of the session; a 2-minute record inside a 60-minute session of the same modality; a record that crosses midnight | Half of both: covered. Each of the two partial cases: not covered. Midnight: decided on epoch ranges, covered when the rule holds. |
 | D4 | Covered | A record with unknown modality; a band strength record | Unknown: never covered, stays a draft as today. Strength: hidden as today. |
 | D5 | Grouping | Two overlapping records of two packages for one workout, one covered and one not; three records in a chain; two records that are not covered alone while their union would be | The check runs on each original record. Covered records leave before grouping; the rest group as today; the union never hides a group; list and count agree; order of input does not change the result. |
-| D6 | Linked ids | A record whose id is in some session's `linkedIds` | Never a draft, also when no session covers it. |
+| D6 | Linked ids | A record whose id is in some session's `linkedIds` (written by a test; ids `id1` and `id10` in one group, `id1` linked) | Never a draft, also when no session covers it. Ids match as whole tokens: `id10` stays available. |
+| D7a | Import | The session insert of an import succeeds and its round insert fails | Nothing of that draft is saved: no session, no rounds, no claimed id. A new try can save it. |
 | D7 | Import | A stale draft is saved after the app session that covers it was saved; a stale grouped draft of which one record is covered now; a draft is saved twice; "Import all" with one stale draft among three | The stale draft writes nothing and returns its reason (the check is per original record, inside the write); the others save; the screen shows the fresh list, where the uncovered record of the group is still offered. A saved import has `timedFrom`, `timedTo` = the band's bounds and asks for a fill; `avgHr` and round values are written as today. |
-| D8 | Candidates | A timer 4x4 app session and its imported copy (same exercise, 90 % overlap) | `pairCandidates` lists the pair, not blocked. Nothing is merged or deleted by listing. No code path merges at app start or without `mergePairs`. |
-| D9 | Candidates | Same modality but another exercise; another modality; overlap 60 % of one and 40 % of the other; A with a moved date; B with a moved date; A unfinished; A with `linkedIds`; A without `timedFrom` and without `timeSec` | Same modality: a candidate. Every other case: not listed. |
-| D9a | Candidates | A has no `timedFrom`, `startedAt` 18:00, `timeSec` 2100, saved 19:40; band run B 18:50 to 19:30; the same A with a band copy 18:02 to 18:40 | A's range is `[startedAt, startedAt + timeSec)`, never up to the Save time: the first B is not listed; the copy is listed. |
-| D10 | Candidates | Two imports overlap one app session; one import overlaps two app sessions | Every edge is listed. "Merge all" skips each of them; a merge of one edge by hand works, and then the other edge of that A is gone from the list. |
-| D11 | Blocked | Owner-only fields (`effort`, `watts`, `stroke`, round `watts`) set on both and different; B has a round index A lacks | Listed as blocked with the reason; `mergePairs` refuses it; both sessions stay whole. |
-| D12 | Merge values | Per field: A null and B set; both equal; both set and different (band-derived). Notes: A "No knee pain" and B "knee pain"; B equal to A; B equal to one line of A; B empty. B alone has effort, session watts, stroke, and a round's watts | Band-derived fields (`avgHr`, `distanceM`, `laps`, `poolLength`, `timeSec`, round `avgHr`): A's stays, null takes B's. Owner-only fields: null on A takes B's, all four at once too. Notes: both kept on two lines in the first case; no copy in the other three. |
-| D13 | Merge result | A has no `timedFrom`; A has one; B has an HR row | Without: `timedFrom`, `timedTo` become B's `startedAt`, `finishedAt`, and the next fill reads that range. With: unchanged. `linkedIds` holds B's `sourceId`. B, its logs, and its HR row are gone; one session remains, the app one. |
-| D14 | Safety copy | `mergePairs` with one pair; the copy cannot be written or does not parse; the transaction throws | Before any delete, `backups/before-merge-<time>.json` exists in the folder of the "before-import" copies, parses as a backup, and holds both sessions and their logs. On a failure: nothing changed, the result says so, and an earlier copy is never overwritten. |
-| D15 | Fresh rows | Between the verified copy and the transaction: a note is typed on B; a round's watts on B changes while both session rows stay equal; a session of the pair is deleted; the pair stops being a candidate | The transaction checks each asked pair on fresh rows against the candidate rule and against the rows in the parsed copy. Each such pair is skipped with its reason and stays whole; the other asked pairs merge. |
-| D15a | Shown facts | The owner opens a pair; then B's note changes; then the owner confirms and the verified copy already holds the new note | Refused: the fresh rows differ from the rows the owner saw. Nothing changes; the result says so. |
-| D15c | Shown heart rate | The owner opens a pair; a fill then writes or changes B's HR row; the owner confirms | Refused: B's HR row differs from the row the owner saw. B keeps its new row. |
-| D15b | Merge all | Two one-to-one pairs are confirmed; before the transaction a new imported session gives A of the first pair a second candidate | The first pair is skipped with its reason; the second merges; the new session is never merged. |
-| D16 | Keep both | The owner keeps a pair; the list is read again; the app restarts; one of the two sessions is deleted | The pair is not listed again, also after a restart. A stale entry for a deleted session does no harm. |
-| D17 | Twice | `mergePairs` is called twice for one pair (double tap); a merged pair's safety copy is restored later | The second call merges nothing and reports it. After the restore the pair is listed again as a candidate, and nothing merges by itself. |
 | D18 | Fill | The Import screen opens | One fill request through the runner of phase 1. |
-| D19 | Linked ids and backup | After a merge, merge-import a 0.6.1 file that holds only the surviving app session | `linkedIds` stays (phase 1 rule); its band records are still not drafts. |
 | D20 | Rules | Whole change | No layout change, no new text on the Import screen, no new permission or dependency, no manifest change. `SPEC.md` updated. |
 
 ## Attack cases
 
-<!-- ATTACK-CASES -->
+From the phase 2 attack, the cases of this phase's scope. A case that
+names a held call uses a hook or a fake that the test controls.
+
+| ID | Steps | Expected result |
+|---|---|---|
+| P2-AT01 | Create a run at 23:59. Start the timer at 00:01 and stop at 00:21. Hold the timer commit. At 00:23 load the band draft for 00:00–00:22. Release the commit and leave the form unsaved. Read the list and count again, then submit the old draft. | The record is covered before Save. Both reads exclude it. The earlier draft writes nothing and returns covered. |
+| P2-AT02 | Open a grouped draft for runs from 18:00–18:20 and 18:15–18:45. Commit an app run from 18:00–18:20. Submit the old group. | The whole old write is refused. The refreshed list offers only the second record. Today counts one draft. |
+| P2-AT03 | Pass a three-record overlap chain and a pair with tied starts through list and count in all input orders. Include an overlapping strength record and an unknown workout. Include a group whose union would pass coverage while each original fails. | Group membership stays stable across input orders. List and count agree. Strength stays hidden and the unknown workout stays available. Coverage checks each original range. |
+| P2-AT04 | Open a group with source IDs `id1` and `id10`. Link `id1` to an app session whose date makes its range ineligible. Submit the old group. Refresh and retry with only `id10`. | The old group is refused as already imported. Token matching leaves `id10` available. The retry saves it once. |
+| P2-AT05 | Submit three drafts through Import all. One became covered after the list opened. Submit each successful draft again. In a separate run, fail one session's interval insert after its session insert. | The covered draft writes nothing. The two valid drafts save once each and carry the band's bounds. A failed insert leaves no session, logs, or claimed IDs for that draft. A fresh retry can save it. |
+| P2-AT24 | Open Import with a fake phase 1 fill runner. Save an eligible draft. Submit it again after it is imported. | Opening asks for one fill. A successful save asks for a fill after the write. The refused repeat creates no session or fill request. |
 
 ## Definition of done
 

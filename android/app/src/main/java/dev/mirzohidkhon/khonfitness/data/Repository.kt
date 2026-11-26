@@ -7,6 +7,7 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.sync.Mutex
@@ -39,6 +40,7 @@ data class Backup(
     val stretches: List<Stretch> = emptyList(), val stretchRoutines: List<StretchRoutine> = emptyList(),
     val routineStretches: List<RoutineStretch> = emptyList(), val stretchSessions: List<StretchSession> = emptyList(),
     val eatingWindow: EatingWindow? = null, val windowDays: List<WindowDay> = emptyList(),
+    @Serializable(with = LenientSessionHrList::class) val sessionHr: List<SessionHr> = emptyList(),
 )
 
 /**
@@ -318,10 +320,11 @@ class KhonRepository(
     suspend fun setSetReps(id: String, reps: Int?) = dao.setSetReps(id, reps)
     /**
      * The cardio form's Save: only what the user changed since [opened] and the touched interval fields are written,
-     * in one transaction; a new entry without a time, distance or laps is refused ([KhonDao.saveCardioEdits]).
+     * in one transaction; a new entry without a time, distance or laps is refused ([KhonDao.saveCardioEdits]). A save
+     * asks a fill.
      */
     suspend fun saveCardioEdits(opened: Session, edited: Session, intervalEdits: Map<String, IntervalEdit>, now: Long = System.currentTimeMillis()): CardioSaveResult =
-        dao.saveCardioEdits(opened, edited, intervalEdits, now)
+        dao.saveCardioEdits(opened, edited, intervalEdits, now).also { if (it == CardioSaveResult.Saved) requestFill() }
     // Single fields of a session edited in place (session page, finish sheet, timer): each writes its own column only.
     suspend fun setSessionDate(sessionId: String, date: LocalDate) = dao.setSessionDate(sessionId, date.iso())
     suspend fun setSessionEffort(sessionId: String, effort: Int?) = dao.setSessionEffort(sessionId, effort)
@@ -371,6 +374,8 @@ class KhonRepository(
     /** "Use this time range" with the bounds the screen showed ([KhonDao.confirmRange]); a fill is asked when stored. */
     suspend fun confirmRange(sessionId: String, from: Long, to: Long): ConfirmRangeResult =
         dao.confirmRange(sessionId, from, to, zone()).also { if (it == ConfirmRangeResult.Confirmed) requestFill() }
+    /** The heart rate reader over this repository's data, generation, clocks and zone, reading from [source]. */
+    fun heartFill(source: HeartSource, scope: CoroutineScope): HeartFill = HeartFill(dao, source, scope, { generation }, clocks, zone)
     fun sessionHr(sessionId: String): Flow<SessionHr?> = dao.sessionHrFlow(sessionId)
     val allSessionHr: Flow<List<SessionHr>> = dao.allSessionHr()
     /** A session with its logs, then its origin, under the origin lock. */

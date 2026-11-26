@@ -4,6 +4,16 @@ import android.app.Application
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import dev.mirzohidkhon.khonfitness.data.Backup
+import dev.mirzohidkhon.khonfitness.data.EndedRun
+import dev.mirzohidkhon.khonfitness.data.HrFacts
+import dev.mirzohidkhon.khonfitness.data.hrFacts
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import dev.mirzohidkhon.khonfitness.data.FakeClocks
 import dev.mirzohidkhon.khonfitness.data.IntervalLog
 import dev.mirzohidkhon.khonfitness.data.ItemType
@@ -400,5 +410,153 @@ class TimerCommitTest {
         assertNull(repo.startTimerRun("c"))
         assertNotNull(ready().beginRun(null, clocks.wall, clocks.elapsed).takeIf { !it.awaitingStart })
         Unit
+    }
+    private val json = Json { ignoreUnknownKeys = true }
+    private fun file(text: String) = json.decodeFromString<Backup>(text)
+    private fun Backup.text() = json.encodeToString(this)
+    private fun Backup.withSession(change: (Session) -> Session) = copy(sessions = sessions.map { if (it.id == "c") change(it) else it })
+    /** The file as the version before run numbers wrote it: no counters, no range, no round times. */
+    private fun withoutCounters(text: String): String {
+        val o = Json.parseToJsonElement(text).jsonObject.toMutableMap()
+        fun strip(list: String, vararg keys: String) { o[list] = JsonArray(o.getValue(list).jsonArray.map { JsonObject(it.jsonObject - keys.toSet()) }) }
+        strip("sessions", "timedFrom", "timedTo", "timerRun", "timerDone", "startedElapsed")
+        strip("intervalLogs", "startedAt", "endedAt")
+        return JsonObject(o).toString()
+    }
+    private fun TimerState.expectedRounds() = runResult()!!.rounds.associateBy { it.index }.let { by -> (0 until 4).map { by[it]?.startedAt to by[it]?.endedAt } }
+
+    @Test fun `C17a AT27 a commit held across a Replace or a Merge of the same run number is refused, a Merge retries once`() = runBlocking {
+        for (replace in listOf(true, false)) {
+            fresh()
+            val ended = full()
+            val other = file(repo.exportJson()).withSession { it.copy(timeSec = 999, note = "file") }
+                .let { b -> b.copy(intervalLogs = b.intervalLogs.map { it.copy(watts = 300) }) }
+            val hold = Hold()
+            val held = async { ended.commit() }
+            hold.reached.await()
+            repo.importJson(other.text(), replace)
+            val imported = session() to dao.intervalLogsFor("c")
+            hold.release.complete(Unit)
+            assertEquals(TimerCommit.RETRY, held.await())
+            assertEquals(imported, session() to dao.intervalLogsFor("c"))
+            assertEquals(1, session().timerRun)
+            assertNull(session().timedFrom)
+            if (replace) {
+                assertNull(snapshot())
+                assertEquals(TimerCommit.NOTHING, commitPending(newRepo(), context))
+            } else {
+                assertEquals("r1", snapshot()?.runId)
+                val restarted = newRepo()
+                assertEquals(TimerCommit.COMMITTED, commitPending(restarted, context))
+                assertEquals(TimerCommit.NOTHING, commitPending(restarted, context))
+                val s = session()
+                assertEquals(ended.runResult()!!.from, s.timedFrom)
+                assertEquals(999, s.timeSec)
+                assertEquals(1, s.timerDone)
+                assertEquals(ended.expectedRounds(), rounds())
+            }
+        }
+    }
+
+    @Test fun `AT27 an old Stop delivered after a Replace and a new Start neither writes nor removes the new snapshot`() = runBlocking {
+        val live = ready("r1").started().run(clocks, 300.0)
+        val other = file(repo.exportJson()).withSession { it.copy(note = "file", effort = 3) }
+        val stopped = live.ended()
+        val hold = Hold()
+        val held = async { stopped.commit() }
+        hold.reached.await()
+        repo.importJson(other.text(), replace = true)
+        val imported = session() to dao.intervalLogsFor("c")
+        val next = ready("r2").started()
+        TimerSnapshots.save(context, next, clocks.wall)
+        hold.release.complete(Unit)
+        assertEquals(TimerCommit.RETRY, held.await())
+        assertEquals("r2", snapshot()?.runId)
+        assertEquals(imported.first.copy(timerRun = 2), session())
+        assertEquals(imported.second, dao.intervalLogsFor("c"))
+    }
+
+    @Test fun `C34b AT31 a Merge during run 2 keeps the local counters, run 2 commits once with its own times`() = runBlocking {
+        for (restore in listOf(false, true)) for (kind in listOf("run 1", "none", "other run 2")) {
+            fresh()
+            val r1 = full("r1")
+            assertEquals(TimerCommit.COMMITTED, r1.commit())
+            val run1 = repo.exportJson()
+            val text = when (kind) {
+                "run 1" -> run1
+                "none" -> withoutCounters(run1)
+                else -> file(run1).withSession { it.copy(timerRun = 2, timerDone = 2, timedFrom = at(10, 0), timedTo = at(10, 30)) }
+                    .let { b -> b.copy(intervalLogs = b.intervalLogs.map { it.copy(startedAt = at(10, it.index), endedAt = at(10, it.index) + 1000) }) }.text()
+            }
+            var r2 = ready("r2").started().run(clocks, 300.0)
+            TimerSnapshots.save(context, r2, clocks.wall)
+            repo.importJson(text, replace = false)
+            assertEquals(kind, 2, session().timerRun)
+            assertEquals(kind, 1, session().timerDone)
+            var owner = repo
+            if (restore) {
+                clocks.pass(40 * MIN)
+                owner = newRepo()
+                r2 = TimerSnapshots.load(context)!!.advancedAt(clocks.wall, clocks.elapsed).also { TimerSnapshots.save(context, it, clocks.wall) }
+                assertTrue(kind, r2.done)
+            } else {
+                r2 = r2.run(clocks, 1263.0).ended()
+            }
+            assertEquals(kind, TimerCommit.COMMITTED, r2.commit(owner))
+            assertEquals(kind, TimerCommit.DROPPED, r2.commit(owner))
+            val result = r2.runResult()!!
+            val s = session()
+            assertEquals(kind, 2, s.timerDone)
+            assertEquals(kind, result.from, s.timedFrom)
+            assertEquals(kind, result.to, s.timedTo)
+            assertTrue(kind, s.timedFrom!! >= r1.runResult()!!.to!!)
+            assertEquals(kind, r2.expectedRounds(), rounds())
+            assertEquals(kind, 4, rounds().count { it.first != null })
+        }
+    }
+
+    @Test fun `AT18 an older trusted file never fills an untrusted run, a pending local run commits once after a Merge`() = runBlocking {
+        val r1 = full("r1")
+        assertEquals(TimerCommit.COMMITTED, r1.commit())
+        val run1 = repo.exportJson()
+        var r2 = ready("r2").started().run(clocks, 300.0)
+        clocks.moveWall(15 * MIN)
+        r2 = r2.run(clocks, 1263.0).ended()
+        assertEquals(TimerCommit.COMMITTED, r2.commit())
+        repo.importJson(run1, replace = false)
+        val merged = session()
+        assertEquals(2, merged.timerRun); assertEquals(2, merged.timerDone)
+        assertNull(merged.timedFrom); assertNull(merged.timedTo)
+        assertTrue(rounds().all { it.first == null && it.second == null })
+        repo.saveCardioEdits(merged, merged.copy(note = "saved"), emptyMap(), clocks.wall)
+        assertTrue(session().finished)
+        assertEquals(HrFacts.NoRange, hrFacts(session(), null, TEST_ZONE))
+
+        fresh()
+        val first = full("r1")
+        assertEquals(TimerCommit.COMMITTED, first.commit())
+        val backup = repo.exportJson()
+        val oneDb = Room.inMemoryDatabaseBuilder(context, KhonDatabase::class.java).allowMainThreadQueries().build()
+        val oneRepo = KhonRepository(oneDb.dao(), clocks = clocks, zone = { TEST_ZONE })
+        oneRepo.importJson(backup, replace = true)
+        val elsewhere = ready("one").beginRun(oneRepo.startTimerRun("c"), clocks.wall, clocks.elapsed).run(clocks, 1563.0).finishedAt(clocks.wall, clocks.elapsed)
+        assertEquals(TimerCommit.COMMITTED, oneRepo.endTimerRun { EndedRun(elsewhere.runResult()) {} })
+        val oneFile = oneRepo.exportJson()
+        oneDb.close()
+
+        repo.importJson(backup, replace = true)
+        var local = ready("two").started().run(clocks, 300.0)
+        TimerSnapshots.save(context, local, clocks.wall)
+        repo.importJson(backup, replace = false)
+        repo.importJson(oneFile, replace = false)
+        local = local.run(clocks, 1263.0).ended()
+        assertEquals(TimerCommit.COMMITTED, local.commit())
+        assertEquals(TimerCommit.DROPPED, local.commit())
+        val s = session()
+        assertEquals(2, s.timerRun); assertEquals(2, s.timerDone)
+        assertEquals(local.runResult()!!.from, s.timedFrom)
+        assertEquals(local.runResult()!!.to, s.timedTo)
+        assertEquals(local.expectedRounds(), rounds())
+        assertNull(snapshot())
     }
 }

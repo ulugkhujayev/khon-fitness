@@ -417,6 +417,43 @@ interface KhonDao {
     @Query("DELETE FROM session_hr WHERE sessionId = :sessionId") suspend fun deleteSessionHr(sessionId: String)
     @Query("DELETE FROM session_hr") suspend fun clearSessionHr()
 
+    /**
+     * A read's [row], written only when [current] holds (the repository generation is the one the read began with), the
+     * session exists, its range in [zone] ([hrWindow]) is the range read, and its row is still [from]: the same state and
+     * `fetchedAt`, or still absent. Returns whether it wrote.
+     */
+    @Transaction suspend fun commitSessionHr(row: SessionHr, from: SessionHr?, zone: ZoneId, current: () -> Boolean): Boolean {
+        if (!current()) return false
+        val session = session(row.sessionId) ?: return false
+        if (hrWindow(session, zone) != HrRange(row.fromMs, row.toMs)) return false
+        val now = sessionHr(row.sessionId)
+        if (now?.state != from?.state || now?.fetchedAt != from?.fetchedAt) return false
+        upsertSessionHr(row)
+        return true
+    }
+
+    /** Deletes [seen] while it is still the session's row, not `off`, and not for the session's range in [zone]. */
+    @Transaction suspend fun deleteStaleSessionHr(seen: SessionHr, zone: ZoneId): Boolean {
+        val row = sessionHr(seen.sessionId) ?: return false
+        if (row != seen || row.state == HrState.OFF) return false
+        val range = session(seen.sessionId)?.let { hrWindow(it, zone) }
+        if (range == HrRange(row.fromMs, row.toMs)) return false
+        deleteSessionHr(seen.sessionId)
+        return true
+    }
+
+    /**
+     * "Remove": the session's row becomes `off` with no sample and no value, for the session's range in [zone] (else the
+     * row's own), with a `fetchedAt` later than the old one. No row and no range, or no session: nothing is written.
+     */
+    @Transaction suspend fun removeSessionHr(sessionId: String, zone: ZoneId, now: Long): Boolean {
+        val session = session(sessionId) ?: return false
+        val row = sessionHr(sessionId)
+        val range = hrWindow(session, zone) ?: row?.let { HrRange(it.fromMs, it.toMs) } ?: return false
+        upsertSessionHr(SessionHr(sessionId, range.fromMs, range.toMs, HrState.OFF, fetchedAt = laterThan(row, now)))
+        return true
+    }
+
     // bodyweight
     @Query("SELECT * FROM bodyweights ORDER BY date") fun bodyweights(): Flow<List<Bodyweight>>
     @Query("SELECT * FROM bodyweights") suspend fun bodyweightsOnce(): List<Bodyweight>
@@ -641,15 +678,29 @@ interface KhonDao {
      * one. Routine rows whose routine or stretch is missing go, and the eating-window settings row exists afterwards.
      * Stretch sessions take the backup's rows, the one overwrite of a recorded session. [inside] runs first in the
      * transaction.
+     *
+     * Clock facts: no session takes the file's anchor ([importedSession]). Replace takes every other value of the file.
+     * Merge keeps the local unit: an existing session keeps its range, anchor, run numbers, and linked ids, an existing
+     * set its stamp, an existing round its times, and an existing session its heart rate row; then a session whose
+     * [boundsChanged] loses its range and round times, and a set that is not done loses its stamp. Heart rate rows come
+     * only with sessions new to this database, and only valid ones ([importedHr]).
      */
     @Transaction suspend fun importBackup(b: Backup, replace: Boolean, inside: () -> Unit = {}) {
         inside()
         val kept = if (replace) null else firstActiveProgramId()
         val backupRoutine = b.stretchRoutines.filter { it.active }.minWithOrNull(compareBy({ it.sortOrder }, { it.id }))?.id
         val routineWinner = if (!replace && stretchRoutinesOnce().isNotEmpty()) firstActiveRoutineId() else backupRoutine
+        val localSessions = if (replace) emptyMap() else sessionsOnce().associateBy { it.id }
+        val localSets = if (replace) emptyMap() else allSetLogsOnce().associateBy { it.id }
+        val localRounds = if (replace) emptyMap() else intervalLogsOnce().associateBy { it.id }
         if (replace) clearAll()
         upsertModalities(b.modalities); upsertExercises(b.exercises); upsertPrograms(b.programs); upsertBlocks(b.blocks)
-        upsertBlockExercises(b.blockExercises); upsertSessions(b.sessions); upsertSetLogs(b.setLogs); upsertIntervalLogs(b.intervalLogs)
+        upsertBlockExercises(b.blockExercises)
+        upsertSessions(b.sessions.map { importedSession(localSessions[it.id], it) })
+        upsertSetLogs(if (replace) b.setLogs else b.setLogs.map { mergedSet(localSets[it.id], it) })
+        upsertIntervalLogs(if (replace) b.intervalLogs else b.intervalLogs.map { mergedRound(localRounds[it.id], it) })
+        b.sessions.forEach { f -> localSessions[f.id]?.let { if (boundsChanged(it, f)) clearRoundTimes(f.id) } }
+        upsertSessionHrs(importedHr(b.sessionHr, b.sessions.map { it.id }.filter { it !in localSessions }.toSet()))
         upsertBodyweights(b.bodyweights); upsertWeekPlan(b.weekPlan); upsertOverrides(b.overrides)
         upsertStretches(b.stretches); upsertStretchRoutines(b.stretchRoutines); upsertRoutineStretches(b.routineStretches)
         upsertStretchSessions(b.stretchSessions); b.eatingWindow?.let { upsert(it) }; upsertWindowDays(b.windowDays)
@@ -667,6 +718,7 @@ interface KhonDao {
         bodyweights = bodyweightsOnce(), weekPlan = weekPlanOnce(), overrides = overridesOnce(),
         stretches = stretchesOnce(), stretchRoutines = stretchRoutinesOnce(), routineStretches = routineStretchesOnce(),
         stretchSessions = stretchSessionsOnce(), eatingWindow = eatingWindowOnce(), windowDays = windowDaysOnce(),
+        sessionHr = sessionHrOnce(),
     )
 
     @Transaction

@@ -24,14 +24,15 @@ The fix: **the app session owns its time range, and the app reads the
 band's heart rate for that range.** A band workout becomes a session only
 when no app session of the same kind ran at that time.
 
-Owner decisions (2026-11-26): merge the old double sessions once; store the
+Owner decisions (2026-11-26): merge the old double sessions once (design 3:
+by one owner action on a shown list, see "Old pairs"); store the
 clock time of each 4x4 work round and of each set check; all data stays on
 the phone; the app never suggests exercises, sets, or loads.
 
 Three principles decide every case:
 
 1. **No data is better than wrong data.** An uncertain time gives no
-   range, an uncertain pair is not merged, a thin read shows nothing.
+   range, no pair is merged without the owner, a thin read shows nothing.
 2. **The reader writes only its own table.** It never writes a column the
    owner can type into. A typed value and a measured value never share a
    place, so no rule about who owns a value exists.
@@ -271,37 +272,42 @@ when the clocks are in step at that instant.
   import stores the band's bounds in `timedFrom`, `timedTo` and asks for
   a fill. What the import writes into `avgHr` and the rounds stays as
   today.
-- **Old pairs, once.** Each of A and B has its `date` on the local date of
-  its `startedAt` (a session the owner moved to another date is never in
-  a pair). A = a finished app cardio session (`sourceId` and
-  `linkedIds` null), with
-  the range `[timedFrom, timedTo)` when set, else `[startedAt, startedAt
-  + timeSec)` (the duration the timer measured; the time of Save proves
-  nothing), at most 6 hours. An A with neither is never in a pair. B = a finished imported cardio session,
-  range `[startedAt, finishedAt)`. They are a candidate pair when they
-  have the same exercise or exercises of the same modality, and the
-  overlap is at least half of both ranges. A pair merges only when A has
-  no other candidate, B has no other candidate, and no owner value is
-  lost:
-  - Band-derived fields (`avgHr`, `distanceM`, `laps`, `poolLength`,
-    `timeSec`, a round's `avgHr`): A's value stays; a null takes B's.
-  - Owner-only fields (`effort`, `watts`, `stroke`, a round's `watts`): a
-    null on A takes B's value; both set and different blocks the merge. So does a round index that B
-    has and A does not have.
-  - `note`: B's note goes on a new line after A's, unless it is empty or
-    equal to A's whole note or to one whole line of it.
-  - `timedFrom`, `timedTo`: when A has none, B's `startedAt` and
-    `finishedAt`.
-  - `linkedIds` = B's `sourceId`. Then B, its logs, and its HR row go.
-  Order: build the plan. With no pair, set the flag and stop. Else write
-  `backups/before-merge-<time>.json` in the folder of the existing
-  "before-import" copies with the full export, read it back, and parse
-  it; a failure stops the pass with no flag. Then one transaction: build
-  the plan again from fresh rows (the whole candidate relation), and
-  merge only the pairs whose A, B, and logs are equal to the rows in the
-  parsed copy. Then set the DataStore flag. A second run finds no pair. A
-  restore of that copy keeps the flag, so the pairs come back and stay.
-- Blocked and uncertain pairs stay as two sessions.
+- **Old pairs, by the owner's hand.** No session is ever deleted by the
+  app alone. The app only finds candidate pairs and shows them; the owner
+  merges a pair after he sees both sessions.
+  - Candidate rule (`pairCandidates`, a pure function on fresh rows):
+    each of A and B has its `date` on the local date of its `startedAt`.
+    A = a finished app cardio session (`sourceId` and `linkedIds` null)
+    with the range `[timedFrom, timedTo)` when set, else `[startedAt,
+    startedAt + timeSec)`, at most 6 hours; an A with neither is no
+    candidate. B = a finished imported cardio session, range `[startedAt,
+    finishedAt)`. They have the same exercise or exercises of the same
+    modality, and the overlap is at least half of both ranges. The rule
+    only fills the list; it proves nothing and deletes nothing.
+  - A candidate is **blocked** when an owner-only field (`effort`,
+    `watts`, `stroke`, a round's `watts`) is set on both and different,
+    or B has a round index that A does not have. A blocked pair is shown
+    with its reason and cannot merge.
+  - The owner can answer "Keep both" for a pair; it is not listed again
+    (a DataStore set of `A id|B id`).
+  - `mergePairs(pairs)`, only from an owner action: first write
+    `backups/before-merge-<time>.json` in the folder of the existing
+    "before-import" copies with the full export, read it back, and parse
+    it; a failure stops with nothing changed. Then one transaction: for
+    each asked pair, check on fresh rows that it is still a candidate and
+    not blocked, and that A, B, and their logs equal the rows in the
+    parsed copy; then merge it; else skip it and report why.
+  - The merge of one pair:
+    - Band-derived fields (`avgHr`, `distanceM`, `laps`, `poolLength`,
+      `timeSec`, a round's `avgHr`): A's value stays; a null takes B's.
+    - Owner-only fields: a null on A takes B's value.
+    - `note`: B's note goes on a new line after A's, unless it is empty
+      or equal to A's whole note or to one whole line of it.
+    - `timedFrom`, `timedTo`: when A has none, B's `startedAt` and
+      `finishedAt`.
+    - `linkedIds` = B's `sourceId`. Then B, its logs, and its HR row go.
+  - "Merge all" merges only pairs that are not blocked and where A has
+    no other candidate and B has no other candidate.
 
 ## What does not change
 
@@ -319,7 +325,7 @@ when the clocks are in step at that instant.
 
 | Attack point | Decision |
 |---|---|
-| R1: overlap alone hides or deletes | Hiding needs the same modality and half of **both** ranges. Deleting also needs a one-to-one pair, no lost owner value, and a verified safety copy that holds the exact rows. |
+| R1: overlap alone hides or deletes | Hiding needs the same modality and half of **both** ranges. Deleting needs the owner's own action on a pair he sees (R5), no lost owner value, and a verified safety copy that holds the exact rows. |
 | R1: "Add to" keeps its range in a cache row | "Add to" is cut from this task. |
 | R1, R2: manual entry passes as live; a cleared stamp falls back to the finish time; wall clock jumps | Design 3 infers no range. Finish, the timer, and the band import store it. An untrusted timer run stores none. |
 | R1: ten samples in a burst count | Complete needs 10 instants over half of the range, from one package. |
@@ -333,5 +339,6 @@ when the clocks are in step at that instant.
 | R3: a moved phone clock during a gym session; an older timer result after an untrusted newer run; time on Ready | "Verified clocks" for gym and timer; `timerRun`; the anchor at Start. |
 | R4: the migration trusts old gym clocks; an old pair matched by the time of Save | The migration gives a range only to band imports. An older gym session gets one only when the owner confirms the shown range. An old app session is placed by its measured duration, never by its Save time. |
 | R4 C38: the phone clock is wrong by the same amount from Start to Finish | Not taken. No clock on the phone can show it, and the band takes its time from the same phone, so both timelines carry the same error. |
-| R1: a Room journal for the merge, generations on disk, platform backup rules, a recovery screen | Not taken. One transaction plus a flag is idempotent; replace stops the timer; the existing Restore sheet is the recovery route; platform backup is an owner question. |
+| R5: time on Ready or a typed duration makes a false old pair | The app deletes nothing by itself. The owner decision of 2026-11-26 ("merge them once") becomes: the app lists the candidate pairs once found, and the owner merges them with one action. The lead reports this change to the owner. |
+| R1: a Room journal for the merge, generations on disk, platform backup rules, a recovery screen | Not taken. The merge has no automatic pass any more; replace stops the timer; the existing Restore sheet is the recovery route; platform backup is an owner question. |
 | R1: the import's default exercise choice and "Import all" against the no-suggestion rule | Not changed: it maps a band record to one of the owner's own exercises and exists today. Reported to the owner. |

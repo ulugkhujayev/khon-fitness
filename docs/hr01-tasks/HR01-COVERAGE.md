@@ -467,3 +467,8 @@ Paths omit `android/app/src/main/java/dev/mirzohidkhon/khonfitness/` unless they
 - **N1 / C37.** Trace legacy gym start and Finish through the v4-to-v5 migration, then through `hrWindow`, the fill and `hrFacts`. Include a clock change before upgrade. [G13], [Repository.kt:267], [Dao.kt:223]
 - **N2 / C38.** Extend M1 from clock changes during a session to time already wrong when the app takes the anchor. Trace the result against data that Health Connect already holds. Check the shared anchor rule for the timer too. [M1], [Shared clock helper]
 - **N3 / D21.** Trace a legacy timer Stop, the later form Save and a separate band import into old-pair planning and deletion. Distinguish the duration written by Stop from the endpoint written by Save. [TimerService.kt:393], [Repository.kt:46], [Repository.kt:341]
+
+## O. Entries added by attack R5
+
+- **O1 / D21. READ.** Extend N3 to trace when v4 sets `sessions.startedAt`, when Start leaves Ready, and what Stop saves. Follow those values into candidate selection and deletion. The session exists before Ready. The timer adds no elapsed time while it waits. Stop saves only the duration. [N3], [TodayScreen.kt], [Repository.kt], [TimerState.kt], [TimerService.kt]
+- **O2 / D22. READ.** Extend N3 to trace the editable Time field through Save into the same `timeSec` column the timer writes. Follow the edited value into candidate selection and deletion. [CardioScreen.kt], [Repository.kt], [Dao.kt]

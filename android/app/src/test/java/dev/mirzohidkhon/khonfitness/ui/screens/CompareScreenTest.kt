@@ -3,7 +3,12 @@ package dev.mirzohidkhon.khonfitness.ui.screens
 import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -38,13 +43,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 
-/** The compare screen: its entry on Progress, the period sheet, the fact groups, an empty database and saved state. */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class CompareScreenTest {
@@ -168,6 +173,87 @@ class CompareScreenTest {
         assertTrue(spoken("Distance, 0.0 km in Oct 3 – Oct 30, 0.0 km in Oct 31 – Nov 27"))
         for (t in listOf("Bodyweight", "Sets per muscle · per week", "Best set", "Cardio")) assertFalse(t, shows(t))
         assertTrue(shows("Oct 3 – Oct 30"))
+    }
+
+    @Test fun `a program period reaches its last finished session, also after today`() {
+        io {
+            dao.upsertPrograms(listOf(Program("push", "Push day")))
+            dao.upsertSessions(listOf(gym("a", LocalDate.of(2026, 11, 20)), gym("b", LocalDate.of(2026, 11, 28))))
+        }
+        show()
+        compose.runOnIdle { nav.navigate(Routes.COMPARE) }
+        waitFor("Oct 31 – Nov 27")
+        tap("Oct 31 – Nov 27")
+        waitFor("Push day")
+        assertTrue(shows("Nov 20 – Nov 28"))
+        tap("Push day")
+        compose.waitUntil(5_000) { !shows("Right column") }
+        waitFor("Gym sessions, 0 in Oct 3 – Oct 30, 2 in Nov 20 – Nov 28")
+    }
+
+    @Test fun `a custom period counts every record of its days after today`() {
+        io {
+            dao.upsertModalities(listOf(Modality("run", "Run", 0xFF7CE0A8)))
+            dao.upsertExercises(listOf(Exercise("bench", "Bench press", Kind.STRENGTH, primaryMuscle = "chest"), Exercise("z2", "Zone 2 run", Kind.CARDIO, modalityId = "run")))
+            val day = LocalDate.of(2026, 11, 28)
+            dao.upsertSessions(listOf(gym("future", day), Session("run", day.iso(), 1L, 2L, ItemType.CARDIO, exerciseId = "z2", timeSec = 1800, distanceM = 6000)))
+            dao.upsertSetLogs(listOf(set("future", "bench", "Bench press", 70.0, 5)))
+            dao.upsert(Bodyweight(day.iso(), 82.0))
+            dao.upsertStretchSessions(listOf(StretchSession("st", "daily", "Daily", day.iso(), 1L, 600, 9, 0)))
+        }
+        show()
+        compose.runOnIdle { nav.navigate(Routes.COMPARE) }
+        waitFor("Oct 31 – Nov 27")
+        tap("Oct 31 – Nov 27")
+        waitFor("Right column")
+        tap("Custom dates")
+        waitFor("From")
+        compose.onNodeWithText("To").performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        val day = hasText("November 28", substring = true) or hasContentDescription("November 28", substring = true)
+        compose.waitUntil(5_000) { compose.onAllNodes(day).fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodes(day)[0].performSemanticsAction(SemanticsActions.OnClick)
+        tap("Done")
+        compose.waitUntil(5_000) { shows("Oct 31 – Nov 28") }
+        for (s in listOf("Gym sessions, 0", "Sets, 0", "Cardio sessions, 0", "Stretching, 0", "Run · sessions, 0"))
+            waitFor("$s in Oct 3 – Oct 30, 1 in Oct 31 – Nov 28")
+        for (s in listOf("Average, none in Oct 3 – Oct 30, 82.0 kg in Oct 31 – Nov 28", "Distance, 0.0 km in Oct 3 – Oct 30, 6.0 km in Oct 31 – Nov 28",
+            "Bench press, none in Oct 3 – Oct 30, 70 kg × 5 in Oct 31 – Nov 28", "Chest, 0.0 in Oct 3 – Oct 30, 0.2 in Oct 31 – Nov 28"))
+            waitFor(s)
+    }
+
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 1.3f)
+    @Test fun `a long program name leaves the whole date range on the period row`() {
+        val name = "Long strength program for shoulders and the upper back with extra exercises"
+        io {
+            dao.upsertPrograms(listOf(Program("push", name)))
+            dao.upsertSessions(listOf(gym("a", LocalDate.of(2025, 12, 20)), gym("b", LocalDate.of(2026, 11, 20))))
+        }
+        show()
+        compose.runOnIdle { nav.navigate(Routes.COMPARE) }
+        waitFor("Oct 31 – Nov 27")
+        tap("Oct 31 – Nov 27")
+        waitFor(name)
+        tap(name)
+        compose.waitUntil(5_000) { !shows("Right column") }
+        fun layout(text: String) = mutableListOf<TextLayoutResult>().also { out ->
+            compose.onNodeWithText(text, useUnmergedTree = true).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(out) }
+        }.single()
+        val range = layout("Dec 20, 2025 – Nov 20")
+        assertTrue(range.size.width > 0)
+        assertFalse(range.hasVisualOverflow)
+        assertTrue(layout(name).isLineEllipsized(0))
+    }
+
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 1.3f)
+    @Test fun `the stacked values take two cells of the same width`() {
+        compose.setContent { KhonTheme { Box(Modifier.width(300.dp)) { StackedValues(CompareRow("Sets", "123", "456")) } } }
+        val left = compose.onNodeWithText("123").fetchSemanticsNode().boundsInRoot
+        val right = compose.onNodeWithText("456").fetchSemanticsNode().boundsInRoot
+        assertTrue(left.width > 0)
+        assertEquals(left.width, right.width, 0.5f)
+        assertTrue(right.left > left.right)
     }
 
     @Test fun `the choices come back after a saved state restore`() {

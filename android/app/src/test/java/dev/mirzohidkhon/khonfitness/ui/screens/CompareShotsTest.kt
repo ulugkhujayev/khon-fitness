@@ -41,10 +41,7 @@ import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.time.LocalDate
 
-/**
- * Screenshots of the compare screen for a visual check: 360 and 411 dp wide, font scale 1.0 and 1.3, long exercise
- * names, the period sheet and an empty database. Runs only when `app/build/shots-compare` exists; the PNGs land there.
- */
+/** Runs only when `app/build/shots-compare` exists; the PNGs land there. */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w360dp-h2400dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -73,7 +70,6 @@ class CompareShotsTest {
             compose.onAllNodesWithContentDescription(text, substring = true).fetchSemanticsNodes().isNotEmpty()
     }
 
-    /** The activity's window, and the window of [over] (a sheet) drawn on top of it. */
     private fun shot(name: String, over: String? = null) {
         compose.waitForIdle()
         val sheet = over?.let { compose.onNodeWithText(it).fetchSemanticsNode().root as View }
@@ -92,7 +88,6 @@ class CompareShotsTest {
 
     private val longName = "Single-arm dumbbell Romanian deadlift from a deficit platform"
 
-    /** Eight weeks of push and legs, runs, swims and an imported bike ride, with bodyweights and stretch runs. */
     private suspend fun seed() {
         dao.upsertModalities(listOf(Modality("run", "Run", 0xFF7CE0A8), Modality("swim", "Swim", 0xFF71B7FF), Modality("bike", "Bike", 0xFFFFD60A)))
         dao.upsertExercises(listOf(

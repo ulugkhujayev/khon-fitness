@@ -1,5 +1,6 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -33,7 +35,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,7 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.components.GroupedList
-import dev.mirzohidkhon.khonfitness.ui.components.ListRow
+import dev.mirzohidkhon.khonfitness.ui.components.Chevron
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.time.Clock
 import java.time.LocalDate
@@ -49,15 +53,13 @@ import java.time.LocalDate
 private val DEFAULT_LEFT = PeriodChoice.Fixed(Preset.BEFORE_4)
 private val DEFAULT_RIGHT = PeriodChoice.Fixed(Preset.LAST_4)
 
-/**
- * Two periods side by side: the two period rows, each opening a sheet of presets, programs and custom dates, then
- * the facts of both periods as list groups, the left period first in every row. Facts only, the same color in both
- * columns. The two choices are saved with the screen.
- */
 @Composable
 fun CompareScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock.systemDefaultZone()) {
     val today = rememberToday(clock)
-    val data = rememberHistoryData(vm, today)
+    val sessions by vm.sessions.collectAsStateWithLifecycle()
+    val logs by vm.allSetLogs.collectAsStateWithLifecycle()
+    val stretches by vm.stretchSessions.collectAsStateWithLifecycle()
+    val bodyweights by vm.bodyweights.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val programs by vm.programs.collectAsStateWithLifecycle()
@@ -66,20 +68,20 @@ fun CompareScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock
     var editing by rememberSaveable { mutableIntStateOf(-1) }
 
     fun resolve(key: String, fallback: PeriodChoice): Pair<PeriodChoice, Period> {
-        val c = parseChoice(key)?.takeIf { choicePeriod(it, today, data.sessions) != null } ?: fallback
-        return c to choicePeriod(c, today, data.sessions)!!
+        val c = parseChoice(key)?.takeIf { choicePeriod(it, today, sessions) != null } ?: fallback
+        return c to choicePeriod(c, today, sessions)!!
     }
     val (leftChoice, left) = resolve(leftKey, DEFAULT_LEFT)
     val (rightChoice, right) = resolve(rightKey, DEFAULT_RIGHT)
-    val choices = remember(programs, data) { programChoices(programs, data.sessions) }
+    val choices = remember(programs, sessions) { programChoices(programs, sessions) }
     fun label(c: PeriodChoice) = when (c) {
         is PeriodChoice.Fixed -> c.preset.label
         is PeriodChoice.OfProgram -> programs.find { it.id == c.programId }?.name ?: "Program"
         is PeriodChoice.Custom -> "Custom dates"
     }
 
-    val groups = remember(left, right, data, exercises, modalities) {
-        fun stats(p: Period) = periodStats(p, data.sessions, data.logs, exercises, data.stretches, data.bodyweights)
+    val groups = remember(left, right, sessions, logs, stretches, bodyweights, exercises, modalities) {
+        fun stats(p: Period) = periodStats(p, sessions, logs, exercises, stretches, bodyweights)
         compareGroups(stats(left), stats(right), exercises, { id -> modalities.find { it.id == id }?.name ?: "Other" }, modalities.map { it.id })
     }
     val leftRange = periodRange(left, today)
@@ -89,8 +91,8 @@ fun CompareScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock
         EditorTopBar("Back", "Compare", onBack = { nav.popBackStack() }, scrollPx = { scroll.value })
         Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             GroupedList {
-                ListRow(leftRange, secondary = label(leftChoice), divider = false) { editing = 0 }
-                ListRow(rightRange, secondary = label(rightChoice)) { editing = 1 }
+                PeriodRow(leftRange, label(leftChoice), divider = false) { editing = 0 }
+                PeriodRow(rightRange, label(rightChoice), divider = true) { editing = 1 }
             }
             FactGroups(groups, leftRange, rightRange)
         }
@@ -113,6 +115,42 @@ fun CompareScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock
     }
 }
 
+@Composable
+private fun PeriodRow(range: String, name: String, divider: Boolean, onClick: () -> Unit) {
+    val largeText = LocalConfiguration.current.fontScale >= 1.5f
+    Column(Modifier.fillMaxWidth()) {
+        if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = onClick).padding(start = 16.dp, end = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (largeText) Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
+                Text(range, style = MaterialTheme.typography.bodyLarge, color = K.Text)
+                Text(name, style = MaterialTheme.typography.bodyMedium, color = K.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+            } else RangeThenName(range, name, Modifier.weight(1f).padding(vertical = 12.dp))
+            Chevron()
+        }
+    }
+}
+
+@Composable
+private fun RangeThenName(range: String, name: String, modifier: Modifier) {
+    Layout({
+        Text(range, style = MaterialTheme.typography.bodyLarge, color = K.Text)
+        Text(name, style = MaterialTheme.typography.bodyMedium, color = K.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
+    }, modifier) { (r, n), c ->
+        val gap = 8.dp.roundToPx()
+        val rangeWidth = minOf(r.maxIntrinsicWidth(Constraints.Infinity), c.maxWidth)
+        val nameP = n.measure(Constraints(maxWidth = maxOf(0, c.maxWidth - rangeWidth - gap)))
+        val rangeP = r.measure(Constraints.fixedWidth(c.maxWidth - if (nameP.width > 0) nameP.width + gap else 0))
+        val height = maxOf(rangeP.height, nameP.height, c.minHeight)
+        layout(c.maxWidth, height) {
+            rangeP.place(0, (height - rangeP.height) / 2)
+            nameP.place(c.maxWidth - nameP.width, (height - nameP.height) / 2)
+        }
+    }
+}
+
 private val ValueStyle @Composable get() = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR)
 
 /**
@@ -124,12 +162,6 @@ private fun cellText(v: String) = v.replace(" × ", "\u0001").replace("\u00A0/",
 
 private val CELL_GAP = 12.dp
 
-/**
- * The fact groups. Both value columns take the width of the widest value on the screen, up to 30 percent of a row
- * each, so every row lines up and a label never moves them; a wider value wraps at its break. When a part that cannot
- * break is wider than that (a large font on a narrow phone), each row puts the label on a line of its own over the
- * two columns.
- */
 @Composable
 private fun FactGroups(groups: List<CompareGroup>, leftRange: String, rightRange: String) {
     val measurer = rememberTextMeasurer()
@@ -161,10 +193,7 @@ private fun FactRow(row: CompareRow, column: Dp, stacked: Boolean, spoken: Strin
         if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
         if (stacked) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp)) {
             Text(row.label, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) {
-                Cell(row.left, Modifier.weight(1f))
-                Cell(row.right, Modifier.padding(start = CELL_GAP).weight(1f))
-            }
+            StackedValues(row, Modifier.padding(top = 4.dp))
         } else Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 16.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(row.label, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(vertical = 12.dp))
             Cell(row.left, Modifier.padding(start = CELL_GAP).width(column))
@@ -174,14 +203,18 @@ private fun FactRow(row: CompareRow, column: Dp, stacked: Boolean, spoken: Strin
 }
 
 @Composable
+internal fun StackedValues(row: CompareRow, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(CELL_GAP)) {
+        Cell(row.left, Modifier.weight(1f))
+        Cell(row.right, Modifier.weight(1f))
+    }
+}
+
+@Composable
 private fun Cell(value: String, modifier: Modifier) {
     Text(cellText(value), style = ValueStyle, color = K.Text, textAlign = TextAlign.End, modifier = modifier.padding(vertical = 2.dp))
 }
 
-/**
- * The sheet of one column's period: one choice list of the presets, the programs with a finished session (name over
- * date range) and "Custom dates", which keeps the sheet open and shows From and To under it.
- */
 @Composable
 private fun PeriodSheet(
     title: String, current: PeriodChoice, period: Period, today: LocalDate, programs: List<Pair<dev.mirzohidkhon.khonfitness.data.Program, Period>>,
@@ -207,7 +240,6 @@ private fun PeriodSheet(
     }
 }
 
-/** A [ChoiceRow] with a muted second line under its title. */
 @Composable
 private fun TwoLineChoiceRow(title: String, line: String, selected: Boolean, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth()) {

@@ -145,18 +145,25 @@ class CompareRulesTest {
     @Test fun `C8 cardio per type with the existing pace, a row of two dashes left out`() {
         val l = Period(d(10, 1), d(10, 31)); val r = Period(d(11, 1), d(11, 27))
         val sessions = listOf(
-            cardio("r1", d(10, 3), "run", 1800, 6000), cardio("r2", d(11, 3), "run", 1500, 5000), cardio("r3", d(11, 4), "run", 1500, 5000),
+            cardio("r1", d(10, 3), "run", 1800, 6000), cardio("r2", d(11, 3), "run", 1500, 5000), cardio("r3", d(11, 4), "run", 1500, 5000), cardio("r4", d(11, 5), "run", 600),
             cardio("b1", d(11, 6), "bike", 3600, 30000),
             cardio("e1", d(10, 7), "erg", 1200), cardio("e2", d(11, 7), "erg", 900),
         )
         val names = mapOf("run" to "Run", "bike" to "Bike", "rowing" to "Row")
         val rows = compareGroups(stats(l, sessions), stats(r, sessions), exercises, { names[it] ?: "Other" }, listOf("run", "bike", "rowing")).single { it.title == "Cardio" }.rows
         assertEquals(listOf(
-            CompareRow("Run · sessions", "1", "2"), CompareRow("Run · distance", "6.0 km", "10.0 km"), CompareRow("Run · pace", pace(1800, 6000, false)!!, pace(3000, 10000, false)!!),
+            CompareRow("Run · sessions", "1", "3"), CompareRow("Run · distance", "6.0 km", "10.0 km"), CompareRow("Run · pace", pace(1800, 6000, false)!!, pace(3000, 10000, false)!!),
             CompareRow("Bike · sessions", "0", "1"), CompareRow("Bike · distance", "–", "30.0 km"), CompareRow("Bike · pace", "–", pace(3600, 30000, false)!!),
             CompareRow("Row · sessions", "1", "1"),
         ), rows)
         assertEquals("5:00 /⁠km", rows[2].left)
+        val run = stats(r, sessions).cardio.single { it.id == "run" }
+        assertEquals(listOf("r2", "r3", "r4"), run.sessions.map { it.id })
+        assertEquals(1500 + 1500 + 600, run.seconds)
+        assertEquals(10000, run.meters)
+        assertEquals(pace(3000, 10000, false), run.pace)
+        val erg = stats(r, sessions).cardio.single { it.id == "rowing" }
+        assertEquals(listOf(900, 0, null), listOf(erg.seconds, erg.meters, erg.pace))
     }
 
     @Test fun `C9 a program's period runs from its first finished session to its last`() {

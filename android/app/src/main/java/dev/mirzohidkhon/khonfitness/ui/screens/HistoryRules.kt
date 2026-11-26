@@ -336,11 +336,11 @@ data class CardioType(val id: String, val sessions: List<Session>, val meters: I
  * only before them.
  */
 fun cardioTypes(sessions: List<Session>, exercises: List<Exercise>, today: LocalDate, days: Long = 30, order: List<String> = emptyList()): List<CardioType> {
-    val span = Period(today.minusDays(days), today)
+    val from = today.minusDays(days)
     val byId = exercises.associateBy { it.id }
     return sessions.filter { it.finished && it.itemType == ItemType.CARDIO && it.date.toDate() <= today }
         .groupBy { byId[it.exerciseId]?.modalityId ?: "" }
-        .map { (type, all) -> cardioType(type, all.filter { it.date.toDate() in span }) }
+        .map { (type, all) -> cardioType(type, all.filter { it.date.toDate() >= from }) }
         .sortedBy { order.indexOf(it.id).let { i -> if (i < 0) Int.MAX_VALUE else i } }
 }
 

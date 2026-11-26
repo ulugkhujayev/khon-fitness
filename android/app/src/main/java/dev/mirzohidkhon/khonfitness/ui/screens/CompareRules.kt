@@ -22,7 +22,6 @@ data class Period(val from: LocalDate, val to: LocalDate) {
     operator fun contains(date: LocalDate): Boolean = date in from..to
 }
 
-/** A session counts in a period when it is finished and its date is in the period. */
 fun Session.countsIn(p: Period): Boolean = finished && date.toDate() in p
 
 /** The fixed periods of the compare sheet, each pair of neighbors without a gap or an overlap. */
@@ -47,18 +46,15 @@ fun programPeriod(programId: String, sessions: List<Session>): Period? {
     return if (dates.isEmpty()) null else Period(dates.min(), dates.max())
 }
 
-/** The programs with a finished session, in [programs] order, each with its period. */
 fun programChoices(programs: List<Program>, sessions: List<Session>): List<Pair<Program, Period>> =
     programs.mapNotNull { p -> programPeriod(p.id, sessions)?.let { p to it } }
 
-/** What a column shows: a preset, a program's period, or two dates. */
 sealed interface PeriodChoice {
     data class Fixed(val preset: Preset) : PeriodChoice
     data class OfProgram(val programId: String) : PeriodChoice
     data class Custom(val period: Period) : PeriodChoice
 }
 
-/** The saved form of a choice, for rememberSaveable. */
 fun choiceKey(c: PeriodChoice): String = when (c) {
     is PeriodChoice.Fixed -> "preset:${c.preset.name}"
     is PeriodChoice.OfProgram -> "program:${c.programId}"
@@ -89,7 +85,6 @@ fun withFrom(p: Period, from: LocalDate): Period = Period(from, maxOf(from, p.to
 /** A new To; a To before the From moves the From to the same day. */
 fun withTo(p: Period, to: LocalDate): Period = Period(minOf(p.from, to), to)
 
-/** Everything one column of the compare screen counts over its period. */
 data class PeriodStats(
     val period: Period,
     val gymSessions: Int = 0,
@@ -136,7 +131,6 @@ fun periodStats(
     )
 }
 
-/** Sets per muscle over a period: each done set counts 1 for the primary muscle and 0.5 for each secondary. */
 fun muscleSets(period: Period, logs: List<SetLog>, sessions: List<Session>, exercises: List<Exercise>): Map<String, Double> {
     val ids = sessions.filter { it.countsIn(period) }.map { it.id }.toSet()
     val exById = exercises.associateBy { it.id }
@@ -144,10 +138,14 @@ fun muscleSets(period: Period, logs: List<SetLog>, sessions: List<Session>, exer
     for (l in logs) {
         if (l.status != SetStatus.DONE || l.sessionId !in ids) continue
         val ex = exById[l.exerciseId] ?: continue
-        ex.primaryMuscle?.let { acc[it] = (acc[it] ?: 0.0) + 1.0 }
-        ex.secondaryList.forEach { acc[it] = (acc[it] ?: 0.0) + 0.5 }
+        forEachMuscleShare(ex) { m, share -> acc[m] = (acc[m] ?: 0.0) + share }
     }
     return acc
+}
+
+inline fun forEachMuscleShare(ex: Exercise, add: (muscle: String, share: Double) -> Unit) {
+    ex.primaryMuscle?.let { add(it, 1.0) }
+    ex.secondaryList.forEach { add(it, 0.5) }
 }
 
 // ---- Text
@@ -158,7 +156,6 @@ fun periodRange(p: Period, today: LocalDate): String {
     return if (p.from == p.to) day(p.from) else "${day(p.from)} – ${day(p.to)}"
 }
 
-/** The value of a fact that does not exist. */
 const val NO_VALUE = "–"
 
 private fun oneDecimal(v: Double) = String.format(Locale.US, "%.1f", v)
@@ -166,10 +163,8 @@ private fun oneDecimal(v: Double) = String.format(Locale.US, "%.1f", v)
 /** "15.2 km". */
 fun kmText(meters: Int): String = "${oneDecimal(meters / 1000.0)} km"
 
-/** One row of facts: its label, then the left period's value and the right one's. */
 data class CompareRow(val label: String, val left: String, val right: String)
 
-/** A group of rows under a section title; the first group has none. */
 data class CompareGroup(val title: String?, val rows: List<CompareRow>)
 
 /**

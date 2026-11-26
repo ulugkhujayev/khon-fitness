@@ -79,14 +79,17 @@ fact or an action name.
   Band session: its start and end. App session: "Timer 18:02 to 18:40"
   when it has stored bounds, else "Created 18:00" and "Duration 38 min"
   under those two names, never as a start and end. Then for both: every
-  value the merge can copy or leave (average heart rate, distance, laps,
+  value the merge can copy or leave (the saved Time, also when it differs
+  from the bounds; average heart rate, distance, laps,
   pool length, stroke, watts, effort, each round with its heart rate and
   watts, note); rows without a value are absent. Under them the
   actions "Merge" and "Keep both". A blocked pair shows its reason as a
   fact line ("Both sessions have another effort") and no "Merge". Under
   the list, one action "Merge all" when two or more pairs can merge that
-  way (phase 2 rule); it asks once with the count ("Merge 3 pairs?") in
-  the app's existing confirm pattern. After a merge the screen shows what
+  way (phase 2 rule); it opens a sheet that shows, for each pair it will
+  merge, the same two groups of facts as the pair sheet, and then one
+  action "Merge 3 pairs". The rows shown there are the rows passed to
+  `mergePairs`. After a merge the screen shows what
   happened per pair as fact lines; a refused pair shows its reason. With
   no pair left the screen shows "No double sessions".
 - **Restore sheet** (Settings): also lists `before-merge-*.json` copies,
@@ -113,7 +116,7 @@ Import screen beyond the one entry row, the version number, the manifest. No new
 | E6 | Read again | Tap once; tap twice fast; the read fails; the read is sparse; the session is deleted during the read; the read commits and its result reaches the sheet after "Remove" or after the range changed | One request; the old facts stay on a failure; the result line as in Scope; no crash, the sheet closes on delete. A late result shows nothing by itself: the sheet and the list show what `hrFacts` gives now. |
 | E7 | Remove | Tap on a filled row | The row shows "Removed"; Review and the other places show no measured value for that session; typed values still show; "Remove" is absent now; "Read again" brings the data back. |
 | E7a | Use this time range | A gym session of 40 min without a range; one of 9 min; a cardio session without a range | The first shows "18:02 to 18:42" and the action; a tap stores the range, the action goes, and the state follows the read. The others show "No time range" and no action. |
-| E7b | Double sessions | No pair; one pair; a blocked pair; three pairs of which one has two candidates | No entry rows with no pair. The list, the sheet with both groups of facts, and the actions as in Scope. The blocked pair has its reason and no "Merge". "Merge all" names the count of pairs it will merge (2) and leaves the ambiguous one listed. |
+| E7b | Double sessions | No pair; one pair; a blocked pair; three pairs of which one has two candidates | No entry rows with no pair. The list, the sheet with both groups of facts, and the actions as in Scope. The blocked pair has its reason and no "Merge". "Merge all" shows the facts of the 2 pairs it will merge before the owner accepts, names the count, and leaves the ambiguous one listed. |
 | E7c | Double sessions | Tap "Merge"; tap it twice fast; tap "Keep both"; the merge is refused because a row changed; the safety copy cannot be written | One merge; the pair leaves the list; History shows one session with the merged values. "Keep both" removes the pair from the list for good. A refusal or a failed copy shows its reason and changes nothing; after a refusal for changed facts the sheet shows the fresh facts. The sheet of an app session without stored bounds says "Created" and "Duration", and shows watts and stroke when B has them. |
 | E8 | Provider | No Health Connect; no heart rate permission; heart rate without distance | The Import screen's state and action for the first two; the third works with no prompt. |
 | E9 | Restore | A `before-merge` copy and a `before-import` copy exist | Both listed, each named by kind and time; restoring the merge copy works as the existing restore. |

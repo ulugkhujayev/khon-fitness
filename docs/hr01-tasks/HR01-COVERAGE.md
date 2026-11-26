@@ -479,3 +479,13 @@ Paths omit `android/app/src/main/java/dev/mirzohidkhon/khonfitness/` unless they
 - **Coverage P2 / D21. READ.** Extend L2 and M6 to trace the pair the owner saw, through confirmation, the backup snapshot, and the merge transaction. Include displayed heart rate if a fill can change it between those steps. [Coverage 444], [Coverage 461], [Common 111], [Common 293]
 - **Coverage P3 / D22. READ.** Trace the exact pair IDs from "Merge all" to `mergePairs`. Recheck both endpoints against the fresh candidate list, including an edge that appeared after confirmation. [Common 297], [Common 309], [P3 83]
 - **Coverage P4 / E12. READ.** Extend N3 and O1–O2 through the owner screen. Trace verified bounds, creation time, saved Time, and every field that the merge can copy or discard. [Coverage 469], [Coverage 473], [Common 300], [P3 76]
+
+## Q. Entries added by attack R7
+
+- **C36.** Extend L5 from a failed write to the first write after a live restore. Trace the form that can open while that first write waits. [Coverage:447], [TimerService.kt:175], [TodayScreen.kt:67], [CardioScreen.kt:78]
+- **C37.** Extend M2 and migration coverage from the old snapshot decoder to the first numbered commit. [Coverage:457], [TimerSnapshot.kt:19], [TimerService.kt:169]
+- **C38.** Extend L2 and M2 to trace both counters through same-ID backup Merge and then through Stop and replay. [Coverage:444], [Coverage:457], [Dao.kt:554]
+- **D21.** Extend the R6 P2 entry from the shown `hrFacts` through the copy and transaction. Include the `session_hr` row that the transaction deletes. [Coverage:479]
+- **D22.** Extend M3 from the date saved at Ready through Start, Save, `hrWindow`, `runRange`, and import. Distinguish midnight with no date edit from a deliberate date edit. [Coverage:458], [Repository.kt:277], [Repository.kt:46]
+- **E12.** Extend the R6 P4 entry to trace stored `timeSec` separately from the displayed clock bounds on both sides. [Coverage:481], [CardioScreen.kt:78]
+- **E13.** Extend the R6 P3 entry from the actual batch preview to the exact pair IDs and facts supplied to `mergePairs`. [Coverage:480]

@@ -95,8 +95,9 @@ average.
 
 - The session is finished; `timedFrom` and `timedTo` are set;
   `timedFrom < timedTo`.
-- The session's `date` equals the local date of `timedFrom`. (A session
-  moved to another date has no range. After a time zone change a session
+- The session's `date` equals the local date of `timedFrom` or the local
+  date of `startedAt` (a session made at 23:59 whose timer starts at
+  00:01 keeps its range). (A session moved to another date has no range. After a time zone change a session
   near midnight can lose its range; accepted.)
 - Gym: `[timedFrom, timedTo)`, length from 10 minutes to 4 hours.
 - App cardio (`sourceId` null): `[timedFrom, min(timedTo + 60 s,
@@ -211,7 +212,10 @@ when the clocks are in step at that instant.
 - **The timer run.** A run carries its session id, its run number, and
   its anchor. The Start action (on the screen or in the notification)
   takes the anchor and, in one transaction, gives the run its number:
-  `timerRun + 1` (1 for the first), written to `sessions.timerRun`. The
+  `timerRun + 1` (1 for the first), written to `sessions.timerRun`, and
+  notes the session's `timeSec` at that instant. A snapshot of the old
+  app version, restored after the upgrade, gets its number in the same
+  way at the restore and is untrusted. The
   timer takes no anchor and no number while it waits on Ready; a Stop
   before Start stores nothing. Every time of the run is `anchor wall +
   (elapsed-realtime now - anchor elapsed)`.
@@ -225,10 +229,11 @@ when the clocks are in step at that instant.
     and at its end. A reboot, a wall clock change, or a snapshot without
     an anchor makes the run untrusted for good.
   - On finish and on Stop, one transaction (`commitTimerRun`): the
-    duration as today; and for a trusted run `timedFrom`, `timedTo`, and
+    duration, only when the session's `timeSec` is still the value noted
+    at Start (the owner typed nothing since); and for a trusted run `timedFrom`, `timedTo`, and
     the times of every round by index (rounds that did not run get null).
-    An untrusted run writes the duration only and sets all its clock
-    fields to null.
+    An untrusted run writes the duration (under the same condition) and
+    sets all its clock fields to null.
   - The commit of run n is accepted only when the session exists,
     `timerRun = n` (no newer run started), and `timerDone` is not n (not
     committed yet). It then sets `timerDone = n`. So a replay and a late
@@ -236,8 +241,8 @@ when the clocks are in step at that instant.
     untrusted run cleared the clock fields or the owner typed a duration.
   - The snapshot of an ended run is cleared only after its commit
     returns, and only when the stored snapshot is still that run. A
-    failed commit keeps it; the app commits it at its next start, and
-    then writes the duration only when the session has none.
+    failed commit keeps it; the app commits it at its next start, under
+    the same rules.
 - Replace import and reset stop the timer and clear its snapshot first.
 - Stretch runs are not affected.
 
@@ -257,7 +262,9 @@ when the clocks are in step at that instant.
 - Merge only: a null `checkedAt`, `startedAt`, `endedAt`, `timedFrom`,
   `timedTo`, or `linkedIds` in the file never erases the local value of
   the same row; for `timedFrom` and `timedTo` only when the file row has
-  the local row's `startedAt` and `finishedAt`.
+  the local row's `startedAt` and `finishedAt`. `timerRun` and
+  `timerDone` keep the greater of the local and the file value, so a file
+  never reopens a committed run.
 
 ## Band workouts (phase 2)
 
@@ -294,13 +301,14 @@ when the clocks are in step at that instant.
   - The owner can answer "Keep both" for a pair; it is not listed again
     (a DataStore set of `A id|B id`).
   - `mergePairs(pairs, unique)`, only from an owner action. Each asked
-    pair carries the rows the owner saw (A, B, and their logs). First write
+    pair carries the rows the owner saw (A, B, their logs, and their HR
+    rows). First write
     `backups/before-merge-<time>.json` in the folder of the existing
     "before-import" copies with the full export, read it back, and parse
     it; a failure stops with nothing changed. Then one transaction: for
     each asked pair, check on fresh rows that it is still a candidate and
-    not blocked, and that A, B, and their logs equal both the rows the
-    owner saw and the rows in the parsed copy; with `unique` ("Merge
+    not blocked, and that A, B, their logs, and their HR rows equal both
+    the rows the owner saw and the rows in the parsed copy; with `unique` ("Merge
     all") also that neither A nor B has another candidate now; then merge
     it; else skip it and report why. It never merges a pair that was not
     asked.
@@ -348,5 +356,6 @@ when the clocks are in step at that instant.
 | R4 C38: the phone clock is wrong by the same amount from Start to Finish | Not taken. No clock on the phone can show it, and the band takes its time from the same phone, so both timelines carry the same error. |
 | R5: time on Ready or a typed duration makes a false old pair | The app deletes nothing by itself. The owner decision of 2026-11-26 ("merge them once") becomes: the app lists the candidate pairs once found, and the owner merges them with one action. The lead reports this change to the owner. |
 | R6: a late older timer run after a backward clock correction; a merge confirmed on facts that changed; a new candidate after "Merge all" | Run numbers without a clock (`timerRun`, `timerDone`); `mergePairs` checks the rows the owner saw; "Merge all" checks one-to-one again on fresh rows. |
+| R7: a timer commit lands after the owner typed a duration; an old snapshot after the upgrade; a file lowers run numbers; a timer that starts after midnight; facts for "Merge all" | The duration is written only over the value noted at Start; old snapshots get a number at restore; merge keeps the greater run numbers; the date rule also accepts the creation date; "Merge all" shows each pair's facts before the owner accepts. The lead ended the combined attack here: each later phase gets its own attack round before its build. |
 | R1: a Room journal for the merge, generations on disk, platform backup rules, a recovery screen | Not taken. The merge has no automatic pass any more; replace stops the timer; the existing Restore sheet is the recovery route; platform backup is an owner question. |
 | R1: the import's default exercise choice and "Import all" against the no-suggestion rule | Not changed: it maps a band record to one of the owner's own exercises and exists today. Reported to the owner. |

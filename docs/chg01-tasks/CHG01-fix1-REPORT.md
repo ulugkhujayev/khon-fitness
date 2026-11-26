@@ -16,29 +16,33 @@ Tests (`Tests:` command on `afd85c8`): `> Task :app:testDebugUnitTest` / `> Task
 
 ## Coverage
 
-| Class | Instance | Status | Test | Found by |
+| ID | Instance | Status | Test | Found by |
 |---|---|---|---|---|
-| F1 | A A B A, A B A in `setupPeriods` | no code change, test + SPEC | `two neighbor periods with one setup ...` | deep review |
-| F2 | skipped boundary session | fixed | `a change whose first session has no best set ...` | deep review |
-| F2 | middle period with no charted point | fixed | `a middle period without a charted session ...` | deep review |
-| F2 | last period with no charted point | fixed | `a last period without a charted session has no marker` | deep review |
-| F2 | two sessions on one date in two periods | fixed | `two sessions on one date in different periods ...` | deep review |
-| F2 | one point, first period without points | fixed | `the first point of the chart never carries a marker ...` | deep review + fixer |
-| F2 | pixel test step derived from markers | fixed | `LineChartChangesTest` (marker column from the green point) | deep review |
-| F3 | `periodRows` spoken row by `.replace` | fixed | `a row speaks the saved program name as saved ...` | deep review |
-| F3 | `spokenRate` "reps per week" | fixed | `the spoken rate has its sign and unit in words` | deep review |
-| F3 | other `.replace` on visible text in the branch diff | none found (added lines with `.replace(` in `git diff aa7faf0 afd85c8 -- android` → none) | – | fixer search |
-| F4 | least squares vs end points | fixed | `the rate is the least squares slope per week` | deep review |
-| F4 | valued span vs session span | fixed | `the 14 days run from the first valued session ...` | deep review |
-| F4 | same-day input order | fixed | `two sessions on one date keep their stored order ...` | deep review |
-| F4 | long name and rate by real layout | fixed | `SetupGroupTest` layout tests | deep review |
-| F5 | `value30` weighted `30 + reps` | fixed | `a set with the largest rep count ...` | deep review |
-| F5 | `value30` unweighted `reps * 30` | fixed | same | deep review |
-| F5 | `trendText` `now.size * before.size` (entry counts, not saved values) | changed to BigDecimal product, same result | existing bodyweight trend tests | fixer search |
-| F6 | nine `// ---- G` comments in `SetupRulesTest.kt` | fixed | witness F6 | deep review |
-| F6 | 63 other removed or rewritten comment lines (SetupRules, ExerciseDetail, HistoryRules, LineChart, tests, seed) | fixed | comment-guard | fixer search |
+| X1.1 | F1: A A B A and A B A in `setupPeriods` | kept: rule unchanged, SPEC sentence added | `two neighbor periods with one setup after a deviation joins are one period` | deep review |
+| X2.1 | F2: skipped boundary session | fixed: marker at the period's next charted session | `a change whose first session has no best set marks the next charted session of its period` | deep review |
+| X2.2 | F2: middle period with no charted point | fixed: one marker, at the third period | `a middle period without a charted session has no marker, ...` | deep review |
+| X2.3 | F2: last period with no charted point | fixed: no marker | `a last period without a charted session has no marker` | deep review |
+| X2.4 | F2: two sessions on one date in two periods | fixed: marker chosen by session id | `two sessions on one date in different periods put the marker on the second` | deep review |
+| X2.5 | F2: one point; first period without points | fixed: never on the chart's first point | `the first point of the chart never carries a marker, ...` | deep review + fixer |
+| X2.6 | F2: pixel test step derived from the markers | fixed: column from the point's own green marker | `LineChartChangesTest` | deep review |
+| X3.1 | F3: `periodRows` spoken row by `.replace` | fixed: built from parts | `a row speaks the saved program name as saved and the rep range in words`; witness F3 (reproduces on "reps" only) | deep review |
+| X3.2 | F3: `spokenRate` "reps per week" | fixed: "repetitions per week" | `the spoken rate has its sign and unit in words` | deep review |
+| X3.3 | F3: other `.replace` on visible text in the branch diff | kept: none found (no added line with `.replace(` in `git diff aa7faf0 afd85c8 -- android`) | `a row speaks the saved program name as saved and the rep range in words` | fixer search |
+| X4.1 | F4: least squares vs end points | fixed: days 0, 1, 14 test | `the rate is the least squares slope per week` | deep review |
+| X4.2 | F4: valued span vs session span | fixed: skipped ends test | `the 14 days run from the first valued session to the last, not over skipped ones` | deep review |
+| X4.3 | F4: same-day input order | fixed: reversed input test | `two sessions on one date keep their stored order when given in reverse` | deep review |
+| X4.4 | F4: long name and rate by real layout | fixed: images equal ellipsized and unclipped references | `SetupGroupTest` `the rows fit at ...` (4 tests) | deep review |
+| X5.1 | F5: `value30` weighted `30 + reps` | fixed: Double before the sum | `a set with the largest rep count has a positive value with and without weight`; witness F5 fixed | deep review |
+| X5.2 | F5: `value30` unweighted `reps * 30` | fixed: Double before the product | same test; witness F5 fixed | deep review |
+| X5.3 | F5: `trendText` `now.size * before.size` (entry counts, not saved values) | fixed: BigDecimal product, same result | existing bodyweight trend tests in the full suite | fixer search |
+| X6.1 | F6: nine `// ---- G` comments in `SetupRulesTest.kt` | fixed: removed | witness F6 fixed | deep review |
+| X6.2 | F6: 63 other added comment lines (SetupRules, ExerciseDetail, HistoryRules, LineChart, tests, seed) | fixed: removed or cut to the 5 kept lines | `comment-guard --base aa7faf0` exit 0 | fixer search |
+| X7.1 | Screenshots and no Room, DAO, backup, dependency or version change | kept: screenshots made again and looked at | `SetupShotsTest`, full `Tests:` command | fixer |
 
-Witnesses: F3 reproduces (wording, see X3), F5 fixed, F6 fixed.
+Witnesses: F3 reproduces (wording, see X3), F5 fixed, F6 fixed. Run again at `0c079e5` (report commit):
+`WITNESS F3 reproduces at=0c079e5548b0 receipt=r-20261126205039-8de0ed`,
+`WITNESS F5 fixed at=0c079e5548b0 receipt=r-20261126205050-380b13`,
+`WITNESS F6 fixed at=0c079e5548b0 receipt=r-20261126205106-fe8ffc`.
 
 Kept comment lines:
 - `LineChart.kt` KDoc, one sentence on `ChartPoint.change`: the shared component's contract for its callers.

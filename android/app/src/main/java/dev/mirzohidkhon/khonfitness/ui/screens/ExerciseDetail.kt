@@ -193,7 +193,7 @@ fun CardioTypeScreen(vm: AppViewModel, nav: NavHostController, typeId: String, c
 }
 
 @Composable
-private fun ChartTitle(text: String) {
+internal fun ChartTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleMedium, color = K.Muted, modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
 }
 

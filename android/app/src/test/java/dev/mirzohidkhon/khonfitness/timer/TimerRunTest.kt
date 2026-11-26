@@ -201,6 +201,12 @@ class TimerRunTest {
         assertEquals(direct.clock, twice.clock)
         val r = twice.toEnd(clocks).finish(clocks).runResult()!!
         assertEquals(listOf(RoundSpan(0, sec(63), sec(303)), RoundSpan(1, sec(483), sec(723))), r.rounds.take(2))
+
+        val paused = TimerSnapshot(twice.copy(paused = true), clocks.wall, twice.instant!!)
+        clocks.pass(5 * MIN)
+        val stillPaused = paused.advancedAt(clocks.wall, clocks.elapsed)
+        assertEquals(twice.remaining, stillPaused.remaining, 1e-9)
+        assertEquals(clocks.elapsed, stillPaused.instant)
     }
 
     @Test fun `C13 a wall clock change, a jump in a pause, and a reboot make the run untrusted for good`() {

@@ -380,12 +380,12 @@ class TimerServiceTest {
 
     private fun failStarts() = app.db.openHelper.writableDatabase.execSQL(
         "CREATE TRIGGER fail_start BEFORE UPDATE OF timerRun ON sessions BEGIN SELECT RAISE(ABORT, 'held'); END")
-    private fun failDurationOf(id: String) = app.db.openHelper.writableDatabase.execSQL(
-        "CREATE TRIGGER fail_time_$id BEFORE UPDATE OF timeSec ON sessions WHEN NEW.id = '$id' BEGIN SELECT RAISE(ABORT, 'held'); END")
+    private fun failDuration(id: String, seconds: Int) = app.db.openHelper.writableDatabase.execSQL(
+        "CREATE TRIGGER fail_time_$id BEFORE UPDATE OF timeSec ON sessions WHEN NEW.id = '$id' AND NEW.timeSec = $seconds BEGIN SELECT RAISE(ABORT, 'held'); END")
 
     @Test fun `Y2 two results without numbers for one session keep their own entries and commit in the order of their ends`() {
         failStarts()
-        failDurationOf("a")
+        failDuration("a", seconds = 5)
         val a = beginWithoutNumber("a", work = 5)
         settled("A's result fails") { loopToEnd() }
         assertEquals(listOf(a.runId), pendingIds())

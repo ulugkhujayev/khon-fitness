@@ -95,25 +95,23 @@ class HeartFill(
     }
 
     /** "Remove" ([KhonDao.removeSessionHr]): the row becomes `off`, so no pass reads it and a running read cannot commit. */
-    suspend fun removeHeartRate(sessionId: String): Boolean = dao.removeSessionHr(sessionId, zone(), clocks.wallMs())
+    suspend fun removeHeartRate(sessionId: String): Boolean = dao.removeSessionHr(sessionId, zone, clocks.wallMs())
 
     /**
      * One pass over finished sessions: first every row that is not `off` and not for its session's range goes, checked
-     * again in its delete; then each session whose range ended in the last 30 days and that has no row or a `waiting`
-     * row is read.
+     * only in its delete with the zone read there; then each session whose range ended in the last 30 days and that
+     * has no row or a `waiting` row is read.
      */
     internal suspend fun pass() {
-        val zone = zone()
         val sessions = dao.sessionsOnce().associateBy { it.id }
         for (row in dao.sessionHrOnce()) {
             if (row.state == HrState.OFF) continue
-            val range = sessions[row.sessionId]?.let { hrWindow(it, zone) }
-            if (range == HrRange(row.fromMs, row.toMs)) continue
             beforeCleanup(row)
             dao.deleteStaleSessionHr(row, zone)
         }
         val rows = dao.sessionHrOnce().associateBy { it.sessionId }
         val now = clocks.wallMs()
+        val zone = zone()
         sessions.values
             .filter { s -> hrWindow(s, zone)?.let { fillDue(it.toMs, now) } == true && rows[s.id].let { it == null || it.state == HrState.WAITING } }
             .sortedBy { it.startedAt }
@@ -136,7 +134,7 @@ class HeartFill(
         }
         val row = hrRow(sessionId, range, readHeart(records, range), clocks.wallMs(), from)
         val wrote = try {
-            dao.commitSessionHr(row, from, zone()) { generation() == began }
+            dao.commitSessionHr(row, from, zone) { generation() == began }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

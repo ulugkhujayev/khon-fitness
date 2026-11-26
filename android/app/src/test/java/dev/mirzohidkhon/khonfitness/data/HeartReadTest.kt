@@ -56,16 +56,84 @@ class HeartReadTest {
         assertTrue(failed.isFailure)
     }
 
+    private fun bounded(fromMs: Long, toMs: Long, points: List<HeartPoint>) = BoundedHeartRecord(fromMs, toMs, HeartRecord("mi", points))
+
+    /** A platform that selects records by start time inside the asked range, as Health Connect does. */
+    private fun platform(records: List<BoundedHeartRecord>, ask: HrRange) = records.filter { it.startMs >= ask.fromMs && it.startMs < ask.toMs }
+
     @Test fun `AT5 records that cross both bounds contribute, their outside samples count only as raw`() {
-        val first = HeartRecord("mi", listOf(p(17, 59, 200)) + (0..11).map { p(18, it, 130) })
-        val second = HeartRecord("mi", (18..29).map { p(18, it, 130) } + p(18, 30, 200))
-        val r = readHeart(listOf(first, second), range)
+        val first = bounded(at(17, 59), at(18, 12), listOf(p(17, 59, 200)) + (0..11).map { p(18, it, 130) })
+        val second = bounded(at(18, 18), at(18, 31), (18..29).map { p(18, it, 130) } + p(18, 30, 200))
+        val ask = askRange(range)
+        val r = readHeart(touching(platform(listOf(first, second), ask), range), range)
         assertEquals(26, r.rawCount)
         assertEquals(24, r.sampleCount)
         assertTrue(r.complete)
         assertEquals(130, r.avgHr)
         assertEquals(130, r.maxHr)
         assertEquals(HrState.FILLED, hrRow("s", range, r, at(19, 0), null).state)
+    }
+
+    @Test fun `the provider is asked from a day before the range, and only records that touch the range are kept`() {
+        val ask = askRange(range)
+        assertEquals(HrRange(range.fromMs - DAY_MS, range.toMs), ask)
+        val endsAtFrom = bounded(at(17, 50), at(18, 0), listOf(p(17, 55, 130)))
+        val startsAtTo = bounded(at(18, 30), at(18, 40), listOf(p(18, 35, 130)))
+        val long = bounded(at(22, 0, java.time.LocalDate.of(2026, 11, 19)), at(18, 5), listOf(p(18, 1, 130)))
+        val before = bounded(at(17, 0), at(17, 30), listOf(p(17, 10, 130)))
+        assertEquals(listOf(long.record), touching(platform(listOf(endsAtFrom, startsAtTo, long, before), ask), range))
+        assertEquals(listOf(long.record), touching(listOf(endsAtFrom, startsAtTo, long, before), range))
+        assertEquals(HrRange(Long.MIN_VALUE, 5), askRange(HrRange(Long.MIN_VALUE + 5, 5)))
+    }
+
+    @Test fun `a range length that does not fit in a Long is held at the end`() {
+        assertEquals(Long.MAX_VALUE, HrRange(Long.MIN_VALUE, 1).lengthMs)
+        assertEquals(Long.MIN_VALUE, HrRange(1, Long.MIN_VALUE).lengthMs)
+        assertEquals(40 * MIN, range.copy(toMs = range.fromMs + 40 * MIN).lengthMs)
+    }
+
+    @Test fun `a sum past the end of Long is held at the end`() {
+        assertEquals(Long.MAX_VALUE, plusMs(Long.MAX_VALUE - 5, 60_000))
+        assertEquals(Long.MIN_VALUE, minusMs(Long.MIN_VALUE + 5, 60_000))
+        assertEquals(10L, plusMs(5, 5))
+        assertEquals(0L, minusMs(5, 5))
+    }
+
+    @Test fun `a range that ended before the smallest age is not due and not waiting`() {
+        val now = at(19, 0)
+        assertFalse(fillDue(Long.MIN_VALUE + 1, now))
+        assertTrue(fillDue(now - FILL_AGE_MS, now))
+        val far = HrRange(Long.MIN_VALUE + 1, Long.MIN_VALUE + 1 + 40 * MIN)
+        assertEquals(HrState.NONE, hrRow("s", far, readHeart(emptyList(), far), now, null).state)
+    }
+
+    @Test fun `a row after the largest stamp takes the clock`() {
+        val now = at(19, 0)
+        val stamped = hrRow("s", range, readHeart(emptyList(), range), now, null)
+        assertEquals(now, laterThan(stamped.copy(fetchedAt = Long.MAX_VALUE), now))
+        assertEquals(now + 1, laterThan(stamped, now))
+    }
+
+    @Test fun `a range longer than a day is not read`() {
+        val start = at(18, 0)
+        fun everyHour(range: HrRange) = listOf(HeartRecord("mi", (0..23).map { HeartPoint(start + it * 60 * MIN, 130) }))
+        val day = HrRange(start, start + MAX_READ_MS)
+        val longer = HrRange(start, start + MAX_READ_MS + 1)
+        val wide = HrRange(Long.MIN_VALUE + 1, Long.MAX_VALUE)
+        assertTrue(readHeart(everyHour(day), day).complete)
+        for (range in listOf(longer, wide)) {
+            val reading = readHeart(everyHour(range), range)
+            assertEquals(0, reading.rawCount)
+            assertEquals(emptyList<HrSample>(), reading.buckets)
+            assertFalse(reading.complete)
+            assertNull(reading.avgHr)
+        }
+    }
+
+    @Test fun `clocks whose difference overflows are not in step`() {
+        assertFalse(inStep(Anchor(-1, 0), Long.MAX_VALUE, 0))
+        assertFalse(inStep(Anchor(Long.MAX_VALUE, 0), Long.MIN_VALUE, 0))
+        assertTrue(inStep(Anchor(1_000, 0), 1_000 + CLOCK_STEP_MS, 0))
     }
 
     @Test fun `C22 only ten instants over half of the range are filled`() {

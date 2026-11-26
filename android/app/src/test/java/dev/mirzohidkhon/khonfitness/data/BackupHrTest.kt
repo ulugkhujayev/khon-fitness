@@ -181,6 +181,39 @@ class BackupHrTest {
         bad.forEach { assertFalse(it.toString(), validFileHr(it)) }
     }
 
+    @Test fun `validFileHr checks offsets without a sum that wraps, and fromMs is not negative`() {
+        val top = HrRange(Long.MAX_VALUE - 40 * MIN, Long.MAX_VALUE)
+        assertTrue(validFileHr(filled("g", top).copy(samples = "0:130,2399:130")))
+        assertFalse(validFileHr(filled("g", top).copy(samples = "0:130,2405:130")))
+        assertFalse(validFileHr(filled("g", top).copy(samples = "0:130,2400:130")))
+        assertFalse(validFileHr(filled("g").copy(samples = "0:130,${Int.MAX_VALUE}:130")))
+        assertFalse(validFileHr(filled("g", HrRange(-1, 40 * MIN))))
+        assertTrue(validFileHr(filled("g", HrRange(0, 40 * MIN))))
+        assertTrue(validFileHr(filled("g").copy(toMs = gymRange.toMs + 500, samples = "0:130,2400:130")))
+        assertFalse(validFileHr(filled("g").copy(toMs = gymRange.toMs + 500, samples = "0:130,2401:130")))
+        assertTrue(validFileHr(filled("g", HrRange(0, 1)).copy(samples = "0:130")))
+        assertFalse(validFileHr(filled("g", HrRange(0, 1)).copy(samples = "1:130")))
+    }
+
+    @Test fun `rows with a wrapping offset, a negative start or the largest offset are dropped in both imports`() = runBlocking {
+        val sessions = listOf("top", "neg", "max", "ok").map { gym(it).copy(avgHr = 150, startedElapsed = null) }
+        val top = HrRange(Long.MAX_VALUE - 40 * MIN, Long.MAX_VALUE)
+        val rows = listOf(
+            filled("top", top).copy(samples = "0:130,2405:130"),
+            filled("neg", HrRange(-40 * MIN, 0)),
+            filled("max").copy(samples = "0:130,${Int.MAX_VALUE}:130"),
+            filled("ok"),
+        )
+        val file = decode(local.repo.exportJson()).copy(sessions = sessions, sessionHr = rows).text()
+        for (replace in listOf(true, false)) {
+            val other = Phone()
+            assertTrue(other.repo.describeBackup(file).startsWith("4 sessions"))
+            other.repo.importJson(file, replace)
+            assertEquals(sessions.map { it.id to 150 }.sortedBy { it.first }, other.dao.sessionsOnce().map { it.id to it.avgHr }.sortedBy { it.first })
+            assertEquals(listOf(filled("ok")), other.hr())
+        }
+    }
+
     @Test fun `C34 Merge keeps every local clock value and the local row against an old file and another file`() = runBlocking {
         local.fill()
         val before = local.rows()

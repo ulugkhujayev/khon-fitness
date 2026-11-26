@@ -11,7 +11,7 @@ const val STAMP_TAIL_MS = 5 * 60_000L
 fun gymRange(session: Session, stamps: List<Long>, finishedAt: Long, elapsedMs: Long): HrRange? {
     if (!inStep(session.anchor, finishedAt, elapsedMs)) return null
     val last = stamps.filter { it in session.startedAt..finishedAt }.maxOrNull() ?: return null
-    return HrRange(session.startedAt, minOf(finishedAt, last + STAMP_TAIL_MS)).takeIf { it.toMs > it.fromMs }
+    return HrRange(session.startedAt, minOf(finishedAt, plusMs(last, STAMP_TAIL_MS))).takeIf { it.toMs > it.fromMs }
 }
 
 enum class RangeRefusal { MISSING, NOT_GYM, NOT_FINISHED, HAS_RANGE, DATE_MOVED, LENGTH, BOUNDS_CHANGED }
@@ -32,7 +32,7 @@ fun confirmableRange(session: Session, zone: ZoneId): RangeRefusal? {
         finishedAt == null -> RangeRefusal.NOT_FINISHED
         session.timedFrom != null || session.timedTo != null -> RangeRefusal.HAS_RANGE
         session.date != localDate(session.startedAt, zone) -> RangeRefusal.DATE_MOVED
-        finishedAt - session.startedAt !in GYM_RANGE_MS -> RangeRefusal.LENGTH
+        spanMs(session.startedAt, finishedAt) !in GYM_RANGE_MS -> RangeRefusal.LENGTH
         else -> null
     }
 }

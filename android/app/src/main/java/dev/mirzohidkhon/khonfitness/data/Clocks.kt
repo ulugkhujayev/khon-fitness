@@ -1,6 +1,5 @@
 package dev.mirzohidkhon.khonfitness.data
 
-import kotlin.math.abs
 
 /** The two phone clocks: the wall clock (epoch ms, the owner can change it) and elapsed realtime (ms since boot). */
 interface Clocks {
@@ -27,7 +26,12 @@ const val CLOCK_STEP_MS = 2_000L
  */
 fun inStep(anchor: Anchor?, wallMs: Long, elapsedMs: Long): Boolean {
     if (anchor == null || elapsedMs < anchor.elapsedMs) return false
-    return abs((wallMs - anchor.wallMs) - (elapsedMs - anchor.elapsedMs)) <= CLOCK_STEP_MS
+    val drift = try {
+        Math.subtractExact(Math.subtractExact(wallMs, anchor.wallMs), elapsedMs - anchor.elapsedMs)
+    } catch (e: ArithmeticException) {
+        return false
+    }
+    return drift in -CLOCK_STEP_MS..CLOCK_STEP_MS
 }
 
 /** [wallMs] as a clock fact: itself when the clocks are in step since [anchor], else null. */

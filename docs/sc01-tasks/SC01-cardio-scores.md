@@ -32,7 +32,8 @@ chart and on the heart rate screens on their own branches, and a
 builder works on the band import: put your code in new files
 (`ScoreRules.kt`, `ReviewScores.kt`, tests) and keep each change to an
 existing file to a few lines, so that the lead can merge. Do not change
-the `data`, `timer`, or `health` packages, `HeartRules.kt`,
+the `data` package (except the settings store, for the one new
+setting), the `timer` or `health` packages, `HeartRules.kt`,
 `HeartDataScreen.kt`, `PictureRules.kt`, or `ReviewPicture.kt`; when you
 need a helper of the chart rules, call it.
 

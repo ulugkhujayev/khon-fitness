@@ -3,7 +3,10 @@
 Read this before a phase file. It holds the decided design; the phase files
 hold the contract rows. Designs 1 and 2 were attacked
 (`HR01-ATTACK-R1.md`, `HR01-ATTACK-R2.md`, both open-ended). Design 3
-removes the parts that kept failing instead of patching them. "What
+removes the parts that kept failing instead of patching them. Attack R3
+(`HR01-ATTACK-R3.md`) found one more instance of a known class (a wall
+clock that moves), and this text now applies one clock rule to gym and
+timer alike. "What
 changed after the attacks" at the end lists each decision.
 
 ## Why
@@ -32,8 +35,9 @@ Three principles decide every case:
 2. **The reader writes only its own table.** It never writes a column the
    owner can type into. A typed value and a measured value never share a
    place, so no rule about who owns a value exists.
-3. **A range is stored once, by the code that saw the workout.** Nothing
-   infers a range later from dates or durations.
+3. **A range is stored once, by the code that saw the workout, and only
+   when its clocks are verified.** Nothing infers a range later from dates
+   or durations.
 
 ## Data model (Room 4 to 5)
 
@@ -52,6 +56,10 @@ New nullable columns, epoch ms unless said:
   - **the migration**, once: `startedAt` and `finishedAt` for a finished
     gym session that lasted from 10 minutes to 4 hours, and for every
     finished imported cardio session (`sourceId` set). Nothing else.
+- `sessions.startedElapsed`: the elapsed-realtime value at the start of a
+  gym session (the anchor of "Verified clocks"). Null for older sessions.
+- `sessions.timerRun`: the identity (anchor wall time) of the last timer
+  run that a commit accepted, also when that run stored no clock times.
 - `sessions.linkedIds TEXT`: Health Connect record ids, joined by `,`,
   merged into this app session. `sourceId` keeps its meaning ("this
   session was imported"); a session with `linkedIds` is an app session.
@@ -117,8 +125,9 @@ into a typed column.
 
 ## Reading (`HeartSource` interface, real one in `health/`, fake in tests)
 
-- Read every page of heart rate records that touch the range. `rawCount`
-  is every sample seen.
+- Read every page of heart rate records that touch the range, also
+  records that begin before it or end after it. `rawCount` is every
+  sample seen in them.
 - Accept a sample when its time is in `[from, to)` and its bpm is from 30
   to 230. Drop exact duplicates (same time, bpm, package).
 - `origin` is the package with the most accepted samples (a tie: the
@@ -138,7 +147,8 @@ into a typed column.
   import of a band workout, and `rereadHeartRate`.
 - A pass, over finished sessions:
   - Delete each row that is not `off` and whose session has no range or
-    another range (cleanup; `hrFacts` already hides it).
+    another range (cleanup; `hrFacts` already hides it). The delete
+    checks the session and the row again inside its transaction.
   - Read each session whose range ended in the last 30 days (and not in
     the future) and that has no row or a `waiting` row.
   - Never read `off` or `none`.
@@ -159,21 +169,36 @@ into a typed column.
   null values, and a new `fetchedAt`, so a read that was already running
   cannot commit.
 
+## Verified clocks
+
+One helper, used by gym and timer. An **anchor** is a pair taken at one
+instant: the wall time and the elapsed-realtime value. Later, the clocks
+are **in step** when the wall clock and elapsed-realtime moved by the same
+amount since the anchor, within 2 s. A changed phone clock, a reboot, or a
+missing anchor is not in step. A wall time is stored as a clock fact only
+when the clocks are in step at that instant.
+
 ## Clock times
 
+- A gym session stores its anchor at its start: `startedAt` and
+  `startedElapsed`.
 - `checkSet` stamps `checkedAt = now` in the same statement that turns a
-  pending set to done, and only when the session is unfinished. A done set
+  pending set to done, and only when the session is unfinished and its
+  clocks are in step at that instant (else the set is done with a null
+  stamp). A done set
   that is checked again keeps its first stamp. A check in a finished
   session leaves `checkedAt` as it is. Every path that makes a set pending
   or skipped sets `checkedAt` to null. A weight or reps edit keeps it.
 - **Gym Finish**, in the finish transaction: the stamps are the
   `checkedAt` of done sets inside `[startedAt, finishedAt]`. With at
-  least one stamp and `timedFrom` null: `timedFrom = startedAt`,
-  `timedTo = min(finishedAt, last stamp + 5 min)`. With no stamp, nothing
+  least one stamp, clocks in step at Finish, and `timedFrom` null: `timedFrom = startedAt`,
+  `timedTo = min(finishedAt, last stamp + 5 min)`. With no stamp or clocks not in step, nothing
   is written, and the session has no range. Later edits of sets never
   change the stored range.
-- **The timer run.** A run carries its session id and two anchors from its
-  start: the wall time and the elapsed-realtime value. Every time of the
+- **The timer run.** A run carries its session id and its anchor. The
+  anchor is taken by the action that starts the counting (the Start on
+  the screen or in the notification), never while the timer waits on
+  Ready; a Stop before that action stores nothing. Every time of the
   run is `anchor wall + (elapsed-realtime now - anchor elapsed)`. The run
   identity is the anchor wall time.
   - A work round gets its start when work begins and its end when work
@@ -182,19 +207,19 @@ into a typed column.
     tick crosses several boundaries (restore after the process died),
     each boundary gets its own time from the phase lengths. A paused
     snapshot consumes no phase time.
-  - The run is **trusted** while, at every restore and at its end, the
-    wall clock and the elapsed-realtime clock moved by the same amount
-    since the anchor (within 2 s) and elapsed-realtime did not go back. A
-    reboot, a wall clock change, or a snapshot without anchors makes the
-    run untrusted for good.
+  - The run is **trusted** while its clocks are in step at every restore
+    and at its end. A reboot, a wall clock change, or a snapshot without
+    an anchor makes the run untrusted for good.
   - On finish and on Stop, one transaction (`commitTimerRun`): the
     duration as today; and for a trusted run `timedFrom`, `timedTo`, and
     the times of every round by index (rounds that did not run get null).
     An untrusted run writes the duration only and sets all its clock
     fields to null.
-  - It writes nothing when the session is gone. It writes nothing when
-    the row holds this run or a newer one (`timedFrom` equal or later):
-    a replay or a late older run cannot change anything.
+  - Every accepted commit sets `timerRun` to the run's identity. It
+    writes nothing when the session is gone. It writes nothing when
+    `timerRun` holds this run or a newer one: a replay or a late older
+    run cannot change anything, also after an untrusted run cleared the
+    clock fields.
   - The snapshot of an ended run is cleared only after its commit
     returns, and only when the stored snapshot is still that run. A
     failed commit keeps it; the app commits it at its next start, and
@@ -209,7 +234,8 @@ into a typed column.
   sessions have no stored range and so no heart rate.
 - An HR row from a file is accepted when its session exists after the
   import, `fromMs < toMs`, the state is one of the four, and `samples`
-  parses. Other HR rows are dropped; they never fail the import. Of two
+  parses. Other HR rows are dropped; they never fail the import or its preview,
+  also when one row does not decode (each row is decoded by itself). Of two
   rows with one id the last wins.
 - Replace: only the file's rows remain. Merge: a file HR row replaces the
   local row of the same session; a local row whose session survives
@@ -235,8 +261,10 @@ into a typed column.
   import stores the band's bounds in `timedFrom`, `timedTo` and asks for
   a fill. What the import writes into `avgHr` and the rounds stays as
   today.
-- **Old pairs, once.** A = a finished app cardio session (`sourceId` and
-  `linkedIds` null) whose `date` is the local date of `startedAt`, with
+- **Old pairs, once.** Each of A and B has its `date` on the local date of
+  its `startedAt` (a session the owner moved to another date is never in
+  a pair). A = a finished app cardio session (`sourceId` and
+  `linkedIds` null), with
   the range `[timedFrom, timedTo)` when set, else `[startedAt,
   finishedAt)`, at most 6 hours. B = a finished imported cardio session,
   range `[startedAt, finishedAt)`. They are a candidate pair when they
@@ -246,8 +274,8 @@ into a typed column.
   lost:
   - Band-derived fields (`avgHr`, `distanceM`, `laps`, `poolLength`,
     `timeSec`, a round's `avgHr`): A's value stays; a null takes B's.
-  - Owner-only fields (`effort`, `watts`, `stroke`, a round's `watts`):
-    both set and different blocks the merge. So does a round index that B
+  - Owner-only fields (`effort`, `watts`, `stroke`, a round's `watts`): a
+    null on A takes B's value; both set and different blocks the merge. So does a round index that B
     has and A does not have.
   - `note`: B's note goes on a new line after A's, unless it is empty or
     equal to A's whole note or to one whole line of it.
@@ -291,5 +319,6 @@ into a typed column.
 | R2 D22: what the band-only import writes into `avgHr` and rounds | Existing behavior, not changed here. |
 | R2 D23: another band workout of the same modality inside a paused timer run | Not taken. Same modality, same time, half of both ranges is the same workout for one person. Hiding is undone by deleting the app session; the merge has the safety copy. |
 | R2 D24: B's edited average loses to A's | Band-derived fields: the app session's own value wins and B's stays in the safety copy. Owner-only fields block. |
+| R3: a moved phone clock during a gym session; an older timer result after an untrusted newer run; time on Ready | "Verified clocks" for gym and timer; `timerRun`; the anchor at Start. |
 | R1: a Room journal for the merge, generations on disk, platform backup rules, a recovery screen | Not taken. One transaction plus a flag is idempotent; replace stops the timer; the existing Restore sheet is the recovery route; platform backup is an owner question. |
 | R1: the import's default exercise choice and "Import all" against the no-suggestion rule | Not changed: it maps a band record to one of the owner's own exercises and exists today. Reported to the owner. |

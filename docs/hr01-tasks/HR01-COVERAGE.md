@@ -448,3 +448,16 @@ Paths omit `android/app/src/main/java/dev/mirzohidkhon/khonfitness/` unless they
 | L6 | [HealthImport.kt:104], [HealthImport.kt:121], [HealthImport.kt:150], [Repository.kt:341] | Expand E5–E7 and E10 to trace raw member ranges through the write check. Trace the existing draft HR, distance, and round calculation through the new reader rules or its removal from the write path. |
 | L7 | [TodayScreen.kt:103], [TodayScreen.kt:143], [Dao.kt:232], [Dao.kt:271] | Add the band-first order. Today offers Import while an app session is unfinished. Trace both serialized save orders through the same-workout check. |
 | L8 | [ReviewScreen.kt:28], [ReviewScreen.kt:80], [2-HR01-COMMON.md:115] | Add the stale-result and removal paths. Trace the facts shown by Review and the new list and sheet when the current range, stored row, or user action changes. |
+
+## M. Entries added by attack R3
+
+| ID | Entry | Add to coverage |
+|---|---|---|
+| M1 | [Repository.kt:267], [Dao.kt:223] | Trace the gym start, set stamp and Finish clocks to the range write. Check a wall-clock step that still leaves each stamp inside the wall-clock bounds. |
+| M2 | [TimerService.kt:270], [TimerService.kt:393], [TimerSnapshot.kt:35] | Extend L4 to follow the latest accepted run when a successful commit sets every clock field to null. Check late writes and replays against that run. |
+| M3 | [TimerService.kt:90], [TimerService.kt:110], [TimerService.kt:347] | Extend D10 and D12 to track Ready, the two Start entries, and Stop before Start. Trace the point where each path starts or declines to start a range. |
+| M4 | [Dao.kt:554], [2-HR01-COMMON.md:139] | Track Merge and Remove against cleanup's selection and delete. Check whether cleanup still qualifies at the delete. |
+| M5 | [HealthImport.kt:106], [2-HR01-COMMON.md:120] | Inventory how the new HeartSource finds records that cross either bound. Distinguish record selection from sample filtering. |
+| M6 | [CardioScreen.kt:74], [Repository.kt:46], [Entities.kt:123] | Trace History edits on the imported side into pair planning. Include the edited date and owner values that exist only on the imported session or its rounds. |
+| M7 | [6-HR01-P3-ui.md:59] | Extend L8 with the explicit Read again result line. Follow its delivery after Remove or a range change, even when the read committed successfully. |
+| M8 | [Repository.kt:359], [Repository.kt:370] | Extend F4 and F5 with row-level decoding failures in `sessionHr`. Check both the Restore preview and the import. |

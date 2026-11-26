@@ -34,13 +34,16 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val s = session ?: return
+    val picture = rememberWorkoutPicture(vm, s, logs, intervals)
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize()) {
         EditorTopBar("Today", s.programName ?: s.exerciseName ?: "Session", scrollPx = { scroll.value }, onBack = { nav.popBackStack() })
         Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             Text(s.date.toDate().format(shortDate), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
             Text(statLine(s, logs), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp))
+            if (picture?.hasChart == true) HeartPicture(picture, Modifier.padding(bottom = 16.dp))
             if (s.itemType == ItemType.PROGRAM) reviewExercises(logs).forEach { sets -> ExerciseReview(sets) }
+            if (s.itemType == ItemType.PROGRAM) picture?.let { SetsInOrder(it.rows) }
             else CardioReview(s, intervals, exercises.find { it.id == s.exerciseId }?.let { ex -> modalities.find { it.id == ex.modalityId }?.name })
             if (s.note.isNotBlank() || s.effort != null) {
                 SectionTitle("Notes", Modifier.padding(top = 12.dp))

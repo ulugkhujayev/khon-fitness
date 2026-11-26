@@ -599,3 +599,21 @@ without markers and labels is a defect. Every chart is 190 px tall
 labels 12/500 muted, the last one 13/700 in white. The value axis is as
 wide as its widest label plus 8 px, the right inset 8 px, so the chart
 sits even between the screen margins.
+
+The heart rate picture on Review is the one chart without markers and
+value labels: it draws hundreds of 5-second buckets. It keeps the grid,
+axis labels, insets and 190 px height of the other charts. The bpm grid
+has 3 to 5 lines 10 or 20 apart. The curve is 2 px accent, a lone bucket
+a 4 px accent dot. Gym set checks are 8 px muted ticks on the bottom grid
+line; cardio rounds are Surface2 bands the full plot height behind the
+curve. The range's start and end clock times sit under the two ends. No
+legend, no caption, no colors per zone. The chart speaks as one line:
+"Heart rate from 18:02 to 19:14, lowest 92 beats per minute, highest 164
+beats per minute, 18 sets marked".
+
+"Sets in order" follows a gym session's exercise groups, before Notes. Each
+row is two lines and nothing to tap: the exercise name (ellipsis when
+long) with the check's clock time on the right, over the set text with
+the time since the set before and "151 bpm" on the right. Time and bpm sit
+in fixed columns as wide as the group's widest value, in muted tabular 15.
+Each row speaks as one line with full unit words.

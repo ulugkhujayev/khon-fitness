@@ -413,6 +413,19 @@ the row off with no samples and no values, and no pass reads it again.
 The average of a work round is computed when shown, from the buckets of a
 filled row inside the round's times, when 2 or more buckets fall inside.
 
+Review of a finished session with a range shows its heart rate as one
+picture. What it shows comes from `hrFacts` alone, so a stale, removed, or
+waiting row shows nothing. With a filled row, a chart sits under the header
+figures: the buckets as a curve, cut where two neighbors are more than 60 s
+apart (a lone bucket is a dot), a tick at the bottom at each set check
+inside the range (gym), and a band behind each timed round (cardio). Nothing
+is drawn between buckets. A gym session with 2 or more checks inside the
+range also gets "Sets in order" after its exercises: each checked set in
+time order, with the clock time of its check, the time since the check
+before, and the highest bucket from that check to its own when 2 or more
+buckets fall in between. The group shows without heart rate too, then with
+no bpm. An unfinished session or one without a range shows neither.
+
 ## Day plan
 
 The weekly template fills future weeks. Today's Change writes a one-day

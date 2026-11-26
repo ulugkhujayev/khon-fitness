@@ -278,11 +278,12 @@ interface KhonDao {
     }
     /**
      * "Use this time range" for a finished gym session without a range ([confirmableRange]): stored only while [from] and
-     * [to] are still the session's `startedAt` and `finishedAt`, checked in this transaction. Else nothing is written.
+     * [to] are still the session's `startedAt` and `finishedAt`, checked in this transaction with the [zone] it reads.
+     * Else nothing is written.
      */
-    @Transaction suspend fun confirmRange(id: String, from: Long, to: Long, zone: ZoneId): ConfirmRangeResult {
+    @Transaction suspend fun confirmRange(id: String, from: Long, to: Long, zone: () -> ZoneId): ConfirmRangeResult {
         val session = session(id) ?: return ConfirmRangeResult.Refused(RangeRefusal.MISSING)
-        confirmableRange(session, zone)?.let { return ConfirmRangeResult.Refused(it) }
+        confirmableRange(session, zone())?.let { return ConfirmRangeResult.Refused(it) }
         if (session.startedAt != from || session.finishedAt != to) return ConfirmRangeResult.Refused(RangeRefusal.BOUNDS_CHANGED)
         if (setSessionRangeIfNone(id, from, to) == 0) return ConfirmRangeResult.Refused(RangeRefusal.HAS_RANGE)
         return ConfirmRangeResult.Confirmed
@@ -419,37 +420,41 @@ interface KhonDao {
 
     /**
      * A read's [row], written only when [current] holds (the repository generation is the one the read began with), the
-     * session exists, its range in [zone] ([hrWindow]) is the range read, and its row is still [from]: the same state and
-     * `fetchedAt`, or still absent. Returns whether it wrote.
+     * session exists, its range ([hrWindow]) in the [zone] read in this transaction is the range read, and its row is
+     * still [from]: the same state and `fetchedAt`, or still absent. Returns whether it wrote.
      */
-    @Transaction suspend fun commitSessionHr(row: SessionHr, from: SessionHr?, zone: ZoneId, current: () -> Boolean): Boolean {
+    @Transaction suspend fun commitSessionHr(row: SessionHr, from: SessionHr?, zone: () -> ZoneId, current: () -> Boolean): Boolean {
         if (!current()) return false
         val session = session(row.sessionId) ?: return false
-        if (hrWindow(session, zone) != HrRange(row.fromMs, row.toMs)) return false
+        if (hrWindow(session, zone()) != HrRange(row.fromMs, row.toMs)) return false
         val now = sessionHr(row.sessionId)
         if (now?.state != from?.state || now?.fetchedAt != from?.fetchedAt) return false
         upsertSessionHr(row)
         return true
     }
 
-    /** Deletes [seen] while it is still the session's row, not `off`, and not for the session's range in [zone]. */
-    @Transaction suspend fun deleteStaleSessionHr(seen: SessionHr, zone: ZoneId): Boolean {
+    /**
+     * Deletes [seen] while it is still the session's row, not `off`, and not for the session's range in the [zone] read in
+     * this transaction.
+     */
+    @Transaction suspend fun deleteStaleSessionHr(seen: SessionHr, zone: () -> ZoneId): Boolean {
         val row = sessionHr(seen.sessionId) ?: return false
         if (row != seen || row.state == HrState.OFF) return false
-        val range = session(seen.sessionId)?.let { hrWindow(it, zone) }
+        val range = session(seen.sessionId)?.let { hrWindow(it, zone()) }
         if (range == HrRange(row.fromMs, row.toMs)) return false
         deleteSessionHr(seen.sessionId)
         return true
     }
 
     /**
-     * "Remove": the session's row becomes `off` with no sample and no value, for the session's range in [zone] (else the
-     * row's own), with a `fetchedAt` later than the old one. No row and no range, or no session: nothing is written.
+     * "Remove": the session's row becomes `off` with no sample and no value, for the session's range in the [zone] read in
+     * this transaction (else the row's own), with a `fetchedAt` later than the old one. No row and no range, or no
+     * session: nothing is written.
      */
-    @Transaction suspend fun removeSessionHr(sessionId: String, zone: ZoneId, now: Long): Boolean {
+    @Transaction suspend fun removeSessionHr(sessionId: String, zone: () -> ZoneId, now: Long): Boolean {
         val session = session(sessionId) ?: return false
         val row = sessionHr(sessionId)
-        val range = hrWindow(session, zone) ?: row?.let { HrRange(it.fromMs, it.toMs) } ?: return false
+        val range = hrWindow(session, zone()) ?: row?.let { HrRange(it.fromMs, it.toMs) } ?: return false
         upsertSessionHr(SessionHr(sessionId, range.fromMs, range.toMs, HrState.OFF, fetchedAt = laterThan(row, now)))
         return true
     }

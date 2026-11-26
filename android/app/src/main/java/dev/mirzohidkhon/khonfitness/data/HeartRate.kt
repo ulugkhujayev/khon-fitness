@@ -5,8 +5,24 @@ import java.time.ZoneId
 
 /** A half-open time range `[fromMs, toMs)` in epoch ms. */
 data class HrRange(val fromMs: Long, val toMs: Long) {
-    val lengthMs: Long get() = toMs - fromMs
+    val lengthMs: Long get() = spanMs(fromMs, toMs)
 }
+
+/** `to - from`, held at [Long.MAX_VALUE] or [Long.MIN_VALUE] when the difference does not fit in a Long. */
+fun spanMs(from: Long, to: Long): Long {
+    val d = to - from
+    return when {
+        to >= from && d < 0 -> Long.MAX_VALUE
+        to < from && d > 0 -> Long.MIN_VALUE
+        else -> d
+    }
+}
+
+/** `ms + add` for an [add] of 0 or more, held at [Long.MAX_VALUE]. */
+fun plusMs(ms: Long, add: Long): Long = if (ms > Long.MAX_VALUE - add) Long.MAX_VALUE else ms + add
+
+/** `ms - sub` for a [sub] of 0 or more, held at [Long.MIN_VALUE]. */
+fun minusMs(ms: Long, sub: Long): Long = if (ms < Long.MIN_VALUE + sub) Long.MIN_VALUE else ms - sub
 
 private const val MINUTE_MS = 60_000L
 private const val HOUR_MS = 60 * MINUTE_MS
@@ -32,7 +48,7 @@ fun hrWindow(session: Session, zone: ZoneId): HrRange? {
     return when (session.itemType) {
         ItemType.PROGRAM -> HrRange(from, to).takeIf { it.lengthMs in GYM_RANGE_MS }
         ItemType.CARDIO -> {
-            val end = if (session.sourceId == null) minOf(to + CARDIO_TAIL_MS, finishedAt) else to
+            val end = if (session.sourceId == null) minOf(plusMs(to, CARDIO_TAIL_MS), finishedAt) else to
             HrRange(from, end).takeIf { it.lengthMs in CARDIO_RANGE_MS }
         }
         else -> null

@@ -45,7 +45,10 @@ class HeartFillTest {
     private lateinit var scope: CoroutineScope
     private lateinit var heart: FakeHeart
     private lateinit var clocks: FakeClocks
-    private var zone: ZoneId = TEST_ZONE
+    @Volatile private var zone: ZoneId = TEST_ZONE
+    /** Runs once as Room starts the next transaction, before its body. */
+    @Volatile private var onTransaction: (() -> Unit)? = null
+    private lateinit var transactions: java.util.concurrent.ExecutorService
     private val gymRange = HrRange(at(18, 0), at(18, 40))
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -54,13 +57,21 @@ class HeartFillTest {
         clocks = FakeClocks(at(19, 0))
         zone = TEST_ZONE
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), KhonDatabase::class.java).build()
+        onTransaction = null
+        transactions = java.util.concurrent.Executors.newSingleThreadExecutor()
+        db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), KhonDatabase::class.java)
+            .setTransactionExecutor { command ->
+                transactions.execute {
+                    onTransaction?.let { onTransaction = null; it() }
+                    command.run()
+                }
+            }.build()
         dao = db.dao()
         repo = KhonRepository(dao, clocks = clocks, zone = { zone }, requestFill = { fill.fillHeartRate() })
         fill = HeartFill(dao, heart, scope, { repo.generation }, clocks, { zone })
     }
 
-    @After fun close() { scope.cancel(); db.close() }
+    @After fun close() { scope.cancel(); db.close(); transactions.shutdown() }
 
     private fun fresh() { close(); open() }
 
@@ -165,16 +176,15 @@ class HeartFillTest {
         }
     }
 
-    @Test fun `AT7 a zone change that moves both days drops a held result`() = runBlocking {
+    @Test fun `AT7 a zone change that moves both days as the commit transaction starts drops the result`() = runBlocking {
         val r = HrRange(at(0, 15), at(0, 55))
         dao.upsert(Session("z", "2026-11-20", at(0, 10), finishedAt = r.toMs, itemType = ItemType.PROGRAM, timedFrom = r.fromMs, timedTo = r.toMs))
-        heart.answer = { everyMinute(it) }
-        heart.hold()
-        val read = async { fill.rereadHeartRate("z") }
-        heart.reached.await()
-        zone = ZoneOffset.UTC
-        heart.release()
-        assertEquals(HrReread.DROPPED, read.await())
+        heart.answer = { range ->
+            onTransaction = { zone = ZoneOffset.UTC }
+            everyMinute(range)
+        }
+        assertEquals(HrReread.DROPPED, fill.rereadHeartRate("z"))
+        assertEquals(ZoneOffset.UTC, zone)
         assertNull(row("z"))
         assertNull(hrWindow(dao.session("z")!!, ZoneOffset.UTC))
     }
@@ -293,6 +303,23 @@ class HeartFillTest {
         assertFalse(fill.removeHeartRate("none"))
         assertNull(row("none"))
         assertFalse(fill.removeHeartRate("missing"))
+    }
+
+    @Test fun `C29 a second Remove beats a held reread of an off row by its stamp alone`() = runBlocking {
+        gym("g"); dao.upsertSessionHr(filledRow("g"))
+        assertTrue(fill.removeHeartRate("g"))
+        val first = row("g")!!
+        heart.answer = { everyMinute(it) }
+        heart.hold()
+        val read = async { fill.rereadHeartRate("g") }
+        heart.reached.await()
+        assertTrue(fill.removeHeartRate("g"))
+        val second = row("g")!!
+        assertEquals(first.copy(fetchedAt = second.fetchedAt), second)
+        assertTrue(second.fetchedAt > first.fetchedAt)
+        heart.release()
+        assertEquals(HrReread.DROPPED, read.await())
+        assertEquals(second, row("g"))
     }
 
     @Test fun `C30 AT30 Finish and Save return during a read, the extra pass reads both, foreground counts elapsed time`() = runBlocking {

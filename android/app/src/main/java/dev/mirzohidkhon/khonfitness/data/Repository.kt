@@ -373,7 +373,7 @@ class KhonRepository(
     }
     /** "Use this time range" with the bounds the screen showed ([KhonDao.confirmRange]); a fill is asked when stored. */
     suspend fun confirmRange(sessionId: String, from: Long, to: Long): ConfirmRangeResult =
-        dao.confirmRange(sessionId, from, to, zone()).also { if (it == ConfirmRangeResult.Confirmed) requestFill() }
+        dao.confirmRange(sessionId, from, to, zone).also { if (it == ConfirmRangeResult.Confirmed) requestFill() }
     /** The heart rate reader over this repository's data, generation, clocks and zone, reading from [source]. */
     fun heartFill(source: HeartSource, scope: CoroutineScope): HeartFill = HeartFill(dao, source, scope, { generation }, clocks, zone)
     fun sessionHr(sessionId: String): Flow<SessionHr?> = dao.sessionHrFlow(sessionId)

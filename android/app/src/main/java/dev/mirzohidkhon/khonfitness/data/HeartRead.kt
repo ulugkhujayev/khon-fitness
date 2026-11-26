@@ -17,6 +17,21 @@ fun interface HeartSource {
     suspend fun records(range: HrRange): List<HeartRecord>
 }
 
+/** A provider record with its own bounds, before [touching] selects it. */
+data class BoundedHeartRecord(val startMs: Long, val endMs: Long, val record: HeartRecord)
+
+const val DAY_MS = 24 * 60 * 60_000L
+
+/** Health Connect selects records by their start time, so a read asks from this long before the range starts. */
+const val RECORD_LOOKBACK_MS = DAY_MS
+
+/** The start times the provider is asked for: from [RECORD_LOOKBACK_MS] before [range] up to its end. */
+fun askRange(range: HrRange): HrRange = HrRange(minusMs(range.fromMs, RECORD_LOOKBACK_MS), range.toMs)
+
+/** The records that touch [range]: `endMs > fromMs` and `startMs < toMs`. */
+fun touching(records: List<BoundedHeartRecord>, range: HrRange): List<HeartRecord> =
+    records.filter { it.endMs > range.fromMs && it.startMs < range.toMs }.map { it.record }
+
 /** The records of every page, the first page asked with a null token. A throw on any page throws. */
 suspend fun readAllPages(page: suspend (token: String?) -> HeartPage): List<HeartRecord> {
     val all = mutableListOf<HeartRecord>()
@@ -65,7 +80,8 @@ fun readHeart(records: List<HeartRecord>, range: HrRange): HeartReading {
     val last = points.lastOrNull()?.timeMs
     val buckets = points.groupBy { ((it.timeMs - range.fromMs) / (BUCKET_SEC * 1000L)).toInt() }.toSortedMap()
         .map { (bucket, inside) -> HrSample(bucket * BUCKET_SEC, meanHalfUp(inside.map { it.bpm })!!) }
-    val complete = first != null && last != null && points.size >= COMPLETE_INSTANTS && 2 * (last - first) >= range.lengthMs
+    val complete = first != null && last != null && points.size >= COMPLETE_INSTANTS &&
+        spanMs(first, last) >= range.lengthMs / 2 + range.lengthMs % 2
     return HeartReading(
         buckets = buckets,
         rawCount = records.sumOf { it.samples.size },
@@ -81,12 +97,11 @@ fun readHeart(records: List<HeartRecord>, range: HrRange): HeartReading {
     )
 }
 
-const val DAY_MS = 24 * 60 * 60_000L
 const val WAITING_MS = 7 * DAY_MS
 const val FILL_AGE_MS = 30 * DAY_MS
 
 /** Whether an automatic pass reads a range that ended at [toMs]: in the last 30 days, not in the future. */
-fun fillDue(toMs: Long, now: Long): Boolean = toMs <= now && now - toMs <= FILL_AGE_MS
+fun fillDue(toMs: Long, now: Long): Boolean = toMs <= now && spanMs(toMs, now) <= FILL_AGE_MS
 
 /**
  * The row a read writes: `filled` with its average and maximum when complete; else `waiting` while the range ended 7
@@ -95,7 +110,7 @@ fun fillDue(toMs: Long, now: Long): Boolean = toMs <= now && now - toMs <= FILL_
 fun hrRow(sessionId: String, range: HrRange, reading: HeartReading, now: Long, from: SessionHr?): SessionHr {
     val state = when {
         reading.complete -> HrState.FILLED
-        now - range.toMs <= WAITING_MS -> HrState.WAITING
+        spanMs(range.toMs, now) <= WAITING_MS -> HrState.WAITING
         else -> HrState.NONE
     }
     val filled = state == HrState.FILLED
@@ -109,18 +124,24 @@ fun hrRow(sessionId: String, range: HrRange, reading: HeartReading, now: Long, f
     )
 }
 
-/** [now], or one ms after [row]'s `fetchedAt` when the clock has not passed it: a new row never repeats the old stamp. */
-fun laterThan(row: SessionHr?, now: Long): Long = if (row == null) now else maxOf(now, row.fetchedAt + 1)
+/**
+ * [now], or one ms after [row]'s `fetchedAt` when the clock has not passed it: a new row never repeats the old stamp.
+ * A stamp of [Long.MAX_VALUE] has no later one, so [now] replaces it.
+ */
+fun laterThan(row: SessionHr?, now: Long): Long =
+    if (row == null || row.fetchedAt == Long.MAX_VALUE) now else maxOf(now, row.fetchedAt + 1)
 
 /**
  * Whether a heart rate row from a backup file holds what a read or "Remove" could have written: `fromMs < toMs`, one of
- * the four states, samples that parse with every offset inside the range and every bpm from [BPM_MIN] to [BPM_MAX];
+ * the four states, `fromMs` of 0 or more, samples that parse with every offset in seconds from 0 to below the range's
+ * length rounded up to whole seconds, and every bpm from [BPM_MIN] to [BPM_MAX];
  * `filled` with at least one sample and both values in that bpm range; `off` with no sample and no value.
  */
 fun validFileHr(row: SessionHr): Boolean {
-    if (row.fromMs >= row.toMs) return false
+    if (row.fromMs < 0 || row.fromMs >= row.toMs) return false
+    val seconds = (row.toMs - row.fromMs - 1) / 1000 + 1
     val samples = parseSamples(row.samples) ?: return false
-    if (samples.any { it.offsetSec < 0 || row.fromMs + it.offsetSec * 1000L >= row.toMs || it.bpm !in BPM_MIN..BPM_MAX }) return false
+    if (samples.any { it.offsetSec < 0 || it.offsetSec >= seconds || it.bpm !in BPM_MIN..BPM_MAX }) return false
     fun bpm(v: Int?) = v != null && v in BPM_MIN..BPM_MAX
     return when (row.state) {
         HrState.FILLED -> samples.isNotEmpty() && bpm(row.avgHr) && bpm(row.maxHr)

@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -120,12 +121,13 @@ fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
                             }
                         }
                     }
+                    val weightPr = h.record && !first
                     val chip = when {
-                        h.record && !first -> "PR" to K.Green
-                        h.repRecords.isNotEmpty() -> "Rep PR" to K.Text
+                        weightPr -> "PR"
+                        h.repRecords.isNotEmpty() -> "Rep PR"
                         else -> null
                     }
-                    SessionRow(h.session.date.toDate().format(shortDate), sets, chip = chip, divider = i > 0) { openSession(nav, h.session) }
+                    SessionRow(h.session.date.toDate().format(shortDate), sets, chip = chip, chipColor = if (weightPr) K.Green else K.Text, divider = i > 0) { openSession(nav, h.session) }
                 }
             }
         }
@@ -206,7 +208,7 @@ private fun RepBestRow(l: SetLog, session: Session, divider: Boolean) {
 
 /** A session in a detail list: the date (with a [chip] in its color) over its [line], a chevron; opens the session. */
 @Composable
-private fun SessionRow(date: String, line: androidx.compose.ui.text.AnnotatedString, chip: Pair<String, androidx.compose.ui.graphics.Color>? = null, divider: Boolean, onClick: () -> Unit) {
+private fun SessionRow(date: String, line: androidx.compose.ui.text.AnnotatedString, chip: String? = null, chipColor: Color = K.Green, divider: Boolean, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
         Row(
@@ -216,7 +218,7 @@ private fun SessionRow(date: String, line: androidx.compose.ui.text.AnnotatedStr
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(date, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    if (chip != null) { Spacer(Modifier.width(6.dp)); LabelChip(chip.first, chip.second) }
+                    if (chip != null) { Spacer(Modifier.width(6.dp)); LabelChip(chip, chipColor) }
                 }
                 Text(line, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp))
             }

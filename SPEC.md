@@ -92,7 +92,8 @@ Three tabs.
     sparkline "Distance per session" with the first and last value and
     date). Every type with a session ever has a row; one without sessions
     in the 30 days says "No sessions in 30 days". A type opens its detail: pace, average heart rate, heart rate
-    in work intervals (else time), and its sessions. Each section without
+    in work intervals (else time), time at or above 85 % and time in zone (see
+    "Heart rate"), and its sessions. Each section without
     data shows one line.
 - Plan. A "+" adds a gym program, a cardio workout, a stretch routine or
   an exercise. This week: Monday to Sunday as seven day symbols (gym,
@@ -459,6 +460,52 @@ time order, with the clock time of its check, the time since the check
 before, and the highest bucket from that check to its own when 2 or more
 buckets fall in between. The group shows without heart rate too, then with
 no bpm. An unfinished session or one without a range shows neither.
+
+The maximum heart rate is a setting, a whole number from 100 to 230 bpm,
+empty by default. It sits in the Health group of Settings as "Maximum heart
+rate" with the typed value on the right ("186 bpm"). Without a typed value
+the row shows the measured one in muted ("183 bpm"). That is the highest
+maximum of the filled reads of sessions that finished in the last 365 days.
+With neither, the row says "Not set". A tap opens a sheet with one number
+field and Save. Save is off for a value outside 100 to 230, and an empty
+field removes the typed value. The setting lives in DataStore next to the
+other app settings, so a backup does not carry it. Reset removes it.
+
+The app uses the typed maximum, else the measured one. With no maximum,
+none of the figures below show. Each figure counts the 5-second buckets of
+a filled read and nothing else. A bucket stands for 5 s, and a gap adds no
+time.
+
+- Hard line: 85 % of the maximum, rounded up. A maximum of 186 gives 159
+  bpm. The time at or above it is the bucket count times 5 s.
+- Zone: from 60 % of the maximum rounded up to 70 % rounded down, both
+  ends inside. A maximum of 186 gives 112 to 130 bpm. The shares below, in
+  and above the zone are rounded half up. When the three do not sum to 100,
+  the part with the largest remainder takes the step. On a tie the order is
+  below, in, above, so 1, 1 and 1 buckets give 34, 33 and 33.
+- Round peak: the highest bucket inside the round's `[startedAt,
+  endedAt)`. It needs 2 or more buckets there.
+- Round drop: the round's last bucket minus the lowest bucket of the rest
+  after it. The rest runs from `endedAt` to the next round's `startedAt`,
+  or to the range end after the last round. The drop needs a peak and 2 or
+  more buckets in the rest. A negative drop shows as it is.
+- A round without both times, or one that starts outside the range, has no
+  figures.
+
+Review of a finished cardio session with a filled read adds a "Heart rate"
+group after its rounds, or after its figures when it has no rounds. A
+high-intensity exercise gets "At or above 159 bpm" with the time ("11:35").
+A low-intensity one gets "Below 112 bpm", "112 to 130 bpm" and "Above 130
+bpm" with their percents. Moderate intensity gets neither. Each round with
+a peak adds "Round 1" with "peak 168 · drop 41". The rows are not
+tappable. They speak in full words: "At or above 159 beats per minute, 11
+minutes 35 seconds", "Round 1, peak 168, drop 41 beats per minute". They
+follow the setting and the read while Review is open.
+
+The cardio type screen adds "At or above 85 %", minutes per session of its
+high-intensity exercises, and "In zone", the percent per session of its
+low-intensity ones. Each point uses today's maximum, and a chart needs 2
+points.
 
 ## Day plan
 

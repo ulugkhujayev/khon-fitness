@@ -171,7 +171,10 @@ padded cards, per-item buttons, "Updated" lines.
   and "New type…", which opens a sheet with Name, Color and Add type (off
   while the name is blank).
 - Settings has four groups: Backup (export, import, restore a saved
-  copy), Health ("Heart rate data" with a red heart tile), App (version,
+  copy), Health ("Heart rate data" with a red heart tile, then "Maximum
+  heart rate" with a red heart-square tile and its value on the right in
+  15 tabular figures: white when typed, muted when measured, "Not set"
+  muted without either), App (version,
   the APK updater's state, reopen after updates) and Reset to built-in
   data in red on its own. A footnote under Backup, App and Reset says
   what it holds or does; the backup footnote shows how the last export
@@ -639,3 +642,19 @@ long) with the check's clock time on the right, over the set text with
 the time since the set before and "151 bpm" on the right. Time and bpm sit
 in fixed columns as wide as the group's widest value, in muted tabular 15.
 Each row speaks as one line with full unit words.
+
+The "Maximum heart rate" sheet holds one elevated group with a "Maximum"
+row and a number widget in bpm (the measured value as its placeholder),
+then a full-width Save, dim while the value is outside 100 to 230.
+
+A finished cardio Review with figures gets a "Heart rate" group after
+Intervals: 48 px label and value rows in body, values white with tabular
+figures, nothing to tap. "At or above 159 bpm" with "11:35"; or "Below
+112 bpm", "112 to 130 bpm", "Above 130 bpm" with "7 %"; then "Round 1"
+with "peak 168 · drop 41". No green or red for a value, no target line,
+no arrows, no verdict words. Each row speaks as one line with full unit
+words.
+
+The cardio type screen's "At or above 85 %" chart labels its points as
+minutes and seconds ("9:50 min" on the last); "In zone" labels percents
+("86 %"). Both are ordinary charts, no point marked green.

@@ -186,10 +186,24 @@ no native spinner arrows. The accessible name lives in the aria-label.
   Per exercise in the block: set count, min reps, max reps.
 - Session: date-time (editable, can be backdated), what was done: a
   program snapshot (gym) or a cardio exercise snapshot, note, effort
-  1-10, finished flag.
+  1-10, finished flag. Clock facts, all nullable: `timedFrom` and
+  `timedTo` (the workout's range, see "Heart rate"), `startedElapsed`
+  (elapsed realtime at the start of a gym session), `timerRun` and
+  `timerDone` (the numbers of the latest timer run that started and of the
+  latest one that committed), and `linkedIds` (Health Connect record ids
+  merged into this app session).
 - SetLog: session, exercise, set index, weight kg, reps, status
-  (done | skipped | pending). Every tap saves. Reopening resumes an
-  unfinished session.
+  (done | skipped | pending), `checkedAt`. Every tap saves. Reopening
+  resumes an unfinished session.
+- IntervalLog: one per work round, with typed average heart rate and
+  watts, and `startedAt`, `endedAt`: the clock times of that round. A
+  round has both or neither.
+- SessionHr: at most one per session, written only by the heart rate
+  reader, "Remove", session delete, and backup import. It holds the range
+  that was read, a state (filled, waiting, none, off), the 5-second
+  buckets as `offsetSec:bpm`, the sample counts, the packages, and the
+  average and maximum (filled only). It has no foreign key, so every path
+  that deletes a session deletes this row too.
 - CardioLog (phase 2): per type fields, see below.
 - Bodyweight: date, kg.
 - WeekPlan: seven rows, each one item: a program (gym day), a cardio
@@ -314,6 +328,23 @@ show one row per work interval for manual entry.
   one row per work interval. You add HR or watts and save. Save of an
   unfinished session lands on Today, wherever the form was opened; Save of
   an edit to a saved session goes back to History.
+- Each run has a number. The Start action, on the screen or in the
+  notification, writes `timerRun + 1` to the session and takes the anchor
+  (wall time and elapsed realtime at that instant). Ready takes no anchor,
+  and Stop on Ready stores nothing. Every time of the run is the anchor's
+  wall time plus the elapsed realtime since it. A work round gets its start
+  when work begins and its end at its last second, Skip, or Stop. A pause
+  stays inside its round.
+- A run is trusted while its clocks stay in step at every restore and at
+  its end. A reboot, a changed phone clock, or a snapshot of the older app
+  version makes it untrusted for good. On finish and on Stop one
+  transaction writes the duration (only when the owner typed nothing since
+  Start), and for a trusted run the range and every round's times. An
+  untrusted run writes null clock fields. The commit of run n is accepted
+  only while `timerRun` is n, `timerDone` is not n, and no import or reset
+  ran since the commit began. A replay or an older run writes nothing. The
+  snapshot of an ended run goes only after its commit returns; a failed
+  commit runs again at the next app start.
 - After Stop, or after the last round, the timer stores its time. If you
   leave the form without saving, Today shows "Timer stopped" with Save
   (the form with the time and rounds) and Discard, not Resume. The stored
@@ -324,6 +355,63 @@ show one row per work interval for manual entry.
   confirmed to write swim laps or interval splits, so those fields stay manual.
   Nothing is saved until the user confirms a draft.
   A draft that is already imported saves nothing, so a second tap adds no copy.
+
+## Heart rate
+
+The app reads the band's heart rate from Health Connect for the time range
+of each workout. It reads only, writes only `session_hr`, and never writes a
+column the owner can type into. A typed value shows where it exists; a
+measured value shows only where the typed one is empty. No data is better
+than wrong data: an uncertain time gives no range, and a thin read shows
+nothing.
+
+Clocks. A wall time counts as a clock fact only when the wall clock and
+elapsed realtime moved by the same amount since the anchor, within 2 s. A
+gym session takes its anchor at Start. A set check stamps `checkedAt` only
+in an unfinished session with clocks in step; else the set is done without
+a stamp. A second check keeps the first stamp. Every path that makes a set
+pending or skipped clears it.
+
+The range is stored once, by the code that saw the workout:
+
+- Gym Finish, with at least one stamp and clocks in step: from the start
+  to the last stamp plus 5 minutes, at most the finish time.
+- The timer commit of a trusted cardio run.
+- The band's own start and end for an imported cardio session.
+- "Use this time range": the owner confirms the start and finish of a
+  finished gym session without a range, 10 minutes to 4 hours long, on
+  the date of its start. The write checks that the shown times are still
+  the session's.
+
+The range a read uses needs a finished session whose date is the local
+date of `timedFrom` or of its start. Gym: 10 minutes to 4 hours. App cardio
+adds 60 s after `timedTo`, but never past the finish; cardio ranges are 2
+minutes to 6 hours. A session moved to another date has no range.
+
+A read takes every record that touches the range from every page. It
+accepts samples inside the range with 30 to 230 bpm, and drops exact
+duplicates. The package with the most accepted samples is the origin, and
+only its samples count, one per instant. The read is complete with 10 or
+more instants that span at least half of the range. Complete gives
+`filled`. Else the row is `waiting` while the range ended 7 days ago or
+less, then `none`. A missing Health Connect, a missing heart rate
+permission, or any error writes nothing and does not count as a try.
+
+One runner reads, one read at a time. Gym Finish, cardio Save, and the app
+coming to the foreground (at most once per 10 minutes of elapsed time) ask
+it to run; none of them waits. A pass first deletes each row that is not
+off and no longer matches its session's range. Then it reads each session
+whose range ended in the last 30 days and that has no row or a waiting row.
+It never reads off or none. A result is written only when, in its
+transaction, the session still exists, no import or reset ran since the
+read began, the range is unchanged, and the row is the one the read started
+from.
+
+Reread reads one session now, at any age and from any state. Remove turns
+the row off with no samples and no values, and no pass reads it again.
+
+The average of a work round is computed when shown, from the buckets of a
+filled row inside the round's times, when 2 or more buckets fall inside.
 
 ## Day plan
 
@@ -353,6 +441,23 @@ It creates the eating-window settings row with defaults when neither the
 backup nor the phone has one. It writes the backup's stretch sessions over the
 phone's, the one case where a recorded session changes. After an import, a
 restore or a reset, the app re-arms the window alarms and redraws the widgets.
+
+The clock columns and the heart rate rows travel in the file. A file from
+before them imports as before, and its sessions have no range. No import
+takes `startedElapsed` from a file: an anchor holds only on the phone and
+the boot that took it. Each heart rate row is decoded and checked by
+itself, and a bad one never fails the preview or the import. A row is
+taken only when its session exists after the import, its range is not
+empty, its state is one of the four, every sample lies inside the range
+with 30 to 230 bpm, a filled row has samples and values in that range, and
+an off row has neither. Of two rows for one session the last wins.
+
+Replace takes the file's rows. Merge keeps the local unit: a session, set,
+or round that exists on the phone keeps its own range, anchor, run numbers,
+linked ids, stamp, round times, and heart rate row. A new one takes the
+file's values with its row. Then, in the same transaction, a session whose
+start, finish, kind, or exercise changed loses its range, anchor, and round
+times, and a set that is not done loses its stamp.
 
 ## Update
 

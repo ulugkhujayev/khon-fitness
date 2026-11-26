@@ -435,8 +435,9 @@ nothing. The maximum is always the measured one.
   first and last reading, the longest gap, each work round's average, the
   source app and other apps seen, average and maximum. A fact without a
   value is left out.
-  The sheet shows what the band sent: its round rows and its "Average"
-  row are measured values, also when the owner typed one.
+  The screen shows what the band sent: the list's average, the sheet's
+  round rows, and its "Average" row are measured values, also when the
+  owner typed one.
 - The sheet has "Read again" (not without a range) and "Remove" (only
   while a row that is not off exists; it asks first). "Read again" shows
   its result as one line: the new values, "No data yet", or "Health

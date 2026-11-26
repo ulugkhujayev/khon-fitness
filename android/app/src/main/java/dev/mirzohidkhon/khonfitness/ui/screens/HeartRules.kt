@@ -36,13 +36,15 @@ private fun avgMax(avg: Int?, max: Int?): String? =
 
 fun hrLine(s: Session, facts: HrFacts): String? = avgMax(shownAvgHr(s, facts), shownMaxHr(facts))?.let { "$it bpm" }
 
-fun hrSpoken(s: Session, facts: HrFacts): String? {
-    val words = listOfNotNull(shownAvgHr(s, facts)?.let { "average $it" }, shownMaxHr(facts)?.let { "maximum $it" })
+private fun spokenAvgMax(avg: Int?, max: Int?): String? {
+    val words = listOfNotNull(avg?.let { "average $it" }, max?.let { "maximum $it" })
     return if (words.isEmpty()) null else words.joinToString(", ") + " beats per minute"
 }
 
+fun hrSpoken(s: Session, facts: HrFacts): String? = spokenAvgMax(shownAvgHr(s, facts), shownMaxHr(facts))
+
 fun hrStateText(s: Session, facts: HrFacts): String = when (facts) {
-    is HrFacts.Filled -> avgMax(shownAvgHr(s, facts), shownMaxHr(facts)) ?: "No data"
+    is HrFacts.Filled -> avgMax(facts.row.avgHr, facts.row.maxHr) ?: "No data"
     is HrFacts.Waiting -> "Waiting for data"
     is HrFacts.None -> "No data"
     HrFacts.Removed -> "Removed"
@@ -51,7 +53,7 @@ fun hrStateText(s: Session, facts: HrFacts): String = when (facts) {
 }
 
 fun hrStateSpoken(s: Session, facts: HrFacts): String =
-    if (facts is HrFacts.Filled) hrSpoken(s, facts) ?: "No data" else hrStateText(s, facts)
+    if (facts is HrFacts.Filled) spokenAvgMax(facts.row.avgHr, facts.row.maxHr) ?: "No data" else hrStateText(s, facts)
 
 fun hrDataSessions(sessions: List<Session>, today: LocalDate): List<Session> {
     val from = today.minusDays(30).iso()

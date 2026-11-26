@@ -355,6 +355,33 @@ show one row per work interval for manual entry.
   confirmed to write swim laps or interval splits, so those fields stay manual.
   Nothing is saved until the user confirms a draft.
   A draft that is already imported saves nothing, so a second tap adds no copy.
+- A band record is already imported when its id is in the `sourceId` or the
+  `linkedIds` of any session. Ids match as whole ids, so `id1` does not claim
+  `id10`.
+- A band cardio record is covered, and does not show, when an app cardio
+  session has a run range (`[timedFrom, timedTo)`, finished or not, under the
+  date and length rules of the heart rate range), its exercise has the
+  record's modality (an archived exercise counts), and the overlap is at least
+  half of the record and at least half of the run. Touching ends overlap by
+  zero. A record of unknown modality is never covered. A gym session never
+  covers a band record. Band strength records stay hidden.
+- The rule runs on each band record before records that overlap are grouped
+  into one draft, so a group of records that are not covered one by one always
+  shows. Records of one modality that overlap, also through a chain, form one
+  group, in any input order. The list and the Today count use the same
+  function and read the claimed ids, the run ranges and the exercise
+  modalities in one Room read transaction.
+- An import takes the timer lock and writes nothing while an ended timer run
+  still waits for its commit: a result in the pending store, or a saved
+  snapshot that has ended, or reaches its end now, before the startup restore
+  moved it. Inside its write it checks every record of the draft again. It
+  returns saved, already imported, covered, or timer result pending. A saved
+  import stores the band's start and end as its range and asks for a heart
+  rate fill. A timer that still runs does not block an import, so that case
+  still gives two sessions.
+- A failed write leaves nothing of its draft. "Import all" goes on with the
+  next draft, and the list is read again after each import or batch. The
+  Import screen asks for one heart rate fill each time it opens.
 
 ## Heart rate
 

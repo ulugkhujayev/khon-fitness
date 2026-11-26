@@ -102,6 +102,7 @@ class TimerCommitTest {
     private suspend fun session() = dao.session("c")!!
     private suspend fun rounds() = dao.intervalLogsFor("c").map { it.startedAt to it.endedAt }
     private fun snapshot() = TimerSnapshots.load(context)?.state
+    private fun pendingIds() = TimerSnapshots.pending(context).map { it.runId }
 
     /** Holds the first commit after it read its generation, until [release]. */
     private inner class Hold {
@@ -148,6 +149,7 @@ class TimerCommitTest {
         assertEquals(TimerCommit.GONE, next.commit())
         assertNull(dao.session("c"))
         assertNull(snapshot())
+        assertEquals(emptyList<String>(), pendingIds())
     }
 
     @Test fun `C15 a held older run never clears the newer snapshot and never writes after the newer run started`() = runBlocking {
@@ -166,7 +168,7 @@ class TimerCommitTest {
             if (variant == "trusted" || variant == "clock back") {
                 hold.release.complete(Unit)
                 assertEquals(variant, TimerCommit.DROPPED, late.await())
-                assertEquals(variant, "r2", snapshot()?.runId)
+                assertEquals(variant, listOf("r2"), pendingIds())
             }
             assertEquals(variant, TimerCommit.COMMITTED, r2.commit())
             val after = session()
@@ -189,13 +191,13 @@ class TimerCommitTest {
         assertEquals(TimerCommit.FAILED, run.commit())
         session().let { assertNull(it.timeSec); assertNull(it.timedFrom); assertNull(it.timerDone) }
         assertTrue(rounds().all { it.first == null })
-        assertEquals("r1", snapshot()?.runId)
+        assertEquals(listOf("r1"), pendingIds())
         drop("fail_rounds")
         val opened = session()
         repo.saveCardioEdits(opened, opened.copy(timeSec = 1500), emptyMap(), clocks.wall)
         val restarted = newRepo()
-        assertEquals(TimerCommit.COMMITTED, commitPending(restarted, context))
-        assertEquals(TimerCommit.NOTHING, commitPending(restarted, context))
+        assertEquals(listOf(TimerCommit.COMMITTED), commitPending(restarted, context))
+        assertEquals(emptyList<TimerCommit>(), commitPending(restarted, context))
         assertEquals(TimerCommit.DROPPED, run.commit(restarted))
         val s = session()
         assertEquals(1500, s.timeSec)
@@ -203,6 +205,44 @@ class TimerCommitTest {
         assertEquals(start + 1_200_000, s.timedTo)
         assertEquals(1, s.timerDone)
         assertNull(snapshot())
+        assertEquals(emptyList<String>(), pendingIds())
+    }
+
+    @Test fun `X5 results refused for good leave the pending store without a write, one refused by the generation stays`() = runBlocking {
+        for (id in listOf("g", "n", "d")) dao.insertSessionWithLogs(
+            Session(id, "2026-11-20", at(17, 59), itemType = ItemType.CARDIO, exerciseId = "nor", exerciseName = "Norwegian 4x4"),
+            emptyList(), (0 until 4).map { IntervalLog("$id-i$it", id, it) },
+        )
+        fun readyFor(id: String) = ready("${id}1").copy(sessionId = id)
+        readyFor("c").started().run(clocks, 1563.0).ended()
+        readyFor("g").started().run(clocks, 100.0).ended()
+        repo.deleteSession("g")
+        readyFor("n").started().run(clocks, 100.0).ended()
+        ready("n2").copy(sessionId = "n").started()
+        val d1 = readyFor("d").started().run(clocks, 100.0).ended()
+        assertEquals(TimerCommit.COMMITTED, d1.commit())
+        TimerSnapshots.save(context, d1, clocks.wall, clocks.elapsed)
+        assertEquals(listOf("c1", "g1", "n1", "d1"), pendingIds())
+        val n = dao.session("n")
+        val d = dao.session("d")
+
+        val backup = repo.exportJson()
+        val hold = Hold()
+        val first = async { commitPending(repo, context) }
+        hold.reached.await()
+        repo.importJson(backup, replace = false)
+        hold.release.complete(Unit)
+        assertEquals(listOf(TimerCommit.RETRY, TimerCommit.GONE, TimerCommit.DROPPED, TimerCommit.DROPPED), first.await())
+        assertEquals(listOf("c1"), pendingIds())
+        assertNull(dao.session("g"))
+        assertEquals(n, dao.session("n"))
+        assertEquals(d, dao.session("d"))
+        assertNull(session().timerDone)
+
+        assertEquals(listOf(TimerCommit.COMMITTED), commitPending(repo, context))
+        assertEquals(1, session().timerDone)
+        assertEquals(start, session().timedFrom)
+        assertEquals(emptyList<String>(), pendingIds())
     }
 
     @Test fun `C16a the duration goes only over the value noted at Start`() = runBlocking {
@@ -217,9 +257,9 @@ class TimerCommitTest {
 
     @Test fun `C16a AT26 a restore that reaches the end, held while the owner saves 25 minutes`() = runBlocking {
         val live = ready().started().run(clocks, 100.0)
-        val snap = TimerSnapshot(live, clocks.wall)
+        val snap = TimerSnapshot(live, clocks.wall, clocks.elapsed)
         clocks.pass(40 * MIN)
-        val restored = snap.advancedAt(clocks.wall, clocks.elapsed).also { TimerSnapshots.save(context, it, clocks.wall) }
+        val restored = snap.advancedAt(clocks.wall, clocks.elapsed).also { TimerSnapshots.save(context, it, clocks.wall, clocks.elapsed) }
         assertTrue(restored.done)
         val hold = Hold()
         val pending = async { restored.commit() }
@@ -305,11 +345,12 @@ class TimerCommitTest {
             drop("fail_programs")
             assertEquals(op, listOf("halt", "resume"), timer.calls)
             assertEquals(op, before, session())
-            assertEquals(op, "r1", snapshot()?.runId)
+            assertEquals(op, listOf("r1"), pendingIds())
             assertEquals(op, TimerCommit.RETRY, run.commit(generation = 0L))
+            assertEquals(op, listOf("r1"), pendingIds())
             val restarted = newRepo()
-            assertEquals(op, TimerCommit.COMMITTED, commitPending(restarted, context))
-            assertEquals(op, TimerCommit.NOTHING, commitPending(restarted, context))
+            assertEquals(op, listOf(TimerCommit.COMMITTED), commitPending(restarted, context))
+            assertEquals(op, emptyList<TimerCommit>(), commitPending(restarted, context))
             assertEquals(op, start, session().timedFrom)
             assertEquals(op, 1197, session().timeSec)
         }
@@ -325,8 +366,9 @@ class TimerCommitTest {
             drop("fail_rounds")
             if (op == "replace") repo.importJson(backup, replace = true) else repo.resetToSeed()
             assertNull(op, snapshot())
+            assertEquals(op, emptyList<String>(), pendingIds())
             val restarted = newRepo()
-            assertEquals(op, TimerCommit.NOTHING, commitPending(restarted, context))
+            assertEquals(op, emptyList<TimerCommit>(), commitPending(restarted, context))
             dao.session("c")?.let { assertNull(op, it.timedFrom); assertNull(op, it.timeSec) }
         }
     }

@@ -172,16 +172,16 @@ class TimerService : Service() {
         return true
     }
 
-    /** Brings back the timer from its snapshot, advanced by the wall-clock time the process was dead. */
+    /**
+     * Commits every pending result, then brings back the live timer from its snapshot, advanced by the time the
+     * process was dead.
+     */
     private fun restore() {
         if (state.value != null || restoring?.isActive == true) return
-        val snap = TimerSnapshots.load(this) ?: return stopIfIdle()
         val app = applicationContext as KhonApp
-        if (snap.state.done && !snap.state.stretch) {
-            // An ended run whose commit did not settle: commit it now, whatever the session's state.
-            app.scope.launch { commitPending(app) }
-            return stopIfIdle()
-        }
+        val snap = TimerSnapshots.load(this)
+        if (TimerSnapshots.hasPending(this)) app.scope.launch { commitPending(app) }
+        if (snap == null) return stopIfIdle()
         restoring = scope.launch {
             val open = runCatching { withContext(Dispatchers.IO) { stillOpen(app.repo, snap.state) } }.getOrNull() ?: return@launch stopIfIdle()
             if (state.value != null) return@launch
@@ -189,7 +189,7 @@ class TimerService : Service() {
             val s = snap.advancedAt(System.currentTimeMillis(), SystemClock.elapsedRealtime())
             if (s.done) {
                 // The workout ended while the process was dead: write the result the live timer would have written.
-                // The ended snapshot never expires, so a commit that does not settle is tried again at the next start.
+                // The result waits in the pending store, so a commit that does not settle is tried again at the next start.
                 TimerSnapshots.save(app, s)
                 val generation = app.repo.generation
                 app.scope.launch { recordTimer(app, s, generation) }
@@ -327,7 +327,8 @@ class TimerService : Service() {
             val elapsed = s.elapsed.toInt()
             val done = s.finishedAt(System.currentTimeMillis(), SystemClock.elapsedRealtime())
             state.value = done
-            // A done snapshot until the result is written: if the process dies in between, restore writes it.
+            // A cardio result waits in the pending store, a stretch in the live slot, until it is written: if the
+            // process dies in between, restore writes it.
             TimerSnapshots.save(this, done)
             if (!early) { beep(short = false); say(if (s.stretch) "Routine done" else "All rounds done") }
             // The service writes the duration itself, so it survives even when no screen is watching.
@@ -335,10 +336,13 @@ class TimerService : Service() {
             val generation = app.repo.generation
             app.scope.launch {
                 recordTimer(app, done, generation)
-                if (state.value?.sessionId == s.sessionId) {
-                    finished.value = FinishedTimer(s.sessionId, elapsed, early)
-                    state.value = null
+                withContext(Dispatchers.Main) {
+                    if (sameRun(state.value, done)) {
+                        finished.value = FinishedTimer(s.sessionId, elapsed, early)
+                        state.value = null
+                    }
                 }
+                if (PendingRun.of(done) != null) commitPending(app)
             }
         }
         wakeLock?.let { if (it.isHeld) it.release() }
@@ -453,20 +457,21 @@ class TimerService : Service() {
 internal suspend fun recordTimer(app: KhonApp, s: TimerState, generation: Long) {
     if (s.stretch) {
         runCatching { stretchResult(s, java.time.LocalDate.now())?.let { app.repo.recordStretchSession(it) } } // written once per session id
-        TimerSnapshots.clear(app, s.sessionId)
+        TimerSnapshots.clearRun(app, s)
     } else recordRun(app.repo, app, s, generation)
 }
 
-/** A cardio run's end: its result, and the clear of its snapshot only while the snapshot is still this run's. */
+/** A cardio run's end: its result; once the outcome settles, only this run's pending entry and live snapshot go. */
 internal suspend fun recordRun(repo: KhonRepository, context: Context, s: TimerState, generation: Long?): TimerCommit =
-    repo.endTimerRun(generation) { EndedRun(s.runResult()) { TimerSnapshots.clearRun(context, s) } }
+    repo.endTimerRun(generation) { EndedRun(s.runResult()) { TimerSnapshots.settle(context, s); TimerSnapshots.clearRun(context, s) } }
 
-/** The ended cardio run that a snapshot holds, committed at the app's start under the same rules as at its end. */
-internal suspend fun commitPending(app: KhonApp): TimerCommit = commitPending(app.repo, app)
+/** Every pending result, committed at the app's start and after each run's end under the same rules as at its end. */
+internal suspend fun commitPending(app: KhonApp): List<TimerCommit> = commitPending(app.repo, app)
 
-internal suspend fun commitPending(repo: KhonRepository, context: Context): TimerCommit = repo.endTimerRun {
-    TimerSnapshots.load(context)?.state?.takeIf { it.done && !it.stretch }?.let { s -> EndedRun(s.runResult()) { TimerSnapshots.clearRun(context, s) } }
-}
+internal suspend fun commitPending(repo: KhonRepository, context: Context): List<TimerCommit> =
+    TimerSnapshots.pending(context).map { entry ->
+        repo.endTimerRun { TimerSnapshots.pending(context).find { it == entry }?.let { EndedRun(it.result()) { TimerSnapshots.settle(context, it) } } }
+    }
 
 /** The timer as [KhonRepository] stops and clears it for a Replace import and a reset. */
 class ServiceTimerControl(private val context: Context) : TimerControl {

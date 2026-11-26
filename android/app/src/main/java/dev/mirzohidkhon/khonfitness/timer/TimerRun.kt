@@ -88,6 +88,8 @@ fun TimerState.checkClock(wallMs: Long, elapsedMs: Long): TimerState {
     return copy(clock = c.copy(broken = true))
 }
 
+internal fun TimerState.untrusted(): TimerState = clock?.let { copy(clock = it.copy(broken = true)) } ?: this
+
 val TimerState.trusted: Boolean get() = clock?.let { !it.broken && it.endElapsed != null } == true
 
 /**

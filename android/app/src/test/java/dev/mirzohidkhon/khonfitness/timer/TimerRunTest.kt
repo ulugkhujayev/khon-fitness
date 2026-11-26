@@ -2,6 +2,7 @@ package dev.mirzohidkhon.khonfitness.timer
 
 import dev.mirzohidkhon.khonfitness.data.FakeClocks
 import dev.mirzohidkhon.khonfitness.data.MIN
+import dev.mirzohidkhon.khonfitness.data.RoundSpan
 import dev.mirzohidkhon.khonfitness.data.TimerStart
 import dev.mirzohidkhon.khonfitness.data.at
 import org.junit.Assert.assertEquals
@@ -104,7 +105,7 @@ class TimerRunTest {
     @Test fun `C12 a restore on the same boot gives each crossed boundary its own time`() {
         val clocks = FakeClocks(start)
         val inRound1 = ready().started(clocks).run(clocks, 100.0)
-        val snap = TimerSnapshot.decode(TimerSnapshot(inRound1, clocks.wall).encode())!!
+        val snap = TimerSnapshot.decode(TimerSnapshot(inRound1, clocks.wall, clocks.elapsed).encode())!!
         clocks.pass(10 * MIN)
         val restored = snap.advancedAt(clocks.wall, clocks.elapsed)
         assertEquals(2, restored.phase.round)
@@ -119,13 +120,47 @@ class TimerRunTest {
     @Test fun `C12 a paused snapshot consumes no phase time and its round holds the pause`() {
         val clocks = FakeClocks(start)
         val paused = ready().started(clocks).run(clocks, 100.0).copy(paused = true)
-        val snap = TimerSnapshot(paused, clocks.wall)
+        val snap = TimerSnapshot(paused, clocks.wall, clocks.elapsed)
         clocks.pass(10 * MIN)
         val restored = snap.advancedAt(clocks.wall, clocks.elapsed)
         assertEquals(paused.remaining, restored.remaining, 1e-9)
         val r = restored.copy(paused = false).toEnd(clocks).finish(clocks).runResult()!!
         assertEquals(sec(63).toDouble(), r.rounds[0].startedAt.toDouble(), 1000.0)
         assertEquals(sec(100 + 600 + 203).toDouble(), r.rounds[0].endedAt.toDouble(), 1000.0)
+    }
+
+    @Test fun `X7 a trusted restore places every boundary from the anchor and the phase lengths, whatever the allowed drift`() {
+        for (drift in listOf(1_500L, -1_500L)) {
+            val clocks = FakeClocks(start)
+            val begun = ready().started(clocks)
+            val snap = TimerSnapshot.decode(TimerSnapshot(begun, clocks.wall, clocks.elapsed).encode())!!
+            clocks.pass(10 * MIN)
+            clocks.moveWall(drift)
+            val restored = snap.advancedAt(clocks.wall, clocks.elapsed)
+            assertFalse("$drift", restored.clock!!.broken)
+            assertEquals("$drift", 2, restored.phase.round)
+            val r = restored.finishedAt(clocks.wall, clocks.elapsed).runResult()!!
+            assertEquals("$drift", start, r.from)
+            assertEquals("$drift", sec(600), r.to)
+            assertEquals("$drift", listOf(RoundSpan(0, sec(63), sec(303)), RoundSpan(1, sec(483), sec(600))), r.rounds)
+        }
+    }
+
+    @Test fun `X7 a snapshot without the elapsed value advances by the wall clock and its run is untrusted`() {
+        val clocks = FakeClocks(start)
+        val begun = ready().started(clocks)
+        val old = TimerSnapshot.decode(TimerSnapshot(begun, clocks.wall).encode().replace(",\"savedElapsed\":${clocks.elapsed}", ""))!!
+        assertNull(old.savedElapsed)
+        clocks.pass(10 * MIN)
+        clocks.moveWall(1_500L)
+        val restored = old.advancedAt(clocks.wall, clocks.elapsed)
+        assertTrue(restored.clock!!.broken)
+        assertEquals(601.5 - 3.0, restored.elapsed, 1e-6)
+        val r = restored.finishedAt(clocks.wall, clocks.elapsed).runResult()!!
+        assertEquals(1, r.run)
+        assertNull(r.from)
+        assertNull(r.to)
+        assertTrue(r.rounds.isEmpty())
     }
 
     @Test fun `C13 a wall clock change, a jump in a pause, and a reboot make the run untrusted for good`() {
@@ -141,7 +176,7 @@ class TimerRunTest {
 
         val boot = FakeClocks(start)
         val beforeReboot = ready().started(boot).run(boot, 100.0)
-        val snap = TimerSnapshot(beforeReboot, boot.wall)
+        val snap = TimerSnapshot(beforeReboot, boot.wall, boot.elapsed)
         val afterReboot = FakeClocks(boot.wall + 2 * MIN, elapsed = 30_000L)
         val restored = snap.advancedAt(afterReboot.wall, afterReboot.elapsed)
         assertTrue(restored.clock!!.broken)

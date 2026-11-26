@@ -150,6 +150,7 @@ class SetupGroupTest {
                                     modifier = Modifier.width(with(LocalDensity.current) { w.toDp() }).testTag(NAME_REF))
                             }
                             Text(rows[0].rate!!, style = large, maxLines = 1, softWrap = false, modifier = Modifier.testTag(RATE_REF))
+                            rows.forEachIndexed { i, r -> Text(" · ${r.tail}", style = small, color = K.Muted, maxLines = 1, softWrap = false, modifier = Modifier.testTag(TAIL_REF + i)) }
                         }
                     }
                 }
@@ -177,6 +178,10 @@ class SetupGroupTest {
         assertEquals("the reference name at the row's width ends with an ellipsis", true, nameEllipsized)
         assertTrue("the long name is drawn with an ellipsis", compose.nodeImage(view, name).sameAs(compose.nodeImage(view, compose.onNodeWithTag(NAME_REF))))
         assertTrue("the rate is drawn whole", compose.nodeImage(view, rate).sameAs(compose.nodeImage(view, compose.onNodeWithTag(RATE_REF))))
+        for (i in rows.indices) {
+            val tail = compose.onAllNodesWithTag(PERIOD_TAIL, useUnmergedTree = true)[i]
+            assertTrue("the sets and reps of row $i are drawn whole", compose.nodeImage(view, tail).sameAs(compose.nodeImage(view, compose.onNodeWithTag(TAIL_REF + i))))
+        }
         assertEquals(40, LONG_PROGRAM.length)
         for (i in 1..2) assertTrue("short name $i whole: ${names[i].width} of ${nameWidths[i]}", names[i].width + 0.5f >= nameWidths[i])
     }
@@ -184,6 +189,7 @@ class SetupGroupTest {
     private companion object {
         const val NAME_REF = "name-ref"
         const val RATE_REF = "rate-ref"
+        const val TAIL_REF = "tail-ref-"
     }
 
     @Test fun `the rows fit at 360 dp, font 1_0`() = layoutHolds(360, 1f)

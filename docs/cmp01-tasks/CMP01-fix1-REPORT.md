@@ -1,7 +1,7 @@
 # CMP01-fix1 report
 
 Fix commit: `14a949d` on branch `cmp01` (base of the fix `6025dc8`). No push, no merge.
-The work tree also has `docs/cmp01-tasks/CMP01-compare-periods-ROUNDS.tsv` changed; another agent changed it, this task did not touch or commit it.
+The checkpoint tool made WIP commit `b89aaf1`; it also holds an uncommitted `ROUNDS.tsv` line that another agent wrote. This task did not edit that file.
 
 | # | Status | Check ran | Real output |
 |---|---|---|---|
@@ -47,3 +47,4 @@ Robolectric note: the default graphics mode measures text as almost zero width. 
 | X5.8 | `CompareShotsTest.kt` `shot` and `seed` KDoc | fixed: removed | comment-guard | review F5 |
 | X5.9 | `CompareShotsTest.kt` class KDoc | fixed: cut to the run condition (`app/build/shots-compare`) | comment-guard | grep of added `/**` |
 | X6.1 | `CompareRulesTest.kt` C8 | fixed: per-type sessions, seconds, meters, pace asserts | `CompareRulesTest.C8 cardio per type with the existing pace, a row of two dashes left out` (break proof above) | review F6 |
+| X7.1 | Whole fix diff `git diff 6025dc8 14a949d` (8 files: `CompareRules.kt`, `CompareScreen.kt`, `HistoryRules.kt`, `HistoryScreen.kt`, 4 test files) | kept: only the six fixes; no Room, DAO, repository, backup, version or manifest file | the `Tests:` command, 707 tests, 0 failed | `git diff --stat 6025dc8 14a949d` |

@@ -25,15 +25,16 @@ data class TimerSnapshot(val state: TimerState, val savedAt: Long, val savedElap
      * [advanced] at the instant [wallMs], [elapsedMs] for a run with a clock: the clocks are checked first, each boundary
      * crossed in the gap gets its own time from the phase lengths, and a run that reaches its end there ends. An ended
      * run stays as it ended. A restore in step advances by elapsed realtime, so a drift of the wall clock moves no
-     * boundary; a snapshot without [savedElapsed] advances by the wall clock and its run is untrusted.
+     * boundary. A snapshot without [savedElapsed], or one restored at an elapsed value below it (a reboot), advances by
+     * the wall clock and its run is untrusted. The state comes back standing at [elapsedMs].
      */
     fun advancedAt(wallMs: Long, elapsedMs: Long): TimerState {
         if (state.done) return state
-        val checked = if (savedElapsed == null) state.untrusted() else state.checkClock(wallMs, elapsedMs)
-        val byElapsed = savedElapsed != null && elapsedMs >= savedElapsed &&
-            (checked.clock?.broken == false || inStep(Anchor(savedAt, savedElapsed), wallMs, elapsedMs))
+        val sameBoot = savedElapsed != null && elapsedMs >= savedElapsed
+        val checked = if (sameBoot) state.checkClock(wallMs, elapsedMs) else state.untrusted()
+        val byElapsed = sameBoot && (checked.clock?.broken == false || inStep(Anchor(savedAt, savedElapsed!!), wallMs, elapsedMs))
         val gapMs = if (byElapsed) elapsedMs - savedElapsed!! else wallMs - savedAt
-        val s = checked.tickAt(gapMs.coerceAtLeast(0L) / 1000.0, elapsedMs)
+        val s = checked.tickAt(gapMs.coerceAtLeast(0L) / 1000.0, elapsedMs).copy(instant = elapsedMs)
         return if (s.done) s.finishedAt(wallMs, elapsedMs) else s
     }
     /** Too old to trust: more than an hour past the moment the timer would have ended. The workout stays open for a manual entry. */
@@ -49,7 +50,7 @@ data class TimerSnapshot(val state: TimerState, val savedAt: Long, val savedElap
 @Serializable
 data class PendingRound(val index: Int, val startedAt: Long, val endedAt: Long)
 
-/** The result of an ended cardio run that waits for its commit: one entry per session id and run number. */
+/** The result of an ended cardio run that waits for its commit: one entry per run ([runId]), numbered or not. */
 @Serializable
 data class PendingRun(
     val sessionId: String,
@@ -63,7 +64,7 @@ data class PendingRun(
 ) {
     fun result(): TimerRunResult =
         TimerRunResult(sessionId, run, durationSec, notedTimeSec, from, to, rounds.map { RoundSpan(it.index, it.startedAt, it.endedAt) })
-    fun sameSlot(other: PendingRun): Boolean = sessionId == other.sessionId && run == other.run
+    fun sameSlot(other: PendingRun): Boolean = sessionId == other.sessionId && runId == other.runId
     fun isRunOf(s: TimerState): Boolean = sessionId == s.sessionId && run == s.clock?.number && runId == s.runId
 
     companion object {
@@ -72,6 +73,9 @@ data class PendingRun(
         }
     }
 }
+
+/** Whether [a] and [b] are states of one run, also when one got its number later: the same session and [TimerState.runId]. */
+fun sameRunId(a: TimerState?, b: TimerState?): Boolean = a != null && b != null && a.sessionId == b.sessionId && a.runId == b.runId
 
 /** Whether [a] and [b] are states of one run: the same session, [TimerState.runId] and run number. */
 fun sameRun(a: TimerState?, b: TimerState?): Boolean =
@@ -89,26 +93,38 @@ object TimerSnapshots {
     private val json = Json { ignoreUnknownKeys = true }
     private fun prefs(context: Context) = context.getSharedPreferences("timer_snapshot", Context.MODE_PRIVATE)
 
-    /** Saves the live timer. An ended cardio run never takes the live slot: it goes to the pending store ([end]). */
+    /**
+     * Saves the live timer at the instant its state stands for ([TimerState.instant]; [elapsed], the instant of this
+     * call, when it has none), with the wall time of that instant. An ended cardio run never takes the live slot: it
+     * moves to the pending store in memory, and [stage] makes the move durable.
+     */
     fun save(context: Context, s: TimerState, now: Long = System.currentTimeMillis(), elapsed: Long = SystemClock.elapsedRealtime()) = synchronized(lock) {
         val p = prefs(context)
-        if (s.done && !s.stretch) endLocked(p, s) else p.edit { putString(KEY, TimerSnapshot(s, now, elapsed).encode()) }
+        if (s.done && !s.stretch) endLocked(p, s, durable = false)
+        else {
+            val at = s.instant ?: elapsed
+            p.edit { putString(KEY, TimerSnapshot(s, now - (elapsed - at).coerceAtLeast(0L), at).encode()) }
+        }
     }
 
     /**
-     * The end of run [s]: a cardio result joins the pending store (it replaces the entry of the same session and run
-     * number), and the live slot is cleared while it still holds this run. A run that never left Ready adds nothing.
+     * The end of run [s], written to disk before it returns (call it off the main thread): a cardio result joins the
+     * pending store after the results that ended before it (an entry of the same run is replaced in its place), and
+     * the live slot is cleared while it still holds this run. False when the write failed: what is on disk is
+     * unchanged, so the live snapshot stays. A run that never left Ready adds nothing.
      */
-    fun end(context: Context, s: TimerState) = synchronized(lock) { endLocked(prefs(context), s) }
+    fun stage(context: Context, s: TimerState): Boolean = synchronized(lock) { endLocked(prefs(context), s, durable = true) }
 
-    private fun endLocked(p: SharedPreferences, s: TimerState) {
+    private fun endLocked(p: SharedPreferences, s: TimerState, durable: Boolean): Boolean {
         val entry = PendingRun.of(s)
         val live = sameRun(decodeLive(p)?.state, s)
-        if (entry == null && !live) return
-        p.edit {
-            if (entry != null) putString(PENDING, json.encodeToString(pendingLocked(p).filterNot { it.sameSlot(entry) } + entry))
+        if (entry == null && !live) return true
+        return p.edit().apply {
+            if (entry != null) putString(PENDING, json.encodeToString(pendingLocked(p).let { all ->
+                if (all.any { it.sameSlot(entry) }) all.map { if (it.sameSlot(entry)) entry else it } else all + entry
+            }))
             if (live) remove(KEY)
-        }
+        }.let { if (durable) it.commit() else { it.apply(); true } }
     }
 
     fun exists(context: Context): Boolean = synchronized(lock) { prefs(context).let { it.contains(KEY) || pendingLocked(it).isNotEmpty() } }
@@ -128,7 +144,7 @@ object TimerSnapshots {
         val snap = TimerSnapshot.decode(text)
         when {
             snap == null -> { p.edit { remove(KEY) }; null }
-            snap.state.done && !snap.state.stretch -> { endLocked(p, snap.state); null }
+            snap.state.done && !snap.state.stretch -> { endLocked(p, snap.state, durable = false); null }
             else -> snap
         }
     }
@@ -157,8 +173,8 @@ object TimerSnapshots {
         if (kept.size != all.size) p.edit { if (kept.isEmpty()) remove(PENDING) else putString(PENDING, json.encodeToString(kept)) }
     }
 
-    /** Removes the live slot and every pending result, whatever run they hold. */
-    fun clearAll(context: Context) = synchronized(lock) { prefs(context).edit { remove(KEY); remove(PENDING) } }
+    /** Removes the live slot and every pending result, whatever run they hold, on disk before it returns. */
+    fun clearAll(context: Context) { synchronized(lock) { prefs(context).edit(commit = true) { remove(KEY); remove(PENDING) } } }
 
     private fun decodeLive(p: SharedPreferences): TimerSnapshot? = TimerSnapshot.decode(p.getString(KEY, null))
 

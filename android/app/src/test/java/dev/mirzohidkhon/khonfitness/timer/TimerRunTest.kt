@@ -163,6 +163,46 @@ class TimerRunTest {
         assertTrue(r.rounds.isEmpty())
     }
 
+    @Test fun `Y4 a restore at an elapsed value below the saved one is untrusted for good, also above the anchor`() {
+        val clocks = FakeClocks(start, elapsed = 9_000L)
+        val begun = ready().started(clocks)
+        val saved = begun.run(clocks, 1.0)
+        assertEquals(10_000L, saved.instant)
+        val snap = TimerSnapshot.decode(TimerSnapshot(saved, clocks.wall, 10_000L).encode())!!
+        val restoreWall = start + 1_500L
+        val restoreElapsed = 9_500L
+        assertTrue(dev.mirzohidkhon.khonfitness.data.inStep(begun.clock!!.anchor, restoreWall, restoreElapsed))
+        val restored = snap.advancedAt(restoreWall, restoreElapsed)
+        assertTrue(restored.clock!!.broken)
+        assertEquals(2.0 - 0.5, restored.preparation, 1e-9)
+        assertEquals(restoreElapsed, restored.instant)
+        val later = FakeClocks(restoreWall, restoreElapsed)
+        val r = restored.toEnd(later).finish(later).runResult()!!
+        assertEquals(1, r.run)
+        assertEquals(1560, r.durationSec)
+        assertNull(r.from)
+        assertNull(r.to)
+        assertTrue(r.rounds.isEmpty())
+    }
+
+    @Test fun `Y5 a restore stands at its own instant, so a second restore from its save loses no time`() {
+        val clocks = FakeClocks(start)
+        val inRound1 = ready().started(clocks).run(clocks, 100.0)
+        val first = TimerSnapshot(inRound1, clocks.wall, inRound1.instant!!)
+        clocks.pass(10 * MIN)
+        val once = first.advancedAt(clocks.wall, clocks.elapsed)
+        assertEquals(clocks.elapsed, once.instant)
+        val second = TimerSnapshot(once, clocks.wall, once.instant!!)
+        clocks.pass(1_234L)
+        val twice = second.advancedAt(clocks.wall, clocks.elapsed)
+        val direct = first.advancedAt(clocks.wall, clocks.elapsed)
+        assertEquals(direct.index, twice.index)
+        assertEquals(direct.remaining, twice.remaining, 1e-6)
+        assertEquals(direct.clock, twice.clock)
+        val r = twice.toEnd(clocks).finish(clocks).runResult()!!
+        assertEquals(listOf(RoundSpan(0, sec(63), sec(303)), RoundSpan(1, sec(483), sec(723))), r.rounds.take(2))
+    }
+
     @Test fun `C13 a wall clock change, a jump in a pause, and a reboot make the run untrusted for good`() {
         val live = FakeClocks(start)
         val moved = ready().started(live).run(live, 600.0).also { live.moveWall(60 * MIN) }.toEnd(live).finish(live)
@@ -225,7 +265,8 @@ class TimerRunTest {
             clocks.pass(700)
             timed = timed.tickAt(0.7, clocks.elapsed)
             plain = plain.tick(0.7)
-            assertEquals(plain.copy(clock = null), timed.copy(clock = null))
+            assertEquals(plain.copy(clock = null, instant = null), timed.copy(clock = null, instant = null))
+            if (!timed.done) assertEquals(clocks.elapsed, timed.instant)
         }
     }
 

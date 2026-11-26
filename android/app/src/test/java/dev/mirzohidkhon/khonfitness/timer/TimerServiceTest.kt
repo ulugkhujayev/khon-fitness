@@ -1,14 +1,22 @@
 package dev.mirzohidkhon.khonfitness.timer
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Intent
 import android.os.Looper
+import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.KhonApp
+import dev.mirzohidkhon.khonfitness.data.Clocks
+import dev.mirzohidkhon.khonfitness.data.SystemClocks
 import dev.mirzohidkhon.khonfitness.data.IntervalLog
 import dev.mirzohidkhon.khonfitness.data.ItemType
 import dev.mirzohidkhon.khonfitness.data.Session
 import dev.mirzohidkhon.khonfitness.data.TimerCommit
 import java.time.Duration
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -27,6 +35,22 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ServiceController
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
+import org.robolectric.shadows.ShadowNotificationManager
+import org.robolectric.shadows.ShadowSystemClock
+
+/** A notification channel that takes [delayMs] of elapsed time to create: the slow part of a foreground start. */
+@Implements(NotificationManager::class)
+class SlowForegroundShadow : ShadowNotificationManager() {
+    @Implementation
+    override fun createNotificationChannel(channel: NotificationChannel) {
+        if (delayMs > 0) ShadowSystemClock.advanceBy(Duration.ofMillis(delayMs))
+        super.createNotificationChannel(channel)
+    }
+
+    companion object { var delayMs = 0L }
+}
 
 /**
  * The real [TimerService] under Robolectric: runs end through the service's own loop and Stop, their commits and
@@ -54,6 +78,8 @@ class TimerServiceTest {
     }
 
     @After fun close() {
+        SlowForegroundShadow.delayMs = 0
+        TimerService.wall = SystemClocks
         app.repo.beforeTimerCommit = {}
         controller?.destroy()
         TimerService.state.value = null
@@ -112,6 +138,43 @@ class TimerServiceTest {
 
     private fun session(id: String) = runBlocking { dao.session(id)!! }
     private fun pendingIds() = TimerSnapshots.pending(app).map { it.runId }
+
+    /** Holds the database in a write transaction on another thread until the returned latch opens: a Start write waits. */
+    private fun holdDatabase(): CountDownLatch {
+        val held = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        thread { app.db.runInTransaction { held.countDown(); release.await(20, TimeUnit.SECONDS) } }
+        assertTrue("the database is held", held.await(5, TimeUnit.SECONDS))
+        return release
+    }
+
+    /** Holds the first timer commit after it read its generation, until the returned value completes. */
+    private fun holdFirstCommit(): Pair<CompletableDeferred<Unit>, CompletableDeferred<Unit>> {
+        val reached = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        var first = true
+        app.repo.beforeTimerCommit = { if (first) { first = false; reached.complete(Unit); release.await() } }
+        return reached to release
+    }
+
+    /** A Start whose number write fails: the run goes on without a number. */
+    private fun beginWithoutNumber(id: String, work: Int): TimerState {
+        send(TimerService.ACTION_START, id, work)
+        send(TimerService.ACTION_BEGIN)
+        awaitMain("the run begins") { TimerService.state.value?.awaitingStart == false }
+        return TimerService.state.value!!.also { assertNull(it.clock) }
+    }
+
+    private fun idleMain() = repeat(20) { main.idle(); Thread.sleep(5) }
+
+    /** Robolectric moves only its elapsed clock; this wall clock moves with it, so the service's runs stay in step. */
+    private fun wallInStep() {
+        val offset = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+        TimerService.wall = object : Clocks {
+            override fun wallMs() = offset + SystemClock.elapsedRealtime()
+            override fun elapsedMs() = SystemClock.elapsedRealtime()
+        }
+    }
 
     private fun failRoundsOf(id: String) = app.db.openHelper.writableDatabase.execSQL(
         "CREATE TRIGGER fail_$id BEFORE UPDATE OF endedAt ON interval_logs WHEN NEW.sessionId = '$id' BEGIN SELECT RAISE(ABORT, 'held'); END")
@@ -242,5 +305,184 @@ class TimerServiceTest {
         assertEquals(paused.remaining, back.remaining, 1e-9)
         assertEquals(paused.clock!!.rounds, back.clock!!.rounds)
         assertEquals(rowBefore, session("a"))
+    }
+
+    @Test fun `Y1 a Stop given while A's Start write is held leaves timer B, opened meanwhile, and its snapshot alone`() {
+        for (command in listOf(TimerService.ACTION_STOP, TimerService.ACTION_SKIP, TimerService.ACTION_PAUSE, TimerService.ACTION_RESUME)) {
+            send(TimerService.ACTION_START, "a")
+            val a = TimerService.state.value!!
+            val release = holdDatabase()
+            send(TimerService.ACTION_BEGIN)
+            idleMain()
+            send(command)
+            idleMain()
+            send(TimerService.ACTION_START, "b")
+            main.idle()
+            val b = TimerService.state.value!!
+            assertTrue(command, b.awaitingStart && b.sessionId == "b")
+            val timerRunBefore = session("a").timerRun ?: 0
+            release.countDown()
+            awaitMain("$command: A's Start write returns") { (session("a").timerRun ?: 0) == timerRunBefore + 1 }
+            idleMain()
+            assertEquals(command, b, TimerService.state.value)
+            assertNull(command, TimerService.finished.value)
+            assertEquals(command, b.runId, TimerSnapshots.load(app)?.state?.runId)
+            assertTrue(command, TimerSnapshots.load(app)!!.state.awaitingStart)
+            assertEquals(command, emptyList<String>(), pendingIds())
+            assertTrue(command, a.runId != b.runId)
+            assertNull(command, session("a").timerDone)
+            newService()
+            TimerSnapshots.clearAll(app)
+        }
+    }
+
+    @Test fun `Y1 a Stop or a Pause given while the run's own Start write is held acts on that run once it has its number`() {
+        send(TimerService.ACTION_START, "a")
+        var release = holdDatabase()
+        send(TimerService.ACTION_BEGIN)
+        idleMain()
+        send(TimerService.ACTION_PAUSE)
+        release.countDown()
+        awaitMain("the paused run has its number") { TimerService.state.value?.clock?.number == 1 }
+        idleMain()
+        assertTrue(TimerService.state.value!!.paused)
+
+        newService()
+        TimerSnapshots.clearAll(app)
+        send(TimerService.ACTION_START, "b")
+        release = holdDatabase()
+        send(TimerService.ACTION_BEGIN)
+        idleMain()
+        settled("the stopped run commits") { send(TimerService.ACTION_STOP); release.countDown(); awaitMain("b has its number") { session("b").timerRun == 1 } }
+        awaitMain("the end is published") { TimerService.finished.value != null }
+        assertEquals("b", TimerService.finished.value!!.sessionId)
+        assertNull(TimerService.state.value)
+        assertEquals(1, session("b").timerDone)
+        assertEquals(emptyList<String>(), pendingIds())
+        assertEquals(emptyList<TimerCommit>(), runBlocking { commitPending(app) })
+    }
+
+    @Test fun `Y1 timer B opened during A's held Start write begins with its own write`() {
+        send(TimerService.ACTION_START, "a")
+        val release = holdDatabase()
+        send(TimerService.ACTION_BEGIN)
+        idleMain()
+        send(TimerService.ACTION_START, "b")
+        val b = TimerService.state.value!!
+        send(TimerService.ACTION_BEGIN)
+        idleMain()
+        release.countDown()
+        awaitMain("B gets its number") { TimerService.state.value?.clock?.number == 1 }
+        assertEquals(b.runId, TimerService.state.value!!.runId)
+        assertEquals(1, session("b").timerRun)
+        assertNull(session("a").timerDone)
+    }
+
+    private fun failStarts() = app.db.openHelper.writableDatabase.execSQL(
+        "CREATE TRIGGER fail_start BEFORE UPDATE OF timerRun ON sessions BEGIN SELECT RAISE(ABORT, 'held'); END")
+    private fun failDurationOf(id: String) = app.db.openHelper.writableDatabase.execSQL(
+        "CREATE TRIGGER fail_time_$id BEFORE UPDATE OF timeSec ON sessions WHEN NEW.id = '$id' BEGIN SELECT RAISE(ABORT, 'held'); END")
+
+    @Test fun `Y2 two results without numbers for one session keep their own entries and commit in the order of their ends`() {
+        failStarts()
+        failDurationOf("a")
+        val a = beginWithoutNumber("a", work = 5)
+        settled("A's result fails") { loopToEnd() }
+        assertEquals(listOf(a.runId), pendingIds())
+        val b = beginWithoutNumber("a", work = 7)
+        settled("B ends while A still fails") { loopToEnd() }
+        assertEquals(listOf(a.runId, b.runId), pendingIds())
+        assertNull(session("a").timeSec)
+
+        drop("fail_time_a")
+        assertEquals(listOf(TimerCommit.COMMITTED, TimerCommit.DROPPED), runBlocking { commitPending(app) })
+        assertEquals(5, session("a").timeSec)
+        assertNull(session("a").timerRun)
+        assertEquals(emptyList<String>(), pendingIds())
+    }
+
+    @Test fun `Y2 a result without a number whose commit is in flight when the next run of its session ends commits first`() {
+        failStarts()
+        val (reached, release) = holdFirstCommit()
+        val a = beginWithoutNumber("a", work = 5)
+        loopToEnd()
+        awaitMain("A's commit is held") { reached.isCompleted }
+        val b = beginWithoutNumber("a", work = 7)
+        loopToEnd()
+        awaitMain("B is staged") { pendingIds().size == 2 }
+        assertEquals(listOf(a.runId, b.runId), pendingIds())
+        assertNull(session("a").timeSec)
+        release.complete(Unit)
+        awaitMain("both results settle") { pendingIds().isEmpty() }
+        idleMain()
+        assertEquals(5, session("a").timeSec)
+    }
+
+    @Test @Config(shadows = [SlowForegroundShadow::class])
+    fun `Y5 a real service restore that saves after a slow foreground start, restored again at once, keeps every boundary on the anchor`() {
+        wallInStep()
+        val live = begin("a", work = 60, rounds = 2, rest = 30)
+        val anchor = live.clock!!.anchorElapsed
+        repeat(200) { main.idleFor(Duration.ofMillis(50)) }
+        assertEquals(PhaseKind.WORK, TimerService.state.value!!.phase.kind)
+        fun expectedRemaining(at: Long) = 60.0 - (at - anchor - 3_000) / 1000.0
+        fun restoreAfterDeath(): TimerState {
+            newService().onStartCommand(Intent().setAction(TimerService.ACTION_RESTORE), 0, 1)
+            awaitMain("the run comes back") { TimerService.state.value != null }
+            return TimerService.state.value!!
+        }
+
+        newService()
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(20))
+        SlowForegroundShadow.delayMs = 700
+        val restoredAt = SystemClock.elapsedRealtime()
+        val first = restoreAfterDeath()
+        assertEquals(restoredAt, first.instant)
+        assertEquals(expectedRemaining(restoredAt), first.remaining, 1e-6)
+        assertEquals(restoredAt, TimerSnapshots.load(app)!!.savedElapsed)
+
+        val againAt = SystemClock.elapsedRealtime()
+        assertEquals(restoredAt + 700, againAt)
+        val second = restoreAfterDeath()
+        assertEquals(expectedRemaining(againAt), second.remaining, 1e-6)
+        SlowForegroundShadow.delayMs = 0
+
+        var clock = second.clock!!
+        repeat(4_000) {
+            val s = TimerService.state.value ?: return@repeat
+            clock = s.clock!!
+            if (s.done) return@repeat
+            main.idleFor(Duration.ofMillis(50))
+        }
+        assertEquals(listOf(RoundTime(1, anchor + 3_000, anchor + 63_000), RoundTime(2, anchor + 93_000, anchor + 153_000)), clock.rounds)
+        assertEquals(anchor + 153_000, clock.endElapsed)
+    }
+
+    @Test fun `Y6 a startup drain refused by the generation and a run that ended while the process was dead commit in one pass`() {
+        wallInStep()
+        failRoundsOf("a")
+        val a = begin("a")
+        settled("A's commit fails") { loopToEnd() }
+        assertEquals(listOf(a.runId), pendingIds())
+        drop("fail_a")
+        val b = begin("b")
+        repeat(20) { main.idleFor(Duration.ofMillis(50)) }
+        assertEquals(b.runId, TimerSnapshots.load(app)?.state?.runId)
+
+        controller?.destroy()
+        controller = null
+        TimerService.state.value = null
+        ShadowSystemClock.advanceBy(Duration.ofMinutes(1))
+        val backup = runBlocking { app.repo.exportJson() }
+        val (reached, release) = holdFirstCommit()
+        service().onStartCommand(Intent().setAction(TimerService.ACTION_RESTORE), 0, 1)
+        awaitMain("the drain reaches its first commit") { reached.isCompleted }
+        assertEquals(listOf(a.runId, b.runId), pendingIds())
+        assertNull(TimerSnapshots.load(app))
+        runBlocking { app.repo.importJson(backup, replace = false) }
+        release.complete(Unit)
+        awaitMain("both results commit in this launch") { pendingIds().isEmpty() }
+        session("a").let { assertEquals(1, it.timerDone); assertEquals(5, it.timeSec) }
+        session("b").let { assertEquals(1, it.timerDone); assertEquals(5, it.timeSec) }
     }
 }

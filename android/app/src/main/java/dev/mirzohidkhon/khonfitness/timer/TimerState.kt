@@ -35,6 +35,8 @@ data class TimerState(
     val runId: String = "",
     /** The cardio run's number, anchor and round times, from its Start ([beginRun]); null before Start and in older snapshots. */
     val clock: RunClock? = null,
+    /** The elapsed realtime that [remaining] and [preparation] stand for, set by the step that computed them. */
+    val instant: Long? = null,
 ) {
     val phase: Phase get() = phases[index.coerceIn(0, phases.size - 1)]
     val done: Boolean get() = phases.isEmpty() || index >= phases.size
@@ -95,7 +97,7 @@ data class TimerState(
             delta -= used
             real += used
             if (!next.preparing) next = next.workBegins(at())
-            if (delta <= 0.0) return next
+            if (delta <= 0.0) return next.standingAt(elapsedEnd)
         }
         delta *= speed
         while (delta > 0.0 && !next.done) {
@@ -107,8 +109,10 @@ data class TimerState(
             next = next.workEnds(at()).advance().let { if (it.done) it.ended(at()) else it.workBegins(at()) }
             if (next.stretch) break
         }
-        return next
+        return next.standingAt(elapsedEnd)
     }
+
+    private fun standingAt(elapsed: Long?): TimerState = if (elapsed == null) this else copy(instant = elapsed)
 }
 /** Builds the phase list from an interval exercise: warmup, then work/rest per round, no trailing rest. */
 fun buildPhases(warmupSec: Int, workSec: Int, restSec: Int, rounds: Int): List<Phase> {

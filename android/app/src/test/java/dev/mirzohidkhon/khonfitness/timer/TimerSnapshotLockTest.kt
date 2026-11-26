@@ -130,6 +130,30 @@ class TimerSnapshotLockTest {
         assertEquals("o2", TimerSnapshots.load(app)?.state?.runId)
     }
 
+    @Test fun `Y5 a save after a delay stores the instant its state stands for, with the wall time of that instant`() {
+        val ticked = running("r1", 1).tickAt(10.0, 10_000L)
+        assertEquals(10_000L, ticked.instant)
+        TimerSnapshots.save(app, ticked, now = 10_700L, elapsed = 10_700L)
+        val snap = TimerSnapshots.load(app)!!
+        assertEquals(10_000L, snap.savedElapsed)
+        assertEquals(10_000L, snap.savedAt)
+        val restored = snap.advancedAt(20_000L, 20_000L)
+        assertEquals(60.0 - 17.0, restored.remaining, 1e-9)
+        TimerSnapshots.save(app, restored, now = 20_900L, elapsed = 20_900L)
+        assertEquals(20_000L, TimerSnapshots.load(app)!!.savedElapsed)
+        assertEquals(60.0 - 18.5, TimerSnapshots.load(app)!!.advancedAt(21_500L, 21_500L).remaining, 1e-9)
+    }
+
+    @Test fun `Y2 two runs of one session without numbers keep one entry each, in the order of their ends`() {
+        val a = ready("a").beginRun(null, 0L, 0L).tickAt(10.0, 10_000L).finishedAt(10_000L, 10_000L)
+        val b = ready("b").beginRun(null, 0L, 0L).tickAt(20.0, 20_000L).finishedAt(20_000L, 20_000L)
+        assertNull(PendingRun.of(a)!!.run)
+        assertTrue(TimerSnapshots.stage(app, a))
+        assertTrue(TimerSnapshots.stage(app, b))
+        assertTrue(TimerSnapshots.stage(app, a))
+        assertEquals(listOf(PendingRun.of(a), PendingRun.of(b)), TimerSnapshots.pending(app))
+    }
+
     @Test fun `an ended cardio run that an older build left in the live slot moves to the pending store`() {
         val r1 = ended("r1", 1)
         prefs.edit().putString("snapshot", TimerSnapshot(r1, 0L).encode()).commit()

@@ -2,6 +2,8 @@ package dev.mirzohidkhon.khonfitness.timer
 
 import android.app.Application
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.SharedPreferences
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.data.FakeClocks
@@ -149,6 +151,95 @@ class TimerCommitTest {
         assertEquals(TimerCommit.GONE, next.commit())
         assertNull(dao.session("c"))
         assertNull(snapshot())
+        assertEquals(emptyList<String>(), pendingIds())
+    }
+
+    /**
+     * The snapshot store as a process sees it whose first [failing] writes never reach the disk (they return false and
+     * change nothing); later writes go through.
+     */
+    private fun writesFailing(failing: Int): Context {
+        val store = context.getSharedPreferences("timer_snapshot", Context.MODE_PRIVATE)
+        var left = failing
+        val wrapped = object : SharedPreferences by store {
+            override fun edit(): SharedPreferences.Editor {
+                if (left <= 0) return store.edit()
+                left--
+                return object : SharedPreferences.Editor {
+                    override fun putString(key: String?, value: String?) = this
+                    override fun putStringSet(key: String?, values: MutableSet<String>?) = this
+                    override fun putInt(key: String?, value: Int) = this
+                    override fun putLong(key: String?, value: Long) = this
+                    override fun putFloat(key: String?, value: Float) = this
+                    override fun putBoolean(key: String?, value: Boolean) = this
+                    override fun remove(key: String?) = this
+                    override fun clear() = this
+                    override fun commit() = false
+                    override fun apply() {}
+                }
+            }
+        }
+        return object : ContextWrapper(context) {
+            override fun getSharedPreferences(name: String?, mode: Int): SharedPreferences = wrapped
+        }
+    }
+
+    @Test fun `Y3 a run whose staging write never returned is still live after a restart and ends once at its real end`() = runBlocking {
+        val running = ready().started().run(clocks, 600.0)
+        TimerSnapshots.save(context, running, clocks.wall, clocks.elapsed)
+        val ended = running.run(clocks, 963.0).finishedAt(clocks.wall, clocks.elapsed)
+        assertTrue(ended.done)
+        val dying = writesFailing(Int.MAX_VALUE)
+        TimerSnapshots.save(dying, ended)
+        assertEquals(false, endRun(repo, dying, ended, retryMs = 0L))
+        session().let { assertNull(it.timeSec); assertNull(it.timerDone) }
+
+        clocks.pass(5 * MIN)
+        val restarted = newRepo()
+        val live = TimerSnapshots.load(context)!!
+        assertEquals("r1", live.state.runId)
+        assertTrue(!live.state.done)
+        assertEquals(emptyList<String>(), pendingIds())
+        val restored = live.advancedAt(clocks.wall, clocks.elapsed)
+        assertTrue(restored.done)
+        TimerSnapshots.save(context, restored)
+        assertTrue(endRun(restarted, context, restored))
+        val s = session()
+        assertEquals(1560, s.timeSec)
+        assertEquals(1, s.timerDone)
+        assertEquals(start, s.timedFrom)
+        assertEquals(start + 1_563_000, s.timedTo)
+        assertNull(snapshot())
+        assertEquals(emptyList<String>(), pendingIds())
+        assertEquals(emptyList<TimerCommit>(), commitPending(restarted, context))
+        assertEquals(s, session())
+    }
+
+    @Test fun `Y3 a failed staging write is tried again, and the run commits once`() = runBlocking {
+        val running = ready().started().run(clocks, 600.0)
+        TimerSnapshots.save(context, running, clocks.wall, clocks.elapsed)
+        val stopped = running.finishedAt(clocks.wall, clocks.elapsed)
+        val flaky = writesFailing(3)
+        TimerSnapshots.save(flaky, stopped)
+        assertTrue(endRun(repo, flaky, stopped, retryMs = 0L))
+        session().let { assertEquals(597, it.timeSec); assertEquals(1, it.timerDone); assertEquals(start + 600_000, it.timedTo) }
+        assertNull(snapshot())
+        assertEquals(emptyList<String>(), pendingIds())
+    }
+
+    @Test fun `Y3 a Stop whose staging write returned survives a death before its commit`() = runBlocking {
+        val running = ready().started().run(clocks, 600.0)
+        TimerSnapshots.save(context, running, clocks.wall, clocks.elapsed)
+        val stopped = running.finishedAt(clocks.wall, clocks.elapsed)
+        TimerSnapshots.save(context, stopped)
+        assertTrue(TimerSnapshots.stage(context, stopped))
+
+        clocks.pass(30 * MIN)
+        val restarted = newRepo()
+        assertNull(snapshot())
+        assertEquals(listOf("r1"), pendingIds())
+        assertEquals(listOf(TimerCommit.COMMITTED), drain(restarted, context))
+        session().let { assertEquals(597, it.timeSec); assertEquals(1, it.timerDone); assertEquals(start + 600_000, it.timedTo) }
         assertEquals(emptyList<String>(), pendingIds())
     }
 

@@ -1,6 +1,7 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
 import dev.mirzohidkhon.khonfitness.data.*
+import dev.mirzohidkhon.khonfitness.ui.components.ChartPoint
 import java.time.LocalDate
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
@@ -9,7 +10,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** What the screens show of a session's heart rate, from [hrFacts] only: Review's line, other places, the list, the sheet. */
 class HeartRulesUiTest {
     private val zone = TEST_ZONE
     private val day = LocalDate.of(2026, 11, 20)
@@ -84,6 +84,10 @@ class HeartRulesUiTest {
         val s = gym()
         assertEquals("avg 128 · max 164", hrStateText(s, facts(s, row(s))))
         assertEquals("average 128, maximum 164 beats per minute", hrStateSpoken(s, facts(s, row(s))))
+        val typed = gym(avg = 150)
+        assertEquals("avg 128 · max 164", hrStateText(typed, facts(typed, row(typed))))
+        assertEquals("average 128, maximum 164 beats per minute", hrStateSpoken(typed, facts(typed, row(typed))))
+        assertEquals("avg 150 · max 164 bpm", hrLine(typed, facts(typed, row(typed))))
         assertEquals("Waiting for data", hrStateText(s, facts(s, row(s, HrState.WAITING))))
         assertEquals("No data", hrStateText(s, facts(s, row(s, HrState.NONE))))
         assertEquals("Removed", hrStateText(s, facts(s, row(s).copy(state = HrState.OFF))))
@@ -138,18 +142,70 @@ class HeartRulesUiTest {
         assertEquals("45 s", gapText(45)); assertEquals("2 min", gapText(120)); assertEquals("16 min 5 s", gapText(965))
     }
 
-    @Test fun `actions and the result line of Read again follow the facts of now`() {
+    private fun sheet(s: Session, r: SessionHr?) = hrSheet(s, r, emptyList(), zone, failed = false) { it }
+
+    @Test fun `the sheet's model holds the facts and the action flags, Remove for every row that is not off`() {
         val s = gym()
-        assertFalse(canReread(HrFacts.NoRange)); assertTrue(canReread(HrFacts.NotRead)); assertTrue(canReread(HrFacts.Removed))
-        assertFalse(canRemove(null)); assertFalse(canRemove(row(s).copy(state = HrState.OFF))); assertTrue(canRemove(row(s, HrState.NONE)))
-        val filled = facts(s, row(s))
-        assertEquals("avg 128 · max 164 bpm", rereadLine(HrReread.FILLED, s, filled))
-        assertEquals("No data yet", rereadLine(HrReread.WAITING, s, facts(s, row(s, HrState.WAITING))))
-        assertEquals("No data yet", rereadLine(HrReread.NONE, s, facts(s, row(s, HrState.NONE))))
-        assertEquals("Health Connect did not answer", rereadLine(HrReread.FAILED, s, filled))
-        assertNull(rereadLine(HrReread.DROPPED, s, filled)); assertNull(rereadLine(HrReread.NO_RANGE, s, HrFacts.NoRange)); assertNull(rereadLine(null, s, filled))
-        assertNull(rereadLine(HrReread.FILLED, s, HrFacts.Removed))
-        assertNull(rereadLine(HrReread.WAITING, s, HrFacts.Removed))
-        assertNull(rereadLine(HrReread.FILLED, s, HrFacts.NotRead))
+        val stale = row(s).copy(fromMs = gymRange.fromMs + 60_000)
+        val withRow = sheet(s, stale)
+        val withoutRow = sheet(s, null)
+        assertEquals(HrFacts.NotRead, facts(s, stale)); assertEquals(HrFacts.NotRead, facts(s, null))
+        assertEquals(withoutRow.facts, withRow.facts)
+        assertTrue(withRow.remove); assertFalse(withoutRow.remove)
+        assertTrue(withRow.reread && withoutRow.reread)
+        val noRange = gym(r = null)
+        val noRangeRow = SessionHr("g", gymRange.fromMs, gymRange.toMs, HrState.FILLED, fetchedAt = at(20, 0))
+        assertEquals(HrFacts.NoRange, facts(noRange, noRangeRow))
+        assertTrue(sheet(noRange, noRangeRow).remove); assertFalse(sheet(noRange, null).remove)
+        assertFalse(sheet(noRange, null).reread)
+        assertFalse(sheet(s, row(s).copy(state = HrState.OFF)).remove); assertTrue(sheet(s, row(s).copy(state = HrState.OFF)).reread)
+        assertTrue(sheet(s, row(s, HrState.NONE)).remove)
+        val forty = gym(r = null).copy(finishedAt = at(18, 42))
+        assertEquals(HrRange(at(18, 2), at(18, 42)), sheet(forty, null).useRange)
+        assertEquals("Workout" to "18:02 to 18:42", sheet(forty, null).facts.last())
+        assertNull(sheet(s, null).useRange)
+    }
+
+    @Test fun `the sheet shows measured values, also where a typed one exists`() {
+        val s = cardio(avg = 141)
+        val r = row(s, avg = 128, samples = "0:140,5:148,300:150,305:160")
+        val typedRound = IntervalLog("i1", "c", 0, avgHr = 150, startedAt = at(7, 0), endedAt = at(7, 1))
+        val rows = hrFactRows(s, facts(s, r), listOf(typedRound), zone) { it }
+        assertTrue(rows.toString(), "Round 1" to "144 bpm" in rows && "Average" to "128 bpm" in rows)
+        assertEquals(150, shownRoundHr(typedRound, facts(s, r)))
+        assertEquals("avg 141 · max 164 bpm", hrLine(s, facts(s, r)))
+        val typedOnly = IntervalLog("i2", "c", 1, avgHr = 150, startedAt = at(7, 20), endedAt = at(7, 21))
+        assertFalse(hrFactRows(s, facts(s, r), listOf(typedRound, typedOnly), zone) { it }.any { it.first == "Round 2" })
+    }
+
+    @Test fun `typed and measured values reach both charts of a cardio type`() {
+        val typed = cardio(avg = 150)
+        val measured = cardio().copy(id = "m")
+        val neither = cardio().copy(id = "n")
+        fun rowFor(s: Session) = row(s, avg = 144, samples = "0:140,5:148,300:150,305:160")
+        val f = factsById(listOf(typed, measured, neither), listOf(rowFor(typed), rowFor(measured)), zone)
+        assertEquals(listOf(ChartPoint(day, 150.0), ChartPoint(day, 144.0)), avgHrPoints(listOf(typed, measured, neither), f))
+        val rounds = listOf(
+            IntervalLog("t1", "c", 0, avgHr = 160, startedAt = at(7, 0), endedAt = at(7, 1)), IntervalLog("t2", "c", 1, startedAt = at(7, 0), endedAt = at(7, 1)),
+            IntervalLog("m1", "m", 0, startedAt = at(7, 5), endedAt = at(7, 6)), IntervalLog("n1", "n", 0, startedAt = at(7, 0), endedAt = at(7, 1)),
+        )
+        assertEquals(listOf(ChartPoint(day, 152.0), ChartPoint(day, 155.0)), workHrPoints(listOf(typed, measured, neither), rounds, f))
+        assertEquals(
+            listOf(
+                "Average heart rate" to listOf(ChartPoint(day, 150.0), ChartPoint(day, 144.0)),
+                "Heart rate in work intervals" to listOf(ChartPoint(day, 152.0), ChartPoint(day, 155.0)),
+            ),
+            cardioHrCharts(listOf(typed, measured, neither), listOf(typed, measured, neither), rounds, f),
+        )
+        assertEquals(listOf("Heart rate in work intervals" to listOf(ChartPoint(day, 160.0))), cardioHrCharts(listOf(neither), listOf(typed), rounds.take(1), f))
+    }
+
+    @Test fun `the sheet's only line is the failure line`() {
+        val s = gym()
+        for (state in listOf(HrState.FILLED, HrState.WAITING, HrState.NONE, HrState.OFF)) {
+            assertNull(state, hrSheet(s, row(s, state), emptyList(), zone, failed = false) { it }.line)
+            assertEquals("Health Connect did not answer", hrSheet(s, row(s, state), emptyList(), zone, failed = true) { it }.line)
+        }
+        assertNull(sheet(s, null).line)
     }
 }

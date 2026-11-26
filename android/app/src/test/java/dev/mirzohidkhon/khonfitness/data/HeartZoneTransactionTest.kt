@@ -72,6 +72,17 @@ class HeartZoneTransactionTest {
         assertEquals(HrFacts.Filled(stored), hrFacts(session, dao.sessionHr(session.id), zone))
     }
 
+    @Test fun `the cleanup delete takes a row that became stale as its transaction starts`() = runBlocking {
+        dao.upsert(session); dao.upsertSessionHr(stored)
+        assertEquals(HrFacts.Filled(stored), hrFacts(session, stored, zone))
+        var seen = false
+        fill.beforeCleanup = { seen = true; onTransaction = { zone = ZoneOffset.UTC } }
+        fill.pass()
+        assertTrue(seen)
+        assertEquals(ZoneOffset.UTC, zone)
+        assertNull(dao.sessionHr(session.id))
+    }
+
     @Test fun `Remove with no row writes nothing when the range goes away as its transaction starts`() = runBlocking {
         dao.upsert(session)
         onTransaction = { zone = ZoneOffset.UTC }

@@ -114,11 +114,26 @@ class HeartReadTest {
         assertEquals(now + 1, laterThan(stamped, now))
     }
 
-    @Test fun `completeness over a range longer than half of Long`() {
+    @Test fun `a range longer than a day is not read`() {
+        val start = at(18, 0)
+        fun everyHour(range: HrRange) = listOf(HeartRecord("mi", (0..23).map { HeartPoint(start + it * 60 * MIN, 130) }))
+        val day = HrRange(start, start + MAX_READ_MS)
+        val longer = HrRange(start, start + MAX_READ_MS + 1)
         val wide = HrRange(Long.MIN_VALUE + 1, Long.MAX_VALUE)
-        fun spread(span: Long) = listOf(HeartRecord("mi", (0..9).map { HeartPoint(wide.fromMs + it * (span / 9), 130) }))
-        assertTrue(readHeart(spread(Long.MAX_VALUE / 2 + 1000), wide).complete)
-        assertFalse(readHeart(spread(Long.MAX_VALUE / 2 - 1000), wide).complete)
+        assertTrue(readHeart(everyHour(day), day).complete)
+        for (range in listOf(longer, wide)) {
+            val reading = readHeart(everyHour(range), range)
+            assertEquals(0, reading.rawCount)
+            assertEquals(emptyList<HrSample>(), reading.buckets)
+            assertFalse(reading.complete)
+            assertNull(reading.avgHr)
+        }
+    }
+
+    @Test fun `clocks whose difference overflows are not in step`() {
+        assertFalse(inStep(Anchor(-1, 0), Long.MAX_VALUE, 0))
+        assertFalse(inStep(Anchor(Long.MAX_VALUE, 0), Long.MIN_VALUE, 0))
+        assertTrue(inStep(Anchor(1_000, 0), 1_000 + CLOCK_STEP_MS, 0))
     }
 
     @Test fun `C22 only ten instants over half of the range are filled`() {

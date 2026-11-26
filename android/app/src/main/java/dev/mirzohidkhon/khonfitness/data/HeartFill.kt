@@ -99,15 +99,13 @@ class HeartFill(
 
     /**
      * One pass over finished sessions: first every row that is not `off` and not for its session's range goes, checked
-     * again in its delete with the zone read there; then each session whose range ended in the last 30 days and that
+     * only in its delete with the zone read there; then each session whose range ended in the last 30 days and that
      * has no row or a `waiting` row is read.
      */
     internal suspend fun pass() {
         val sessions = dao.sessionsOnce().associateBy { it.id }
         for (row in dao.sessionHrOnce()) {
             if (row.state == HrState.OFF) continue
-            val range = sessions[row.sessionId]?.let { hrWindow(it, zone()) }
-            if (range == HrRange(row.fromMs, row.toMs)) continue
             beforeCleanup(row)
             dao.deleteStaleSessionHr(row, zone)
         }

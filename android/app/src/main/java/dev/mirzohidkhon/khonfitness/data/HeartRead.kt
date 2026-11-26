@@ -21,6 +21,7 @@ fun interface HeartSource {
 data class BoundedHeartRecord(val startMs: Long, val endMs: Long, val record: HeartRecord)
 
 const val DAY_MS = 24 * 60 * 60_000L
+const val MAX_READ_MS = DAY_MS
 
 /** Health Connect selects records by their start time, so a read asks from this long before the range starts. */
 const val RECORD_LOOKBACK_MS = DAY_MS
@@ -68,8 +69,10 @@ const val COMPLETE_INSTANTS = 10
  * once. The origin is the package with the most accepted samples (a tie: the first by name), and only its samples
  * count, one per instant (the first read). Complete: [COMPLETE_INSTANTS] or more instants whose first to last spans at
  * least half of the range. Buckets of [BUCKET_SEC] seconds from `from` hold the half-up mean of their samples.
+ * A range longer than [MAX_READ_MS] is not read: its reading is empty.
  */
-fun readHeart(records: List<HeartRecord>, range: HrRange): HeartReading {
+fun readHeart(found: List<HeartRecord>, range: HrRange): HeartReading {
+    val records = if (range.lengthMs <= MAX_READ_MS) found else emptyList()
     val accepted = records.flatMap { r ->
         r.samples.filter { it.timeMs >= range.fromMs && it.timeMs < range.toMs && it.bpm in BPM_MIN..BPM_MAX }.map { r.origin to it }
     }.distinct()

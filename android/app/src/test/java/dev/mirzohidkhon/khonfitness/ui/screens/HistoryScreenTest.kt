@@ -254,7 +254,7 @@ class HistoryScreenTest {
         compose.runOnIdle { nav.navigate(Routes.exerciseDetail("bench")) }
         waitFor("Most reps by weight")
         val rows = compose.onAllNodesWithText("× ", substring = true).fetchSemanticsNodes()
-            .filter { it.config[SemanticsProperties.Text].last().text.startsWith("× ") }.sortedBy { it.boundsInRoot.top }
+            .filter { it.config[SemanticsProperties.Text].last().text.startsWith("× ") }.sortedBy { it.positionInRoot.y }
         val (mon, wed, fri, sat) = listOf(0L, 2L, 4L, 5L).map { monthDay(lastMonday.plusDays(it)) }
         assertEquals(
             listOf(

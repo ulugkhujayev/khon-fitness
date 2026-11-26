@@ -121,7 +121,8 @@ A record is the heaviest weight lifted. The best set of a session is the
 heaviest weight, then the most reps at that weight. A session sets a
 record when its best set beats every earlier session's; a tie on weight
 and reps keeps the record with the earlier session. Only done sets with
-reps count (a 0-rep set never does). No estimated 1RM is shown.
+reps count (a 0-rep set never does). No estimated 1RM is shown as a value.
+The rate per setup below is the only place that uses one.
 
 A rep record is more reps at a weight already lifted. A done set above
 0 kg is one when an earlier session has a set at its weight or heavier
@@ -151,6 +152,29 @@ weight" lists the sets that no other set matches in both weight and reps
 ("80 kg" and its date, "× 8"), heaviest first, at most six, when there
 are two or more. A session whose sets were all skipped lists with no chart point. An exercise without sets
 shows its muscles and "No sets yet".
+
+A program change shows on the exercise as a change of setup. The setup of
+a session is its program id, the count of the exercise's set rows (every
+status) and the rep range of its first row. A period is a run of sessions
+with one setup. A single session inside a run is a one-day deviation and
+stays in the period before it (or the next one when there is none before).
+The latest run is always a period. After the single sessions join, two
+neighbor periods with one setup are one period, so A A B A is one period
+and A A B is two. A renamed program keeps its id, so it is
+no change. When an exercise has two periods or more, its detail shows
+"Est. 1RM per week" between the Best card and "Most reps by weight", or
+"Reps per week" for an exercise that never had a counted set above 0 kg.
+One row per period, newest first: "Since Nov 3" or "Oct 2 – Nov 2" (the
+year only when it is not this year) over "TP v4 · 4 sets · 5–8 reps", and
+the rate on the right. The rate is the least-squares slope of the session
+values per week: the best Epley estimate (weight × (1 + reps / 30)) of the
+counted sets above 0 kg, or the most reps for an exercise without weight.
+It needs 3 valued sessions over 14 days or more, else the row shows "–".
+It rounds like the bodyweight trend ("+0.8", "−0.3", "±0.0"). The app
+says nothing about which setup was better. The "Heaviest set per session"
+chart draws a thin muted vertical line at the first charted session of
+each period after the first. A period with no charted session gets no
+line.
 
 One bodyweight entry can move a kilogram from water alone, so the trend
 uses a 7-day average: the mean of the entries from 6 days before a date to

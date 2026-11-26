@@ -149,22 +149,22 @@ class ScoreRulesTest {
         assertEquals(RoundScore(3, null, null), roundScores(range(s), clockBuckets, touching)[2])
     }
 
-    @Test fun aSingleTimeOfAnotherRoundThatDisagreesTakesTheFigures() {
+    @Test fun aRoundWithOneTimeOrWithItsEndNotAfterItsStartTakesTheRoundFiguresOfTheSession() {
         val s = session()
         val ordered = listOf(round(s, 0, 300, 400), round(s, 1, 600, 700), round(s, 2, 900, 1000))
-        val whole = roundScores(range(s), clockBuckets, ordered)
-        val endOnly = listOf(round(s, 0, null, 620)) + ordered.drop(1)
-        assertEquals(listOf(RoundScore(1, null, null), RoundScore(2, null, null), whole[2]), roundScores(range(s), clockBuckets, endOnly))
-        val startOnly = listOf(round(s, 0, 600, null)) + ordered.drop(1)
-        assertEquals(RoundScore(2, null, null), roundScores(range(s), clockBuckets, startOnly)[1])
-        val startInsideWork = listOf(ordered[0], round(s, 1, 350, null), ordered[2])
-        assertEquals(listOf(RoundScore(1, null, null), RoundScore(2, null, null)), roundScores(range(s), clockBuckets, startInsideWork).take(2))
-        val startInsideRest = ordered.take(2) + round(s, 2, 500, null)
-        val r = roundScores(range(s), clockBuckets, startInsideRest)
-        assertEquals(whole[0].copy(drop = null), r[0])
-        assertEquals(whole[1].peak, r[1].peak)
-        val agreeing = listOf(round(s, 0, null, 250)) + ordered.drop(1)
-        assertEquals(whole.drop(1), roundScores(range(s), clockBuckets, agreeing).drop(1))
+        assertTrue(roundScores(range(s), clockBuckets, ordered).all { it.peak != null && it.drop != null })
+        val none = List(3) { RoundScore(it + 1, null, null) }
+        val broken = listOf(
+            round(s, 0, null, 250), round(s, 0, null, 620), round(s, 0, 600, null), round(s, 0, 300, null),
+            round(s, 0, 400, 400), round(s, 0, 400, 300),
+        )
+        broken.forEach { b -> assertEquals(b.toString(), none, roundScores(range(s), clockBuckets, listOf(b) + ordered.drop(1))) }
+        val last = ordered.take(2) + round(s, 2, 600, null)
+        assertEquals(none, roundScores(range(s), clockBuckets, last))
+        val untimed = listOf(round(s, 0, null, null)) + ordered.drop(1)
+        val u = roundScores(range(s), clockBuckets, untimed)
+        assertEquals(RoundScore(1, null, null), u[0])
+        assertTrue(u.drop(1).all { it.peak != null && it.drop != null })
     }
 
     @Test fun orderedRoundsGiveTheSameFiguresInAnyListOrder() {

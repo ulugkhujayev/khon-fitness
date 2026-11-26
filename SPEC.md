@@ -490,10 +490,12 @@ time.
   or to the range end after the last round. The drop needs a peak and 2 or
   more buckets in the rest. A negative drop shows as it is.
 - A round without both times, or one that starts outside the range, has no
-  figures. Neither has a round whose times disagree with another round: it
-  overlaps one, it starts at or before a time of an earlier round, or a
-  time of another round lies inside it. A rest that holds work or a time
-  of another round gives no drop.
+  figures. Neither has a round that overlaps another round or starts at or
+  before the end of the round before it, and a rest that holds work of
+  another round gives no drop. The app's timer stores both times of a
+  round or none. When a round has one time only, or an end that is not
+  after its start (a changed backup file), no round of that session has
+  figures.
 
 Review of a finished cardio session with a filled read adds a "Heart rate"
 group after its rounds, or after its figures when it has no rounds. A

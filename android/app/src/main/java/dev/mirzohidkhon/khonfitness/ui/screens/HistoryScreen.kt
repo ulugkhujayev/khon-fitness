@@ -97,17 +97,9 @@ data class MuscleVolume(val muscle: String, val thisWeek: Double, val lastWeek: 
 /** Sets per muscle group for the current week up to [today] and the one before. Primary muscle counts 1, each secondary 0.5. */
 fun muscleVolume(logs: List<SetLog>, sessions: List<Session>, exercises: List<Exercise>, today: LocalDate): List<MuscleVolume> {
     val monday = today.with(DayOfWeek.MONDAY); val lastMonday = monday.minusWeeks(1)
-    val dates = sessions.filter { it.finished }.associate { it.id to it.date.toDate() }
-    val exById = exercises.associateBy { it.id }
     val acc = HashMap<String, DoubleArray>()
-    for (l in logs) {
-        if (l.status != SetStatus.DONE) continue
-        val d = dates[l.sessionId] ?: continue
-        val idx = when { d in monday..today -> 0; d in lastMonday..<monday -> 1; else -> continue }
-        val ex = exById[l.exerciseId] ?: continue
-        ex.primaryMuscle?.let { acc.getOrPut(it) { DoubleArray(2) }[idx] += 1.0 }
-        ex.secondaryList.forEach { acc.getOrPut(it) { DoubleArray(2) }[idx] += 0.5 }
-    }
+    muscleSets(Period(monday, today), logs, sessions, exercises).forEach { (m, v) -> acc.getOrPut(m) { DoubleArray(2) }[0] = v }
+    muscleSets(Period(lastMonday, monday.minusDays(1)), logs, sessions, exercises).forEach { (m, v) -> acc.getOrPut(m) { DoubleArray(2) }[1] = v }
     return acc.map { (m, v) -> MuscleVolume(m, v[0], v[1]) }.sortedByDescending { maxOf(it.thisWeek, it.lastWeek) }
 }
 

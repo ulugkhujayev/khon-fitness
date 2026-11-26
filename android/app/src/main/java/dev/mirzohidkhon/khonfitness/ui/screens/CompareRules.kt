@@ -148,8 +148,6 @@ inline fun forEachMuscleShare(ex: Exercise, add: (muscle: String, share: Double)
     ex.secondaryList.forEach { add(it, 0.5) }
 }
 
-// ---- Text
-
 /** "Oct 3 – Oct 30"; a date outside [today]'s year carries its year: "Dec 1, 2025 – Jan 5". One day is "Nov 27". */
 fun periodRange(p: Period, today: LocalDate): String {
     fun day(d: LocalDate) = if (d.year == today.year) monthDay(d) else "${monthDay(d)}, ${d.year}"

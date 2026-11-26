@@ -153,6 +153,7 @@ fun CardioTypeScreen(vm: AppViewModel, nav: NavHostController, typeId: String, c
                 intervalLogs.filter { it.sessionId == s.id }.mapNotNull { shownRoundHr(it, facts.getValue(s.id)) }.takeIf { it.isNotEmpty() }?.let { ChartPoint(s.date.toDate(), it.average()) }
             }
             if (work.isNotEmpty()) { ChartTitle("Heart rate in work intervals"); LineChart(work, "bpm", decimals = 0) }
+            ScoreChartsView(vm, cs, byId, facts) { ChartTitle(it) }
             val time = cs.mapNotNull { s -> s.timeSec?.let { ChartPoint(s.date.toDate(), it / 60.0) } }
             if (pace.isEmpty() && hr.isEmpty() && time.isNotEmpty()) { ChartTitle("Time, min"); LineChart(time, "min", decimals = 0) }
             SectionTitle("Sessions · newest first", Modifier.padding(top = 24.dp))

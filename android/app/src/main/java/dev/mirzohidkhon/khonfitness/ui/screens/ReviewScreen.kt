@@ -49,6 +49,7 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
             if (s.itemType == ItemType.PROGRAM) reviewExercises(logs).forEach { sets -> ExerciseReview(sets) }
             if (s.itemType == ItemType.PROGRAM) picture?.let { SetsInOrder(it.rows) }
             else CardioReview(s, facts, intervals, exercises.find { it.id == s.exerciseId }?.let { ex -> modalities.find { it.id == ex.modalityId }?.name })
+            if (s.itemType == ItemType.CARDIO) ReviewScores(vm, s, exercises.find { it.id == s.exerciseId }, facts, intervals)
             if (s.note.isNotBlank() || s.effort != null) {
                 SectionTitle("Notes", Modifier.padding(top = 12.dp))
                 GroupedList {

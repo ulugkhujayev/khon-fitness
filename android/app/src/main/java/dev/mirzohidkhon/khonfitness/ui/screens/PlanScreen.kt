@@ -437,7 +437,10 @@ private fun Settings(vm: AppViewModel, onHeartData: () -> Unit) {
     )
 
     SectionTitle("Health", Modifier.padding(top = 24.dp))
-    GroupedList { ListRow("Heart rate data", divider = false, leading = { IconTile(Icons.Heart, K.Red) }, onClick = onHeartData) }
+    GroupedList {
+        ListRow("Heart rate data", divider = false, leading = { IconTile(Icons.Heart, K.Red) }, onClick = onHeartData)
+        MaxHeartRow(vm, divider = true)
+    }
 
     val status = updateStatus(update, progress, downloadError)
     SectionTitle("App", Modifier.padding(top = 24.dp))
@@ -485,6 +488,6 @@ private fun Settings(vm: AppViewModel, onHeartData: () -> Unit) {
     }
     if (confirmReset) ConfirmSheet("Reset to built-in data?", "Every session, bodyweight, program and setting goes back to the built-in data.", "Reset", onDismiss = { confirmReset = false }) {
         confirmReset = false
-        vm.run { vm.repo.resetToSeed(); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context); backupStatus = BackupStatus("Reset to built-in data.") }
+        vm.run { vm.repo.resetToSeed(); vm.maxHeartRate.set(null); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context); backupStatus = BackupStatus("Reset to built-in data.") }
     }
 }

@@ -42,7 +42,7 @@ sealed interface MaxEntry {
     data object Refused : MaxEntry
 }
 
-private val WHOLE_BPM = Regex("[1-9][0-9]*")
+private val WHOLE_BPM = Regex("[0-9]+")
 
 fun maxEntry(text: String): MaxEntry {
     if (text.isEmpty()) return MaxEntry.Clear
@@ -92,18 +92,23 @@ private fun IntervalLog.clock(): RoundClock? {
 
 private fun RoundClock.overlaps(from: Long, to: Long): Boolean = start < to && from < end
 
-private fun disagreeingRounds(clocks: List<RoundClock?>): Set<Int> =
+private fun IntervalLog.stamps(): List<Long> = listOfNotNull(startedAt, endedAt)
+
+private fun List<IntervalLog>.stampsExcept(i: Int): List<Long> = filterIndexed { j, _ -> j != i }.flatMap { it.stamps() }
+
+private fun disagreeingRounds(rounds: List<IntervalLog>, clocks: List<RoundClock?>): Set<Int> =
     clocks.indices.filterTo(mutableSetOf()) { i ->
         val c = clocks[i] ?: return@filterTo false
         val overlaps = clocks.withIndex().any { (j, o) -> j != i && o?.overlaps(c.start, c.end) == true }
-        val before = clocks.subList(0, i).lastOrNull { it != null }
-        overlaps || (before != null && c.start <= before.end)
+        val inside = rounds.stampsExcept(i).any { it > c.start && it < c.end }
+        val before = rounds.subList(0, i).flatMap { it.stamps() }.maxOrNull()
+        overlaps || inside || (before != null && c.start <= before)
     }
 
 fun roundScores(range: HrRange, buckets: List<HrSample>, rounds: List<IntervalLog>): List<RoundScore> {
     val sorted = rounds.sortedBy { it.index }
     val clocks = sorted.map { it.clock() }
-    val disagree = disagreeingRounds(clocks)
+    val disagree = disagreeingRounds(sorted, clocks)
     fun within(from: Long, to: Long) = buckets.filter { bucketAtMs(range, it) in from until to }
     return sorted.indices.map { i ->
         val none = RoundScore(i + 1, null, null)
@@ -117,7 +122,8 @@ fun roundScores(range: HrRange, buckets: List<HrSample>, rounds: List<IntervalLo
             else -> sorted[i + 1].startedAt
         }
         val restTo = restEnd?.let { minOf(it, range.toMs) }
-        val restHasWork = restTo != null && clocks.withIndex().any { (j, o) -> j != i && o?.overlaps(c.end, restTo) == true }
+        val restHasWork = restTo != null &&
+            (clocks.withIndex().any { (j, o) -> j != i && o?.overlaps(c.end, restTo) == true } || sorted.stampsExcept(i).any { it >= c.end && it < restTo })
         val rest = restTo?.takeUnless { restHasWork }?.let { within(c.end, it) }.orEmpty()
         val drop = if (rest.size >= MIN_REST_BUCKETS) work.last().bpm - rest.minOf { it.bpm } else null
         RoundScore(i + 1, work.maxOf { it.bpm }, drop)

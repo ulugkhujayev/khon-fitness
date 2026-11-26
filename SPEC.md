@@ -490,7 +490,10 @@ time.
   or to the range end after the last round. The drop needs a peak and 2 or
   more buckets in the rest. A negative drop shows as it is.
 - A round without both times, or one that starts outside the range, has no
-  figures.
+  figures. Neither has a round whose times disagree with another round: it
+  overlaps one, it starts at or before a time of an earlier round, or a
+  time of another round lies inside it. A rest that holds work or a time
+  of another round gives no drop.
 
 Review of a finished cardio session with a filled read adds a "Heart rate"
 group after its rounds, or after its figures when it has no rounds. A

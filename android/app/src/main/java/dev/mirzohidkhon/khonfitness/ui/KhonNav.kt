@@ -83,6 +83,8 @@ object Routes {
     fun cardioType(id: String) = "cardiotype/$id"
     /** Every strength exercise, searchable; each opens its exercise detail. */
     const val LIFTS = "lifts"
+    /** Two periods side by side (Progress). */
+    const val COMPARE = "compare"
     const val STRETCHES = "stretches"
     const val IMPORT = "import"
     const val LIBRARY = "library"; const val WEEK_PLAN = "weekplan"; const val SETTINGS = "settings"
@@ -139,6 +141,7 @@ fun KhonNav() {
                 composable("lift/{id}") { e -> ExerciseDetailScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                 composable(Routes.LIFTS) { LiftListScreen(vm, nav) }
+                composable(Routes.COMPARE) { CompareScreen(vm, nav) }
                 composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
                 composable(Routes.IMPORT) { ImportScreen(vm, nav) }
                 composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }

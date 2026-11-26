@@ -128,6 +128,7 @@ class TapTargetTest {
                     composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                     composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                     composable(Routes.LIFTS) { LiftListScreen(vm, nav) }
+                    composable(Routes.COMPARE) { CompareScreen(vm, nav) }
                     composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
                     composable(Routes.IMPORT) { ImportScreen(vm, nav) }
                 }
@@ -188,6 +189,18 @@ class TapTargetTest {
         compose.runOnIdle { nav.navigate(Routes.exerciseDetail("bench")) }
         waitFor { shows("Bench press") }
         assertTargets("Exercise detail")
+    }
+
+    @Test fun `the compare screen and its period sheet have 48 dp targets`() {
+        seed(); openApp()
+        compose.runOnIdle { nav.navigate(Routes.COMPARE) }
+        waitFor { shows("Last 4 weeks") && shows("Best set") }
+        assertTargets("Compare")
+        compose.onNodeWithText("Last 4 weeks").performSemanticsAction(SemanticsActions.OnClick)
+        waitFor { shows("Right column") }
+        compose.onNodeWithText("Custom dates").performSemanticsAction(SemanticsActions.OnClick)
+        waitFor { shows("From") }
+        assertTargets("Compare period sheet")
     }
 
     @Test fun `Plan, its library and search have 48 dp targets`() {

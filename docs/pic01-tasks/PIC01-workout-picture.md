@@ -134,3 +134,10 @@ The status is the first word of the second cell: `done`, `deviation`, or
 
 Run `~/.config/agents/tools/task-result check <task file>` before your final
 message.
+
+## Lead decisions after the build
+
+- H5: a round gives a band when it starts inside the range; its end is cut at the range end.
+- H6: steps of 10 or 20 with 3 to 5 lines; when the buckets span more than 80 bpm above the lowest line, the step grows to 30, 40, 50, or 100.
+- H10: a set row has two lines: the name with the clock time on the right; the set text with the time since the set before and the bpm on the right.
+- The chart is 190 dp high, as `DESIGN.md` says for every chart.

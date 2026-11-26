@@ -147,11 +147,9 @@ fun CardioTypeScreen(vm: AppViewModel, nav: NavHostController, typeId: String, c
                 ChartTitle("Pace ${if (swim) "/100 m" else "/km"}")
                 LineChart(pace, "", format = { m -> val sec = Math.round(m * 60); "%d:%02d".format(sec / 60, sec % 60) })
             }
-            val hr = cs.mapNotNull { s -> shownAvgHr(s, facts.getValue(s.id))?.let { ChartPoint(s.date.toDate(), it.toDouble()) } }
+            val hr = avgHrPoints(cs, facts)
             if (hr.isNotEmpty()) { ChartTitle("Average heart rate"); LineChart(hr, "bpm", decimals = 0) }
-            val work = cs.filter { byId[it.exerciseId]?.intervals == true }.mapNotNull { s ->
-                intervalLogs.filter { it.sessionId == s.id }.mapNotNull { shownRoundHr(it, facts.getValue(s.id)) }.takeIf { it.isNotEmpty() }?.let { ChartPoint(s.date.toDate(), it.average()) }
-            }
+            val work = workHrPoints(cs.filter { byId[it.exerciseId]?.intervals == true }, intervalLogs, facts)
             if (work.isNotEmpty()) { ChartTitle("Heart rate in work intervals"); LineChart(work, "bpm", decimals = 0) }
             val time = cs.mapNotNull { s -> s.timeSec?.let { ChartPoint(s.date.toDate(), it / 60.0) } }
             if (pace.isEmpty() && hr.isEmpty() && time.isNotEmpty()) { ChartTitle("Time, min"); LineChart(time, "min", decimals = 0) }

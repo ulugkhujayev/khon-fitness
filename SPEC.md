@@ -435,11 +435,14 @@ nothing. The maximum is always the measured one.
   first and last reading, the longest gap, each work round's average, the
   source app and other apps seen, average and maximum. A fact without a
   value is left out.
+  The sheet shows what the band sent: its round rows and its "Average"
+  row are measured values, also when the owner typed one.
 - The sheet has "Read again" (not without a range) and "Remove" (only
   while a row that is not off exists; it asks first). "Read again" shows
   its result as one line: the new values, "No data yet", or "Health
-  Connect did not answer". A result that no longer matches the row shows
-  nothing. A second tap while a read runs does nothing. A session deleted
+  Connect did not answer". The line belongs to the open sheet, the range
+  that was read, and the row the read left. Remove, a range change, a new
+  row, or a closed sheet clears it. A second tap while a read runs does nothing. A session deleted
   meanwhile closes the sheet.
 - A finished gym session without a range that "Use this time range"
   accepts shows its start and finish as clock times and that action.

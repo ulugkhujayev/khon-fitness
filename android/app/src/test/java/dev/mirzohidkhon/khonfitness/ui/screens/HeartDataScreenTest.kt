@@ -53,10 +53,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/**
- * "Heart rate data" and the places that show a session's heart rate, against Room with a fake band: the list, the
- * sheet and its actions, Review's line, and the cardio form's placeholders.
- */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w360dp-h1200dp")
 class HeartDataScreenTest {
@@ -80,9 +76,14 @@ class HeartDataScreenTest {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         fake = FakeHeart()
         fill = app.repo.heartFill(fake, scope)
+        KhonApp::class.java.getDeclaredField("heartFill\$delegate").apply { isAccessible = true }.set(app, lazyOf(fill))
     }
 
-    @After fun close() { vm.viewModelScope.cancel(); scope.cancel(); app.scope.cancel(); app.db.close() }
+    /** The rule ends the activity only after @After, and its screen still reads the database. */
+    @After fun close() {
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.DESTROYED)
+        vm.viewModelScope.cancel(); scope.cancel(); app.scope.cancel(); app.db.close()
+    }
 
     private fun io(block: suspend () -> Unit) = runBlocking(Dispatchers.IO) { block() }
     private fun t(h: Int, m: Int, day: LocalDate = yesterday) = day.atTime(h, m).atZone(zone).toInstant().toEpochMilli()
@@ -109,7 +110,7 @@ class HeartDataScreenTest {
     private var round by mutableIntStateOf(0)
     private var started = false
 
-    /** Shows [content] afresh, with new screen state: the rule takes one setContent per test. */
+    /** The compose rule takes one setContent per test, so a new screen state comes from a new key. */
     private fun show(content: @Composable () -> Unit) {
         if (!started) {
             started = true
@@ -124,13 +125,15 @@ class HeartDataScreenTest {
     /** A tap inside a sheet, as its click action: Robolectric drops a touch on a sheet that is still settling. */
     private fun click(text: String) { compose.onNodeWithText(text).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); compose.waitForIdle() }
 
-    /** Waits until the fake band holds a read; each check lets the main looper run, where the screen's read resumes. */
+    /** waitUntil alone does not run the main looper, where the screen's read resumes. */
     private fun reached() = compose.waitUntil(5_000) { compose.waitForIdle(); fake.reached.isCompleted }
 
-    /** Waits until no "Read again" runs: its row is on again. */
     private fun readDone() = compose.waitUntil(5_000) {
         compose.onAllNodesWithText("Read again").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled) == false
     }
+
+    private fun disabled(text: String) =
+        compose.onAllNodesWithText(text).fetchSemanticsNodes().single().config.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)
 
     private fun openSheet(name: String) {
         waitSaid("$name,")
@@ -196,9 +199,12 @@ class HeartDataScreenTest {
         fake.hold()
         click("Read again")
         reached()
+        assertTrue(disabled("Read again"))
         click("Read again")
+        assertTrue(disabled("Read again"))
         fake.release()
         shows("Health Connect did not answer")
+        assertTrue(!disabled("Read again"))
         assertEquals(1, fake.calls.size)
         shows("128 bpm"); shows("412 read · 398 used")
         fake.answer = { r -> everyMinute(r, bpm = 140) }
@@ -282,11 +288,12 @@ class HeartDataScreenTest {
         assertEquals("avg 141 bpm", hrLine(run, hrFacts(run, runOff, zone)))
     }
 
-    @Test fun `Use this time range for a 40 minute gym session only`() {
+    @Test fun `Use this time range for a 40 minute gym session only, and the sheet follows its own fill`() {
         val forty = gym("g40", "Push", yesterday, minutes = 40, ranged = false)
         val nine = gym("g9", "Pull", today.minusDays(2), minutes = 9, ranged = false)
         val run = Session("c", yesterday.iso(), t(7, 0), t(7, 31), ItemType.CARDIO, exerciseId = "z2", exerciseName = "Zone 2 run")
         io { dao.upsert(forty); dao.upsert(nine); dao.upsert(run) }
+        fake.answer = { r -> everyMinute(r, bpm = 131) }
         screen()
         waitSaid("Push,")
         compose.onNodeWithContentDescription("Push,", substring = true).performClick()
@@ -294,13 +301,10 @@ class HeartDataScreenTest {
         assertTrue(texts("Read again").isEmpty())
         click("Use this time range")
         gone("Use this time range")
-        shows("Not read"); shows("Read again")
+        shows("Maximum"); shows("131 bpm"); shows("Read again")
+        assertEquals(listOf(HrRange(forty.startedAt, forty.finishedAt!!)), fake.calls)
         val stored = io2 { dao.session("g40") }!!
         assertEquals(forty.startedAt, stored.timedFrom); assertEquals(forty.finishedAt, stored.timedTo)
-        fake.answer = { r -> everyMinute(r, bpm = 131) }
-        click("Read again")
-        shows("avg 131 · max 131 bpm")
-        compose.onNodeWithText("avg 131 · max 131 bpm").assertExists()
 
         for (name in listOf("Pull", "Zone 2 run")) {
             screen()
@@ -395,6 +399,142 @@ class HeartDataScreenTest {
     }
 
 
+    private fun lateFailure(change: (Session) -> Unit) {
+        val push = gym("g", "Push", yesterday)
+        io { dao.upsert(push); dao.upsertSessionHr(filled(push)) }
+        screen()
+        openSheet("Push")
+        fake.answer = { throw IllegalStateException("no provider") }
+        fake.hold()
+        click("Read again")
+        reached()
+        change(push)
+        fake.release()
+        compose.waitUntil(5_000) { compose.waitForIdle(); fake.active == 0 }
+        compose.waitForIdle()
+    }
+
+    private val failure = "Health Connect did not answer"
+
+    @Test fun `a late failure after Remove shows nothing`() {
+        lateFailure { click("Remove"); shows("Remove heart rate?"); click("Remove"); shows("Removed") }
+        readDone()
+        assertTrue(texts(failure).isEmpty())
+    }
+
+    @Test fun `a late failure after a range change shows nothing`() {
+        lateFailure { push -> io { dao.upsert(push.copy(timedTo = push.timedTo!! + 60_000)) }; shows("18:02 to 19:15") }
+        readDone()
+        assertTrue(texts(failure).isEmpty())
+    }
+
+    @Test fun `a late failure after a new row of the same state shows nothing`() {
+        lateFailure { push -> io { dao.upsertSessionHr(filled(push, avg = 130)) }; shows("130 bpm") }
+        readDone()
+        assertTrue(texts(failure).isEmpty())
+        shows("130 bpm")
+    }
+
+    @Test fun `a late failure after the sheet closed shows nothing when it opens again`() {
+        lateFailure { closeSheet(); gone("Time range") }
+        openSheet("Push")
+        readDone()
+        assertTrue(texts(failure).isEmpty())
+    }
+
+    @Test fun `a late failure after a delete shows nothing, also when the session comes back`() {
+        lateFailure { push -> io { app.repo.deleteSession(push.id) }; gone("Time range") }
+        assertTrue(texts(failure).isEmpty())
+        io { dao.upsert(gym("g", "Push", yesterday)) }
+        openSheet("Push")
+        readDone()
+        assertTrue(texts(failure).isEmpty())
+    }
+
+    private fun closeSheet() {
+        compose.onNodeWithContentDescription("Close sheet").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        compose.waitForIdle()
+    }
+
+    @Test fun `the sheet shows measured values where Review shows the typed ones`() {
+        val run = Session("c", yesterday.iso(), t(7, 0), t(7, 31), ItemType.CARDIO, exerciseId = "z2", exerciseName = "Zone 2 run", timedFrom = t(7, 0), timedTo = t(7, 30), avgHr = 141)
+        io {
+            dao.upsert(Exercise("z2", "Zone 2 run", Kind.CARDIO, intervals = true, rounds = 1, fields = "time,avgHr"))
+            dao.upsert(run)
+            dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c", 0, avgHr = 150, startedAt = t(7, 0), endedAt = t(7, 1))))
+            dao.upsertSessionHr(filled(run).copy(samples = "0:140,5:148"))
+        }
+        show { ReviewScreen(vm, rememberNavController(), "c") }
+        shows("Round 1")
+        shows("150 bpm"); shows("141 bpm")
+        assertTrue(texts("144 bpm").isEmpty())
+        screen()
+        openSheet("Zone 2 run")
+        shows("144 bpm"); shows("128 bpm")
+        assertTrue(texts("150 bpm").isEmpty()); assertTrue(texts("141 bpm").isEmpty())
+    }
+
+    @Test fun `a read works with heart rate access only`() {
+        access = HeartAccess.withPermissions({ HcStatus.AVAILABLE }, { setOf(dev.mirzohidkhon.khonfitness.health.HealthHeartSource.HEART_READ) })
+        val push = gym("g", "Push", yesterday)
+        io { dao.upsert(push) }
+        fake.answer = { r -> everyMinute(r, bpm = 133) }
+        screen()
+        openSheet("Push")
+        assertTrue(texts("Read heart rate").isEmpty()); assertTrue(texts("Allow").isEmpty())
+        click("Read again")
+        shows("avg 133 · max 133 bpm")
+        assertEquals(HrState.FILLED, io2 { dao.sessionHr("g") }!!.state)
+        access = HeartAccess.withPermissions({ HcStatus.AVAILABLE }, { emptySet() })
+        screen()
+        shows("Read heart rate")
+    }
+
+    @Test fun `a restored cardio form saves no placeholder, and a typed session average is saved`() {
+        val run = Session("c", yesterday.iso(), t(7, 0), t(7, 31), ItemType.CARDIO, exerciseId = "z2", exerciseName = "Zone 2 run", timedFrom = t(7, 0), timedTo = t(7, 30), timeSec = 1800)
+        io {
+            dao.upsert(Exercise("z2", "Zone 2 run", Kind.CARDIO, intervals = true, rounds = 2, fields = "time,avgHr"))
+            dao.upsert(run)
+            dao.upsertIntervalLogs(listOf(IntervalLog("i1", "c", 0, startedAt = t(7, 0), endedAt = t(7, 1)), IntervalLog("i2", "c", 1, startedAt = t(7, 5), endedAt = t(7, 6))))
+            dao.upsertSessionHr(filled(run).copy(samples = "0:120,5:130,300:150,305:160"))
+        }
+        val restore = androidx.compose.ui.test.junit4.StateRestorationTester(compose)
+        var generation by mutableIntStateOf(0)
+        restore.setContent {
+            KhonTheme {
+                androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) {
+                    key(generation) {
+                        val nav = rememberNavController()
+                        var opened by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+                        NavHost(nav, startDestination = "history") {
+                            composable("history") {
+                                androidx.compose.material3.Text("History screen")
+                                LaunchedEffect(Unit) { if (!opened) { opened = true; nav.navigate("cardio") } }
+                            }
+                            composable("cardio") { CardioScreen(vm, nav, "c") }
+                        }
+                    }
+                }
+            }
+        }
+        shows("Round 2"); shows("128"); shows("125"); shows("155")
+        restore.emulateSavedInstanceStateRestore()
+        shows("Round 2"); shows("128"); shows("125"); shows("155")
+        compose.onNodeWithText("Save").performClick()
+        shows("History screen"); gone("Round 2")
+        assertNull(io2 { dao.session("c") }!!.avgHr)
+        assertEquals(listOf(null, null), io2 { dao.intervalLogsFor("c") }.map { it.avgHr })
+
+        compose.runOnIdle { generation++ }
+        shows("Round 2"); shows("128")
+        compose.onNode(androidx.compose.ui.test.hasSetTextAction() and androidx.compose.ui.test.hasAnyDescendant(androidx.compose.ui.test.hasText("128")), useUnmergedTree = true)
+            .performTextReplacement("137")
+        compose.waitForIdle()
+        compose.onNodeWithText("Save").performClick()
+        shows("History screen"); gone("Round 2")
+        assertEquals(137, io2 { dao.session("c") }!!.avgHr)
+        assertEquals(listOf(null, null), io2 { dao.intervalLogsFor("c") }.map { it.avgHr })
+    }
 
     private fun <T> io2(block: suspend () -> T): T = runBlocking(Dispatchers.IO) { block() }
 }

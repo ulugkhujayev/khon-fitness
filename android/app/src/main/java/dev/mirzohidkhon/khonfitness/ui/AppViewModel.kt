@@ -28,6 +28,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val allSessionHr = stream(repo.allSessionHr, emptyList())
     val maxHeartRate: MaxHeartRate = (app as KhonApp).maxHeartRate
     val typedMaxHr = stream(maxHeartRate.typed, null)
+    val targets: dev.mirzohidkhon.khonfitness.data.Targets = (app as KhonApp).targets
+    val bodyTarget = stream(targets.body, null)
     val stretches = stream(repo.stretches, emptyList())
     val stretchRoutines = stream(repo.stretchRoutines, emptyList())
     val routineStretches = stream(repo.routineStretches, emptyList())

@@ -135,6 +135,7 @@ fun HistoryProgress(vm: AppViewModel, nav: NavHostController, today: LocalDate) 
             else LineChart(inRange.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp), trend = trendPoints(bodyweights, inRange))
         }
     }
+    BodyTargetGroup(vm, bodyweights, today, Modifier.padding(top = 16.dp))
 
     // ---- Cardio by type: every type ever used, its last 30 days
     val types = cardioTypes(sessions, exercises, today, order = modalities.map { it.id })

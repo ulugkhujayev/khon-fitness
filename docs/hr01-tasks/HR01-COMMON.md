@@ -61,8 +61,10 @@ New nullable columns, epoch ms unless said:
     ("Use this time range", below).
 - `sessions.startedElapsed`: the elapsed-realtime value at the start of a
   gym session (the anchor of "Verified clocks"). Null for older sessions.
-- `sessions.timerRun`: the identity (anchor wall time) of the last timer
-  run that a commit accepted, also when that run stored no clock times.
+- `sessions.timerRun INTEGER`, `sessions.timerDone INTEGER`: run numbers
+  of the session, no clock in them. `timerRun` is the number of the
+  latest run that started; `timerDone` is the number of the latest run
+  whose commit was accepted.
 - `sessions.linkedIds TEXT`: Health Connect record ids, joined by `,`,
   merged into this app session. `sourceId` keeps its meaning ("this
   session was imported"); a session with `linkedIds` is an app session.
@@ -206,12 +208,13 @@ when the clocks are in step at that instant.
   finishedAt`, and a fill is asked. Any other session: refused, nothing
   written. This is the only way a session from before this version, or a
   session whose clocks were not in step, gets a range.
-- **The timer run.** A run carries its session id and its anchor. The
-  anchor is taken by the action that starts the counting (the Start on
-  the screen or in the notification), never while the timer waits on
-  Ready; a Stop before that action stores nothing. Every time of the
-  run is `anchor wall + (elapsed-realtime now - anchor elapsed)`. The run
-  identity is the anchor wall time.
+- **The timer run.** A run carries its session id, its run number, and
+  its anchor. The Start action (on the screen or in the notification)
+  takes the anchor and, in one transaction, gives the run its number:
+  `timerRun + 1` (1 for the first), written to `sessions.timerRun`. The
+  timer takes no anchor and no number while it waits on Ready; a Stop
+  before Start stores nothing. Every time of the run is `anchor wall +
+  (elapsed-realtime now - anchor elapsed)`.
   - A work round gets its start when work begins and its end when work
     ends (its last second, Skip, or Stop). A pause inside a round stays
     inside its range. A round that never started has no times. When one
@@ -226,11 +229,11 @@ when the clocks are in step at that instant.
     the times of every round by index (rounds that did not run get null).
     An untrusted run writes the duration only and sets all its clock
     fields to null.
-  - Every accepted commit sets `timerRun` to the run's identity. It
-    writes nothing when the session is gone. It writes nothing when
-    `timerRun` holds this run or a newer one: a replay or a late older
-    run cannot change anything, also after an untrusted run cleared the
-    clock fields.
+  - The commit of run n is accepted only when the session exists,
+    `timerRun = n` (no newer run started), and `timerDone` is not n (not
+    committed yet). It then sets `timerDone = n`. So a replay and a late
+    older run change nothing, whatever the clocks did, also after an
+    untrusted run cleared the clock fields or the owner typed a duration.
   - The snapshot of an ended run is cleared only after its commit
     returns, and only when the stored snapshot is still that run. A
     failed commit keeps it; the app commits it at its next start, and
@@ -290,13 +293,17 @@ when the clocks are in step at that instant.
     with its reason and cannot merge.
   - The owner can answer "Keep both" for a pair; it is not listed again
     (a DataStore set of `A id|B id`).
-  - `mergePairs(pairs)`, only from an owner action: first write
+  - `mergePairs(pairs, unique)`, only from an owner action. Each asked
+    pair carries the rows the owner saw (A, B, and their logs). First write
     `backups/before-merge-<time>.json` in the folder of the existing
     "before-import" copies with the full export, read it back, and parse
     it; a failure stops with nothing changed. Then one transaction: for
     each asked pair, check on fresh rows that it is still a candidate and
-    not blocked, and that A, B, and their logs equal the rows in the
-    parsed copy; then merge it; else skip it and report why.
+    not blocked, and that A, B, and their logs equal both the rows the
+    owner saw and the rows in the parsed copy; with `unique` ("Merge
+    all") also that neither A nor B has another candidate now; then merge
+    it; else skip it and report why. It never merges a pair that was not
+    asked.
   - The merge of one pair:
     - Band-derived fields (`avgHr`, `distanceM`, `laps`, `poolLength`,
       `timeSec`, a round's `avgHr`): A's value stays; a null takes B's.
@@ -340,5 +347,6 @@ when the clocks are in step at that instant.
 | R4: the migration trusts old gym clocks; an old pair matched by the time of Save | The migration gives a range only to band imports. An older gym session gets one only when the owner confirms the shown range. An old app session is placed by its measured duration, never by its Save time. |
 | R4 C38: the phone clock is wrong by the same amount from Start to Finish | Not taken. No clock on the phone can show it, and the band takes its time from the same phone, so both timelines carry the same error. |
 | R5: time on Ready or a typed duration makes a false old pair | The app deletes nothing by itself. The owner decision of 2026-11-26 ("merge them once") becomes: the app lists the candidate pairs once found, and the owner merges them with one action. The lead reports this change to the owner. |
+| R6: a late older timer run after a backward clock correction; a merge confirmed on facts that changed; a new candidate after "Merge all" | Run numbers without a clock (`timerRun`, `timerDone`); `mergePairs` checks the rows the owner saw; "Merge all" checks one-to-one again on fresh rows. |
 | R1: a Room journal for the merge, generations on disk, platform backup rules, a recovery screen | Not taken. The merge has no automatic pass any more; replace stops the timer; the existing Restore sheet is the recovery route; platform backup is an owner question. |
 | R1: the import's default exercise choice and "Import all" against the no-suggestion rule | Not changed: it maps a band record to one of the owner's own exercises and exists today. Reported to the owner. |

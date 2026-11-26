@@ -73,11 +73,15 @@ fact or an action name.
   minus the kept ones. Entry: one row "Double sessions" with the count in
   Settings, and one row with the same text at the top of the Import
   screen; both rows are absent when the count is 0. One list row per
-  pair: the exercise name over the date; on the right the two start
-  times ("18:00 app · 18:02 band"). A tap opens a sheet with the facts of
-  both sessions in two labeled groups, "App session" and "Band session":
-  start, duration, average heart rate, distance, rounds with their
-  values, effort, note; rows without a value are absent. Under them the
+  pair: the exercise name over the date; on the right the band session's
+  own time ("18:02 to 18:40"). A tap opens a sheet with the facts of
+  both sessions in two labeled groups, "App session" and "Band session".
+  Band session: its start and end. App session: "Timer 18:02 to 18:40"
+  when it has stored bounds, else "Created 18:00" and "Duration 38 min"
+  under those two names, never as a start and end. Then for both: every
+  value the merge can copy or leave (average heart rate, distance, laps,
+  pool length, stroke, watts, effort, each round with its heart rate and
+  watts, note); rows without a value are absent. Under them the
   actions "Merge" and "Keep both". A blocked pair shows its reason as a
   fact line ("Both sessions have another effort") and no "Merge". Under
   the list, one action "Merge all" when two or more pairs can merge that
@@ -110,7 +114,7 @@ Import screen beyond the one entry row, the version number, the manifest. No new
 | E7 | Remove | Tap on a filled row | The row shows "Removed"; Review and the other places show no measured value for that session; typed values still show; "Remove" is absent now; "Read again" brings the data back. |
 | E7a | Use this time range | A gym session of 40 min without a range; one of 9 min; a cardio session without a range | The first shows "18:02 to 18:42" and the action; a tap stores the range, the action goes, and the state follows the read. The others show "No time range" and no action. |
 | E7b | Double sessions | No pair; one pair; a blocked pair; three pairs of which one has two candidates | No entry rows with no pair. The list, the sheet with both groups of facts, and the actions as in Scope. The blocked pair has its reason and no "Merge". "Merge all" names the count of pairs it will merge (2) and leaves the ambiguous one listed. |
-| E7c | Double sessions | Tap "Merge"; tap it twice fast; tap "Keep both"; the merge is refused because a row changed; the safety copy cannot be written | One merge; the pair leaves the list; History shows one session with the merged values. "Keep both" removes the pair from the list for good. A refusal or a failed copy shows its reason and changes nothing. |
+| E7c | Double sessions | Tap "Merge"; tap it twice fast; tap "Keep both"; the merge is refused because a row changed; the safety copy cannot be written | One merge; the pair leaves the list; History shows one session with the merged values. "Keep both" removes the pair from the list for good. A refusal or a failed copy shows its reason and changes nothing; after a refusal for changed facts the sheet shows the fresh facts. The sheet of an app session without stored bounds says "Created" and "Duration", and shows watts and stroke when B has them. |
 | E8 | Provider | No Health Connect; no heart rate permission; heart rate without distance | The Import screen's state and action for the first two; the third works with no prompt. |
 | E9 | Restore | A `before-merge` copy and a `before-import` copy exist | Both listed, each named by kind and time; restoring the merge copy works as the existing restore. |
 | E10 | Layout | The new screen and sheet at font scale 1.0 and 1.3, widths 360 and 411 dp | No clipped or overlapping text; touch targets at least 48 dp; contrast as `ContrastTest` requires; the existing `TapTargetTest` rules pass for the new screen. |

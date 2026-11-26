@@ -294,8 +294,11 @@ when the clocks are in step at that instant.
 - Ids in `linkedIds` count as imported, like `sourceId`.
 - The list and the count read their local rows (claimed ids, session
   ranges, modalities) in one Room read transaction.
-- `importDraft` is refused while an ended timer run waits for its
-  commit. It checks again inside its write, on each original record of
+- One repository lock orders the end of a timer run (from "run ended"
+  until its commit returned or its result is kept as pending) and the
+  import write. `importDraft` waits for the startup restore of the timer
+  snapshot, takes the lock, and is refused while an ended timer run
+  waits for its commit. It checks again inside its write, on each original record of
   the draft: no id is imported or linked, and no record is covered now. A
   refused import writes nothing; the screen reads the list again. A saved
   import stores the band's bounds in `timedFrom`, `timedTo` and asks for
@@ -385,6 +388,7 @@ when the clocks are in step at that instant.
 | R7: a timer commit lands after the owner typed a duration; an old snapshot after the upgrade; a file lowers run numbers; a timer that starts after midnight; facts for "Merge all" | The duration is written only over the value noted at Start; old snapshots get a number at restore; merge keeps the greater run numbers; the date rule also accepts the creation date; "Merge all" shows each pair's facts before the owner accepts. The lead ended the combined attack here: each later phase gets its own attack round before its build. |
 | R8: timer and backup merge as one unit; stale confirmation; HR rows with bad values in a file; a skipped set checked directly; a failed Replace | Merge: the local unit wins, and what no longer fits is cleared. `confirmRange` carries the shown bounds. File HR rows are checked by value. A check from skipped stamps. The snapshot is cleared after a successful Replace only. The old-version snapshot gets no number. Every import raises the generation, and the timer commit checks it. |
 | R8, refused by the lead | A typed Time that returns to its value at Start while a timer commit is held (the commit waits only after a process death at the timer's end, and the app retries it at its start). A reboot whose new uptime matches the old anchor within 2 s (needs an anchor taken in the first 2 s after a boot, or a clock change of the same size together with a reboot). A date edit between the creation day and the timer's start day (both are days of the workout). The attack loop ends here after eight rounds without a closed verdict; the deep review of the built code follows. |
+| Phase 2 attack R3 | One lock orders the timer's end and the import write (row D7c). The lead ended the phase 2 attack here: round 3 had this one row, and it is in the contract. |
 | Phase 2 attack R2 | One read transaction for the list and the count; a failed import write rolls back, the screen reloads, and "Import all" goes on; the import is refused while a timer result is pending. Refused by the lead: a strength record that groups with an unknown workout (the grouping of today, not changed here; noted for the owner). |
 | Phase 2 attack R1, refused by the lead | A band record that the provider changes or removes while its draft is open, and an exercise that is deleted or changed after the owner chose it: the import does today what it did before, and this task does not change it. A count on Today that is one screen visit old. |
 | R1: a Room journal for the merge, generations on disk, platform backup rules, a recovery screen | Not taken. The merge has no automatic pass any more; replace stops the timer; the existing Restore sheet is the recovery route; platform backup is an owner question. |

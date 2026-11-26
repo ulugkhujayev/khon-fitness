@@ -220,8 +220,8 @@ class SetupRulesTest {
         assertEquals("Since Oct 5", rows[0].dates)
         assertEquals("Dec 5, 2025 – Oct 4", rows[1].dates)
         assertEquals("4 sets · 5 reps", rows[0].tail)
-        assertEquals("Since Oct 5, TP v3, 4 sets, 5 repetitions, no rate", rows[0].spoken)
-        assertEquals("Dec 5, 2025 to Oct 4, TP v3, 3 sets, 8 to 12 repetitions, no rate", rows[1].spoken)
+        assertEquals("Since Oct 5, TP v3, 4 sets, 5 reps, no rate", rows[0].spoken)
+        assertEquals("Dec 5, 2025 to Oct 4, TP v3, 3 sets, 8 to 12 reps, no rate", rows[1].spoken)
         assertEquals("Since Dec 5, 2025", periodDates(setupPeriods(old).first(), null, today))
     }
 
@@ -231,7 +231,7 @@ class SetupRulesTest {
         val rows = periodRows(h, today)
         assertEquals(listOf("Since Oct 5", "Oct 1 – Oct 4"), rows.map { it.dates })
         assertEquals("Since Oct 5, Push – Pull · PM, 4 sets, 1 repetition, no rate", rows[0].spoken)
-        assertEquals("Oct 1 to Oct 4, Push – Pull · PM, 3 sets, 8 to 12 repetitions, no rate", rows[1].spoken)
+        assertEquals("Oct 1 to Oct 4, Push – Pull · PM, 3 sets, 8 to 12 reps, no rate", rows[1].spoken)
         assertEquals("Push – Pull · PM", rows[0].programName)
         assertEquals("4 sets · 1 rep", rows[0].tail)
     }

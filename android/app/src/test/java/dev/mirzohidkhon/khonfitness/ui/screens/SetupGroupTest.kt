@@ -89,10 +89,10 @@ class SetupGroupTest {
             .sortedBy { it.boundsInRoot.top }
         val spoken = rows.map { it.config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].single() }
         assertEquals(3, spoken.size)
-        assertTrue(spoken[0], spoken[0].startsWith("Since ${day(26)}, TP v4, 4 sets, 6 to 10 repetitions, plus "))
+        assertTrue(spoken[0], spoken[0].startsWith("Since ${day(26)}, TP v4, 4 sets, 6 to 10 reps, plus "))
         assertTrue(spoken[0], spoken[0].endsWith(" kilograms per week"))
-        assertTrue(spoken[1], spoken[1].startsWith("${day(54)} to ${day(27)}, TP v4, 4 sets, 5 to 8 repetitions, plus "))
-        assertEquals("${day(70)} to ${day(55)}, TP v3, 3 sets, 8 to 12 repetitions, no rate", spoken[2])
+        assertTrue(spoken[1], spoken[1].startsWith("${day(54)} to ${day(27)}, TP v4, 4 sets, 5 to 8 reps, plus "))
+        assertEquals("${day(70)} to ${day(55)}, TP v3, 3 sets, 8 to 12 reps, no rate", spoken[2])
         compose.onAllNodesWithContentDescription("TP v", substring = true).fetchSemanticsNodes().forEach {
             assertTrue("a rate row opens nothing", SemanticsActions.OnClick !in it.config)
         }

@@ -61,7 +61,7 @@ fun setupText(p: SetupPeriod): String = "${p.programName} · ${setupTail(p.setup
 fun setupTail(s: Setup): String = "${setCount(s)} · ${repRange(s)} ${if (oneRep(s)) "rep" else "reps"}"
 
 fun spokenSetup(p: SetupPeriod): String =
-    "${p.programName}, ${setCount(p.setup)}, ${repRange(p.setup, " to ")} ${if (oneRep(p.setup)) "repetition" else "repetitions"}"
+    "${p.programName}, ${setCount(p.setup)}, ${repRange(p.setup, " to ")} ${if (oneRep(p.setup)) "rep" else "reps"}"
 
 fun withWeight(history: List<LiftSession>): Boolean = history.any { h -> h.sets.any { countsAsDone(it) && (it.weightKg ?: 0.0) > 0 } }
 

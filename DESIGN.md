@@ -175,6 +175,21 @@ padded cards, per-item buttons, "Updated" lines.
   and Reset to built-in data in red on its own. A footnote under each
   says what it holds or does; the backup footnote shows how the last
   export or import went, red on error.
+- The compare screen (from the last row of Progress, a plain row with a
+  chevron) has the nav bar "Compare", then a group of two rows, the left
+  and the right period: the date range, the choice in muted text, a
+  chevron. Each opens a sheet titled "Left column" or "Right column" with
+  one choice list: six presets, the programs (name over a muted date
+  range), and Custom dates, whose From and To date rows appear under it
+  while it is checked. The facts follow as grouped lists under the
+  History section titles (the first group has none). Each row holds the
+  label, then two right-aligned value columns in tabular figures and the
+  same color. Both columns are as wide as the widest value on the screen,
+  at most 30 % of the row, so a long label wraps or ends in an ellipsis
+  and never moves them; a set wraps before "×", a pace before its unit.
+  When a value part does not fit that width (a large font on a narrow
+  phone), every row puts the label on its own line over the two columns.
+  A row speaks its label and each value with its period's range.
 - Empty state: one muted line, no illustration. Where a screen has nothing
   to show yet and an action fixes it, a card shows a 32 px symbol, a title
   in Headline, a muted 15 line and the action (iOS content-unavailable

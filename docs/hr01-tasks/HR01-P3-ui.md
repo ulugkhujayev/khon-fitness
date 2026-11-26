@@ -58,6 +58,10 @@ fact or an action name.
   name; other packages seen on a second row), average, maximum. Rows
   without a value are absent. Two actions under the facts: "Read again"
   (absent with no range) and "Remove" (absent with no row or `off`).
+  For a finished gym session with no range that `confirmRange` of phase 1
+  accepts, the sheet shows the session's start and finish as clock times
+  and one action "Use this time range"; after it the sheet shows the
+  state of the new range. No other session has this action.
   "Read again" shows its result in the sheet as a fact line: "No data
   yet", "Health Connect did not answer", or the new values. A second tap
   while one runs does nothing. A session deleted meanwhile closes the
@@ -88,6 +92,7 @@ Import screen, the version number, the manifest. No new dependency.
 | E5 | Sheet | A filled row; a sparse row (3 readings, one gap); a row with two packages; a row with no reading | Facts as in Scope, absent when null; one reading shows no gap; clock times in the phone's zone. |
 | E6 | Read again | Tap once; tap twice fast; the read fails; the read is sparse; the session is deleted during the read; the read commits and its result reaches the sheet after "Remove" or after the range changed | One request; the old facts stay on a failure; the result line as in Scope; no crash, the sheet closes on delete. A late result shows nothing by itself: the sheet and the list show what `hrFacts` gives now. |
 | E7 | Remove | Tap on a filled row | The row shows "Removed"; Review and the other places show no measured value for that session; typed values still show; "Remove" is absent now; "Read again" brings the data back. |
+| E7a | Use this time range | A gym session of 40 min without a range; one of 9 min; a cardio session without a range | The first shows "18:02 to 18:42" and the action; a tap stores the range, the action goes, and the state follows the read. The others show "No time range" and no action. |
 | E8 | Provider | No Health Connect; no heart rate permission; heart rate without distance | The Import screen's state and action for the first two; the third works with no prompt. |
 | E9 | Restore | A `before-merge` copy and a `before-import` copy exist | Both listed, each named by kind and time; restoring the merge copy works as the existing restore. |
 | E10 | Layout | The new screen and sheet at font scale 1.0 and 1.3, widths 360 and 411 dp | No clipped or overlapping text; touch targets at least 48 dp; contrast as `ContrastTest` requires; the existing `TapTargetTest` rules pass for the new screen. |

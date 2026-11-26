@@ -461,3 +461,9 @@ Paths omit `android/app/src/main/java/dev/mirzohidkhon/khonfitness/` unless they
 | M6 | [CardioScreen.kt:74], [Repository.kt:46], [Entities.kt:123] | Trace History edits on the imported side into pair planning. Include the edited date and owner values that exist only on the imported session or its rounds. |
 | M7 | [6-HR01-P3-ui.md:59] | Extend L8 with the explicit Read again result line. Follow its delivery after Remove or a range change, even when the read committed successfully. |
 | M8 | [Repository.kt:359], [Repository.kt:370] | Extend F4 and F5 with row-level decoding failures in `sessionHr`. Check both the Restore preview and the import. |
+
+## N. Entries added by attack R4
+
+- **N1 / C37.** Trace legacy gym start and Finish through the v4-to-v5 migration, then through `hrWindow`, the fill and `hrFacts`. Include a clock change before upgrade. [G13], [Repository.kt:267], [Dao.kt:223]
+- **N2 / C38.** Extend M1 from clock changes during a session to time already wrong when the app takes the anchor. Trace the result against data that Health Connect already holds. Check the shared anchor rule for the timer too. [M1], [Shared clock helper]
+- **N3 / D21.** Trace a legacy timer Stop, the later form Save and a separate band import into old-pair planning and deletion. Distinguish the duration written by Stop from the endpoint written by Save. [TimerService.kt:393], [Repository.kt:46], [Repository.kt:341]

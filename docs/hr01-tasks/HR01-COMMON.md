@@ -53,9 +53,11 @@ New nullable columns, epoch ms unless said:
   - **the import of a band workout**: the band's start and end;
   - **the old-pair merge** (phase 2): the band copy's start and end, when
     the app session has none;
-  - **the migration**, once: `startedAt` and `finishedAt` for a finished
-    gym session that lasted from 10 minutes to 4 hours, and for every
-    finished imported cardio session (`sourceId` set). Nothing else.
+  - **the migration**, once: `startedAt` and `finishedAt` (the band's own
+    bounds) for every finished imported cardio session (`sourceId` set).
+    Nothing else: an older gym session gets no range from the migration;
+  - **the owner**, by hand, for a finished gym session without a range
+    ("Use this time range", below).
 - `sessions.startedElapsed`: the elapsed-realtime value at the start of a
   gym session (the anchor of "Verified clocks"). Null for older sessions.
 - `sessions.timerRun`: the identity (anchor wall time) of the last timer
@@ -195,6 +197,14 @@ when the clocks are in step at that instant.
   `timedTo = min(finishedAt, last stamp + 5 min)`. With no stamp or clocks not in step, nothing
   is written, and the session has no range. Later edits of sets never
   change the stored range.
+- **"Use this time range"** (`confirmRange(sessionId)`): for a finished
+  gym session with no `timedFrom`, whose `date` is the local date of
+  `startedAt`, and whose `startedAt` to `finishedAt` lasts from 10
+  minutes to 4 hours. The screen shows that range as clock times and the
+  owner confirms it; then `timedFrom = startedAt`, `timedTo =
+  finishedAt`, and a fill is asked. Any other session: refused, nothing
+  written. This is the only way a session from before this version, or a
+  session whose clocks were not in step, gets a range.
 - **The timer run.** A run carries its session id and its anchor. The
   anchor is taken by the action that starts the counting (the Start on
   the screen or in the notification), never while the timer waits on
@@ -265,8 +275,9 @@ when the clocks are in step at that instant.
   its `startedAt` (a session the owner moved to another date is never in
   a pair). A = a finished app cardio session (`sourceId` and
   `linkedIds` null), with
-  the range `[timedFrom, timedTo)` when set, else `[startedAt,
-  finishedAt)`, at most 6 hours. B = a finished imported cardio session,
+  the range `[timedFrom, timedTo)` when set, else `[startedAt, startedAt
+  + timeSec)` (the duration the timer measured; the time of Save proves
+  nothing), at most 6 hours. An A with neither is never in a pair. B = a finished imported cardio session,
   range `[startedAt, finishedAt)`. They are a candidate pair when they
   have the same exercise or exercises of the same modality, and the
   overlap is at least half of both ranges. A pair merges only when A has
@@ -320,5 +331,7 @@ when the clocks are in step at that instant.
 | R2 D23: another band workout of the same modality inside a paused timer run | Not taken. Same modality, same time, half of both ranges is the same workout for one person. Hiding is undone by deleting the app session; the merge has the safety copy. |
 | R2 D24: B's edited average loses to A's | Band-derived fields: the app session's own value wins and B's stays in the safety copy. Owner-only fields block. |
 | R3: a moved phone clock during a gym session; an older timer result after an untrusted newer run; time on Ready | "Verified clocks" for gym and timer; `timerRun`; the anchor at Start. |
+| R4: the migration trusts old gym clocks; an old pair matched by the time of Save | The migration gives a range only to band imports. An older gym session gets one only when the owner confirms the shown range. An old app session is placed by its measured duration, never by its Save time. |
+| R4 C38: the phone clock is wrong by the same amount from Start to Finish | Not taken. No clock on the phone can show it, and the band takes its time from the same phone, so both timelines carry the same error. |
 | R1: a Room journal for the merge, generations on disk, platform backup rules, a recovery screen | Not taken. One transaction plus a flag is idempotent; replace stops the timer; the existing Restore sheet is the recovery route; platform backup is an owner question. |
 | R1: the import's default exercise choice and "Import all" against the no-suggestion rule | Not changed: it maps a band record to one of the owner's own exercises and exists today. Reported to the owner. |

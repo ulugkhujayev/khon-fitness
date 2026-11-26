@@ -16,15 +16,21 @@ Commit: ca3d5b3 (code and tests). Base: 98c76bf.
 
 Tests: the `Tests:` command on ca3d5b3. First run: stopped by the 30-minute background limit inside `:app:testDebugUnitTest`, with no test failure in the log (machine shared with other Gradle builds). Second run: `> Task :app:testDebugUnitTest`, `> Task :app:assembleDebug`, `> Task :app:lintVitalRelease`, `BUILD SUCCESSFUL in 1m 26s`, `71 actionable tasks: 8 executed, 63 up-to-date`; XML results: 707 tests, 0 failures, 0 errors, 25 skipped. Focused `FinishSaveOnceTest`: 19 tests, 0 failures.
 
-## Coverage: a coroutine that publishes UI state after an await
+## Coverage
 
-Search: `git diff 9d1ba17 -- android/app/src/main` (merge base with `main`), added lines with `launch`, `LaunchedEffect`, `vm.run`, `produceState`, `async`, `first()`, `withContext`, `suspend`, `collect`, `await`.
+Class: a coroutine that publishes UI state after an await. Search: `git diff 9d1ba17 -- android/app/src/main` (merge base with `main`), added lines with `launch`, `LaunchedEffect`, `vm.run`, `produceState`, `async`, `first()`, `withContext`, `suspend`, `collect`, `await`.
 
-| Instance | Status | Test | Found by |
-|---|---|---|---|
-| `SessionScreen.kt` Finish read (`FinishRequest.start` → `summary = it`) | fixed: removed; the sheet derives from collected state | the 8 Finish tests above | F2 verify rounds R2, R3 |
-| `SessionScreen.kt` Save: `vm.run { finishSession }` | not an instance: `finishTap = null` runs synchronously outside `vm.run` | `a double tap on Save …` (2 tests) | this search |
-| `SessionScreen.kt` `LaunchedEffect(s.id, s.programId) { previous = … }` | pre-existing, not in the branch diff | none | this search |
-| `SessionScreen.kt` `toggleSet` `vm.run { … refused = … ; open(…) }` | pre-existing, not in the branch diff | check tests (3) | this search |
-| `SessionScreen.kt` swap `vm.run { … swapNotice = SWAP_REFUSED }` | pre-existing, not in the branch diff | none | this search |
-| `ExerciseDetail.kt`, `HistoryLog.kt`, other diff files | no instance: only `remember(history) { repBests(history) }`, which is synchronous | — | this search |
+| # | Instance | Status | Test | Found by |
+|---|---|---|---|---|
+| Z1.1 | Finish read (`FinishRequest.start` → `summary = it`), fresh view model | fixed: removed; the sheet derives from `allSets` collected by the screen | witness F2 receipt r-20261126211220-472e05; FinishSaveOnceTest `the finish sheet counts rep records against sessions no other screen has loaded` | finding F2 |
+| Z2.1 | Second Finish tap while a tap is pending | fixed: `if (finishTap == null) finishTap = clock()` | FinishSaveOnceTest `Finish taps before the sets load open one sheet at the first tap's time` (break B2) | finding F2 |
+| Z3.1 | Tap before the sets load | fixed: `remember(tap, loaded == null)` computes once | FinishSaveOnceTest `a set checked before/after the held query …` (break B4) | finding F2 |
+| Z4.1 | Sets that arrive after Back, composition alive | fixed: lifecycle-aware collection; no callback sets the sheet | FinishSaveOnceTest `sets that load after Back while the screen is still composed open no sheet` (break B1) | verify R3 |
+| Z5.1 | Session finished elsewhere, sheet open or pending | fixed: sheet composed only `if (running)` | FinishSaveOnceTest `an open sheet goes when the session is finished elsewhere`, `a session finished before the sets load opens no sheet` (break B3) | finding F2 |
+| Z5.2 | Session deleted elsewhere, sheet open or pending | kept: `session ?: return` before the sheet | FinishSaveOnceTest `an open sheet goes when the session is deleted elsewhere`, `a session deleted before the sets load opens no sheet` | finding F2 |
+| Z6.1 | Set of another session changes while the sheet is open | fixed: figures keyed on tap time and loaded state only | FinishSaveOnceTest `an open sheet keeps its figures when a set of another session changes` (break B4) | contract Z6 |
+| Z6.2 | Dismiss, then the sets change | fixed: Dismiss clears the tap time | FinishSaveOnceTest `a dismissed sheet stays closed when the sets change` (break B5) | finding F2 |
+| Z7.1 | Save: `vm.run { finishSession }` | kept: `finishTap = null` runs synchronously outside `vm.run` | FinishSaveOnceTest `a double tap on Save …` (2 tests) | branch diff search |
+| Z7.2 | `LaunchedEffect(s.id, s.programId) { previous = … }`, toggleSet `vm.run { refused = …; open(…) }`, swap `vm.run { swapNotice = … }` | kept: pre-existing, not in the branch diff, outside scope | branch diff search shows no change to these lines (`grep -c` = 0); check tests cover toggleSet | branch diff search |
+| Z7.3 | `ExerciseDetail.kt`, `HistoryLog.kt`, other diff files | kept: no instance; only `remember(history) { repBests(history) }`, synchronous | branch diff search | branch diff search |
+| Z8.1 | `readSets` parameter callers | fixed: replaced by `allSets: Flow<List<SetLog>>`; only `FinishSaveOnceTest` passed it | `grep -rn readSets android/app/src` empty; Tests command | contract Z8 |

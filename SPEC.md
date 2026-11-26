@@ -97,6 +97,23 @@ Three tabs.
     in the 30 days says "No sessions in 30 days". A type opens its detail: pace, average heart rate, heart rate
     in work intervals (else time), and its sessions. Each section without
     data shows one line.
+  - Compare two periods: the last row of Progress. Two rows name the
+    left and the right column's period as a date range ("Oct 3 – Oct 30",
+    with the year for a date outside this year); the defaults are the 4
+    weeks before and the last 4 weeks. A tap opens one choice list: Last 4
+    weeks, The 4 weeks before (the 28 days before those), Last 12 weeks,
+    The 12 weeks before, This year, Last year, then each program with a
+    finished session (from its first to its last session), then Custom
+    dates with From and To (a From after the To moves the To to that day).
+    The choices survive rotation and a process restart. Under them, both
+    periods side by side, the left one first: days, gym sessions, done
+    sets with reps, sets per week, lifted, cardio sessions, cardio time,
+    distance and stretch runs; bodyweight average and entries; sets per
+    muscle per week (the same rule as above); the best set of each
+    exercise; and per cardio type its sessions, distance and pace. A value
+    that does not exist is "–"; a group or cardio row with nothing to show
+    is left out. The screen states numbers only: no verdict, arrow or color
+    tells which period is better.
 - Plan. A "+" adds a gym program, a cardio workout, a stretch routine or
   an exercise. This week: Monday to Sunday as seven day symbols (gym,
   run, bike, swim, other cardio, rest) under the day's letter, today's

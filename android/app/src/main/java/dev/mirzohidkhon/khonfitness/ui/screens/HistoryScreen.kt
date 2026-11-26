@@ -105,8 +105,7 @@ fun muscleVolume(logs: List<SetLog>, sessions: List<Session>, exercises: List<Ex
         val d = dates[l.sessionId] ?: continue
         val idx = when { d in monday..today -> 0; d in lastMonday..<monday -> 1; else -> continue }
         val ex = exById[l.exerciseId] ?: continue
-        ex.primaryMuscle?.let { acc.getOrPut(it) { DoubleArray(2) }[idx] += 1.0 }
-        ex.secondaryList.forEach { acc.getOrPut(it) { DoubleArray(2) }[idx] += 0.5 }
+        forEachMuscleShare(ex) { m, share -> acc.getOrPut(m) { DoubleArray(2) }[idx] += share }
     }
     return acc.map { (m, v) -> MuscleVolume(m, v[0], v[1]) }.sortedByDescending { maxOf(it.thisWeek, it.lastWeek) }
 }

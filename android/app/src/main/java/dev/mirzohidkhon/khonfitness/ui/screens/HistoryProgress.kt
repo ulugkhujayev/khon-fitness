@@ -146,6 +146,10 @@ fun HistoryProgress(vm: AppViewModel, nav: NavHostController, today: LocalDate) 
             CardioTypeRow(t, mod?.name ?: "Other", mod?.let { Color(it.color) } ?: K.Muted, divider = i > 0) { nav.navigate(Routes.cardioType(t.id.ifEmpty { NO_TYPE })) }
         }
     }
+
+    GroupedList(Modifier.padding(top = 24.dp)) {
+        ListRow("Compare two periods", divider = false) { nav.navigate(Routes.COMPARE) }
+    }
 }
 
 /** The route id of cardio whose exercise has no type. */
@@ -153,7 +157,7 @@ const val NO_TYPE = "none"
 
 /** A section title over a group, in the grouped-list footnote style. */
 @Composable
-private fun ProgressTitle(text: String) {
+internal fun ProgressTitle(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = K.Muted, modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp).semantics { heading() })
 }
 

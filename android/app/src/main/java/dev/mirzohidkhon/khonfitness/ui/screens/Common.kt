@@ -152,9 +152,9 @@ fun ChoiceRow(title: String, selected: Boolean, dotColor: Color? = null, dotFill
 /** Editor row that shows a date and opens the Material date picker on tap. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DateRow(date: java.time.LocalDate, divider: Boolean = true, onChange: (java.time.LocalDate) -> Unit) {
+fun DateRow(date: java.time.LocalDate, divider: Boolean = true, label: String = "Date", onChange: (java.time.LocalDate) -> Unit) {
     var open by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    FieldRow("Date", divider = divider, onClick = { open = true }) { Text(date.format(shortDate), fontWeight = FontWeight.SemiBold); Chevron() }
+    FieldRow(label, divider = divider, onClick = { open = true }) { Text(date.format(shortDate), fontWeight = FontWeight.SemiBold); Chevron() }
     if (open) {
         val state = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli())
         androidx.compose.material3.DatePickerDialog(

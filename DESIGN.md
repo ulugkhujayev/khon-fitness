@@ -439,7 +439,14 @@ Two lines, 88 px total, hairline between rows.
   chart are green. "Most reps by weight" sits between the Best card and
   the sessions when it has two or more rows, at most six: "80 kg" over the
   date in muted 13, "× 8" bold tabular on the right. Its rows do not open
-  anything.
+  anything. With two setup periods or more, "Est. 1RM per week" (or "Reps
+  per week") sits between the Best card and "Most reps by weight": one row
+  per period, newest first, the dates (17, tabular) over the setup in muted
+  13 ("TP v4 · 4 sets · 5–8 reps"), the rate bold tabular on the right
+  ("+0.8", "−0.3", "±0.0", or "–"). Both signs are white. A long program
+  name ends with an ellipsis and the sets and reps stay. The rows have no
+  chevron and do not open anything. TalkBack reads the dates, the setup and
+  the rate in words ("plus 0.8 kilograms per week", "no rate").
 
 ## Stretch player
 
@@ -608,4 +615,6 @@ without markers and labels is a defect. Every chart is 190 px tall
 (Today and History alike). Axis and date labels 12/500 in muted; value
 labels 12/500 muted, the last one 13/700 in white. The value axis is as
 wide as its widest label plus 8 px, the right inset 8 px, so the chart
-sits even between the screen margins.
+sits even between the screen margins. The exercise chart marks each setup
+change with a 1 px muted vertical line through the plot at the first point
+on or after the change.

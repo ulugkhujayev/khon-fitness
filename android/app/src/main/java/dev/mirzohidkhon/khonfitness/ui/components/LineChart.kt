@@ -41,6 +41,10 @@ private val dateFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d")
 internal fun trendAt(points: List<ChartPoint>, trend: List<ChartPoint>): List<Pair<Int, Double>> =
     trend.mapNotNull { t -> points.indexOfFirst { it.date == t.date }.takeIf { it >= 0 }?.let { it to t.value } }
 
+/** The index of the first point on or after each of [changes], once each; a change after the last point is left out. */
+internal fun changeAt(points: List<ChartPoint>, changes: List<LocalDate>): List<Int> =
+    changes.mapNotNull { d -> points.indexOfFirst { it.date >= d }.takeIf { it >= 0 } }.distinct()
+
 /** The lowest and highest value the chart's scale covers: both series. */
 internal fun valueBounds(points: List<ChartPoint>, trendAt: List<Pair<Int, Double>>): Pair<Double, Double> {
     val all = points.map { it.value } + trendAt.map { it.second }
@@ -56,10 +60,11 @@ private const val AXIS_GAP = 8
  * Line chart: dashed grid at round values labelled on the left, a marker on every point, value labels, the last
  * point filled in accent with its unit, dates along the bottom. The value axis is as wide as its widest label plus
  * 8 dp and the right inset is 8 dp, so the chart sits even between the screen margins. A [trend] point sits at the
- * point of its date and draws as a thin muted line without markers, on the same scale.
+ * point of its date and draws as a thin muted line without markers, on the same scale. Each of [changes] draws a thin
+ * muted vertical line through the plot at the first point on or after its date ([changeAt]).
  */
 @Composable
-fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modifier, decimals: Int = 1, format: ((Double) -> String)? = null, trend: List<ChartPoint> = emptyList()) {
+fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modifier, decimals: Int = 1, format: ((Double) -> String)? = null, trend: List<ChartPoint> = emptyList(), changes: List<LocalDate> = emptyList()) {
     val measurer = rememberTextMeasurer()
     // Axis and date labels in secondary label at Caption 1: tertiary at 11 was too faint to read on black.
     val tick = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
@@ -94,6 +99,7 @@ fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modif
         val line = Path().apply { moveTo(xs[0], ys[0]); for (i in 1 until n) lineTo(xs[i], ys[i]) }
         val area = Path().apply { addPath(line); lineTo(xs[n - 1], padT + plotH); lineTo(xs[0], padT + plotH); close() }
         drawPath(area, K.Accent.copy(alpha = 0.13f))
+        changeAt(points, changes).forEach { i -> drawLine(K.Muted, Offset(xFor(i), padT), Offset(xFor(i), padT + plotH), strokeWidth = 1.dp.toPx()) }
         if (trendAt.size > 1) {
             val t = Path().apply { trendAt.forEachIndexed { k, (i, v) -> if (k == 0) moveTo(xFor(i), yFor(v)) else lineTo(xFor(i), yFor(v)) } }
             drawPath(t, K.Muted, style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))

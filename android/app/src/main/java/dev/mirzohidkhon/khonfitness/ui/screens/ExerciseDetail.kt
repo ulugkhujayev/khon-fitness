@@ -15,7 +15,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -69,7 +73,8 @@ fun LiftListScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Cloc
 @Composable
 fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: String, clock: Clock = Clock.systemDefaultZone()) {
     val exercises by vm.exercises.collectAsStateWithLifecycle()
-    val data = rememberHistoryData(vm, rememberToday(clock))
+    val today = rememberToday(clock)
+    val data = rememberHistoryData(vm, today)
     val history = remember(data, exerciseId) { liftHistory(exerciseId, data.logs, data.sessions) }
     val ex = exercises.find { it.id == exerciseId }
     val name = ex?.name ?: data.logs.firstOrNull { it.exerciseId == exerciseId }?.exerciseName ?: "Exercise"
@@ -85,6 +90,8 @@ fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
             }
             // Sessions where every set was skipped list below, with no best and no chart point.
             val record = history.lastOrNull { it.record }
+            val periodRows = remember(history, today) { periodRows(history, today) }
+            val changes = remember(history) { changeDates(history) }
             val recordBest = record?.best
             if (record != null && recordBest != null) Column(Modifier.fillMaxWidth().clip(GroupShape).background(K.Surface).padding(16.dp, 14.dp, 16.dp, 12.dp)) {
                 Text("Best", style = MaterialTheme.typography.bodySmall, color = K.Muted)
@@ -96,8 +103,9 @@ fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
                     fontSize = 24.sp, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR),
                 )
                 Text("Heaviest set per session", style = MaterialTheme.typography.bodySmall, color = K.Muted, modifier = Modifier.padding(top = 12.dp))
-                LineChart(history.mapNotNull { h -> h.best?.let { ChartPoint(h.session.date.toDate(), it.weightKg ?: 0.0, mark = h.record) } }, "kg")
+                LineChart(history.mapNotNull { h -> h.best?.let { ChartPoint(h.session.date.toDate(), it.weightKg ?: 0.0, mark = h.record) } }, "kg", changes = changes)
             }
+            if (periodRows.isNotEmpty()) PeriodGroup(rateTitle(withWeight(history)), periodRows, Modifier.padding(top = if (record != null) 24.dp else 0.dp))
             val repBests = remember(history) { repBests(history) }
             if (repBests.size >= 2) {
                 SectionTitle("Most reps by weight", Modifier.padding(top = 24.dp))
@@ -205,6 +213,40 @@ private fun RepBestRow(l: SetLog, session: Session, divider: Boolean) {
         }
     }
 }
+
+/** The rates per setup period: [title] over one row per period, newest first. */
+@Composable
+fun PeriodGroup(title: String, rows: List<PeriodRow>, modifier: Modifier = Modifier) {
+    SectionTitle(title, modifier)
+    GroupedList { rows.forEachIndexed { i, r -> PeriodRateRow(r, divider = i > 0) } }
+}
+
+/** The dates over the setup (a long program name ends with an ellipsis), the rate or "–" on the right. Opens nothing. */
+@Composable
+private fun PeriodRateRow(r: PeriodRow, divider: Boolean) {
+    Column(Modifier.fillMaxWidth()) {
+        if (divider) HorizontalDivider(Modifier.padding(start = 16.dp), color = K.Divider, thickness = 0.7.dp)
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp).semantics(mergeDescendants = true) { contentDescription = r.spoken }.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(r.dates, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), modifier = Modifier.clearAndSetSemantics { testTag = PERIOD_DATES })
+                Row(Modifier.padding(top = 2.dp)) {
+                    val small = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR)
+                    Text(r.programName, style = small, color = K.Muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clearAndSetSemantics { testTag = PERIOD_PROGRAM })
+                    Text(" · ${r.tail}", style = small, color = K.Muted, maxLines = 1, softWrap = false, modifier = Modifier.clearAndSetSemantics { testTag = PERIOD_TAIL })
+                }
+            }
+            Text(r.rate ?: "–", style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp).clearAndSetSemantics { testTag = PERIOD_RATE })
+        }
+    }
+}
+
+const val PERIOD_DATES = "period-dates"
+const val PERIOD_PROGRAM = "period-program"
+const val PERIOD_TAIL = "period-tail"
+const val PERIOD_RATE = "period-rate"
 
 /** A session in a detail list: the date (with a [chip] in its color) over its [line], a chevron; opens the session. */
 @Composable

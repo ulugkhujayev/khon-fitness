@@ -78,17 +78,20 @@ class SetupRulesTest {
         assertEquals(listOf(listOf("s0", "s1"), listOf("s2", "s3")), aabb.map(::ids))
         val aab = pattern("AAB")
         assertEquals(listOf(listOf("s0", "s1"), listOf("s2")), aab.map(::ids))
+        val baa = pattern("BAA")
+        assertEquals(listOf(listOf("s0", "s1", "s2")), baa.map(::ids))
+        assertEquals(3, baa.single().setup.sets)
+    }
+
+
+    @Test fun `two neighbor periods with one setup after a deviation joins are one period`() {
         val aaba = pattern("AABA")
         assertEquals(listOf(listOf("s0", "s1", "s2", "s3")), aaba.map(::ids))
         assertEquals(3, aaba.single().setup.sets)
         val aba = pattern("ABA")
         assertEquals(listOf(listOf("s0", "s1", "s2")), aba.map(::ids))
         assertEquals(3, aba.single().setup.sets)
-        val baa = pattern("BAA")
-        assertEquals(listOf(listOf("s0", "s1", "s2")), baa.map(::ids))
-        assertEquals(3, baa.single().setup.sets)
     }
-
 
     @Test fun `an unfinished session is out, an all skipped one counts for the setup only, two on one date stay in order`() {
         val h = history(listOf(Day("a", 0), Day("open", 1, sets = 4, finished = false), Day("b", 2), Day("skip", 4, status = SetStatus.SKIPPED), Day("c", 6, at = 1), Day("d", 6, at = 2)))

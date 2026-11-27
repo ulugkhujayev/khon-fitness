@@ -29,7 +29,7 @@ private const val MIN_CHART_POINTS = 2
 fun measuredMaxHr(sessions: List<Session>, rows: List<SessionHr>, nowMs: Long, zone: ZoneId): Int? {
     val byId = rows.associateBy { it.sessionId }
     val from = minusMs(nowMs, MEASURED_MAX_DAYS * DAY_MS)
-    return sessions.filter { s -> s.finishedAt?.let { it >= from } == true }
+    return sessions.filter { s -> s.finishedAt?.let { it in from..nowMs } == true }
         .mapNotNull { s -> (hrFacts(s, byId[s.id], zone) as? HrFacts.Filled)?.row?.maxHr }
         .maxOrNull()
 }
@@ -42,10 +42,12 @@ sealed interface MaxEntry {
     data object Refused : MaxEntry
 }
 
-fun maxEntry(draft: Double?): MaxEntry = when {
-    draft == null -> MaxEntry.Clear
-    draft % 1.0 != 0.0 || draft.toInt() !in MAX_HR_RANGE -> MaxEntry.Refused
-    else -> MaxEntry.Store(draft.toInt())
+private val WHOLE_BPM = Regex("[0-9]+")
+
+fun maxEntry(text: String): MaxEntry {
+    if (text.isEmpty()) return MaxEntry.Clear
+    val bpm = text.takeIf(WHOLE_BPM::matches)?.toIntOrNull()?.takeIf { it in MAX_HR_RANGE } ?: return MaxEntry.Refused
+    return MaxEntry.Store(bpm)
 }
 
 private fun ceilPercent(max: Int, percent: Int): Int = Math.floorDiv(percent * max + 99, 100)
@@ -60,11 +62,6 @@ fun hardSeconds(buckets: List<HrSample>, max: Int): Long = buckets.count { it.bp
 
 data class ZoneShares(val below: Int, val inside: Int, val above: Int)
 
-/**
- * Each part rounded half up; when the three do not sum to 100, the step goes to the part with the largest remainder,
- * and on a tie to the first of below, inside, above. This is the largest remainder method, which gives the half-up
- * result whenever that one sums to 100.
- */
 fun percentShares(counts: List<Int>): List<Int> {
     val n = counts.sum()
     if (n == 0) return counts.map { 0 }
@@ -81,20 +78,35 @@ fun zoneShares(buckets: List<HrSample>, max: Int): ZoneShares? {
     return ZoneShares(below, inside, above)
 }
 
-data class RoundScore(val number: Int, val peak: Int, val drop: Int?)
+fun scoreBuckets(facts: HrFacts): List<HrSample> = pictureBuckets(facts).distinctBy { it.offsetSec }
+
+data class RoundScore(val number: Int, val peak: Int?, val drop: Int?)
+
+private class RoundClock(val start: Long, val end: Long)
+
+private fun IntervalLog.clock(): RoundClock? {
+    val start = startedAt ?: return null
+    val end = endedAt ?: return null
+    return if (start < end) RoundClock(start, end) else null
+}
+
+private fun IntervalLog.hasBrokenTimes(): Boolean = (startedAt != null || endedAt != null) && clock() == null
+
+private fun roundTimesInOrder(sorted: List<IntervalLog>): Boolean =
+    sorted.none { it.hasBrokenTimes() } && sorted.mapNotNull { it.clock() }.zipWithNext().all { (a, b) -> a.end <= b.start }
 
 fun roundScores(range: HrRange, buckets: List<HrSample>, rounds: List<IntervalLog>): List<RoundScore> {
     val sorted = rounds.sortedBy { it.index }
+    if (!roundTimesInOrder(sorted)) return sorted.indices.map { RoundScore(it + 1, null, null) }
     fun within(from: Long, to: Long) = buckets.filter { bucketAtMs(range, it) in from until to }
-    return sorted.mapIndexedNotNull { i, r ->
-        val start = r.startedAt ?: return@mapIndexedNotNull null
-        val end = r.endedAt ?: return@mapIndexedNotNull null
-        if (start >= end || !range.holds(start)) return@mapIndexedNotNull null
-        val work = within(start, end)
-        if (work.size < MIN_ROUND_BUCKETS) return@mapIndexedNotNull null
-        val next = sorted.getOrNull(i + 1)
-        val restEnd = if (next == null) range.toMs else next.startedAt
-        val rest = restEnd?.let { within(end, minOf(it, range.toMs)) }.orEmpty()
+    return sorted.indices.map { i ->
+        val none = RoundScore(i + 1, null, null)
+        val c = sorted[i].clock()
+        if (c == null || !range.holds(c.start)) return@map none
+        val work = within(c.start, c.end)
+        if (work.size < MIN_ROUND_BUCKETS) return@map none
+        val restEnd = if (i == sorted.lastIndex) range.toMs else sorted[i + 1].startedAt
+        val rest = restEnd?.let { within(c.end, minOf(it, range.toMs)) }.orEmpty()
         val drop = if (rest.size >= MIN_REST_BUCKETS) work.last().bpm - rest.minOf { it.bpm } else null
         RoundScore(i + 1, work.maxOf { it.bpm }, drop)
     }
@@ -106,18 +118,21 @@ private fun signed(n: Int): String = if (n < 0) "−${-n}" else "$n"
 
 private fun spokenSigned(n: Int): String = if (n < 0) "minus ${-n}" else "$n"
 
-fun roundRow(r: RoundScore): ScoreRow = ScoreRow(
-    "Round ${r.number}",
-    "peak ${r.peak}" + (r.drop?.let { " · drop ${signed(it)}" } ?: ""),
-    "Round ${r.number}, peak ${r.peak}" + (r.drop?.let { ", drop ${spokenSigned(it)}" } ?: "") + " beats per minute",
-)
+fun roundRow(r: RoundScore): ScoreRow? {
+    val peak = r.peak ?: return null
+    return ScoreRow(
+        "Round ${r.number}",
+        "peak $peak" + (r.drop?.let { " · drop ${signed(it)}" } ?: ""),
+        "Round ${r.number}, peak $peak" + (r.drop?.let { ", drop ${spokenSigned(it)}" } ?: "") + " beats per minute",
+    )
+}
 
 private fun shareRow(label: String, spokenLabel: String, percent: Int) = ScoreRow(label, "$percent %", "$spokenLabel, $percent percent")
 
 fun scoreRows(session: Session, exercise: Exercise?, facts: HrFacts, rounds: List<IntervalLog>, max: Int?): List<ScoreRow> {
     if (max == null || session.itemType != ItemType.CARDIO) return emptyList()
     val row = (facts as? HrFacts.Filled)?.row ?: return emptyList()
-    val buckets = pictureBuckets(facts)
+    val buckets = scoreBuckets(facts)
     if (buckets.isEmpty()) return emptyList()
     val head = when (exercise?.intensity) {
         Intensity.HIGH -> {
@@ -136,7 +151,7 @@ fun scoreRows(session: Session, exercise: Exercise?, facts: HrFacts, rounds: Lis
         }
         else -> return emptyList()
     }
-    return head + roundScores(HrRange(row.fromMs, row.toMs), buckets, rounds).map(::roundRow)
+    return head + roundScores(HrRange(row.fromMs, row.toMs), buckets, rounds).mapNotNull(::roundRow)
 }
 
 data class ScoreCharts(val hardMinutes: List<ChartPoint>, val zonePercent: List<ChartPoint>)
@@ -147,7 +162,7 @@ fun scoreCharts(sessions: List<Session>, exercises: Map<String, Exercise>, facts
     val zone = mutableListOf<ChartPoint>()
     sessions.filter { it.itemType == ItemType.CARDIO }.sortedWith(compareBy({ it.date }, { it.startedAt })).forEach { s ->
         val f = facts[s.id] as? HrFacts.Filled ?: return@forEach
-        val buckets = pictureBuckets(f)
+        val buckets = scoreBuckets(f)
         if (buckets.isEmpty()) return@forEach
         val date = s.date.toDate()
         when (exercises[s.exerciseId]?.intensity) {

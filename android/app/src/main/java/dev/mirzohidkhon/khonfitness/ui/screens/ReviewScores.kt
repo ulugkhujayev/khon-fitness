@@ -12,13 +12,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.mirzohidkhon.khonfitness.data.Exercise
 import dev.mirzohidkhon.khonfitness.data.HrFacts
@@ -41,7 +44,10 @@ fun rememberMeasuredMax(vm: AppViewModel): Int? {
     val sessions by vm.sessions.collectAsStateWithLifecycle()
     val rows by vm.allSessionHr.collectAsStateWithLifecycle()
     val zone = ZoneId.systemDefault()
-    return remember(sessions, rows, zone) { measuredMaxHr(sessions, rows, System.currentTimeMillis(), zone) }
+    val clock = LocalWallClock.current
+    var resumedAt by remember { mutableLongStateOf(clock()) }
+    LifecycleResumeEffect(clock) { resumedAt = clock(); onPauseOrDispose { } }
+    return remember(sessions, rows, zone, resumedAt) { measuredMaxHr(sessions, rows, clock(), zone) }
 }
 
 @Composable
@@ -78,12 +84,12 @@ private fun ScoreRowView(r: ScoreRow, divider: Boolean) {
 fun ScoreChartsView(vm: AppViewModel, sessions: List<Session>, exercises: Map<String, Exercise>, facts: Map<String, HrFacts>, title: @Composable (String) -> Unit) {
     val max = rememberMaxInUse(vm)
     val charts = remember(sessions, exercises, facts, max) { scoreCharts(sessions, exercises, facts, max) }
-    if (charts.hardMinutes.isNotEmpty()) ScoreChart("At or above $HARD_PERCENT %", charts.hardMinutes, "min", HARD_CHART_TAG, title) { minSec(Math.round(it * 60)) }
-    if (charts.zonePercent.isNotEmpty()) ScoreChart("In zone", charts.zonePercent, "%", ZONE_CHART_TAG, title) { "${Math.round(it)}" }
+    if (charts.hardMinutes.isNotEmpty()) ScoreChart("At or above $HARD_PERCENT %", charts.hardMinutes, "min", HARD_CHART_TAG, 0.0..Double.POSITIVE_INFINITY, title) { minSec(Math.round(it * 60)) }
+    if (charts.zonePercent.isNotEmpty()) ScoreChart("In zone", charts.zonePercent, "%", ZONE_CHART_TAG, 0.0..100.0, title) { "${Math.round(it)}" }
 }
 
 @Composable
-private fun ScoreChart(name: String, points: List<ChartPoint>, unit: String, tag: String, title: @Composable (String) -> Unit, format: (Double) -> String) {
+private fun ScoreChart(name: String, points: List<ChartPoint>, unit: String, tag: String, domain: ClosedFloatingPointRange<Double>, title: @Composable (String) -> Unit, format: (Double) -> String) {
     title(name)
-    LineChart(points, unit, Modifier.testTag(tag), format = format)
+    LineChart(points, unit, Modifier.testTag(tag), format = format, domain = domain)
 }

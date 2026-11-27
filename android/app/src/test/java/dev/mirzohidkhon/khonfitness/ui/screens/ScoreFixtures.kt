@@ -12,7 +12,6 @@ val MODERATE_EXERCISE = Exercise("tempo", "Tempo run", Kind.CARDIO, modalityId =
 
 fun epochAt(day: LocalDate, zone: ZoneId, h: Int, m: Int, s: Int = 0): Long = day.atTime(h, m, s).atZone(zone).toInstant().toEpochMilli()
 
-/** A finished app cardio session whose range is exactly `[from, from + lengthSec)`. */
 fun scoreSession(id: String, day: LocalDate, zone: ZoneId, ex: Exercise, lengthSec: Int, h: Int = 18, m: Int = 0): Session {
     val from = epochAt(day, zone, h, m)
     val to = from + lengthSec * 1000L

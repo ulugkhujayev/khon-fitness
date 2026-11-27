@@ -12,6 +12,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -35,25 +36,23 @@ import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.time.Clock
 import java.time.ZoneId
+import kotlinx.coroutines.launch
 
-/** What stands between the reader and Health Connect: its status, and whether heart rate may be read. */
 class HeartAccess(val status: () -> HcStatus, val granted: suspend () -> Boolean) {
     companion object {
-        fun of(context: Context) = HeartAccess(
+        fun of(context: Context) = withPermissions(
             status = { HealthImport.status(context) },
-            granted = { HealthHeartSource.HEART_READ in HealthImport.client(context).permissionController.getGrantedPermissions() },
+            permissions = { HealthImport.client(context).permissionController.getGrantedPermissions() },
         )
+
+        fun withPermissions(status: () -> HcStatus, permissions: suspend () -> Set<String>) =
+            HeartAccess(status, granted = { HealthHeartSource.HEART_READ in permissions() })
     }
 }
 
-/** The app's label of [pkg] when the system knows the package, else the package name. */
 fun appLabel(context: Context, pkg: String): String =
     runCatching { context.packageManager.let { pm -> pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } }.getOrDefault(pkg)
 
-/**
- * The heart rate of each finished session of the last 30 days, newest first, as [hrFacts] gives it. A tap opens the
- * session's facts with "Read again", "Remove", and for an older gym session "Use this time range".
- */
 @Composable
 fun HeartDataScreen(
     vm: AppViewModel,
@@ -69,7 +68,7 @@ fun HeartDataScreen(
     val today = rememberToday(clock)
     val zone = clock.zone
     val list = hrDataSessions(sessions, today)
-    val rowById = rows.associateBy { it.sessionId }
+    val factsOf = factsById(list, rows, zone)
 
     var status by remember { mutableStateOf(access.status()) }
     var granted by remember { mutableStateOf<Boolean?>(null) }
@@ -79,11 +78,11 @@ fun HeartDataScreen(
         if (status == HcStatus.AVAILABLE) granted = runCatching { access.granted() }.getOrDefault(false)
     }
 
-    var open by remember { mutableStateOf<String?>(null) }
-    var confirmRemove by remember { mutableStateOf(false) }
-    var reading by remember { mutableStateOf(setOf<String>()) }
-    var confirming by remember { mutableStateOf(setOf<String>()) }
-    var results by remember { mutableStateOf(mapOf<String, HrReread>()) }
+    var open by rememberSaveable { mutableStateOf<String?>(null) }
+    var sheetNo by rememberSaveable { mutableIntStateOf(0) }
+    var confirmRemove by rememberSaveable { mutableStateOf(false) }
+    fun openSheet(id: String) { open = id; sheetNo++; confirmRemove = false }
+    fun close() { open = null; sheetNo++; confirmRemove = false }
 
     Column(Modifier.fillMaxSize()) {
         val scroll = rememberScrollState()
@@ -103,63 +102,77 @@ fun HeartDataScreen(
             GroupedList {
                 if (list.isEmpty()) EmptyLine("No sessions in the last 30 days")
                 list.forEachIndexed { i, s ->
-                    val facts = hrFacts(s, rowById[s.id], zone)
-                    HeartRow(sessionName(s), s.date.toDate().format(shortDate), hrStateText(s, facts), hrStateSpoken(s, facts), divider = i > 0) { open = s.id }
+                    val facts = factsOf.getValue(s.id)
+                    HeartRow(sessionName(s), s.date.toDate().format(shortDate), hrStateText(s, facts), hrStateSpoken(s, facts), divider = i > 0) { openSheet(s.id) }
                 }
             }
         }
     }
 
     val shown = open?.let { id -> sessions.find { it.id == id } }
-    LaunchedEffect(open, shown == null, sessions) { if (open != null && shown == null) { open = null; confirmRemove = false } }
+    LaunchedEffect(open, shown == null, sessions) { if (open != null && shown == null) close() }
     if (shown == null) return
     val id = shown.id
-    val row = rowById[id]
-    val facts = hrFacts(shown, row, zone)
-    fun close() { open = null; confirmRemove = false; results = results - id }
 
     if (confirmRemove) {
-        ConfirmSheet("Remove heart rate?", "Read again brings it back.", "Remove", onDismiss = { confirmRemove = false }) {
+        ConfirmSheet("Remove heart rate?", "", "Remove", onDismiss = { confirmRemove = false }) {
             confirmRemove = false
-            results = results - id
             vm.run { heart.removeHeartRate(id) }
         }
         return
     }
-    Sheet(sessionName(shown), ::close) {
+    key(sheetNo) { HeartSheet(vm, heart, shown, rowOf(rows, id), intervals.filter { it.sessionId == id }, zone, onRemove = { confirmRemove = true }, onClose = ::close) }
+}
+
+@Composable
+private fun HeartSheet(vm: AppViewModel, heart: HeartFill, s: Session, row: SessionHr?, rounds: List<IntervalLog>, zone: ZoneId, onRemove: () -> Unit, onClose: () -> Unit) {
+    val context = LocalContext.current
+    val id = s.id
+    val range = hrWindow(s, zone)
+    var asked by remember(range, row) { mutableStateOf<Any?>(null) }
+    var failed by remember(range, row) { mutableStateOf(false) }
+    var reading by remember { mutableStateOf(false) }
+    var confirming by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val sheet = hrSheet(s, row, rounds, zone, failed = failed) { appLabel(context, it) }
+    Sheet(sessionName(s), onClose) {
         Column(Modifier.verticalScroll(rememberScrollState())) {
-            Text(shown.date.toDate().format(shortDate), style = MaterialTheme.typography.bodyMedium, color = K.Muted, modifier = Modifier.padding(bottom = 12.dp))
-            val bounds = confirmableBounds(shown, zone)
-            val facts2 = hrFactRows(shown, facts, intervals.filter { it.sessionId == id }, zone) { appLabel(context, it) } +
-                listOfNotNull(bounds?.let { "Workout" to clockRange(it.fromMs, it.toMs, zone) })
-            GroupedList(elevated = true) { facts2.forEachIndexed { i, (k, v) -> FactRow(k, v, divider = i > 0) } }
-            val canRead = canReread(facts)
-            if (canRead || bounds != null) GroupedList(Modifier.padding(top = 20.dp), elevated = true) {
-                if (bounds != null) ActionRow(Icons.Check, "Use this time range", enabled = id !in confirming, divider = false) {
-                    if (id in confirming) return@ActionRow
-                    confirming = confirming + id
-                    vm.run { try { vm.repo.confirmRange(id, bounds.fromMs, bounds.toMs) } finally { confirming = confirming - id } }
+            Text(s.date.toDate().format(shortDate), style = MaterialTheme.typography.bodyMedium, color = K.Muted, modifier = Modifier.padding(bottom = 12.dp))
+            GroupedList(elevated = true) { sheet.facts.forEachIndexed { i, (k, v) -> FactRow(k, v, divider = i > 0) } }
+            val bounds = sheet.useRange
+            if (sheet.reread || bounds != null) GroupedList(Modifier.padding(top = 20.dp), elevated = true) {
+                if (bounds != null) ActionRow(Icons.Check, "Use this time range", enabled = !confirming, divider = false) {
+                    if (confirming) return@ActionRow
+                    confirming = true
+                    asked = null
+                    failed = false
+                    vm.run { try { vm.repo.confirmRange(id, bounds.fromMs, bounds.toMs) } finally { confirming = false } }
                 }
-                if (canRead) ActionRow(Icons.Restore, "Read again", enabled = id !in reading, divider = bounds != null) {
-                    if (id in reading) return@ActionRow
-                    reading = reading + id
-                    results = results - id
-                    vm.run {
-                        try { results = results + (id to heart.rereadHeartRate(id)) } finally { reading = reading - id }
+                if (sheet.reread) ActionRow(Icons.Restore, "Read again", enabled = !reading, divider = bounds != null) {
+                    if (reading) return@ActionRow
+                    val request = Any()
+                    asked = request
+                    failed = false
+                    reading = true
+                    scope.launch {
+                        try {
+                            if (heart.rereadHeartRate(id) == HrReread.FAILED && asked === request) failed = true
+                        } finally {
+                            reading = false
+                        }
                     }
                 }
             }
-            if (canRemove(row)) GroupedList(Modifier.padding(top = 20.dp), elevated = true) {
-                ActionRow(Icons.Trash, "Remove", color = K.Red, divider = false) { confirmRemove = true }
+            if (sheet.remove) GroupedList(Modifier.padding(top = 20.dp), elevated = true) {
+                ActionRow(Icons.Trash, "Remove", color = K.Red, divider = false, onClick = onRemove)
             }
-            rereadLine(results[id], shown, facts)?.let { GroupFooter(it) }
+            sheet.line?.let { GroupFooter(it) }
         }
     }
 }
 
 fun sessionName(s: Session): String = s.programName ?: s.exerciseName ?: "Session"
 
-/** A session on "Heart rate data": the name over the date, the state on the right as a fact, a chevron. */
 @Composable
 private fun HeartRow(name: String, date: String, state: String, spoken: String, divider: Boolean, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
@@ -174,16 +187,16 @@ private fun HeartRow(name: String, date: String, state: String, spoken: String, 
                 Text(name, style = MaterialTheme.typography.bodyLarge, maxLines = 2)
                 Text(date, style = MaterialTheme.typography.bodyMedium, color = K.Muted, modifier = Modifier.padding(top = 2.dp))
             }
-            // A label stays with its number, so a long state breaks after "·", and the date keeps its line.
-            Text(state.replace("avg ", "avg\u00A0").replace("max ", "max\u00A0"), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted,
+            Text(labelsKeptWithNumbers(state), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted,
                 textAlign = TextAlign.End, modifier = Modifier.padding(start = 8.dp).widthIn(max = 136.dp))
             Chevron()
         }
     }
 }
 
-/** A fact as a label and its value, nothing to tap. */
 @Composable
 private fun FactRow(label: String, value: String, divider: Boolean) {
     FieldRow(label, divider = divider) { Text(value, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), color = K.Text, textAlign = TextAlign.End) }
 }
+
+private fun labelsKeptWithNumbers(state: String) = state.replace("avg ", "avg\u00A0").replace("max ", "max\u00A0")

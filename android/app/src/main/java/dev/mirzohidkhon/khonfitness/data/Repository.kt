@@ -403,13 +403,20 @@ class KhonRepository(
         result
     }
 
-    suspend fun importedSourceIds(): List<String> = dao.importedSourceIds().flatMap { it.split(",") }
+    internal var betweenImportReads: suspend () -> Unit = {}
+    internal var beforeImportAdmission: suspend () -> Unit = {}
+    internal var afterImportChecks: suspend () -> Unit = {}
+
+    suspend fun importLocal(): ImportLocal = dao.importLocal(zone(), betweenImportReads)
+
+    fun fillHeartRate() = requestFill()
 
     /**
      * Creates a finished cardio session from a Health Connect draft, with per-interval heart rate when the exercise has
      * intervals. A draft already imported writes nothing ([KhonDao.insertImportedSession]).
      */
-    suspend fun importDraft(d: dev.mirzohidkhon.khonfitness.health.ImportDraft, ex: Exercise) {
+    suspend fun importDraft(d: dev.mirzohidkhon.khonfitness.health.ImportDraft, ex: Exercise): ImportResult {
+        val pendingAtSubmit = timer.resultPending()
         val fields = ex.fieldList
         val pool = d.poolLength ?: 25
         val laps = when { "laps" !in fields -> null; d.laps != null -> d.laps; d.distanceM != null -> d.distanceM / pool; else -> null }
@@ -418,9 +425,16 @@ class KhonRepository(
             exerciseId = ex.id, exerciseName = ex.name, timeSec = d.seconds, distanceM = d.distanceM, avgHr = d.avgHr,
             laps = laps, poolLength = if (laps != null) pool else null, sourceId = d.mergedIds.joinToString(","),
             note = if (d.origins.size > 1) "From " + d.originLabel else "",
+            timedFrom = d.start.toEpochMilli(), timedTo = d.end.toEpochMilli(),
         )
         val hrs = dev.mirzohidkhon.khonfitness.health.HealthImport.intervalHeartRates(d, ex)
-        dao.insertImportedSession(session, hrs.mapIndexed { i, hr -> IntervalLog(newId(), session.id, i, avgHr = hr) })
+        val logs = hrs.mapIndexed { i, hr -> IntervalLog(newId(), session.id, i, avgHr = hr) }
+        beforeImportAdmission()
+        val result = timerLock.withLock {
+            dao.insertImportedSession(session, logs, d.records, { pendingAtSubmit || timer.resultPending() }, zone, afterImportChecks)
+        }
+        if (result == ImportResult.SAVED) requestFill()
+        return result
     }
 
     /** Every table as one snapshot ([KhonDao.backupSnapshot]), as JSON. */

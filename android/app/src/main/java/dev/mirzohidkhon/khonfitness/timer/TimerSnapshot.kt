@@ -135,6 +135,16 @@ object TimerSnapshots {
     fun pending(context: Context): List<PendingRun> = synchronized(lock) { pendingLocked(prefs(context)) }
 
     /**
+     * Whether an ended cardio run waits for its commit: a pending result, or a live cardio snapshot that has ended or
+     * reaches its end at [wallMs], [elapsedMs] and that no restore has moved to the pending store yet.
+     */
+    fun resultPending(context: Context, wallMs: Long, elapsedMs: Long): Boolean = synchronized(lock) {
+        val p = prefs(context)
+        pendingLocked(p).isNotEmpty() || decodeLive(p)?.takeIf { !it.state.stretch && !it.expired(wallMs) }
+            ?.advancedAt(wallMs, elapsedMs)?.let { it.done && PendingRun.of(it) != null } == true
+    }
+
+    /**
      * The live timer. A slot that does not decode is removed; an ended cardio run that an older version left in the
      * slot moves to the pending store.
      */

@@ -3,11 +3,11 @@
 Task-ID: HR01-P2-import
 Class: Risky
 Protocol: ~/.config/agents/review-protocol.md
-Workdir: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/hr01
-Base: 9d1ba17
+Workdir: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/hr01-p2
+Base: a899bd2
 Capabilities: static
 Tests: JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" android/gradlew -p android :app:testDebugUnitTest :app:assembleDebug :app:lintVitalRelease
-Report: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/hr01/docs/hr01-tasks/HR01-P2-import-REPORT.md
+Report: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/hr01-p2/docs/hr01-tasks/HR01-P2-import-REPORT.md
 
 ## Why
 
@@ -17,6 +17,21 @@ report `docs/hr01-tasks/HR01-P1-data-REPORT.md` and use its functions
 (`hrWindow`, `fillHeartRate`, the generation, `linkedIds`); do not write a
 second copy of any of them. The attack cases at the end of this file are
 tests you write.
+
+Names on this branch: `KhonApp.heartFill.fillHeartRate()` asks for a
+fill and never waits. An ended timer run that still waits for its commit
+is an entry of the pending store (`TimerSnapshots.pending(context)` in
+the `timer` package; entries are keyed by run id and carry the session
+id); `KhonRepository.endTimerRun` commits a result under the repository's
+private timer lock, which also wraps Replace and reset. Use that lock
+for the import's admission; do not add a second lock. The reports
+`HR01-P1-fixAB-REPORT.md` and `HR01-P1-fixAB2-REPORT.md` in the same
+folder describe the pending store. The timer code is under a verify
+round: change the `timer` package only where a contract row needs it,
+and name each changed line in the report. Another builder changed
+`ImportScreen.kt` on another branch (one composable became `internal`
+with two optional parameters): keep your change to that file small. Do
+the work on branch `hr01-p2`.
 
 ## Scope
 
@@ -105,3 +120,10 @@ The status is the first word of the second cell: `done`, `deviation`, or
 
 Run `~/.config/agents/tools/task-result check <task file>` before your final
 message.
+
+## Lead decisions after the build
+
+- D7c: accepted as built. The import takes the repository timer lock for its pending check and its write; the timer commit takes the same lock; the pending store entry written at the end of a run stands for the lock at "run ended". The import does not wait for the startup restore: a live cardio snapshot that has ended, or reaches its end now, counts as pending.
+- `ImportDraft.records` holds the original records for the check inside the write.
+- Two records with equal sample counts: the group takes its values from the earliest record (start, end, id).
+- `importLocal` replaces `importedSourceIds`.

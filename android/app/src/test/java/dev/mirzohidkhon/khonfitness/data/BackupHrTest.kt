@@ -171,7 +171,7 @@ class BackupHrTest {
         assertTrue(validFileHr(off("g", gymRange)))
         assertTrue(validFileHr(ok.copy(state = HrState.WAITING, avgHr = null, maxHr = null)))
         assertTrue(validFileHr(ok.copy(state = HrState.NONE, samples = "")))
-        assertTrue(validFileHr(ok.copy(samples = "2395:30,0:230")))
+        assertTrue(validFileHr(ok.copy(samples = "0:230,2395:30")))
         val bad = listOf(
             ok.copy(toMs = ok.fromMs), ok.copy(state = "full"), ok.copy(samples = "0:130,x"), ok.copy(samples = "2400:130"),
             ok.copy(samples = "-5:130"), ok.copy(samples = "0:29"), ok.copy(samples = "0:231"), ok.copy(samples = ""),
@@ -183,16 +183,42 @@ class BackupHrTest {
 
     @Test fun `validFileHr checks offsets without a sum that wraps, and fromMs is not negative`() {
         val top = HrRange(Long.MAX_VALUE - 40 * MIN, Long.MAX_VALUE)
-        assertTrue(validFileHr(filled("g", top).copy(samples = "0:130,2399:130")))
+        assertTrue(validFileHr(filled("g", top).copy(samples = "0:130,2395:130")))
         assertFalse(validFileHr(filled("g", top).copy(samples = "0:130,2405:130")))
         assertFalse(validFileHr(filled("g", top).copy(samples = "0:130,2400:130")))
         assertFalse(validFileHr(filled("g").copy(samples = "0:130,${Int.MAX_VALUE}:130")))
         assertFalse(validFileHr(filled("g", HrRange(-1, 40 * MIN))))
         assertTrue(validFileHr(filled("g", HrRange(0, 40 * MIN))))
         assertTrue(validFileHr(filled("g").copy(toMs = gymRange.toMs + 500, samples = "0:130,2400:130")))
-        assertFalse(validFileHr(filled("g").copy(toMs = gymRange.toMs + 500, samples = "0:130,2401:130")))
+        assertFalse(validFileHr(filled("g").copy(toMs = gymRange.toMs + 500, samples = "0:130,2405:130")))
         assertTrue(validFileHr(filled("g", HrRange(0, 1)).copy(samples = "0:130")))
         assertFalse(validFileHr(filled("g", HrRange(0, 1)).copy(samples = "1:130")))
+    }
+
+    @Test fun `validFileHr takes only strictly rising offsets that are whole buckets`() {
+        val ok = filled("g")
+        assertTrue(validFileHr(ok.copy(samples = "0:130,5:131,60:140")))
+        listOf("0:130,0:130,5:130", "0:130,3:130", "10:130,5:130", "5:130,5:131", "0:130,1:130").forEach {
+            assertFalse(it, validFileHr(ok.copy(samples = it)))
+        }
+    }
+
+    @Test fun `rows with a repeated, an unaligned or a falling offset are dropped in Replace and Merge and every session stays`() = runBlocking {
+        val sessions = listOf("dup", "odd", "back", "ok").map { gym(it).copy(avgHr = 150, startedElapsed = null) }
+        val rows = listOf(
+            filled("dup").copy(samples = "0:130,0:130,5:130"),
+            filled("odd").copy(samples = "0:130,3:130"),
+            filled("back").copy(samples = "10:130,5:130"),
+            filled("ok"),
+        )
+        val file = decode(local.repo.exportJson()).copy(sessions = sessions, sessionHr = rows).text()
+        for (replace in listOf(true, false)) {
+            val other = Phone()
+            assertTrue(other.repo.describeBackup(file).startsWith("4 sessions"))
+            other.repo.importJson(file, replace)
+            assertEquals(sessions.map { it.id to 150 }.sortedBy { it.first }, other.dao.sessionsOnce().map { it.id to it.avgHr }.sortedBy { it.first })
+            assertEquals(listOf(filled("ok")), other.hr())
+        }
     }
 
     @Test fun `rows with a wrapping offset, a negative start or the largest offset are dropped in both imports`() = runBlocking {

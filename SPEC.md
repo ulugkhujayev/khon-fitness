@@ -435,6 +435,33 @@ show one row per work interval for manual entry.
   confirmed to write swim laps or interval splits, so those fields stay manual.
   Nothing is saved until the user confirms a draft.
   A draft that is already imported saves nothing, so a second tap adds no copy.
+- A band record is already imported when its id is in the `sourceId` or the
+  `linkedIds` of any session. Ids match as whole ids, so `id1` does not claim
+  `id10`.
+- A band cardio record is covered, and does not show, when an app cardio
+  session has a run range (`[timedFrom, timedTo)`, finished or not, under the
+  date and length rules of the heart rate range), its exercise has the
+  record's modality (an archived exercise counts), and the overlap is at least
+  half of the record and at least half of the run. Touching ends overlap by
+  zero. A record of unknown modality is never covered. A gym session never
+  covers a band record. Band strength records stay hidden.
+- The rule runs on each band record before records that overlap are grouped
+  into one draft, so a group of records that are not covered one by one always
+  shows. Records of one modality that overlap, also through a chain, form one
+  group, in any input order. The list and the Today count use the same
+  function and read the claimed ids, the run ranges and the exercise
+  modalities in one Room read transaction.
+- An import takes the timer lock and writes nothing while an ended timer run
+  still waits for its commit: a result in the pending store, or a saved
+  snapshot that has ended, or reaches its end now, before the startup restore
+  moved it. Inside its write it checks every record of the draft again. It
+  returns saved, already imported, covered, or timer result pending. A saved
+  import stores the band's start and end as its range and asks for a heart
+  rate fill. A timer that still runs does not block an import, so that case
+  still gives two sessions.
+- A failed write leaves nothing of its draft. "Import all" goes on with the
+  next draft, and the list is read again after each import or batch. The
+  Import screen asks for one heart rate fill each time it opens.
 
 ## Heart rate
 
@@ -515,12 +542,20 @@ nothing. The maximum is always the measured one.
   first and last reading, the longest gap, each work round's average, the
   source app and other apps seen, average and maximum. A fact without a
   value is left out.
+  The screen shows what the band sent: the list's average, the sheet's
+  round rows, and its "Average" row are measured values, also when the
+  owner typed one.
 - The sheet has "Read again" (not without a range) and "Remove" (only
-  while a row that is not off exists; it asks first). "Read again" shows
-  its result as one line: the new values, "No data yet", or "Health
-  Connect did not answer". A result that no longer matches the row shows
-  nothing. A second tap while a read runs does nothing. A session deleted
-  meanwhile closes the sheet.
+  while a row that is not off exists; it asks first). After "Read again"
+  the rows show the state: the new facts, "Waiting for data", "No data",
+  or "Not read". A read that fails shows one line, "Health Connect did not
+  answer". The line belongs to the open sheet, its range, and the row it
+  showed at the tap. Remove, "Use this time range", a range change (also
+  one that goes back), a new row, a closed sheet, a rotation, or leaving
+  the screen clears it. Remove, a closed sheet,
+  and leaving the screen also stop the read. A
+  second tap while a read runs does nothing. A session deleted meanwhile
+  closes the sheet.
 - A finished gym session without a range that "Use this time range"
   accepts shows its start and finish as clock times and that action.
 - Without Health Connect or without the heart rate permission, the screen
@@ -569,7 +604,11 @@ time.
   or to the range end after the last round. The drop needs a peak and 2 or
   more buckets in the rest. A negative drop shows as it is.
 - A round without both times, or one that starts outside the range, has no
-  figures.
+  figures. The app's timer stores both times of a round or none, and
+  each round starts at or after the end of the round before it. When a
+  round has one time only, an end that is not after its start, or a start
+  before the end of an earlier round (a changed backup file), no round of
+  that session has figures.
 
 Review of a finished cardio session with a filled read adds a "Heart rate"
 group after its rounds, or after its figures when it has no rounds. A

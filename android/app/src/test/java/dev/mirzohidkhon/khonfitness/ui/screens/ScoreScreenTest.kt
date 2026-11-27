@@ -34,6 +34,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.compose.rememberNavController
 import androidx.room.withTransaction
@@ -217,9 +218,6 @@ class ScoreScreenTest {
             compose.waitForIdle()
             assertNull(bad, typedNow())
         }
-        compose.onNode(field).performTextReplacement("abc")
-        compose.waitForIdle()
-        assertEquals("", compose.onNode(field).fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
         compose.onNode(field).performTextReplacement("186")
         compose.onNodeWithText("Save").assertIsEnabled().performClick()
         waitSpoken("Maximum heart rate, 186 beats per minute")
@@ -230,6 +228,59 @@ class ScoreScreenTest {
         compose.onNodeWithText("Save").assertIsEnabled().performClick()
         waitSpoken("Maximum heart rate, not set")
         assertNull(typedNow())
+    }
+
+    private fun fieldText() = compose.onNode(field).fetchSemanticsNode().config[SemanticsProperties.EditableText].text
+
+    @Test fun sheetJudgesTheTextAsTypedAndKeepsTheSavedValue() {
+        io { vm.maxHeartRate.set(186) }
+        show("settings")
+        waitSpoken("Maximum heart rate, 186 beats per minute")
+        compose.onNodeWithContentDescription("Maximum heart rate, 186 beats per minute").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodes(field).fetchSemanticsNodes().isNotEmpty() }
+        val enabled = mutableListOf<String>()
+        for (input in listOf("", "abc", "200.5", "-201", "2x02", " 150", "150", "99", "231")) {
+            compose.onNode(field).performTextReplacement(input)
+            compose.waitForIdle()
+            assertEquals(input, fieldText())
+            val save = compose.onNodeWithText("Save").fetchSemanticsNode()
+            if (!save.config.contains(SemanticsProperties.Disabled)) enabled += input
+            else { compose.onNodeWithText("Save").performClick(); compose.waitForIdle(); assertEquals(input, 186, typedNow()) }
+        }
+        assertEquals(listOf("", "150"), enabled)
+        assertEquals(186, typedNow())
+        compose.onNode(field).performTextReplacement("150")
+        compose.onNodeWithText("Save").performClick()
+        waitSpoken("Maximum heart rate, 150 beats per minute")
+        assertEquals(150, typedNow())
+    }
+
+    @Test fun measuredMaximumLeavesOnResumeOnceItIsOlderThan365Days() {
+        val f = intervalFixture(day, zone)
+        seed(f)
+        val measured = f.row!!.maxHr!!
+        var now = f.session.finishedAt!! + 365 * 86_400_000L
+        compose.setContent {
+            CompositionLocalProvider(LocalWallClock provides { now }) {
+                KhonTheme { Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) { SettingsScreen(vm, rememberNavController()) } }
+            }
+        }
+        waitSpoken("Maximum heart rate, measured $measured beats per minute")
+        now += 1
+        compose.waitForIdle()
+        assertEquals("Maximum heart rate, measured $measured beats per minute", rowSpoken())
+        compose.activityRule.scenario.moveToState(Lifecycle.State.STARTED)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        waitSpoken("Maximum heart rate, not set")
+    }
+
+    @Test fun aRowWithARepeatedOffsetCountsTheBucketOnce() {
+        val f = intervalFixture(day, zone).copy(rounds = emptyList())
+        seed(f, row = filledFor(f.session, zone, listOf(HrSample(0, 175), HrSample(0, 175), HrSample(5, 175), HrSample(10, 120))))
+        io { vm.maxHeartRate.set(186) }
+        show(f.session.id)
+        waitFor("At or above 159 bpm")
+        assertEquals(listOf("At or above 159 beats per minute, 10 seconds"), spoken())
     }
 
     private fun seedType(filled: Int, plain: Int) {
@@ -295,6 +346,9 @@ class ScoreScreenTest {
 
     @Test fun tenRoundsFitAtScale1() = tenRoundsFit(1f)
     @Test fun tenRoundsFitAtScale13() = tenRoundsFit(1.3f)
+
+    @Config(qualifiers = "w411dp-h2400dp-xxhdpi")
+    @Test fun tenRoundsFitAt411Scale1() = tenRoundsFit(1f)
 
     @Config(qualifiers = "w411dp-h2400dp-xxhdpi")
     @Test fun tenRoundsFitAt411Scale13() = tenRoundsFit(1.3f)

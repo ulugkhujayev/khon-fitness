@@ -43,10 +43,12 @@ interface TimerControl {
     fun clear()
     /** Brings the timer back from its snapshot, as after a process death. */
     fun resume()
+    fun resultPending(): Boolean
 
     object None : TimerControl {
         override suspend fun halt() {}
         override fun clear() {}
         override fun resume() {}
+        override fun resultPending(): Boolean = false
     }
 }

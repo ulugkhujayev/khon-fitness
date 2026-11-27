@@ -18,6 +18,7 @@ import androidx.compose.ui.test.performClick
 import dev.mirzohidkhon.khonfitness.data.DemoView
 import dev.mirzohidkhon.khonfitness.data.demoPhotoPath
 import dev.mirzohidkhon.khonfitness.ui.components.FadingDemoPhoto
+import dev.mirzohidkhon.khonfitness.ui.components.HeldDemoBitmaps
 import dev.mirzohidkhon.khonfitness.ui.components.ShownDemoPhoto
 import dev.mirzohidkhon.khonfitness.ui.components.StretchDemonstration
 import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
@@ -31,6 +32,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.util.Collections
+import java.util.IdentityHashMap
 import kotlin.math.abs
 
 /** What the demonstration panel draws, read from its pixels (native graphics). */
@@ -54,6 +57,14 @@ class StretchPhotoPixelsTest {
         .getDeclaredField(name).apply { isAccessible = true }.get(null)!!
 
     private fun held(): Set<String> = (cache("held") as Map<*, *>).let { synchronized(it) { it.keys.map { k -> k as String }.toSet() } }
+
+    /** The number of bitmap objects that the cache and the panel hold together; two copies of one photo count twice. */
+    private fun bitmaps(): Int {
+        val all = Collections.newSetFromMap(IdentityHashMap<Any, Boolean>())
+        (cache("held") as Map<*, *>).let { synchronized(it) { all.addAll(it.values.filterNotNull()) } }
+        drawing()?.getOrNull(HeldDemoBitmaps)?.let { all.addAll(it) }
+        return all.size
+    }
 
     /** Runs [block] while no photo can load, as on a phone where the decode is slow. */
     private fun loadsWait(block: () -> Unit) {
@@ -173,14 +184,14 @@ class StretchPhotoPixelsTest {
             frame()
             assertEquals(photo("hold", DemoView.SIDE), shown())
             assertNull("a panel that waits for the other view keeps no older photo", fading())
-            repeat(30) { frame(); assertTrue("frame $it: ${inMemory()}", inMemory().size <= 3) }
+            repeat(30) { frame(); assertTrue("frame $it: ${bitmaps()} bitmaps of ${inMemory()}", bitmaps() <= 3) }
         }
         var going = false
         var settled = 0
         var frames = 0
         while (settled < 30) {
             frame(); Thread.sleep(5)
-            assertTrue("frame $frames after the view change: ${inMemory()}", inMemory().size <= 3)
+            assertTrue("frame $frames after the view change: ${bitmaps()} bitmaps of ${inMemory()}", bitmaps() <= 3)
             if (shown() == photo("hold", DemoView.FRONT)) {
                 if (fading() == photo("hold", DemoView.SIDE)) going = true
                 if (fading() == null) settled++
@@ -189,6 +200,7 @@ class StretchPhotoPixelsTest {
         }
         assertTrue("the side photo faded out under the front photo", going)
         assertEquals(setOf(photo("start", DemoView.FRONT), photo("hold", DemoView.FRONT)), inMemory())
+        assertEquals("one bitmap for each photo", 2, bitmaps())
     }
 
     @Test fun `the start of the exercise from the preview drops the preview photos at once`() {
@@ -200,17 +212,47 @@ class StretchPhotoPixelsTest {
         until("the three preview photos") { held() == setOf(photo("setup"), photo("start"), photo("hold")) && fading() == null }
         loadsWait {
             compose.runOnIdle { preview = false }
-            repeat(30) { frame(); assertTrue("frame $it while the hold photo waits: ${inMemory()}", inMemory().size <= 2) }
+            repeat(30) { frame(); assertTrue("frame $it while the hold photo waits: ${bitmaps()} bitmaps of ${inMemory()}", bitmaps() <= 2) }
         }
         var settled = 0
         var frames = 0
         while (settled < 30) {
             frame(); Thread.sleep(5)
-            assertTrue("frame $frames after the start: ${inMemory()}", inMemory().size <= 2)
+            assertTrue("frame $frames after the start: ${bitmaps()} bitmaps of ${inMemory()}", bitmaps() <= 2)
             if (shown() == photo("hold") && fading() == null) settled++
             assertTrue("the hold photo never settled", ++frames < 300)
         }
         assertEquals(setOf(photo("hold")), inMemory())
+        assertEquals("one bitmap of the hold photo", 1, bitmaps())
+    }
+
+    @Test fun `the start of a hold while the photo of another view loads keeps one copy of that photo`() {
+        var preview by mutableStateOf(true)
+        compose.mainClock.autoAdvance = false
+        compose.setContent { view = LocalView.current; KhonTheme { StretchDemonstration("catcow", preview = preview) } }
+        fun photo(pose: String, view: DemoView) = demoPhotoPath("catcow", pose, view)
+        fun inMemory() = held() + listOfNotNull(shown(), fading())
+        until("the three preview photos") {
+            held() == setOf(photo("setup", DemoView.SIDE), photo("start", DemoView.SIDE), photo("hold", DemoView.SIDE)) && fading() == null
+        }
+        compose.onNodeWithContentDescription("Step 3: Arch").performClick()
+        until(photo("hold", DemoView.SIDE)) { shown() == photo("hold", DemoView.SIDE) && fading() == null }
+        loadsWait {
+            compose.onNodeWithContentDescription("Change camera angle. View 1 of 2").performClick()
+            repeat(5) { frame() }
+            compose.runOnIdle { preview = false }
+            repeat(10) { frame(); assertTrue("frame $it while the front photo waits: ${bitmaps()} bitmaps of ${inMemory()}", bitmaps() <= 2) }
+        }
+        var settled = 0
+        var frames = 0
+        while (settled < 30) {
+            frame(); Thread.sleep(5)
+            assertTrue("frame $frames after the load: ${bitmaps()} bitmaps of ${inMemory()}", bitmaps() <= 2)
+            if (shown() == photo("hold", DemoView.FRONT) && fading() == null) settled++
+            assertTrue("the front photo never settled", ++frames < 300)
+        }
+        assertEquals(setOf(photo("hold", DemoView.FRONT)), inMemory())
+        assertEquals("one bitmap of the front photo", 1, bitmaps())
     }
 
     @Test fun `a change of pose fades from one photo to the other with a photo in every frame`() {
@@ -246,6 +288,7 @@ class StretchPhotoPixelsTest {
         var frames = 0
         var after = 0
         var between = 0
+        var last = 0.0
         while (after < 30) {
             frame(); Thread.sleep(5)
             val area = photoArea(name)
@@ -254,11 +297,13 @@ class StretchPhotoPixelsTest {
             val (share, off) = blend(area, from, to)
             assertTrue("frame $frames is a mix of the start photo and the hold photo only: $off from the mix at $share", off < 1.5)
             assertTrue("frame $frames is between the two photos: $share", share > -0.02 && share < 1.02)
-            if (share > 0.2 && share < 0.8) between++
+            assertTrue("frame $frames goes on from the frame before it without a jump: $last to $share", share > last - 0.02 && share < last + 0.25)
+            if (share > 0.2 && share < 0.8 && share > last + 0.01) between++
+            last = share
             if (shown() == hold) after++
             assertTrue("the hold photo never showed", ++frames < 300)
         }
-        assertTrue("the change passes through mixes of the two photos: $between frames between them", between >= 3)
+        assertTrue("the change passes through mixes of the two photos: $between frames between them, each further than the one before", between >= 4)
         val end = difference(photoArea(name), holdAlone, flipA = false)
         assertTrue("the panel ends on the hold photo: mean difference $end", end < 2)
     }

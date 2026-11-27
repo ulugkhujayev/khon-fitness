@@ -207,3 +207,22 @@ second time, so the fix approach changed.
   way. Break proofs: a fade time of 0 gives 0 frames between the photos;
   the start photo drawn at half strength is 4.26 from the mix at frame
   0; a fade from black fails the brightness check at frame 0.
+
+## After verify round 5 (2026-11-27)
+
+Verify round 5 kept F3 and F4 open, each with one more case.
+
+- F3: the load of the shown photo starts again when the set changes. A
+  load with an old set gave a second copy of the photo, because the
+  cache refuses a photo for an old set. The count tests now count bitmap
+  objects (the cache and the panel, through the semantics key
+  `HeldDemoBitmaps`), so two copies of one photo count twice. Test: "the
+  start of a hold while the photo of another view loads keeps one copy
+  of that photo". Break proof: without the set in the load's keys, the
+  test fails with 3 bitmaps at frame 1.
+- F4: each frame of the fade must go on from the frame before it (not
+  back by more than 0.02, not forward by more than 0.25). The test needs
+  4 or more frames between 20 % and 80 %, each further than the one
+  before. Break proofs: a jump to half and then to the end fails at
+  frame 1 ("0.0 to 0.50"); steps of one fifth with repeated frames give
+  3 frames and fail.

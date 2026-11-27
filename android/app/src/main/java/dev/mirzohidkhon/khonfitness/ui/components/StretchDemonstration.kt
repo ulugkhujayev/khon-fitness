@@ -74,6 +74,10 @@ private var SemanticsPropertyReceiver.shownDemoPhoto by ShownDemoPhoto
 val FadingDemoPhoto = SemanticsPropertyKey<String>("FadingDemoPhoto")
 private var SemanticsPropertyReceiver.fadingDemoPhoto by FadingDemoPhoto
 
+/** The bitmaps a panel holds: the shown photo and the one that fades out under it. */
+val HeldDemoBitmaps = SemanticsPropertyKey<List<ImageBitmap>>("HeldDemoBitmaps")
+private var SemanticsPropertyReceiver.heldDemoBitmaps by HeldDemoBitmaps
+
 /** [mirror] belongs to the photo, so a photo that stays while the next one loads keeps the side it was shown with. */
 private data class DemoPhoto(val path: String, val image: ImageBitmap, val mirror: Boolean)
 
@@ -134,9 +138,10 @@ private fun rememberDemoFrame(path: String, set: Set<String>, mirror: Boolean, i
     val context = LocalContext.current
     DisposableEffect(Unit) { DemoPhotos.enter(); onDispose { DemoPhotos.leave() } }
     // A cancelled load never assigns, so a late photo of the previous pose or view is never drawn as the new one.
+    // A new set starts the load again: a load with an old set gives a second copy of a photo, which the cache refuses.
     val loaded by produceState(
         DemoPhotos.peek(path)?.let { DemoFrame(DemoPhoto(path, it, mirror), instruction, description) } ?: DemoPhotos.last,
-        path, mirror, instruction, description) {
+        path, set, mirror, instruction, description) {
         value = DemoFrame(DemoPhotos.load(context, set, path)?.let { DemoPhoto(path, it, mirror) }, instruction, description)
     }
     LaunchedEffect(set) { set.forEach { DemoPhotos.load(context, set, it) } }
@@ -182,6 +187,7 @@ private fun DemoPanel(frame: DemoFrame, waits: Boolean, modifier: Modifier) {
         contentDescription = frame.description
         current?.let { shownDemoPhoto = it.path + if (it.mirror) " mirrored" else "" }
         outgoing?.let { fadingDemoPhoto = it.path }
+        heldDemoBitmaps = listOfNotNull(current?.image, outgoing?.image)
     }) {
         outgoing?.let { DemoImage(it.image, it.mirror) { if (current == null) 1f - fade.alpha else 1f } }
         current?.let { DemoImage(it.image, it.mirror) { fade.alpha } }

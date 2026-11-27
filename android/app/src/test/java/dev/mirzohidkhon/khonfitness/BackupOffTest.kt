@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.pm.ApplicationInfo
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -20,7 +21,9 @@ class BackupOffTest {
 
     @Test fun `the cloud backup and the device transfer leave out every domain`() {
         val excluded = mutableMapOf<String, MutableSet<String>>()
-        val xml = app.resources.getXml(R.xml.data_extraction_rules)
+        val xml = app.resources.getXml(rulesOfTheManifest())
+        while (xml.next() != XmlPullParser.START_TAG) Unit
+        assertEquals("data-extraction-rules", xml.name)
         var section = ""
         while (xml.next() != XmlPullParser.END_DOCUMENT) {
             if (xml.eventType != XmlPullParser.START_TAG) continue
@@ -31,5 +34,17 @@ class BackupOffTest {
             }
         }
         assertEquals(mapOf("cloud-backup" to domains, "device-transfer" to domains), excluded)
+    }
+
+    private fun rulesOfTheManifest(): Int {
+        val manifest = app.assets.openXmlResourceParser("AndroidManifest.xml")
+        while (manifest.next() != XmlPullParser.END_DOCUMENT) {
+            if (manifest.eventType == XmlPullParser.START_TAG && manifest.name == "application") {
+                val rules = manifest.getAttributeResourceValue("http://schemas.android.com/apk/res/android", "dataExtractionRules", 0)
+                assertNotEquals("the application names no data extraction rules", 0, rules)
+                return rules
+            }
+        }
+        throw AssertionError("no application tag in the manifest")
     }
 }

@@ -82,6 +82,12 @@ class TargetRulesTest {
         assertEquals(TargetLine("Reached", "Oct 15", "Reached, October 15"), rows.result)
     }
 
+    @Test fun `a reached target stays reached when the newest session is older than 28 days`() {
+        val history = lifts(rising, listOf(90.0, 101.0, 102.0, 96.0))
+        assertEquals(Forecast.Reached(day(14)), liftForecast(kg("100", day(1)), history, true, day(71)))
+        assertEquals(TargetLine("Reached", "Oct 15", "Reached, October 15"), liftRows(kg("100", day(1)), history, day(71)).result)
+    }
+
     @Test fun `G6 731 days ahead is more than 2 years, 730 is a date`() {
         val h = lifts(rising, listOf(90.0, 92.0, 94.0, 96.0))
         assertEquals(Forecast.Beyond("+1.0"), liftForecast(kg("200.5"), h, true, day(43)))

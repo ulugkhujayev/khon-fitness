@@ -24,3 +24,18 @@
 
 - The device transfer rule on a real phone. The test reads the rules file; it does not run a transfer.
 - The full suite. The lead runs it on the integration branch.
+
+## Fixes after the deep review R1
+
+Both findings are test gaps. No production code changed.
+
+- **F1.** `BackupOffTest` now reads the `dataExtractionRules` reference of the `application` tag from the merged manifest, opens that resource, and checks that its root tag is `data-extraction-rules` before it reads the exclusions.
+  - Break 1 (ran): the manifest without `android:dataExtractionRules`. `BackupOffTest > the cloud backup and the device transfer leave out every domain FAILED`, `java.lang.AssertionError at BackupOffTest.kt:44`.
+  - Break 2 (ran): the root tag renamed to `wrong-root`. The same test `FAILED`, `org.junit.ComparisonFailure at BackupOffTest.kt:26`.
+- **F2.** New test `a reached target stays reached when the newest session is older than 28 days` in `TargetRulesTest`: the history of G5 with today on day 71 gives `Reached(day 14)` and the row "Reached · Oct 15".
+  - Break (ran): the 28-day check moved before the Reached check. The new test `FAILED`, `java.lang.AssertionError at TargetRulesTest.kt:87`.
+- After the reverts (ran): `:app:testDebugUnitTest --tests "*BackupOffTest" --tests "*TargetRulesTest"`, 32 tests started, `BUILD SUCCESSFUL`.
+
+The two witness runs of the lead at `4f5a2f6` did not run their tests: each stopped at its own guard "less than 30 GiB free" (30.4 GB were free, which is 28.3 GiB). Their receipts say `reproduces` for that reason only. The lead confirmed both findings by reading and with the breaks above.
+
+Sol's protocol notes: the task keeps class Normal (two display rules and one manifest flag, no stored data). The rows S4 and S5 are kept behavior; their tests pass on both heads, and the task's break rule applies to S1 to S3 and S6 only.

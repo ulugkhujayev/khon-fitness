@@ -652,7 +652,14 @@ element that is not on the grid.
 Every chart has: dashed grid lines at round values with a label on the
 left, a marker on every point, a value label on every point when there
 are seven or fewer (else on the last and the highest), the last point
-filled in accent with its unit, and dates along the bottom. A line
+filled in accent with its unit, and dates along the bottom. The grid step
+is the smallest of 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500 and
+1000, then 1, 2, 2.5 and 5 times each higher power of ten, that is at
+least a third of the value range, so the axis has at most 5 labels. Value
+labels never meet. The last point's label draws first, then the highest
+point's, then the others from the newest to the oldest. A label draws only
+when its box, grown by 2 px on each side, meets no label that already
+draws; the others are left out. A line
 without markers and labels is a defect. Every chart is 190 px tall
 (Today and History alike). Axis and date labels 12/500 in muted; value
 labels 12/500 muted, the last one 13/700 in white. The value axis is as
@@ -701,7 +708,7 @@ ordinary chart of week loads, its dates the Mondays. Under it, 24 px down,
 sits the year grid on the page background, not in a group. A header line
 holds the weekday letters in muted 12, centered over their columns. Each
 week is one row, newest at the top: the short month name ("Nov") in muted
-12 on the row that holds the month's first day, then 7 equal cells 14 px
+12 on the row whose drawn days hold the month's first day, then 7 equal cells 14 px
 high, 2 px apart with 3 px corners, then the week's load in muted 12 with
 tabular figures. The month and load columns are as wide as their widest
 text ("Sep", "0000" or a longer load), so every row's cells line up. A day

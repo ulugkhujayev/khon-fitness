@@ -66,7 +66,8 @@ Three tabs.
   position. Each page keeps its own
   scroll position and state (the week shown, the bodyweight range), also
   across page and tab switches. Today's date is read again on resume and
-  at midnight; every range ends at today, so a later-dated session or
+  at midnight in the phone's time zone, so a day of 23 or 25 hours at a
+  clock change turns over at its real end; every range ends at today, so a later-dated session or
   weight counts nowhere. A session belongs to the day it started.
   - Log: one week at a time, "‹ Nov 2 – 8, 2026 ›". ‹ stops at the week
     of the first session (this week when none), › at this week. A week
@@ -119,8 +120,8 @@ Three tabs.
     52 weeks has a load (see "Heart rate"). Its screen has "Load per week",
     a chart of the weeks with a load among the last 12 (it needs 2 points),
     and a grid of the 52 weeks to the current one, newest at the top: one
-    row per week, the month name on the row that holds the month's first
-    day, a cell for each day from Monday to Sunday, and the week's load on
+    row per week, the month name on the row whose drawn days hold the
+    month's first day, a cell for each day from Monday to Sunday, and the week's load on
     the right. A day with a load is accent in 4 steps, a day with only
     sessions without a load has a muted outline, and a day without a
     finished session is a plain cell. Days after today are not drawn.
@@ -588,7 +589,10 @@ other app settings, so a backup does not carry it. Reset removes it.
 The app uses the typed maximum, else the measured one. With no maximum,
 none of the figures below show. Each figure counts the 5-second buckets of
 a filled read and nothing else. A bucket stands for 5 s, and a gap adds no
-time.
+time. An offset counts once: when a row holds two samples with one offset,
+the first stored one is the bucket and the later one is dropped. The load,
+the cardio figures, the Review picture and the round averages all read the
+buckets this way.
 
 - Hard line: 85 % of the maximum, rounded up. A maximum of 186 gives 159
   bpm. The time at or above it is the bucket count times 5 s.
@@ -633,7 +637,8 @@ and 90 % and over gives 5. The load is the sum of weight times 5 s, over 60,
 rounded half up. With a maximum of 200, one minute at 180 bpm is a load of
 5. A gap adds nothing. A session without a filled read, or with no maximum,
 has no load, which is not a load of 0. A day's load is the sum of its
-sessions' loads, and a week's load is the sum of its days with a load. The
+sessions' loads, held at 2,147,483,647 when the sum is larger, and a
+week's load is the sum of its days with a load, with no upper limit. The
 color step of a day compares its load with the highest day of the 52
 weeks: up to a quarter is step 1, up to a half step 2, up to three
 quarters step 3, and above that step 4. When the highest day is 0, every

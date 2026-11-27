@@ -150,6 +150,7 @@ fun Dot(color: Color, filled: Boolean = true, size: Int = 11) {
     Box(if (filled) m.background(color) else m.border(2.dp, color, CircleShape))
 }
 
+/** A list row. [stacked] puts [secondary] on its own line under the title; null stacks it at font scale 1.5 and up. */
 @Composable
 fun ListRow(
     title: String,
@@ -163,9 +164,10 @@ fun ListRow(
     trailing: (@Composable RowScope.() -> Unit)? = null,
     selected: Boolean? = null,
     leading: (@Composable () -> Unit)? = null,
+    stacked: Boolean? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    val largeText = androidx.compose.ui.platform.LocalConfiguration.current.fontScale >= 1.5f
+    val largeText = stacked ?: (androidx.compose.ui.platform.LocalConfiguration.current.fontScale >= 1.5f)
     Column(modifier.fillMaxWidth()) {
         if (divider) HorizontalDivider(Modifier.padding(start = if (leading != null) 58.dp else if (dotColor != null) 42.dp else 16.dp), color = K.Divider, thickness = 0.7.dp)
         Row(

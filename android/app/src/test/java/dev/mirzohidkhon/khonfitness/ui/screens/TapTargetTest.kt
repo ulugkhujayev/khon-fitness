@@ -280,6 +280,15 @@ class TapTargetTest {
         assertTargets("Timer")
     }
 
+    @Test fun `a finished session's screens with their Review row have 48 dp targets`() {
+        seed()
+        io { dao.upsert(Session(id = "oldrun", date = today.minusDays(1).toString(), startedAt = System.currentTimeMillis() - 86_400_000L,
+            finishedAt = System.currentTimeMillis() - 86_400_000L + 1_800_000L, itemType = ItemType.CARDIO, exerciseId = "z2", exerciseName = "Zone 2 run", timeSec = 1800)) }
+        openApp()
+        visit(Routes.session("old"), "Review")
+        visit(Routes.cardio("oldrun"), "Review")
+    }
+
     @Test fun `settings, review, the week plan and the lists have 48 dp targets`() {
         seed(); openApp()
         visit(Routes.SETTINGS, "Version")

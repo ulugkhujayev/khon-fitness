@@ -80,7 +80,7 @@ Three tabs.
     Monday to Sunday: a finished session (gym "d of n sets · t · min",
     cardio "km · min · pace", "Health Connect" when imported, "<k> PR"
     in green when the session set records, "<k> rep PR" when it set rep
-    records) opens the session with Edit;
+    records) opens the session with Edit and a Review row;
     two sessions on a day give two rows; "Rest" with the bodyweight
     ("83.0 kg") when present; under a day's last row one line per stretch
     run, "Stretch: Daily · 10 min" ("· 2 skipped" when some were skipped,
@@ -132,6 +132,21 @@ Three tabs.
   with "New type…" in the workout's editor: name and color) colors it on
   Today and in History. The type is stored on the workout, so a change
   also retypes and recolors its past sessions; the editor says so.
+- A finished session opened from History has one row, "Review", that
+  opens the same read-only Review as Today's Review button. On a gym
+  session it is the first item of the list; Edit mode hides it. On the
+  cardio form it is its own group above the form, and it shows only
+  while nothing is typed, so a tap never drops a typed value. An
+  unfinished session has no such row. The row's value is Review's heart
+  rate line ("avg 121 · max 163 bpm") in muted, and it follows the read
+  while the screen is open. With no line the row has no value. A screen
+  reader hears "Review, average 121, maximum 163 beats per minute,
+  button", or "Review, button".
+- Review's back button names the screen under it: "Today" over Today,
+  "History" over a session screen. Back returns to that screen with its
+  open block and scroll place. When the session is deleted while its
+  Review is open, Review and the session screen both close and History
+  shows.
 
 ## Exercise progress
 

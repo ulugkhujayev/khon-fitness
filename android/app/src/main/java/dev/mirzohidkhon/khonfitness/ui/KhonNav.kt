@@ -63,7 +63,7 @@ import dev.mirzohidkhon.khonfitness.ui.theme.K
 object Routes {
     const val TODAY = "today"; const val HISTORY = "history"; const val PROGRAMS = "programs" // the Plan tab; the route id stays
     fun session(id: String) = "session/$id"
-    /** A saved session read-only, from Today's Review: no Edit. */
+    /** A saved session read-only, from Today's Review or a finished session's Review row: no Edit. */
     fun review(sessionId: String) = "review/$sessionId"
     // A new program, block, exercise or stretch has its own route, never an id inside an edit route: a stored row
     // (a restored backup) can hold any id, "new" too.
@@ -202,13 +202,18 @@ internal fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
     }
 }
 
-/** Leave a session screen whose session no longer exists, while that screen is still on top. Without this it draws nothing. */
+/**
+ * Leave a session screen whose session no longer exists, while that screen is still on top, for the tab it was opened
+ * from: every screen above that tab goes, so a Review over the session's own screen leaves with it. Without this it
+ * draws nothing.
+ */
 @Composable
 fun LeaveIfSessionMissing(nav: NavHostController, route: String, sessionId: String, loaded: Boolean, missing: Boolean) {
     LaunchedEffect(loaded, missing) {
         val top = nav.currentBackStackEntry
         if (loaded && missing && top?.destination?.route == route && top.arguments?.getString("id") == sessionId) {
-            if (!nav.popBackStack(Routes.TODAY, inclusive = false)) nav.navigate(Routes.TODAY) { launchSingleTop = true }
+            val tab = nav.currentBackStack.value.lastOrNull { it.destination.route in TABS }?.destination?.route
+            if (tab == null || !nav.popBackStack(tab, inclusive = false)) nav.navigate(Routes.TODAY) { launchSingleTop = true }
         }
     }
 }

@@ -1,5 +1,6 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -7,23 +8,28 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
+import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import kotlinx.coroutines.flow.map
 
 /**
- * A saved session from Today's Review, read-only: the date over its stats, then each exercise with its sets (a set
- * not done reads "skipped"), or a cardio session's values. No Edit and no Delete here; History's entry keeps them.
+ * A saved session read-only, from Today's Review or the Review row of a finished session's screen: the date over its
+ * stats, then each exercise with its sets (a set not done reads "skipped"), or a cardio session's values. No Edit and
+ * no Delete here; History's entry keeps them. Back names the screen under it ([reviewBack]).
  */
 @Composable
 fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
@@ -35,12 +41,14 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val hrRow by remember(sessionId) { vm.repo.sessionHr(sessionId) }.collectAsStateWithLifecycle(null)
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
+    val back = remember(sessionId) { reviewBack(nav.previousBackStackEntry?.destination?.route) }
+    val leave = rememberExitGuard(nav)
     val s = session ?: return
     val picture = rememberWorkoutPicture(vm, s, logs, intervals)
     val facts = hrFacts(s, hrRow, java.time.ZoneId.systemDefault())
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar("Today", s.programName ?: s.exerciseName ?: "Session", scrollPx = { scroll.value }, onBack = { nav.popBackStack() })
+        EditorTopBar(back, s.programName ?: s.exerciseName ?: "Session", scrollPx = { scroll.value }, onBack = { leave { leave.pop() } })
         Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             Text(s.date.toDate().format(shortDate), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
             Text(statLine(s, logs), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = if (hrLine(s, facts) == null) 16.dp else 0.dp))
@@ -60,6 +68,41 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         }
     }
 }
+
+/** The back label of Review: "Today" over Today, else "History" (the session screens History opens). */
+fun reviewBack(previousRoute: String?): String = if (previousRoute == Routes.TODAY) "Today" else "History"
+
+/** What a screen reader hears on the Review row in place of its texts, ", button" added by its role. */
+fun reviewEntrySpoken(spokenLine: String?): String = listOfNotNull("Review", spokenLine).joinToString(", ")
+
+/**
+ * The group with the one row that opens Review on a finished session's screen. Its value is Review's heart rate line
+ * ([hrLine]) in muted; with no line, no value. A line that does not fit beside the title goes under it.
+ */
+@Composable
+fun ReviewEntry(line: String?, spokenLine: String?, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val measurer = rememberTextMeasurer()
+    val title = MaterialTheme.typography.bodyLarge
+    val value = MaterialTheme.typography.bodyMedium
+    val density = LocalDensity.current
+    GroupedList(modifier) {
+        BoxWithConstraints {
+            val stacked = line != null && with(density) {
+                val text = measurer.measure("Review", title).size.width + measurer.measure(line, value).size.width
+                text.toDp() + ROW_SIDES + ROW_GAP + CHEVRON_COLUMN > maxWidth
+            }
+            ListRow(
+                "Review", secondary = line, divider = false, stacked = stacked,
+                modifier = Modifier.clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = reviewEntrySpoken(spokenLine) },
+            )
+        }
+    }
+}
+
+/** [ListRow]'s room beside its texts: start and end padding, the gap before the secondary, the chevron with its gap. */
+private val ROW_SIDES = 30.dp
+private val ROW_GAP = 8.dp
+private val CHEVRON_COLUMN = 20.dp
 
 /** A program session's sets, one list per exercise, in the order the session ran them. */
 fun reviewExercises(logs: List<SetLog>): List<List<SetLog>> =

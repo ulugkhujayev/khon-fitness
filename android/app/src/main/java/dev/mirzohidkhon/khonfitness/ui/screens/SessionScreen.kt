@@ -51,6 +51,7 @@ import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Icons
+import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import kotlinx.coroutines.launch
@@ -63,7 +64,8 @@ import kotlinx.coroutines.flow.map
 private const val BLOCK_MS = 250
 
 /**
- * A program session: live logging while unfinished, read-only with an Edit toggle after. Every tap saves; a session
+ * A program session: live logging while unfinished, read-only with an Edit toggle after, and then a first row that
+ * opens its Review. Every tap saves; a session
  * field writes only its own column. One block is open at a time; in a running session a check moves focus on, and after
  * a block's last set the next block with work opens ([afterCheck]). A running session's header sits over the list and
  * folds as the sets scroll ([SessionHeader]). The finish sheet counts from [allSets], collected while the screen shows,
@@ -82,7 +84,9 @@ fun SessionScreen(
     val everySet by remember(allSets) { allSets.map<List<SetLog>, List<SetLog>?> { it } }.collectAsStateWithLifecycle(null)
     // Set by Finish, cleared by Dismiss and Save: the sheet shows while it is set, once every set is loaded.
     var finishTap by remember(sessionId) { mutableStateOf<Long?>(null) }
-    val logs by vm.repo.setLogs(sessionId).collectAsStateWithLifecycle(emptyList())
+    // Null until the sets load: the list waits for them, so its saved scroll place (after Review) is not cut short.
+    val loadedLogs by remember(sessionId) { vm.repo.setLogs(sessionId).map<List<SetLog>, List<SetLog>?> { it } }.collectAsStateWithLifecycle(null)
+    val hrRow by remember(sessionId) { vm.repo.sessionHr(sessionId) }.collectAsStateWithLifecycle(null)
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     var previous by remember { mutableStateOf<Map<String, SetLog>>(emptyMap()) }
     var editing by remember { mutableStateOf(false) }
@@ -110,10 +114,13 @@ fun SessionScreen(
     val lineHeight = with(density) { remember(footnote, density) { measurer.measure("0 / 0", footnote).size.height }.toDp() }
     val rowHeight = sessionRowHeight(lineHeight.value).dp
     val s = session ?: return
+    val logs = loadedLogs ?: return
 
     LaunchedEffect(s.id, s.programId) { previous = vm.repo.previousLogsByKey(s.programId, s.id) }
     val live = !s.finished || editing
     val running = !s.finished
+    val reviewRow = s.finished && !editing
+    val facts = hrFacts(s, hrRow, java.time.ZoneId.systemDefault())
     val blocks = remember(logs) { groupBlocks(logs) }
     val expanded = openBlock(blocks, pick.picked, pick.chosen)
     val topPadding = if (running) navHeight + rowHeight else 4.dp
@@ -124,7 +131,7 @@ fun SessionScreen(
     fun open(i: Int?) {
         if (i != null && i != expanded) {
             val offset = with(density) { revealOffset(topPadding.value, cover.value, cardTop(i).value).dp.roundToPx() }
-            scope.launch { listState.animateScrollToItem(i, offset) }
+            scope.launch { listState.animateScrollToItem(i + if (reviewRow) 1 else 0, offset) }
         }
         pick = OpenPick(true, i)
     }
@@ -152,6 +159,9 @@ fun SessionScreen(
         if (s.finished) EditorTopBar("History", s.programName ?: "Session", scrollPx = { listState.barOffset() }, onBack = { leave { leave.pop() } }, done = if (editing) "Done" else "Edit") { editing = !editing }
         Box(Modifier.weight(1f)) {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = topPadding, bottom = 24.dp)) {
+                if (reviewRow) item(key = "review") {
+                    ReviewEntry(hrLine(s, facts), hrSpoken(s, facts), Modifier.padding(top = 6.dp, bottom = 4.dp)) { leave.leave { nav.navigate(Routes.review(s.id)) } }
+                }
                 itemsIndexed(blocks, key = { _, b -> b.first().blockIndex }) { bi, blockLogs ->
                     BlockCard(bi, blockLogs, open = expanded == bi, onToggle = { pendingFocus.cancel(); open(if (expanded == bi) null else bi) }) {
                         blockLogs.forEach { log ->

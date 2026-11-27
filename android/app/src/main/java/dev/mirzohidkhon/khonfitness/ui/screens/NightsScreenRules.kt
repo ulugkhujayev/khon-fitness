@@ -44,4 +44,5 @@ const val NIGHT_DOTS = 2
 
 /** What one bar of the Nights chart speaks: "Tuesday, November 3, 5 hours 40 minutes, GYM", or "…, no night data". */
 fun nightBarSpoken(day: LocalDate, night: Night?, titles: List<String>): String =
-    (listOf(day.format(longDay), night?.let { nightLengthSpoken(it.asleepSec) } ?: NO_NIGHT_DATA.lowercase(Locale.US)) + titles).joinToString(", ")
+    if (night == null) "${day.format(longDay)}, ${NO_NIGHT_DATA.lowercase(Locale.US)}"
+    else (listOf(day.format(longDay), nightLengthSpoken(night.asleepSec)) + titles).joinToString(", ")

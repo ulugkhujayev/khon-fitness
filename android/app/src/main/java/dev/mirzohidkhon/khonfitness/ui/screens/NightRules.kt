@@ -38,10 +38,11 @@ const val NO_NIGHT_DATA = "No night data"
 
 /**
  * The night line of [day] in the History Log: [nightLine] when it has a night; [NO_NIGHT_DATA] when the nights are
- * loaded, [day] is not after [today], and [day] is on or after the first day with a night; else null.
+ * loaded and [day] is on or after the first day with a night; else null. A day after [today] has no line.
  */
 fun nightLogLine(day: LocalDate, state: NightsState, today: LocalDate, zone: ZoneId): String? {
     val nights = (state as? NightsState.Loaded)?.nights ?: return null
+    if (day > today) return null
     nights[day]?.let { return nightLine(it, zone) }
     val first = nights.keys.minOrNull() ?: return null
     return if (day <= today && day >= first) NO_NIGHT_DATA else null
@@ -49,6 +50,7 @@ fun nightLogLine(day: LocalDate, state: NightsState, today: LocalDate, zone: Zon
 
 /** What [nightLogLine] speaks. */
 fun nightLogSpoken(day: LocalDate, state: NightsState, today: LocalDate, zone: ZoneId): String? {
+    if (day > today) return null
     val night = (state as? NightsState.Loaded)?.nights?.get(day)
     return if (night != null) nightLineSpoken(night, zone) else nightLogLine(day, state, today, zone)
 }

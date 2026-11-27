@@ -23,7 +23,7 @@ const val NIGHT_FRESH_MS = 5 * 60_000L
 
 /**
  * The nights of the last [NIGHT_READ_DAYS] days, in memory only. One read at a time: a call while a read runs waits for
- * that read. A failed read keeps the nights loaded before; a read without access clears them.
+ * that read, and a forced call then reads once more. A failed read keeps the nights loaded before; a read without access clears them.
  */
 class NightStore(
     private val source: SleepSource,
@@ -38,8 +38,16 @@ class NightStore(
     private var running: Deferred<Unit>? = null
     private var lastGoodElapsed: Long? = null
 
-    /** Reads again unless the last good read is younger than [NIGHT_FRESH_MS] and [force] is false. */
+    /**
+     * Reads again unless the last good read is younger than [NIGHT_FRESH_MS] and [force] is false. A forced call that
+     * finds a read running waits for it and then reads again: that read began before the reason for the call.
+     */
     suspend fun refresh(force: Boolean = false) {
+        val older = synchronized(lock) { running?.takeIf { it.isActive } }
+        if (older != null) {
+            older.await()
+            if (!force) return
+        }
         val read = synchronized(lock) {
             running?.takeIf { it.isActive } ?: run {
                 val last = lastGoodElapsed

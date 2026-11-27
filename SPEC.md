@@ -748,7 +748,8 @@ The rules, in short:
 
 Nights are not stored in the app and not in the backup. The app reads the
 last 1,100 days again after each start and at most every 5 minutes after a
-good read.
+good read. Health Connect gives an app the records from 30 days
+before its first sleep grant on, so the nights start there and grow.
 
 The nights show in three places:
 
@@ -756,7 +757,9 @@ The nights show in three places:
   its stretch lines: "Night 7 h 05 m · 23:10 – 06:15". A day from the first
   night up to today without a night reads "No night data". Days before the
   first night and later days have no line. Without access, before the first
-  read, or after a failed read, the Log has no night line at all.
+  read, or after a failed read with no nights loaded before, the Log has no
+  night line at all. A failed read after a good one keeps the nights that
+  were loaded.
 - **Nights screen.** The row "Nights" on Progress, under "Compare two
   periods", opens it. Without Health Connect, with an old Health Connect, or
   without the sleep permission, it shows the same card as Heart rate data,

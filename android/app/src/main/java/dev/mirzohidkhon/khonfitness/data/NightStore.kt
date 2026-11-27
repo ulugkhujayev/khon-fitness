@@ -38,42 +38,27 @@ class NightStore(
 
     private val lock = Any()
     private var running: Deferred<Unit>? = null
-    private var readAgain = false
     private var lastGoodElapsed: Long? = null
 
     /** Reads again unless the last good read is younger than [NIGHT_FRESH_MS] and [force] is false. */
-    suspend fun refresh(force: Boolean = false) = request(force, afterChange = false)
-
-    /**
-     * A read that begins after this call, for a change that a running read cannot have seen (a permission grant).
-     * Calls that arrive during one read share one more read.
-     */
-    suspend fun refreshAfterChange() = request(force = true, afterChange = true)
-
-    private suspend fun request(force: Boolean, afterChange: Boolean) {
-        val reads = synchronized(lock) {
-            val active = running?.takeIf { it.isActive }
-            if (active != null) {
-                if (afterChange) readAgain = true
-                active
-            } else {
+    suspend fun refresh(force: Boolean = false) {
+        val read = synchronized(lock) {
+            running?.takeIf { it.isActive } ?: run {
                 val last = lastGoodElapsed
                 if (!force && last != null && clocks.elapsedMs() - last in 0 until NIGHT_FRESH_MS) return
-                readAgain = false
-                scope.async { readUntilCurrent() }.also { running = it }
+                scope.async { read() }.also { running = it }
             }
         }
-        reads.await()
+        read.await()
     }
 
-    private suspend fun readUntilCurrent() {
-        while (true) {
-            read()
-            val done = synchronized(lock) {
-                if (readAgain) { readAgain = false; false } else { running = null; true }
-            }
-            if (done) return
-        }
+    /**
+     * For a change that a running read cannot have seen (a permission grant): waits for that read, then reads as a
+     * forced [refresh] does. Calls that waited for the same read share the read after it.
+     */
+    suspend fun refreshAfterChange() {
+        synchronized(lock) { running?.takeIf { it.isActive } }?.join()
+        refresh(force = true)
     }
 
     /** A source that cancels only its own read (a timeout) is a failed read: the worker goes on and keeps a queued read. */

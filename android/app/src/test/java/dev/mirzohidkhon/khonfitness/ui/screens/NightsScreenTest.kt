@@ -285,11 +285,14 @@ class NightsScreenTest {
         review("log-g")
         speaks("Night before, 7 hours 5 minutes")
         speaks("Asleep, 23:10 to 06:15")
-        val night = saidBox("Night before, ")
+        shows(GYM_LIFTS.first().first)
         compose.waitUntil(5_000) { tagged(HEART_PICTURE_TAG).isNotEmpty() }
+        compose.waitForIdle()
+        val night = saidBox("Night before, ")
+        val asleep = saidBox("Asleep, ")
         assertTrue(night.top >= tagged(HEART_PICTURE_TAG).single().boundsInRoot.bottom)
-        assertTrue(saidBox("Asleep, ").top > night.top)
-        assertTrue(firstBox(GYM_LIFTS.first().first).top > saidBox("Asleep, ").bottom)
+        assertTrue(asleep.top > night.top)
+        assertTrue(firstBox(GYM_LIFTS.first().first).top > asleep.bottom)
     }
 
     @Test fun `U8 a cardio session with a night shows the two rows before the cardio rows`() {
@@ -297,10 +300,13 @@ class NightsScreenTest {
         io { seedLoad(app, logWeekFixtures(zone)) }
         review("log-z")
         speaks("Night before, 7 hours 5 minutes")
-        val asleep = saidBox("Asleep, ")
         shows("Type")
+        compose.waitUntil(5_000) { tagged(HEART_PICTURE_TAG).isNotEmpty() }
+        compose.waitForIdle()
+        val night = saidBox("Night before, ")
+        val asleep = saidBox("Asleep, ")
+        assertTrue(night.top >= tagged(HEART_PICTURE_TAG).single().boundsInRoot.bottom)
         assertTrue(textBox("Type").top > asleep.bottom)
-        if (tagged(HEART_PICTURE_TAG).isNotEmpty()) assertTrue(saidBox("Night before, ").top >= tagged(HEART_PICTURE_TAG).single().boundsInRoot.bottom)
     }
 
     @Test fun `U8 a session without a night has no night rows`() {

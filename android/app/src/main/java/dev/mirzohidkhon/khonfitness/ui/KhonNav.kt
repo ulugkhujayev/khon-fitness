@@ -87,6 +87,7 @@ object Routes {
     const val LIFTS = "lifts"
     const val COMPARE = "compare"
     const val LOAD = "load"
+    const val NIGHTS = "nights"
     const val STRETCHES = "stretches"
     const val IMPORT = "import"
     const val LIBRARY = "library"; const val WEEK_PLAN = "weekplan"; const val SETTINGS = "settings"
@@ -154,6 +155,7 @@ fun NavGraphBuilder.khonScreens(vm: AppViewModel, nav: NavHostController, clock:
     composable(Routes.LIFTS) { LiftListScreen(vm, nav, clock()) }
     composable(Routes.COMPARE) { CompareScreen(vm, nav, clock()) }
     composable(Routes.LOAD) { LoadScreen(vm, nav, clock()) }
+    composable(Routes.NIGHTS) { NightsScreen(vm, nav, clock()) }
     composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
     composable(Routes.IMPORT) { ImportScreen(vm, nav) }
     composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }

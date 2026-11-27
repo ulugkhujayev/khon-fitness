@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -41,11 +42,15 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val hrRow by remember(sessionId) { vm.repo.sessionHr(sessionId) }.collectAsStateWithLifecycle(null)
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
+    val nights by vm.nights.collectAsStateWithLifecycle()
+    RefreshNightsOnOpen(vm.nightStore)
     val back = remember(sessionId) { reviewBack(nav.previousBackStackEntry?.destination?.route) }
     val leave = rememberExitGuard(nav)
     val s = session ?: return
     val picture = rememberWorkoutPicture(vm, s, logs, intervals)
-    val facts = hrFacts(s, hrRow, java.time.ZoneId.systemDefault())
+    val zone = java.time.ZoneId.systemDefault()
+    val facts = hrFacts(s, hrRow, zone)
+    val nightRows = nightReviewRows((nights as? NightsState.Loaded)?.nights?.get(s.date.toDate()), zone)
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize()) {
         EditorTopBar(back, s.programName ?: s.exerciseName ?: "Session", scrollPx = { scroll.value }, onBack = { leave { leave.pop() } })
@@ -54,6 +59,9 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
             Text(statLine(s, logs), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = if (hrLine(s, facts) == null) 16.dp else 0.dp))
             hrLine(s, facts)?.let { Text(it, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp).semantics { contentDescription = hrSpoken(s, facts).orEmpty() }) }
             if (picture?.hasChart == true) HeartPicture(picture, Modifier.padding(bottom = 16.dp))
+            if (nightRows.isNotEmpty()) GroupedList(Modifier.padding(bottom = 16.dp)) {
+                nightRows.forEachIndexed { i, f -> NightReviewRow(f, color = if (i == 0) K.Text else K.Muted, divider = i > 0) }
+            }
             if (s.itemType == ItemType.PROGRAM) reviewExercises(logs).forEach { sets -> ExerciseReview(sets) }
             if (s.itemType == ItemType.PROGRAM) picture?.let { SetsInOrder(it.rows) }
             else CardioReview(s, facts, intervals, exercises.find { it.id == s.exerciseId }?.let { ex -> modalities.find { it.id == ex.modalityId }?.name })
@@ -142,6 +150,13 @@ private fun CardioReview(s: Session, facts: HrFacts, intervals: List<IntervalLog
                 ReviewRow("Round ${i + 1}", listOfNotNull(shownRoundHr(iv, facts)?.let { "$it bpm" }, iv.watts?.let { "$it W" }).joinToString(" · ").ifEmpty { "—" }, divider = i > 0)
             }
         }
+    }
+}
+
+@Composable
+private fun NightReviewRow(f: NightFact, color: androidx.compose.ui.graphics.Color, divider: Boolean) {
+    Box(Modifier.clearAndSetSemantics { contentDescription = f.spoken }) {
+        FieldRow(f.label, divider = divider) { Text(f.value, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), color = color) }
     }
 }
 

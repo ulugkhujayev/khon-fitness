@@ -50,6 +50,7 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock
     val progressScroll = rememberScrollState()
     val pages = rememberSaveableStateHolder()
     val today = rememberToday(clock)
+    RefreshNightsOnResume(vm.nightStore)
     TabScreen(
         trailing = { BarCircleButton(Icons.Download, "Import workouts") { nav.navigate(Routes.IMPORT) } },
         scroll = if (page == 0) logScroll else progressScroll,

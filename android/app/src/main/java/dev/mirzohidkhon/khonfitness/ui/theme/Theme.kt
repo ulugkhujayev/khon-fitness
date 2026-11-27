@@ -55,6 +55,8 @@ object K {
     val GreenInk = Color(0xFF000000)
     /** systemBlue. */
     val Blue = Color(0xFF0A84FF)
+    /** systemIndigo: every bar of the Nights chart, one color for every night. */
+    val Night = Color(0xFF5E5CE6)
     /** systemRed, increased contrast: red text reads at 4.5:1 on the elevated fill and on its own tint. */
     val Red = Color(0xFFFF6961)
     /** Text on a red fill (a destructive confirm). */

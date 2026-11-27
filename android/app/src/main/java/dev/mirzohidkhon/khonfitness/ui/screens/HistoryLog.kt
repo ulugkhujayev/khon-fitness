@@ -38,6 +38,7 @@ import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -65,6 +66,8 @@ fun HistoryLog(vm: AppViewModel, nav: NavHostController, today: LocalDate) {
     fun show(m: LocalDate) { shown = if (m >= weeks.endInclusive) null else m.toEpochDay() }
     val planFor: (LocalDate) -> PlanItem = { historyPlanFor(plan, it, today) }
     val histories = remember(logs, sessions) { liftHistories(logs, sessions) }
+    val nights by vm.nights.collectAsStateWithLifecycle()
+    val zone = ZoneId.systemDefault()
 
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         WeekArrow(Icons.ChevronLeft, "Previous week", monday > weeks.start) { show(monday.minusWeeks(1)) }
@@ -95,8 +98,10 @@ fun HistoryLog(vm: AppViewModel, nav: NavHostController, today: LocalDate) {
     GroupedList {
         rows.forEachIndexed { i, row ->
             // A day's stretch runs go under its last row.
-            val stretches = if (rows.getOrNull(i + 1)?.date == row.date) emptyList() else stretchLines(row.date, stretchSessions)
-            LogRowView(row, i > 0 && rows[i - 1].date == row.date, i > 0, row.date == today, logs, exercises, modalities, histories, bodyweights, stretches, nav)
+            val last = rows.getOrNull(i + 1)?.date != row.date
+            val stretches = if (last) stretchLines(row.date, stretchSessions) else emptyList()
+            val night = if (!last) null else nightLogLine(row.date, nights, today, zone)?.let { it to nightLogSpoken(row.date, nights, today, zone).orEmpty() }
+            LogRowView(row, i > 0 && rows[i - 1].date == row.date, i > 0, row.date == today, logs, exercises, modalities, histories, bodyweights, stretches, night, nav)
         }
     }
 }
@@ -127,7 +132,7 @@ internal fun doneLine(session: String, records: Int, repRecords: Int): Annotated
 private fun LogRowView(
     row: LogRow, sameDay: Boolean, divider: Boolean, isToday: Boolean,
     logs: List<SetLog>, exercises: List<Exercise>, modalities: List<Modality>,
-    histories: Map<String, List<LiftSession>>, bodyweights: List<Bodyweight>, stretches: List<String>, nav: NavHostController,
+    histories: Map<String, List<LiftSession>>, bodyweights: List<Bodyweight>, stretches: List<String>, night: Pair<String, String>?, nav: NavHostController,
 ) {
     val s = row.session
     val planned = itemColor(row.item, modalities)?.first ?: K.Muted
@@ -183,6 +188,10 @@ private fun LogRowView(
                 Text(title, style = MaterialTheme.typography.bodyLarge, color = titleColor, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (line != null) Text(line, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                 stretches.forEach { Text(it, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp)) }
+                night?.let { (text, spoken) ->
+                    Text(text, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp).semantics { contentDescription = spoken })
+                }
             }
             if (onClick != null) Chevron()
         }

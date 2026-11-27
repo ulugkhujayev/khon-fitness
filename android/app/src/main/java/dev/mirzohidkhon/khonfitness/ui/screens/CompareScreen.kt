@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import dev.mirzohidkhon.khonfitness.data.NightsState
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.components.GroupedList
 import dev.mirzohidkhon.khonfitness.ui.components.Chevron
@@ -63,6 +64,9 @@ fun CompareScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val programs by vm.programs.collectAsStateWithLifecycle()
+    val nightsState by vm.nights.collectAsStateWithLifecycle()
+    RefreshNightsOnOpen(vm.nightStore)
+    val nights = (nightsState as? NightsState.Loaded)?.nights ?: emptyMap()
     var leftKey by rememberSaveable { mutableStateOf(choiceKey(DEFAULT_LEFT)) }
     var rightKey by rememberSaveable { mutableStateOf(choiceKey(DEFAULT_RIGHT)) }
     var editing by rememberSaveable { mutableIntStateOf(-1) }
@@ -80,8 +84,8 @@ fun CompareScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock
         is PeriodChoice.Custom -> "Custom dates"
     }
 
-    val groups = remember(left, right, sessions, logs, stretches, bodyweights, exercises, modalities) {
-        fun stats(p: Period) = periodStats(p, sessions, logs, exercises, stretches, bodyweights)
+    val groups = remember(left, right, sessions, logs, stretches, bodyweights, exercises, modalities, nights) {
+        fun stats(p: Period) = periodStats(p, sessions, logs, exercises, stretches, bodyweights, nights)
         compareGroups(stats(left), stats(right), exercises, { id -> modalities.find { it.id == id }?.name ?: "Other" }, modalities.map { it.id })
     }
     val leftRange = periodRange(left, today)

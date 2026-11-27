@@ -50,7 +50,7 @@ internal fun niceStep(span: Double, target: Int): Double {
 
 const val MAX_AXIS_TICKS = 5
 
-/** A chart draws no value beyond this: up to here every sum and difference of the scale is exact. */
+/** A chart draws no value beyond this: up to here the bounds of the axis stay in order and each step is finite. */
 const val MAX_CHART_VALUE = 1e15
 
 internal fun chartable(value: Double): Boolean = abs(value) <= MAX_CHART_VALUE

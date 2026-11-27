@@ -171,13 +171,18 @@ class ReviewRowStateTest {
     private fun blockTops(): Map<String, Float> = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription)).fetchSemanticsNodes()
         .associate { it.config[SemanticsProperties.ContentDescription].single().substringBefore(",") to it.boundsInRoot.top }
 
-    private fun openBlock2Then(toggle: String) {
+    private fun openBlock2Then(toggle: String, next: String? = null) {
         val list = compose.onNode(hasScrollAction()).fetchSemanticsNode().boundsInRoot.top
         val block = compose.onNode(hasContentDescription("Block 2,", substring = true)).fetchSemanticsNode().config[SemanticsActions.OnClick].action!!
         val bar = clickAction(toggle)
         compose.mainClock.autoAdvance = false
         try {
             compose.runOnUiThread { block(); bar() }
+            if (next != null) {
+                repeat(3) { compose.mainClock.advanceTimeByFrame() }
+                val second = clickAction(next)
+                compose.runOnUiThread { second() }
+            }
             compose.mainClock.advanceTimeBy(1_500)
             compose.waitForIdle()
         } finally {
@@ -196,6 +201,48 @@ class ReviewRowStateTest {
         openFromHistory(Routes.session(f.session.id))
         until("the blocks show") { blockTops().size > 2 }
         openBlock2Then("Edit")
+    }
+
+    @Test fun `a block opened in the frame of Edit stays the target when Done follows during the scroll`() {
+        val f = gymFixture(day, zone, heart = false); seed(f)
+        compose.runOnUiThread { vm.openPicks[f.session.id] = OpenPick(true, null) }
+        openFromHistory(Routes.session(f.session.id))
+        until("the blocks show") { blockTops().size > 2 }
+        openBlock2Then("Edit", next = "Done")
+    }
+
+    private class LateSave(val dao: KhonDao) {
+        val asked = CompletableDeferred<Unit>()
+        val allow = CompletableDeferred<Unit>()
+        val wrapped = object : KhonDao by dao {
+            override suspend fun saveCardioEdits(opened: Session, edited: Session, intervalEdits: Map<String, IntervalEdit>, now: Long): CardioSaveResult {
+                asked.complete(Unit); allow.await()
+                return dao.saveCardioEdits(opened, edited, intervalEdits, now)
+            }
+        }
+    }
+
+    @Test fun `Save in the frame after a Review tap does not run, and Save works after the return`() {
+        val f = cardioFixture(day, zone); seed(f)
+        val late = LateSave(db.dao()).also { useDao(it.wrapped) }
+        try {
+            openFromHistory(Routes.cardio(f.session.id))
+            val review = reviewAction()
+            val save = clickAction("Save")
+            compose.runOnUiThread { review(); save() }
+            until("Review shows") { routes().last() == "review/{id}" }
+            compose.runOnUiThread { nav.popBackStack() }
+            until("the form is back") { routes().last() == "cardio/{id}" && shows("Save") }
+            assertTrue("the Save of the Review frame ran", !late.asked.isCompleted)
+            late.allow.complete(Unit)
+            compose.waitForIdle()
+            assertEquals(listOf("today", "history", "cardio/{id}"), routes())
+            val saveAgain = clickAction("Save")
+            compose.runOnUiThread { saveAgain() }
+            until("Save leaves for History") { routes() == listOf("today", "history") }
+        } finally {
+            late.allow.complete(Unit)
+        }
     }
 
     @Test fun `a block opened in the frame of Done scrolls to that block`() {

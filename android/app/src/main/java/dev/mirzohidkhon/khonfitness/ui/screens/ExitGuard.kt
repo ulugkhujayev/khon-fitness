@@ -15,12 +15,13 @@ import dev.mirzohidkhon.khonfitness.ui.Routes
 /**
  * The one exit guard of a screen that writes and then leaves: every closing action (Done, Save, Archive, Delete, Merge,
  * Discard, Back, and system Back) takes it ([Once]), so no two of them run or pop the screen under it too. A refused
- * action [release]s it. [pop] pops only while this screen's back stack entry is still the current one, so an action
+ * action [release]s it. The guard takes an action only while this screen's back stack entry is the current one, so an
+ * action of a frame in which another screen opened over it does nothing. [pop] has the same condition, so an action
  * that completes late (after system Back already left) never pops another screen.
  */
 class ExitGuard internal constructor(private val nav: NavController, private val entryId: String?) {
     private val once = Once()
-    operator fun invoke(action: () -> Unit) = once(action)
+    operator fun invoke(action: () -> Unit) { if (onTop()) once(action) }
     /** A refused action gives the guard back, so the next closing action runs. */
     fun release() = once.release()
     /** Pops this screen while it is on top; [orElse] runs when it is the last entry, so there is nothing to pop to. */

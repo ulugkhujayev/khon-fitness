@@ -55,6 +55,8 @@ import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
 import androidx.compose.runtime.remember
@@ -127,7 +129,6 @@ fun SessionScreen(
     // What the folded header still hides: the bar and the progress line on its edge.
     val cover = if (running) navHeight + SESSION_LINE.dp else 0.dp
 
-    // A Review row that comes or goes during the scroll moves the indexes: the scroll starts again for the same block.
     val scrolls = remember { intArrayOf(0) }
     suspend fun scrollTo(target: BlockReveal) {
         val run = ++scrolls[0]
@@ -135,9 +136,9 @@ fun SessionScreen(
         if (index < 0) return
         val row = sessionState.first?.finished == true && !editing
         try {
-            listState.animateScrollToItem(index + if (row) 1 else 0, target.offset)
+            listState.animateScrollToItem(index + if (row) 1 else 0, target.offsetPx)
         } catch (e: CancellationException) {
-            if (scrolls[0] == run) reveal = null
+            if (currentCoroutineContext().isActive && scrolls[0] == run) reveal = null
             throw e
         }
         if (scrolls[0] == run) reveal = null
@@ -259,8 +260,7 @@ fun SessionScreen(
 internal fun rememberOpenPick(picks: OpenPicks, sessionId: String): MutableState<OpenPick> =
     remember(picks, sessionId) { picks.state(sessionId) }
 
-/** A scroll that brings the block with [blockIndex] under the header, [offset] px from the top of its item. */
-private data class BlockReveal(val blockIndex: Int, val offset: Int)
+private data class BlockReveal(val blockIndex: Int, val offsetPx: Int)
 
 /** Room above a block card inside its list item: 6 dp for the first, 10 between cards. */
 private fun cardTop(index: Int): Dp = if (index == 0) 6.dp else 10.dp

@@ -166,3 +166,25 @@ Rule 8, corrected: a set holds the photos of one stretch in one view. In
 the exercise that is the two rep poses (start and hold), or the one hold
 pose, plus the photo that fades out. The findings F1 to F5 of the deep
 review are fixed by the task `FIG05-fix1.md` in this folder.
+
+## After verify round 3 (2026-11-27)
+
+Verify round 3 kept F2, F3, and F4 open. The lead fixed them in
+`StretchDemonstration.kt` and `StretchPhotoPixelsTest.kt`.
+
+- F2: the side (mirrored or not) is stored with each photo. A photo that
+  stays while the next one loads keeps its own side and its own texts.
+  Test: "a photo that stays while the other side loads keeps its own
+  side". Break proof: with the new side given to the staying photo, the
+  test fails.
+- F3: the panel has no `Crossfade`. It draws the shown photo and at most
+  one photo that fades out under it. While the panel waits for the photo
+  of another pose or view, the photo it still shows is the one that
+  goes, so the panel drops the older one at once. The cache and the
+  panel together hold the set and one more photo. Test: "the cache and
+  the panel hold the shown poses and one photo that goes" counts both in
+  every frame. Break proof: without the drop, the test fails.
+- F4: the fade test compares each frame with the start photo and with
+  the hold photo shown alone. It needs 3 or more blended frames and the
+  hold photo at the end. Break proof: with a fade time of 0, the test
+  fails.

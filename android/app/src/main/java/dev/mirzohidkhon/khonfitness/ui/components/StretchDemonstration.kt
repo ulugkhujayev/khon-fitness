@@ -3,7 +3,7 @@ package dev.mirzohidkhon.khonfitness.ui.components
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -70,7 +70,12 @@ val DEMO_PANEL_MIN_HEIGHT = 240.dp
 val ShownDemoPhoto = SemanticsPropertyKey<String>("ShownDemoPhoto")
 private var SemanticsPropertyReceiver.shownDemoPhoto by ShownDemoPhoto
 
-private data class DemoPhoto(val path: String, val image: ImageBitmap)
+/** The path of the photo that fades out under the shown one; absent when none does. */
+val FadingDemoPhoto = SemanticsPropertyKey<String>("FadingDemoPhoto")
+private var SemanticsPropertyReceiver.fadingDemoPhoto by FadingDemoPhoto
+
+/** [mirror] belongs to the photo, so a photo that stays while the next one loads keeps the side it was shown with. */
+private data class DemoPhoto(val path: String, val image: ImageBitmap, val mirror: Boolean)
 
 /** What the panel and the instruction under it show together; [photo] is null when its file is missing. */
 private data class DemoFrame(val photo: DemoPhoto?, val instruction: String, val description: String)
@@ -101,13 +106,12 @@ private object DemoPhotos {
     @Volatile var last: DemoFrame? = null
         private set
 
-    fun peek(path: String): DemoPhoto? = synchronized(held) { held[path] }?.let { DemoPhoto(path, it) }
+    fun peek(path: String): ImageBitmap? = synchronized(held) { held[path] }
 
-    suspend fun load(context: Context, set: Set<String>, path: String): DemoPhoto? = lock.withLock {
+    suspend fun load(context: Context, set: Set<String>, path: String): ImageBitmap? = lock.withLock {
         synchronized(held) { if (panels > 0 && this.set != set) { held.keys.retainAll(set); this.set = set } }
-        peek(path) ?: withContext(Dispatchers.IO) { decodePhoto(context, path, 1) }?.let { image ->
+        peek(path) ?: withContext(Dispatchers.IO) { decodePhoto(context, path, 1) }?.also { image ->
             synchronized(held) { if (panels > 0 && this.set == set && path in set) held[path] = image }
-            DemoPhoto(path, image)
         }
     }
 
@@ -120,40 +124,71 @@ private object DemoPhotos {
 
 /**
  * The frame for [path] with its texts. Decodes off the main thread; until the photo is ready the previous frame stays,
- * photo and texts together, so the panel never flashes empty and the texts never describe a photo not yet shown.
+ * photo, side, and texts together, so the panel never flashes empty and the texts never describe a photo not yet shown.
  */
 @Composable
-private fun rememberDemoFrame(path: String, set: Set<String>, instruction: String, description: String): DemoFrame {
+private fun rememberDemoFrame(path: String, set: Set<String>, mirror: Boolean, instruction: String, description: String): DemoFrame {
     val context = LocalContext.current
     DisposableEffect(Unit) { DemoPhotos.enter(); onDispose { DemoPhotos.leave() } }
     // A cancelled load never assigns, so a late photo of the previous pose or view is never drawn as the new one.
-    val loaded by produceState(DemoPhotos.peek(path)?.let { DemoFrame(it, instruction, description) } ?: DemoPhotos.last,
-        path, instruction, description) {
-        value = DemoFrame(DemoPhotos.load(context, set, path), instruction, description)
+    val loaded by produceState(
+        DemoPhotos.peek(path)?.let { DemoFrame(DemoPhoto(path, it, mirror), instruction, description) } ?: DemoPhotos.last,
+        path, mirror, instruction, description) {
+        value = DemoFrame(DemoPhotos.load(context, set, path)?.let { DemoPhoto(path, it, mirror) }, instruction, description)
     }
     LaunchedEffect(set) { set.forEach { DemoPhotos.load(context, set, it) } }
-    val frame = loaded.let { if (it == null || it.photo?.path == path) DemoFrame(it?.photo, instruction, description) else it }
+    val frame = loaded.let {
+        if (it == null || it.photo?.path == path) DemoFrame(it?.photo?.copy(mirror = mirror), instruction, description) else it
+    }
     SideEffect { DemoPhotos.shown(frame) }
     return frame
 }
 
-/** A black panel with the photo fitted inside it, never cropped or stretched; a new photo cross-fades in. */
+private const val DEMO_FADE_MS = 300
+
+/** The photo a panel draws and at most one photo that fades out under it. */
+private class DemoFade(var current: DemoPhoto?) {
+    var outgoing by mutableStateOf<DemoPhoto?>(null)
+    var alpha by mutableFloatStateOf(1f)
+}
+
+/**
+ * A black panel with the photo fitted inside it, never cropped or stretched; a new photo fades in over the one before
+ * it. While the panel [waits] for the photo of another pose or view, the photo it still shows is the one that goes,
+ * so no older photo stays under it.
+ */
 @Composable
-private fun DemoPanel(frame: DemoFrame, mirror: Boolean, modifier: Modifier) {
+private fun DemoPanel(frame: DemoFrame, waits: Boolean, modifier: Modifier) {
+    val fade = remember { DemoFade(frame.photo) }
+    if (fade.current != frame.photo) {
+        fade.outgoing = fade.current
+        fade.current = frame.photo
+        fade.alpha = 0f
+    }
+    if (waits) {
+        fade.outgoing = null
+        fade.alpha = 1f
+    }
+    LaunchedEffect(frame.photo, waits) {
+        if (fade.alpha < 1f) animate(fade.alpha, 1f, animationSpec = tween(DEMO_FADE_MS)) { value, _ -> fade.alpha = value }
+        fade.outgoing = null
+    }
+    val current = fade.current
+    val outgoing = fade.outgoing
     Box(modifier.clip(RoundedCornerShape(16.dp)).background(Color.Black).semantics {
         contentDescription = frame.description
-        frame.photo?.let { shownDemoPhoto = it.path + if (mirror) " mirrored" else "" }
+        current?.let { shownDemoPhoto = it.path + if (it.mirror) " mirrored" else "" }
+        outgoing?.let { fadingDemoPhoto = it.path }
     }) {
-        Crossfade(frame.photo, animationSpec = tween(300), label = "demo photo") { shown ->
-            if (shown != null) DemoImage(shown.image, mirror)
-        }
+        outgoing?.let { DemoImage(it.image, it.mirror) { if (current == null) 1f - fade.alpha else 1f } }
+        current?.let { DemoImage(it.image, it.mirror) { fade.alpha } }
     }
 }
 
 @Composable
-private fun DemoImage(image: ImageBitmap, mirror: Boolean) {
+private fun DemoImage(image: ImageBitmap, mirror: Boolean, alpha: () -> Float = { 1f }) {
     Image(image, contentDescription = null, contentScale = ContentScale.Fit,
-        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (mirror) -1f else 1f })
+        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (mirror) -1f else 1f; this.alpha = alpha() })
 }
 
 /** A list asks for every thumbnail at once; one decode at a time keeps a single photo buffer in memory. */
@@ -220,13 +255,14 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
         guide.shownPoses(preview, reps = exerciseProgress != null).map { demoPhotoPath(figure, it, view) }.toSet()
     }
     val target = guide.steps[step].instruction.forDemoSide(mirror)
-    val frame = rememberDemoFrame(demoPhotoPath(figure, pose, view), set, target, "${guide.name}. ${guide.steps[step].title}. $target")
+    val path = demoPhotoPath(figure, pose, view)
+    val frame = rememberDemoFrame(path, set, mirror, target, "${guide.name}. ${guide.steps[step].title}. $target")
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         val panel = if (maxPanelHeight == null) Modifier.height(208.dp)
             else Modifier.weight(1f, fill = false).heightIn(min = DEMO_PANEL_MIN_HEIGHT, max = maxPanelHeight.coerceAtLeast(DEMO_PANEL_MIN_HEIGHT)).fillMaxHeight()
         Box(panel.fillMaxWidth()) {
             // Sized by the box, so the photo's own size never counts toward the minimum the player reserves for it.
-            DemoPanel(frame, mirror, Modifier.matchParentSize())
+            DemoPanel(frame, waits = frame.photo.let { it != null && it.path != path }, Modifier.matchParentSize())
             // Over the image's bottom corners, 10 dp in (6 dp and the 48 dp target's edge), like a video player's controls.
             Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 if (preview) DemoControl(if (playing) Icons.Pause else Icons.Play, if (playing) "Pause demo" else "Play demo") {

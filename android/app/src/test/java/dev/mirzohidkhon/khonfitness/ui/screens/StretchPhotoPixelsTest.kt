@@ -13,12 +13,17 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
 import dev.mirzohidkhon.khonfitness.data.DemoView
 import dev.mirzohidkhon.khonfitness.data.demoPhotoPath
+import dev.mirzohidkhon.khonfitness.ui.components.FadingDemoPhoto
 import dev.mirzohidkhon.khonfitness.ui.components.ShownDemoPhoto
 import dev.mirzohidkhon.khonfitness.ui.components.StretchDemonstration
 import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
 import kotlinx.coroutines.sync.Mutex
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -40,8 +45,22 @@ class StretchPhotoPixelsTest {
     private fun panel(name: String) = compose.onNode(SemanticsMatcher("the panel of $name") {
         it.config.getOrNull(SemanticsProperties.ContentDescription)?.singleOrNull()?.startsWith("$name. ") == true
     })
-    private fun shown(): String? = compose.onAllNodes(SemanticsMatcher.keyIsDefined(ShownDemoPhoto)).fetchSemanticsNodes()
-        .singleOrNull()?.config?.getOrNull(ShownDemoPhoto)
+    private fun drawing() = compose.onAllNodes(SemanticsMatcher.keyIsDefined(ShownDemoPhoto)).fetchSemanticsNodes().singleOrNull()?.config
+    private fun shown(): String? = drawing()?.getOrNull(ShownDemoPhoto)
+    private fun fading(): String? = drawing()?.getOrNull(FadingDemoPhoto)
+    private fun spoken(): String? = drawing()?.getOrNull(SemanticsProperties.ContentDescription)?.joinToString()
+
+    private fun cache(name: String): Any = Class.forName("dev.mirzohidkhon.khonfitness.ui.components.DemoPhotos")
+        .getDeclaredField(name).apply { isAccessible = true }.get(null)!!
+
+    private fun held(): Set<String> = (cache("held") as Map<*, *>).let { synchronized(it) { it.keys.map { k -> k as String }.toSet() } }
+
+    /** Runs [block] while no photo can load, as on a phone where the decode is slow. */
+    private fun loadsWait(block: () -> Unit) {
+        val lock = cache("lock") as Mutex
+        until("the photo loads to pause") { lock.tryLock() }
+        try { block() } finally { lock.unlock() }
+    }
 
     private fun frame() { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
 
@@ -89,42 +108,110 @@ class StretchPhotoPixelsTest {
         assertTrue("the photo is not symmetric, so the check proves the flip: unflipped difference $same", same > 6)
     }
 
-    @Test fun `a change of pose draws a photo in every frame of the cross-fade`() {
+    @Test fun `a photo that stays while the other side loads keeps its own side`() {
+        var mirror by mutableStateOf(false)
+        compose.mainClock.autoAdvance = false
+        compose.setContent { view = LocalView.current; KhonTheme { StretchDemonstration("needle", mirror = mirror, preview = false) } }
+        val side = demoPhotoPath("needle", "hold", DemoView.SIDE)
+        val front = demoPhotoPath("needle", "hold", DemoView.FRONT)
+        until(side) { shown() == side }
+        compose.onNodeWithContentDescription("Change camera angle. View 1 of 2").performClick()
+        until(front) { shown() == front && fading() == null }
+        val left = photoArea("Thread the needle")
+        val leftText = spoken()
+        assertTrue("the text names the left side: $leftText", leftText!!.contains("left"))
+        loadsWait {
+            compose.runOnIdle { mirror = true }
+            repeat(30) {
+                frame()
+                assertEquals("frame $it while the right side loads", front, shown())
+                assertEquals("frame $it while the right side loads", leftText, spoken())
+                val moved = difference(left, photoArea("Thread the needle"), flipA = false)
+                assertTrue("frame $it while the right side loads draws the left photo as it was: difference $moved", moved < 2)
+            }
+        }
+        until("$side mirrored") { shown() == "$side mirrored" }
+        assertTrue("the text names the right side: ${spoken()}", spoken()!!.contains("right"))
+    }
+
+    @Test fun `the cache and the panel hold the shown poses and one photo that goes`() {
         val motion = mutableFloatStateOf(0f)
         compose.mainClock.autoAdvance = false
+        compose.setContent { view = LocalView.current; KhonTheme { StretchDemonstration("catcow", preview = false, exerciseProgress = motion.floatValue) } }
+        fun photo(pose: String, view: DemoView) = demoPhotoPath("catcow", pose, view)
+        fun inMemory() = held() + listOfNotNull(shown()?.removeSuffix(" mirrored"), fading())
+        until("both side photos") { shown() == photo("start", DemoView.SIDE) && held() == setOf(photo("start", DemoView.SIDE), photo("hold", DemoView.SIDE)) }
+        repeat(30) { frame() }
+        assertNull("nothing fades before a change", fading())
+
+        compose.runOnIdle { motion.floatValue = 0.5f }
+        until(photo("hold", DemoView.SIDE)) { shown() == photo("hold", DemoView.SIDE) }
+        loadsWait {
+            assertEquals("the start photo fades out", photo("start", DemoView.SIDE), fading())
+            compose.onNodeWithContentDescription("Change camera angle. View 1 of 2").performClick()
+            frame()
+            assertEquals(photo("hold", DemoView.SIDE), shown())
+            assertNull("a panel that waits for the other view keeps no older photo", fading())
+            repeat(30) { frame(); assertTrue("frame $it: ${inMemory()}", inMemory().size <= 3) }
+        }
+        var going = false
+        var settled = 0
+        var frames = 0
+        while (settled < 30) {
+            frame(); Thread.sleep(5)
+            assertTrue("frame $frames after the view change: ${inMemory()}", inMemory().size <= 3)
+            if (shown() == photo("hold", DemoView.FRONT)) {
+                if (fading() == photo("hold", DemoView.SIDE)) going = true
+                if (fading() == null) settled++
+            }
+            assertTrue("the front photo never settled", ++frames < 300)
+        }
+        assertTrue("the side photo faded out under the front photo", going)
+        assertEquals(setOf(photo("start", DemoView.FRONT), photo("hold", DemoView.FRONT)), inMemory())
+    }
+
+    @Test fun `a change of pose fades from one photo to the other with a photo in every frame`() {
+        val motion = mutableFloatStateOf(1f)
+        compose.mainClock.autoAdvance = false
         compose.setContent { view = LocalView.current; KhonTheme { StretchDemonstration("wgs", preview = false, exerciseProgress = motion.floatValue) } }
+        val name = "World's greatest stretch"
         val start = demoPhotoPath("wgs", "start", DemoView.SIDE)
         val hold = demoPhotoPath("wgs", "hold", DemoView.SIDE)
+        until(hold) { shown() == hold }
+        repeat(30) { frame() }
+        val holdAlone = photoArea(name)
+        compose.runOnIdle { motion.floatValue = 0f }
         until(start) { shown() == start }
         repeat(30) { frame() }
-        val before = photoArea("World's greatest stretch")
-        // A cross-fade over black dips to about 60 % of a photo's brightness; an empty panel is near 0.
+        val before = photoArea(name)
+        val apart = difference(before, holdAlone, flipA = false)
+        assertTrue("the two photos differ: mean difference $apart", apart > 6)
+        // An empty panel is near 0.
         val lit = brightness(before) / 4
         assertTrue("the start photo shows: brightness ${brightness(before)}", lit > 1)
 
-        val lock = Class.forName("dev.mirzohidkhon.khonfitness.ui.components.DemoPhotos")
-            .getDeclaredField("lock").apply { isAccessible = true }.get(null) as Mutex
-        until("the photo loads to pause") { lock.tryLock() }
-        try {
+        loadsWait {
             compose.runOnIdle { motion.floatValue = 0.5f }
-            // Longer than the 300 ms fade, as on a phone where the decode is slow.
+            // Longer than the 300 ms fade.
             repeat(30) {
                 frame()
-                assertTrue("frame $it while the hold photo loads is empty", brightness(photoArea("World's greatest stretch")) > lit)
+                assertTrue("frame $it while the hold photo loads is empty", brightness(photoArea(name)) > lit)
             }
-        } finally {
-            lock.unlock()
         }
         var frames = 0
         var after = 0
+        var blended = 0
         while (after < 30) {
             frame(); Thread.sleep(5)
-            val now = brightness(photoArea("World's greatest stretch"))
+            val area = photoArea(name)
+            val now = brightness(area)
             assertTrue("frame $frames of the change to the hold photo is empty: brightness $now", now > lit)
+            if (difference(area, before, flipA = false) > apart / 5 && difference(area, holdAlone, flipA = false) > apart / 5) blended++
             if (shown() == hold) after++
             assertTrue("the hold photo never showed", ++frames < 300)
         }
-        val end = photoArea("World's greatest stretch")
-        assertTrue("the panel ends on another photo than it started", difference(before, end, flipA = false) > 6)
+        assertTrue("the change is a fade through blends of the two photos: $blended blended frames", blended >= 3)
+        val end = difference(photoArea(name), holdAlone, flipA = false)
+        assertTrue("the panel ends on the hold photo: mean difference $end", end < 2)
     }
 }

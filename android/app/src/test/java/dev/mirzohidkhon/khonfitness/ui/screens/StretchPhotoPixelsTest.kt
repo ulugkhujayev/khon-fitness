@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -35,7 +36,10 @@ class StretchPhotoPixelsTest {
     @get:Rule val compose = createAndroidComposeRule<androidx.activity.ComponentActivity>()
     private lateinit var view: View
 
-    private val panel get() = compose.onNode(SemanticsMatcher.keyIsDefined(ShownDemoPhoto))
+    /** Found by its spoken text, which it has also while it draws no photo. */
+    private fun panel(name: String) = compose.onNode(SemanticsMatcher("the panel of $name") {
+        it.config.getOrNull(SemanticsProperties.ContentDescription)?.singleOrNull()?.startsWith("$name. ") == true
+    })
     private fun shown(): String? = compose.onAllNodes(SemanticsMatcher.keyIsDefined(ShownDemoPhoto)).fetchSemanticsNodes()
         .singleOrNull()?.config?.getOrNull(ShownDemoPhoto)
 
@@ -47,7 +51,7 @@ class StretchPhotoPixelsTest {
     }
 
     /** The panel above its buttons, which do not mirror. */
-    private fun photoArea(): Bitmap = compose.nodeImage(view, panel).let { Bitmap.createBitmap(it, 0, 0, it.width, it.height * 3 / 4) }
+    private fun photoArea(name: String): Bitmap = compose.nodeImage(view, panel(name)).let { Bitmap.createBitmap(it, 0, 0, it.width, it.height * 3 / 4) }
 
     private fun luma(p: Int) = (Color.red(p) * 299 + Color.green(p) * 587 + Color.blue(p) * 114) / 1000.0
     private fun brightness(b: Bitmap): Double {
@@ -73,11 +77,11 @@ class StretchPhotoPixelsTest {
         val path = demoPhotoPath("needle", "hold", DemoView.SIDE)
         until(path) { shown() == path }
         compose.mainClock.advanceTimeBy(400)
-        val left = photoArea()
+        val left = photoArea("Thread the needle")
         mirror = true
         until("$path mirrored") { shown() == "$path mirrored" }
         compose.mainClock.advanceTimeBy(400)
-        val right = photoArea()
+        val right = photoArea("Thread the needle")
         assertTrue("the panel draws a photo: brightness ${brightness(left)}", brightness(left) > 8)
         val flipped = difference(left, right, flipA = true)
         val same = difference(left, right, flipA = false)
@@ -93,7 +97,7 @@ class StretchPhotoPixelsTest {
         val hold = demoPhotoPath("wgs", "hold", DemoView.SIDE)
         until(start) { shown() == start }
         repeat(30) { frame() }
-        val before = photoArea()
+        val before = photoArea("World's greatest stretch")
         val lit = brightness(before) / 2
         assertTrue("the start photo shows: brightness ${brightness(before)}", lit > 4)
 
@@ -104,7 +108,7 @@ class StretchPhotoPixelsTest {
             compose.runOnIdle { motion.floatValue = 0.5f }
             repeat(5) {
                 frame()
-                assertTrue("frame $it while the hold photo loads is empty", brightness(photoArea()) > lit)
+                assertTrue("frame $it while the hold photo loads is empty", brightness(photoArea("World's greatest stretch")) > lit)
             }
         } finally {
             lock.unlock()
@@ -113,12 +117,12 @@ class StretchPhotoPixelsTest {
         var after = 0
         while (after < 30) {
             frame(); Thread.sleep(5)
-            val now = brightness(photoArea())
+            val now = brightness(photoArea("World's greatest stretch"))
             assertTrue("frame $frames of the change to the hold photo is empty: brightness $now", now > lit)
             if (shown() == hold) after++
             assertTrue("the hold photo never showed", ++frames < 300)
         }
-        val end = photoArea()
+        val end = photoArea("World's greatest stretch")
         assertTrue("the panel ends on another photo than it started", difference(before, end, flipA = false) > 6)
     }
 }

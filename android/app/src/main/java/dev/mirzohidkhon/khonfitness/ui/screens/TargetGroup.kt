@@ -33,6 +33,8 @@ import dev.mirzohidkhon.khonfitness.ui.components.PrimaryButton
 import dev.mirzohidkhon.khonfitness.ui.components.SectionTitle
 import dev.mirzohidkhon.khonfitness.ui.components.fmt
 import dev.mirzohidkhon.khonfitness.ui.theme.K
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -44,7 +46,7 @@ fun LiftTargetGroup(vm: AppViewModel, exerciseId: String, history: List<LiftSess
     val kind = if (withWeight(history)) TargetKind.LIFT_KG else TargetKind.LIFT_REPS
     val current = liftTargetFor(stored, kind == TargetKind.LIFT_KG)?.value
     TargetGroup(rows, kind, current, stored != null, modifier) { value ->
-        vm.run { vm.targets.setLift(exerciseId, value, kind == TargetKind.LIFT_REPS, today) }
+        vm.run { withContext(Dispatchers.IO) { vm.targets.setLift(exerciseId, value, kind == TargetKind.LIFT_REPS, today) } }
     }
 }
 
@@ -54,7 +56,8 @@ fun BodyTargetGroup(vm: AppViewModel, bodyweights: List<Bodyweight>, today: Loca
     val stored by vm.bodyTarget.collectAsStateWithLifecycle()
     val rows = remember(stored, bodyweights, today) { bodyRows(stored, bodyweights, today) }
     TargetGroup(rows, TargetKind.BODY, stored?.kg, stored != null, modifier) { value ->
-        vm.run { vm.targets.setBody(value, value?.let { bodyStart(bodyweights, today) }, today) }
+        val start = value?.let { bodyStart(bodyweights, today) }
+        vm.run { withContext(Dispatchers.IO) { vm.targets.setBody(value, start, today) } }
     }
 }
 

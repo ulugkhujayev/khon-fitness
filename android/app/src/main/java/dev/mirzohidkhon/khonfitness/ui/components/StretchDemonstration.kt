@@ -67,14 +67,17 @@ private var SemanticsPropertyReceiver.shownDemoPhoto by ShownDemoPhoto
 
 private data class DemoPhoto(val path: String, val image: ImageBitmap)
 
-/** Full color avoids banding in the studio background. */
-private fun decodePhoto(context: Context, path: String, sample: Int): ImageBitmap? =
+/** Full color avoids banding in the studio background. Null when the file is missing or is no picture. */
+internal fun decodePhoto(context: Context, path: String, sample: Int): ImageBitmap? = try {
     context.assets.open(path).use { stream ->
         BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply {
             inPreferredConfig = Bitmap.Config.ARGB_8888
             inSampleSize = sample
         })
     }?.also { it.prepareToDraw() }?.asImageBitmap()
+} catch (e: java.io.IOException) {
+    null
+}
 
 /**
  * Holds only the photos of one stretch in one view: a load for another stretch or view drops them. [last] lets a new

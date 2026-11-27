@@ -21,3 +21,11 @@ the builder's messages (marked "builder") and from the lead's own runs
 P8 is the lead's decision: accepted. The owner's phone is 360 x 780 dp.
 The same test failed in the suite of branch `ngt01` in the same hour and
 passes alone there too.
+
+## After the deep review (lead)
+
+- P1 break proof (builder): with `wgs-hold-front.webp` removed, 2 asset tests fail.
+- Missing photo: `StretchPhotoPlayerTest` has `a photo file that is missing decodes to nothing`. With the catch disabled: `java.io.FileNotFoundException at StretchPhotoPlayerTest.kt:178`, `6 tests completed, 1 failed`. With the fix: `tests="6" skipped="0" failures="0"`.
+- Pictures: 41 files in `android/app/build/shots-stretch`; the lead opened each one.
+- Tests removed with the sprite code: the builder's commit `3358c782` lists them; both demo clock test classes remain.
+

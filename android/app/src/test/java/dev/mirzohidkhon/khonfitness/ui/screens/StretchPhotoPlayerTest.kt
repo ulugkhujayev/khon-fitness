@@ -173,6 +173,11 @@ class StretchPhotoPlayerTest {
         everyFrame(demoPhotoPath("plow", "start", DemoView.SIDE))
     }
 
+    @Test fun `a photo file that is missing decodes to nothing`() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        for (sample in listOf(1, 4)) org.junit.Assert.assertNull(dev.mirzohidkhon.khonfitness.ui.components.decodePhoto(context, "stretch_demos/missing.webp", sample))
+    }
+
     @Test fun `a right side mirrors the photo and swaps the instruction`() {
         val app = KhonApp()
         ContextWrapper::class.java.getDeclaredMethod("attachBaseContext", Context::class.java).apply { isAccessible = true }

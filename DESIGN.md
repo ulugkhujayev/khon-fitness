@@ -540,10 +540,13 @@ Two lines, 88 px total, hairline between rows.
   button under Start to test a routine quickly.
 - One primary action stays at the bottom: Start, Pause, or Resume. Content
   scrolls above it on short screens or with large text. Controls never overlap.
-- The stretch name and side appear above an offline 3D human demonstration.
-  Before Start, the guide automatically plays setup, movement, and hold steps.
-  Numbered steps pause on a position. Play demo restarts the lesson. Change
-  view switches between two camera angles. Each step has a plain instruction.
+- The stretch name and side appear above a photo demonstration: one man in
+  a studio, on black, a start photo and a hold photo per stretch (Cat cow
+  also has a setup photo), each from the side and from the front. Before
+  Start, the guide shows each step for 2.6 s in turn, and the photo
+  cross-fades in 300 ms when it changes. Play demo restarts the lesson.
+  Change view switches between the side and the front and keeps the pose.
+  Each step has a plain instruction.
   Play/Pause and Change view are 40 px round controls (48 px targets) over the image's
   bottom corners, 10 px in, a white symbol on black at 45 percent, like a
   video player's. The steps are a timeline: 26 px numbered nodes on a
@@ -551,21 +554,24 @@ Two lines, 88 px total, hairline between rows.
   the shown step are accent with black numbers, the shown one also sits
   in a 34 px accent-tinted halo with its title white and semibold, later
   ones are Surface3 with muted numbers. The line runs between the first
-  and the last node in Surface2 and fills in accent as far as the demo
-  has come, moving on as the pose moves into each step. A tap on a step
-  holds its pose. During the stretch the steps are hidden and the
-  instruction follows the nearest step. The same demonstration heads the
-  stretch editor.
+  and the last node in Surface2. While the guide plays it fills in accent
+  toward the next step; a tap on a step stops the guide, shows that step's
+  photo and fills the line to its node. During the stretch the steps are
+  hidden. The same demonstration heads the stretch editor at 208 px high.
+- The photo sits in a black panel with 16 px corners, fitted whole: never
+  cropped, never stretched. In the player the panel is as wide as the
+  content and takes the height the other controls leave, from 240 px up to
+  the photo's own 720:820 shape. When even 240 px does not leave room, the
+  content scrolls above Start. The list thumbnail is the side hold photo.
 - Demo playback does not start the exercise clock. A new stretch or side
   opens with its demonstration playing. The Start button stays fixed below
-  the scrollable guide, timer, and routine progress.
-- Held stretches show the held position. Repeated movements follow the
-  exercise clock and freeze when paused. No bouncing through a held pose.
-- The continuous human mesh has a gray body, dark shorts from the navel to
-  just below the knees, coral muscle highlights, visible hands and feet,
-  and floor contact shadows. Right-side
-  guides mirror both images and cues.
-  Plow places feet beyond the head; 90/90 shows both knee bends.
+  the scrollable guide, timer, and routine progress. The panel keeps the
+  last photo until the next one has loaded, so it never shows empty.
+- A held stretch shows the photo and instruction of the last step. A
+  stretch that moves in reps shows the start photo for the first half of
+  each half-cycle and the hold photo for the second, with the instruction
+  of the last step that uses that photo. Paused reps stop on their photo.
+- Right-side guides mirror the photo and swap left and right in the cues.
 - Beeps and speech use Android media audio and its selected output. The
   notification is silent. Disconnecting headphones pauses active playback.
 - A run's result is written once. A session the user deleted can come back

@@ -69,16 +69,10 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     }
 }
 
-/** The back label of Review: "Today" over Today, else "History" (the session screens History opens). */
 fun reviewBack(previousRoute: String?): String = if (previousRoute == Routes.TODAY) "Today" else "History"
 
-/** What a screen reader hears on the Review row in place of its texts, ", button" added by its role. */
 fun reviewEntrySpoken(spokenLine: String?): String = listOfNotNull("Review", spokenLine).joinToString(", ")
 
-/**
- * The group with the one row that opens Review on a finished session's screen. Its value is Review's heart rate line
- * ([hrLine]) in muted; with no line, no value. A line that does not fit beside the title goes under it.
- */
 @Composable
 fun ReviewEntry(line: String?, spokenLine: String?, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val measurer = rememberTextMeasurer()

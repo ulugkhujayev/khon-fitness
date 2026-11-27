@@ -26,7 +26,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** The Review row with the longest heart rate line fits on one line next to its title, at 360 and 411 dp, font 1.0 and 1.3. */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w360dp-h800dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

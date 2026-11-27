@@ -31,6 +31,15 @@ class ExitGuard internal constructor(private val nav: NavController, private val
     /** Runs [go], a navigation away from this screen (the timer's to the cardio form), only while this screen is on top. */
     fun leave(go: () -> Unit) { if (onTop()) go() }
     /**
+     * Runs [go], a visit to a screen above this one that comes back (Review), only while no closing action holds the
+     * guard and this screen is on top. The guard is free again after [go], so the screen's own exits work on return.
+     */
+    fun visit(go: () -> Unit) {
+        var took = false
+        once { took = true; leave(go) }
+        if (took) once.release()
+    }
+    /**
      * Leaves for Today, with every screen above it popped: where the Save that finishes a workout lands, also when the
      * workout was opened from History's "In progress" row. Only while this screen is on top, as [leave]. This screen
      * goes first; then Today opens as the tab bar opens it, so the tab under this screen keeps its saved state (its

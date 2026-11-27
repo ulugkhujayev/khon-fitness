@@ -13,6 +13,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -46,11 +47,6 @@ import org.robolectric.annotation.Config
 import java.time.LocalDate
 import java.time.ZoneId
 
-/**
- * A finished session opened from History has one row that opens its Review: the gym session's first item, the cardio
- * form's first group while nothing is typed. Review's Back names History and returns to the session screen as it was;
- * a session deleted under Review takes both screens away. Real database, real back stack with the tabs.
- */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class ReviewFromHistoryTest {
@@ -93,8 +89,9 @@ class ReviewFromHistoryTest {
 
     private fun spoken(f: PictureFixture) = reviewEntrySpoken(hrSpoken(f.session, hrFacts(f.session, f.row, zone)))
     private fun line(f: PictureFixture) = hrLine(f.session, hrFacts(f.session, f.row, zone))!!
+    private fun tagged(tag: String) = compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+    private fun roundValue(f: PictureFixture, i: Int) = "${shownRoundHr(f.rounds[i], hrFacts(f.session, f.row, zone))} bpm"
 
-    /** The app's tabs and the screens History opens, with History open on top of Today, then [route] over it. */
     private fun openFromHistory(route: String) {
         compose.setContent {
             KhonTheme {
@@ -153,6 +150,16 @@ class ReviewFromHistoryTest {
         until("the committed fill shows") { named(spoken(gym)) && shows(line(gym)) }
     }
 
+    @Test fun `a fill that commits while the cardio form is open shows in its row`() {
+        seed(cardio, withRow = false)
+        io { dao.upsertSessionHr(cardio.row!!.copy(state = HrState.WAITING, samples = "", avgHr = null, maxHr = null)) }
+        openFromHistory(Routes.cardio("cardio"))
+        until("the row shows") { reviewRows().size == 1 }
+        assertEquals(listOf("Review"), reviewRows().single().config[SemanticsProperties.ContentDescription])
+        io { dao.upsertSessionHr(cardio.row!!) }
+        until("the committed fill shows") { named(spoken(cardio)) && shows(line(cardio)) }
+    }
+
     @Test fun `the row opens Review once, Back says History, and the bar Back and system Back return to the session as it was`() {
         seed(gym); openFromHistory(Routes.session("gym"))
         until("the row shows") { reviewRows().size == 1 }
@@ -169,6 +176,7 @@ class ReviewFromHistoryTest {
         twice(clickRow())
         until("Review shows") { routes().lastOrNull() == "review/{id}" && shows("Sets in order") }
         assertEquals(listOf("today", "history", "session/{id}", "review/{id}"), routes())
+        until("Review draws the heart rate picture") { tagged(HEART_PICTURE_TAG) }
         assertTrue("Back names History", named("History"))
         twice(click("History"))
         until("the session screen is back") { routes().lastOrNull() == "session/{id}" && reviewRows().size == 1 }
@@ -226,10 +234,18 @@ class ReviewFromHistoryTest {
         until("Review shows") { routes().lastOrNull() == "review/{id}" && shows("Norwegian 4×4") }
         assertEquals(listOf("today", "history", "cardio/{id}", "review/{id}"), routes())
         assertTrue(named("History"))
+        until("Review draws the heart rate picture") { tagged(HEART_PICTURE_TAG) }
+        assertTrue("Review shows the cardio figures", shows("Intervals") && shows(roundValue(cardio, 0)) && shows(roundValue(cardio, cardio.rounds.lastIndex)))
         systemBack()
         until("the form is back") { routes().lastOrNull() == "cardio/{id}" && reviewRows().size == 1 }
         assertEquals(listOf("today", "history", "cardio/{id}"), routes())
         assertEquals("the scroll place", before, place(), 0.5f)
+        compose.runOnUiThread { clickRow()() }
+        until("Review shows again") { routes().lastOrNull() == "review/{id}" && shows("Intervals") }
+        twice(click("History"))
+        until("the bar Back returns to the form") { routes().lastOrNull() == "cardio/{id}" && reviewRows().size == 1 }
+        assertEquals(listOf("today", "history", "cardio/{id}"), routes())
+        assertEquals("the scroll place after the bar Back", before, place(), 0.5f)
     }
 
     @Test fun `a session deleted under Review takes Review and its session screen away to History`() {
@@ -240,12 +256,14 @@ class ReviewFromHistoryTest {
         until("Review shows") { routes().lastOrNull() == "review/{id}" && shows("Sets in order") }
         io { vm.repo.deleteSession("gym") }
         until("History shows") { routes() == listOf("today", "history") }
+        until("History draws its log with the cardio session and without the deleted one") { shows("Log") && shows("Norwegian 4×4") && !shows("Push") }
         compose.runOnIdle { nav.navigate(Routes.cardio("cardio")) }
         until("the form row shows") { reviewRows().size == 1 }
         compose.runOnUiThread { clickRow()() }
         until("Review shows") { routes().lastOrNull() == "review/{id}" }
         io { vm.repo.deleteSession("cardio") }
         until("History shows") { routes() == listOf("today", "history") }
+        until("History draws its log without the deleted session") { shows("Log") && !shows("Norwegian 4×4") }
     }
 
     @Test fun `the row speaks Review and the line, as a button`() {

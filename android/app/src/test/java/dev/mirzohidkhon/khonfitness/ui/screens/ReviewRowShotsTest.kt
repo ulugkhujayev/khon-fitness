@@ -43,10 +43,6 @@ import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
 
-/**
- * The Review row on a finished session's screen: the gym session with a heart rate line, with the longest line, and
- * with no line, and the cardio form. Runs only when build/shots-review-row exists.
- */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w360dp-h800dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

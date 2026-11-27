@@ -19,22 +19,18 @@ import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
 import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.map
 
-/**
- * Cardio session form: the fields come from the exercise, one row per work interval when it has intervals. A finished
- * session with nothing typed has a first row that opens its Review.
- */
+/** Cardio session form: the fields come from the exercise, one row per work interval when it has intervals. */
 @Composable
 fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val sessionState by remember(sessionId) { vm.repo.session(sessionId).map { it to true } }.collectAsStateWithLifecycle(null to false)
     val session = sessionState.first
     LeaveIfSessionMissing(nav, "cardio/{id}", sessionId, loaded = sessionState.second, missing = session == null)
-    // One flow for the screen's life: a new one on each recomposition would start its query again. Null until the
-    // rounds load: the form waits for them, so its saved scroll place (after Review) is not cut short.
+    // One flow for the screen's life: a new one on each recomposition would start its query again.
     val loadedIntervals by remember(sessionId) { vm.repo.intervalLogs(sessionId).map<List<IntervalLog>, List<IntervalLog>?> { it } }.collectAsStateWithLifecycle(null)
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     val hrRow by remember(sessionId) { vm.repo.sessionHr(sessionId) }.collectAsStateWithLifecycle(null)
     val s = session ?: return
-    val intervals = loadedIntervals ?: return
+    val intervals = loadedIntervals.orEmpty()
     val facts = hrFacts(s, hrRow, java.time.ZoneId.systemDefault())
     val ex = exercises.find { it.id == s.exerciseId }
     // Current exercise fields, plus any value this session already stores: a field removed later must not hide old data.
@@ -76,10 +72,12 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                 }
             }
         }
-        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
-            // Only while nothing is typed: Review leaves the form, and the form does not keep typed values.
-            if (s.finished && draft == opened && edits.isEmpty()) {
-                ReviewEntry(hrLine(s, facts), hrSpoken(s, facts), Modifier.padding(bottom = 24.dp)) { leave.leave { nav.navigate(Routes.review(s.id)) } }
+        if (loadedIntervals != null) Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+            fun untouched() = draft == opened && edits.isEmpty()
+            if (s.finished && untouched()) {
+                ReviewEntry(hrLine(s, facts), hrSpoken(s, facts), Modifier.padding(bottom = 24.dp)) {
+                    leave.visit { if (sessionState.first?.finished == true && untouched()) nav.navigate(Routes.review(s.id)) }
+                }
             }
             GroupedList {
                 DateRow(draft.date.toDate(), divider = false) { d -> draft = draft.copy(date = d.iso()) }

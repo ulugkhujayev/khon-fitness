@@ -35,7 +35,7 @@ class NightStoreForcedReadTest {
             if (!access) throw NoSleepAccess("no access when the read began")
             listOf(SleepSpan("band", at(0), at(7)))
         }
-        val store = NightStore(source, scope, zone = { zone })
+        val store = NightStore(source, scope, FakeClocks(wall = at(9))) { zone }
         try {
             val first = launch { store.refresh() }
             firstStarted.await()

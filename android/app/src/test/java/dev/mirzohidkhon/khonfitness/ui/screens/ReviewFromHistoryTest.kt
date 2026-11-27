@@ -235,7 +235,7 @@ class ReviewFromHistoryTest {
         assertEquals(listOf("today", "history", "cardio/{id}", "review/{id}"), routes())
         assertTrue(named("History"))
         until("Review draws the heart rate picture") { tagged(HEART_PICTURE_TAG) }
-        assertTrue("Review shows the cardio figures", shows("Intervals") && shows(roundValue(cardio, 0)) && shows(roundValue(cardio, cardio.rounds.lastIndex)))
+        until("Review shows the cardio figures") { shows("Intervals") && shows(roundValue(cardio, 0)) && shows(roundValue(cardio, cardio.rounds.lastIndex)) }
         systemBack()
         until("the form is back") { routes().lastOrNull() == "cardio/{id}" && reviewRows().size == 1 }
         assertEquals(listOf("today", "history", "cardio/{id}"), routes())

@@ -35,6 +35,13 @@ class PictureRulesTest {
         assertEquals(withDot, p.curve.flatten())
     }
 
+    @Test fun `the picture draws the first stored sample of each offset`() {
+        val pairs = every5(0, 60).flatMap { listOf(it, HrSample(it.offsetSec, 190)) }
+        val p = workoutPicture(gym, hrFacts(gym, row(pairs), zone), emptyList(), emptyList(), zone)!!
+        assertEquals(listOf(every5(0, 60)), p.curve)
+        assertTrue(p.spoken, p.spoken.contains("highest 120 beats per minute"))
+    }
+
     @Test fun `no curve and no chart without a filled fact of the current range`() {
         val buckets = every5(0, 600)
         val waiting = hrFacts(gym, row(buckets, state = HrState.WAITING), zone)

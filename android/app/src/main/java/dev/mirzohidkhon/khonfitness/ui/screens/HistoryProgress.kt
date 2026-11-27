@@ -150,6 +150,7 @@ fun HistoryProgress(vm: AppViewModel, nav: NavHostController, today: LocalDate) 
 
     GroupedList(Modifier.padding(top = 24.dp)) {
         ListRow("Compare two periods", divider = false) { nav.navigate(Routes.COMPARE) }
+        if (rememberLoadYear(vm, today).anyLoad) ListRow("Load") { nav.navigate(Routes.LOAD) }
     }
 }
 

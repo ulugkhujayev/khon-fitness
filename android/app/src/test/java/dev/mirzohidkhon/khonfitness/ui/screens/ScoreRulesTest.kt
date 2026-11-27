@@ -173,7 +173,7 @@ class ScoreRulesTest {
         val s = session()
         val row = filledFor(s, zone, listOf(HrSample(5, 175), HrSample(0, 100), HrSample(0, 175), HrSample(5, 100), HrSample(10, 175)))
         val f = hrFacts(s, row, zone)
-        assertEquals(listOf(HrSample(0, 100), HrSample(5, 175), HrSample(10, 175)), scoreBuckets(f))
+        assertEquals(listOf(HrSample(0, 100), HrSample(5, 175), HrSample(10, 175)), pictureBuckets(f))
         assertEquals("0:10", scoreRows(s, HIGH_EXERCISE, f, emptyList(), 186).first().value)
         val dup = filledFor(s, zone, listOf(HrSample(0, 175), HrSample(0, 175), HrSample(5, 175)))
         val start = s.timedFrom!!
@@ -185,6 +185,21 @@ class ScoreRulesTest {
         val charts = scoreCharts(listOf(s, other), mapOf(HIGH_EXERCISE.id to HIGH_EXERCISE),
             mapOf(s.id to hrFacts(s, dup, zone), other.id to hrFacts(other, filledFor(other, zone, listOf(HrSample(0, 175), HrSample(0, 175), HrSample(0, 175))), zone)), 186)
         assertEquals(listOf(5.0 / 60, 10.0 / 60), charts.hardMinutes.map { it.value })
+    }
+
+    @Test fun repeatedOffsetsCountOnceInEveryCardioFigure() {
+        val s = session()
+        val twelve = (0 until 12).map { HrSample(it * SCORE_BUCKET_SEC, 190) }
+        assertEquals("1:00", scoreRows(s, HIGH_EXERCISE, facts(s, twelve + twelve), emptyList(), 200).first().value)
+        val lowFirst = (0 until 12).flatMap { listOf(HrSample(it * SCORE_BUCKET_SEC, 120), HrSample(it * SCORE_BUCKET_SEC, 190)) }
+        assertEquals("0:00", scoreRows(s, HIGH_EXERCISE, facts(s, lowFirst), emptyList(), 200).first().value)
+        assertEquals(listOf("0 %", "100 %", "0 %"), scoreRows(s, LOW_EXERCISE, facts(s, lowFirst), emptyList(), 200).map { it.value })
+        val r = round(s, 0, 0, 60)
+        assertEquals(120, roundAverage(facts(s, lowFirst), r))
+        assertEquals(listOf(RoundScore(1, 120, null)), roundScores(range(s), pictureBuckets(facts(s, lowFirst)), listOf(r)))
+        val other = session("o", day = today.minusDays(2))
+        val charts = scoreCharts(listOf(s, other), mapOf(HIGH_EXERCISE.id to HIGH_EXERCISE), mapOf(s.id to facts(s, twelve + twelve), other.id to facts(other, twelve + twelve)), 200)
+        assertEquals(listOf(1.0, 1.0), charts.hardMinutes.map { it.value })
     }
 
     @Test fun dropOfTheLastRoundRunsToTheRangeEnd() {

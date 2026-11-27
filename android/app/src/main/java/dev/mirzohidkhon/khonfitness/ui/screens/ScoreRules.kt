@@ -78,8 +78,6 @@ fun zoneShares(buckets: List<HrSample>, max: Int): ZoneShares? {
     return ZoneShares(below, inside, above)
 }
 
-fun scoreBuckets(facts: HrFacts): List<HrSample> = pictureBuckets(facts).distinctBy { it.offsetSec }
-
 data class RoundScore(val number: Int, val peak: Int?, val drop: Int?)
 
 private class RoundClock(val start: Long, val end: Long)
@@ -132,7 +130,7 @@ private fun shareRow(label: String, spokenLabel: String, percent: Int) = ScoreRo
 fun scoreRows(session: Session, exercise: Exercise?, facts: HrFacts, rounds: List<IntervalLog>, max: Int?): List<ScoreRow> {
     if (max == null || session.itemType != ItemType.CARDIO) return emptyList()
     val row = (facts as? HrFacts.Filled)?.row ?: return emptyList()
-    val buckets = scoreBuckets(facts)
+    val buckets = pictureBuckets(facts)
     if (buckets.isEmpty()) return emptyList()
     val head = when (exercise?.intensity) {
         Intensity.HIGH -> {
@@ -162,7 +160,7 @@ fun scoreCharts(sessions: List<Session>, exercises: Map<String, Exercise>, facts
     val zone = mutableListOf<ChartPoint>()
     sessions.filter { it.itemType == ItemType.CARDIO }.sortedWith(compareBy({ it.date }, { it.startedAt })).forEach { s ->
         val f = facts[s.id] as? HrFacts.Filled ?: return@forEach
-        val buckets = scoreBuckets(f)
+        val buckets = pictureBuckets(f)
         if (buckets.isEmpty()) return@forEach
         val date = s.date.toDate()
         when (exercises[s.exerciseId]?.intensity) {

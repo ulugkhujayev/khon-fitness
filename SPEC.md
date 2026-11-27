@@ -66,7 +66,8 @@ Three tabs.
   position. Each page keeps its own
   scroll position and state (the week shown, the bodyweight range), also
   across page and tab switches. Today's date is read again on resume and
-  at midnight; every range ends at today, so a later-dated session or
+  at midnight in the phone's time zone, so a day of 23 or 25 hours at a
+  clock change turns over at its real end; every range ends at today, so a later-dated session or
   weight counts nowhere. A session belongs to the day it started.
   - Log: one week at a time, "‹ Nov 2 – 8, 2026 ›". ‹ stops at the week
     of the first session (this week when none), › at this week. A week
@@ -98,7 +99,7 @@ Three tabs.
     in work intervals (else time), time at or above 85 % and time in zone (see
     "Heart rate"), and its sessions. Each section without
     data shows one line.
-  - Compare two periods: the last row of Progress. Two rows name the
+  - Compare two periods: the first row of the last group of Progress. Two rows name the
     left and the right column's period as a date range ("Oct 3 – Oct 30",
     with the year for a date outside this year); the defaults are the 4
     weeks before and the last 4 weeks. A tap opens one choice list: Last 4
@@ -115,6 +116,18 @@ Three tabs.
     that does not exist is "–"; a group or cardio row with nothing to show
     is left out. The screen states numbers only: no verdict, arrow or color
     tells which period is better.
+  - Load: the row under Compare, there only while a session of the last
+    52 weeks has a load (see "Heart rate"). Its screen has "Load per week",
+    a chart of the weeks with a load among the last 12 (it needs 2 points),
+    and a grid of the 52 weeks to the current one, newest at the top: one
+    row per week, the month name on the row whose drawn days hold the
+    month's first day, a cell for each day from Monday to Sunday, and the week's load on
+    the right. A day with a load is accent in 4 steps, a day with only
+    sessions without a load has a muted outline, and a day without a
+    finished session is a plain cell. Days after today are not drawn.
+    Nothing on it can be tapped. A row speaks as "Week of November 23,
+    load 412, 4 days", or "no load", with the count of days that have a
+    session. The screen follows the maximum and new reads while it is open.
 - Plan. A "+" adds a gym program, a cardio workout, a stretch routine or
   an exercise. This week: Monday to Sunday as seven day symbols (gym,
   run, bike, swim, other cardio, rest) under the day's letter, today's
@@ -636,7 +649,10 @@ other app settings, so a backup does not carry it. Reset removes it.
 The app uses the typed maximum, else the measured one. With no maximum,
 none of the figures below show. Each figure counts the 5-second buckets of
 a filled read and nothing else. A bucket stands for 5 s, and a gap adds no
-time.
+time. An offset counts once: when a row holds two samples with one offset,
+the first stored one is the bucket and the later one is dropped. The load,
+the cardio figures, the Review picture and the round averages all read the
+buckets this way.
 
 - Hard line: 85 % of the maximum, rounded up. A maximum of 186 gives 159
   bpm. The time at or above it is the bucket count times 5 s.
@@ -672,6 +688,22 @@ The cardio type screen adds "At or above 85 %", minutes per session of its
 high-intensity exercises, and "In zone", the percent per session of its
 low-intensity ones. Each point uses today's maximum, and a chart needs 2
 points.
+
+A finished session with a filled read has a load: weighted minutes. Each
+bucket stands for 5 s and gets a weight from its bpm against the maximum,
+compared as whole numbers (`bpm * 100` against `maximum * percent`):
+below 50 % gives 0, 50 % gives 1, 60 % gives 2, 70 % gives 3, 80 % gives 4,
+and 90 % and over gives 5. The load is the sum of weight times 5 s, over 60,
+rounded half up. With a maximum of 200, one minute at 180 bpm is a load of
+5. A gap adds nothing. A session without a filled read, or with no maximum,
+has no load, which is not a load of 0. A day's load is the sum of its
+sessions' loads, held at 2,147,483,647 when the sum is larger, and a
+week's load is the sum of its days with a load, with no upper limit. The
+color step of a day compares its load with the highest day of the 52
+weeks: up to a quarter is step 1, up to a half step 2, up to three
+quarters step 3, and above that step 4. When the highest day is 0, every
+day with a load is step 1. The app computes loads when it shows them and
+stores none.
 
 ## Day plan
 

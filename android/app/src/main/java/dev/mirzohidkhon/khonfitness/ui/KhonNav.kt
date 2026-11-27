@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -59,6 +60,7 @@ import androidx.navigation.compose.rememberNavController
 import dev.mirzohidkhon.khonfitness.data.Kind
 import dev.mirzohidkhon.khonfitness.ui.screens.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
+import java.time.Clock
 
 object Routes {
     const val TODAY = "today"; const val HISTORY = "history"; const val PROGRAMS = "programs" // the Plan tab; the route id stays
@@ -84,6 +86,7 @@ object Routes {
     /** Every strength exercise, searchable; each opens its exercise detail. */
     const val LIFTS = "lifts"
     const val COMPARE = "compare"
+    const val LOAD = "load"
     const val STRETCHES = "stretches"
     const val IMPORT = "import"
     const val LIBRARY = "library"; const val WEEK_PLAN = "weekplan"; const val SETTINGS = "settings"
@@ -121,36 +124,42 @@ fun KhonNav() {
     Scaffold(containerColor = K.Bg, bottomBar = { if (showBar) BottomBar(tab) { i -> nav.openTab(TABS[i]) } }) { pad ->
         Box(Modifier.fillMaxSize().padding(pad).consumeWindowInsets(pad).imePadding()) {
             NavHost(nav, startDestination = Routes.TODAY, enterTransition = enter, exitTransition = exit, popEnterTransition = enter, popExitTransition = exit) {
-                composable(Routes.TODAY) { TodayScreen(vm, nav) }
-                composable(Routes.HISTORY) { HistoryScreen(vm, nav) }
-                composable(Routes.PROGRAMS) { PlanScreen(vm, nav) }
-                composable("session/{id}") { e -> SessionScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("review/{id}") { e -> ReviewScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("cardio/{id}") { e -> CardioScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("program/{id}") { e -> ProgramEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable(Routes.NEW_PROGRAM) { ProgramEditorScreen(vm, nav, null) }
-                composable("block/{programId}/{blockId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", e.arguments?.getString("blockId") ?: "") }
-                composable("block-new/{programId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", null) }
-                composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("exercise-new/{kind}") { e -> ExerciseEditorScreen(vm, nav, null, newKind = e.arguments?.getString("kind") ?: Kind.STRENGTH) }
-                composable("timer/{id}") { e -> TimerScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("stretch/{id}") { e -> StretchScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("routine/{id}") { e -> RoutineEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable(Routes.NEW_STRETCH) { StretchEditorScreen(vm, nav, null) }
-                composable("lift/{id}") { e -> ExerciseDetailScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable(Routes.LIFTS) { LiftListScreen(vm, nav) }
-                composable(Routes.COMPARE) { CompareScreen(vm, nav) }
-                composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
-                composable(Routes.IMPORT) { ImportScreen(vm, nav) }
-                composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }
-                composable(Routes.WEEK_PLAN) { WeekPlanScreen(vm, nav) }
-                composable(Routes.SETTINGS) { SettingsScreen(vm, nav) }
-                composable(Routes.HEART_DATA) { HeartDataScreen(vm, nav) }
+                khonScreens(vm, nav)
             }
         }
     }
+}
+
+/** Every screen of the app by its route. A screen reads [clock] when it composes, so a new time zone of the phone counts. */
+fun NavGraphBuilder.khonScreens(vm: AppViewModel, nav: NavHostController, clock: () -> Clock = Clock::systemDefaultZone) {
+    composable(Routes.TODAY) { TodayScreen(vm, nav) }
+    composable(Routes.HISTORY) { HistoryScreen(vm, nav, clock()) }
+    composable(Routes.PROGRAMS) { PlanScreen(vm, nav) }
+    composable("session/{id}") { e -> SessionScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("review/{id}") { e -> ReviewScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("cardio/{id}") { e -> CardioScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("program/{id}") { e -> ProgramEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable(Routes.NEW_PROGRAM) { ProgramEditorScreen(vm, nav, null) }
+    composable("block/{programId}/{blockId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", e.arguments?.getString("blockId") ?: "") }
+    composable("block-new/{programId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", null) }
+    composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("exercise-new/{kind}") { e -> ExerciseEditorScreen(vm, nav, null, newKind = e.arguments?.getString("kind") ?: Kind.STRENGTH) }
+    composable("timer/{id}") { e -> TimerScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("stretch/{id}") { e -> StretchScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("routine/{id}") { e -> RoutineEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable(Routes.NEW_STRETCH) { StretchEditorScreen(vm, nav, null) }
+    composable("lift/{id}") { e -> ExerciseDetailScreen(vm, nav, e.arguments?.getString("id") ?: "", clock()) }
+    composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "", clock()) }
+    composable(Routes.LIFTS) { LiftListScreen(vm, nav, clock()) }
+    composable(Routes.COMPARE) { CompareScreen(vm, nav, clock()) }
+    composable(Routes.LOAD) { LoadScreen(vm, nav, clock()) }
+    composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
+    composable(Routes.IMPORT) { ImportScreen(vm, nav) }
+    composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }
+    composable(Routes.WEEK_PLAN) { WeekPlanScreen(vm, nav) }
+    composable(Routes.SETTINGS) { SettingsScreen(vm, nav) }
+    composable(Routes.HEART_DATA) { HeartDataScreen(vm, nav) }
 }
 
 private val TABS = listOf(Routes.TODAY, Routes.HISTORY, Routes.PROGRAMS)

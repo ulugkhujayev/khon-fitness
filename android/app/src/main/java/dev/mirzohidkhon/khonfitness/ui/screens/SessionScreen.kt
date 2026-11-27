@@ -153,7 +153,11 @@ fun SessionScreen(
         }
         pick = OpenPick(true, i)
     }
-    LaunchedEffect(reviewRow) { reveal?.let { scrollTo(it) } }
+    LaunchedEffect(reviewRow) {
+        val open = expanded?.let(blocks::getOrNull)?.first()?.blockIndex
+        reveal = reveal?.takeIf { it.blockIndex == open }
+        reveal?.let { scrollTo(it) }
+    }
     fun toggleSet(log: SetLog) {
         if (log.status == SetStatus.DONE) { vm.run { vm.repo.setSetStatus(log.id, SetStatus.PENDING) }; return }
         val after = afterCheck(blocks, log, live = running)

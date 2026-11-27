@@ -211,6 +211,34 @@ class ReviewRowStateTest {
         openBlock2Then("Edit", next = "Done")
     }
 
+    @Test fun `a block closed before Done during the scroll is not the target of the next scroll`() {
+        val f = gymFixture(day, zone, heart = false); seed(f)
+        compose.runOnUiThread { vm.openPicks[f.session.id] = OpenPick(true, null) }
+        openFromHistory(Routes.session(f.session.id))
+        until("the blocks show") { blockTops().size > 2 }
+        val list = compose.onNode(hasScrollAction()).fetchSemanticsNode().boundsInRoot.top
+        fun block2() = compose.onNode(hasContentDescription("Block 2,", substring = true)).fetchSemanticsNode()
+        val closed = block2().config[SemanticsProperties.StateDescription]
+        val open = block2().config[SemanticsActions.OnClick].action!!
+        val edit = clickAction("Edit")
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.runOnUiThread { open(); edit() }
+            repeat(3) { compose.mainClock.advanceTimeByFrame() }
+            val close = block2().config[SemanticsActions.OnClick].action!!
+            val done = clickAction("Done")
+            compose.runOnUiThread { close(); done() }
+            compose.mainClock.advanceTimeBy(1_500)
+            compose.waitForIdle()
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
+        compose.waitForIdle()
+        val tops = blockTops()
+        assertEquals("Block 2 is closed", closed, block2().config[SemanticsProperties.StateDescription])
+        assertTrue("the closed Block 2 did not scroll to the top; tops $tops, list $list", tops.getValue("Block 2") - list >= 40 * compose.density.density)
+    }
+
     private class LateSave(val dao: KhonDao) {
         val asked = CompletableDeferred<Unit>()
         val allow = CompletableDeferred<Unit>()

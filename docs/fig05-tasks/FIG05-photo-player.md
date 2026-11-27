@@ -226,3 +226,10 @@ Verify round 5 kept F3 and F4 open, each with one more case.
   before. Break proofs: a jump to half and then to the end fails at
   frame 1 ("0.0 to 0.50"); steps of one fifth with repeated frames give
   3 frames and fail.
+
+## Review closure (2026-11-27)
+
+Round 5 was the lead's limit for Sol rounds on this task. The owner
+chose on 2026-11-27 that the lead closes F3 and F4 with the tests, the
+break proofs, the witness runs, and the full suite, with no further Sol
+round. Round 6 in the ledger is that closure by the lead.

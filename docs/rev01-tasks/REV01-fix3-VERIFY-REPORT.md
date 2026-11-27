@@ -1,0 +1,17 @@
+# REV01 verification, R4
+
+**Merge.** F2 is closed at `605f56ee2380`. This verdict covers F2 in the fix from `70b5e5b`.
+
+## F2 · P2 · A closed block remains the scroll target
+
+**Read.** A change to the Review row restarts the scroll effect. The effect reads the open block from that composition and clears any target with a different block key. A closed block has no matching key. A block that remains open keeps its target. The block tap and the set check both use `open` to change which block is open. A set check moves the open block only in a running session. [SessionScreen.kt:127](/Users/mirzohidkhon/.config/agents/state/snapshots/REV01-review-from-history-2b93c6dc-R4/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/ui/screens/SessionScreen.kt:127), [SessionScreen.kt:147](/Users/mirzohidkhon/.config/agents/state/snapshots/REV01-review-from-history-2b93c6dc-R4/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/ui/screens/SessionScreen.kt:147), [SessionScreen.kt:156](/Users/mirzohidkhon/.config/agents/state/snapshots/REV01-review-from-history-2b93c6dc-R4/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/ui/screens/SessionScreen.kt:156), [SessionScreen.kt:169](/Users/mirzohidkhon/.config/agents/state/snapshots/REV01-review-from-history-2b93c6dc-R4/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/ui/screens/SessionScreen.kt:169), [SessionScreen.kt:191](/Users/mirzohidkhon/.config/agents/state/snapshots/REV01-review-from-history-2b93c6dc-R4/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/ui/screens/SessionScreen.kt:191), [SessionRules.kt:79](/Users/mirzohidkhon/.config/agents/state/snapshots/REV01-review-from-history-2b93c6dc-R4/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/ui/screens/SessionRules.kt:79).
+
+**Read.** The new test opens Block 2 and taps Edit in one frame. Three frames later, it closes Block 2 and taps Done in one frame. It checks that Block 2 is closed and at least 40 dp below the top of the list. The preceding test covers the same row changes with Block 2 left open. [ReviewRowStateTest.kt:206](/Users/mirzohidkhon/.config/agents/state/snapshots/REV01-review-from-history-2b93c6dc-R4/src/android/app/src/test/java/dev/mirzohidkhon/khonfitness/ui/screens/ReviewRowStateTest.kt:206), [ReviewRowStateTest.kt:214](/Users/mirzohidkhon/.config/agents/state/snapshots/REV01-review-from-history-2b93c6dc-R4/src/android/app/src/test/java/dev/mirzohidkhon/khonfitness/ui/screens/ReviewRowStateTest.kt:214).
+
+**Ran.** `python3` compared the supplied code diff with the snapshot diff and checked the F2 record, receipt, and log hash. The diffs match. The record says `fixed` at `605f56ee2380`. Receipt `r-20261127022138-bfc677` has exit 0 and a matching log hash. [F2 record](/Users/mirzohidkhon/.config/agents/state/witness/REV01-review-from-history/F2-6.json:1), [F2 receipt](/Users/mirzohidkhon/.config/agents/state/receipts/r-20261127022138-bfc677.json:1).
+
+**Ran by the lead under step 6.** `witness run <F2.json> --sha 605f56ee2380` returned `fixed`. The receipt log ends in `BUILD SUCCESSFUL in 15s`. The reviewer sandbox could not run the witness or Gradle. [F2 log](/Users/mirzohidkhon/.config/agents/state/receipts/r-20261127022138-bfc677.log:45).
+
+**Lead reported.** `ReviewRowStateTest` ran 16 tests with zero failures. Removing the target check made the new test fail at the position assertion. The reported list top was 168.0 and Block 2 was at 204.0.
+
+F2=closed

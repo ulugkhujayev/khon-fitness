@@ -188,3 +188,9 @@ Under the table, add the list of public names.
 
 Run `~/.config/agents/tools/task-result check <task file>` before your final
 message.
+
+## Lead amendments after the review (2026-11-27)
+
+- D13: the 1,100 days are the range the store asks for. Health Connect gives an app the records from 30 days before the app's first Health Connect permission on.
+- D13: calls at one time share one read, also forced calls. `refreshAfterChange()` is for a permission grant: the calls that arrive during one read share one more read after it.
+- Declined by the lead: the 2 dp minimum height of a chart bar stays, so that every night with data shows; `HealthImport.status` (one status for a missing and an outdated provider) is not changed by this branch.

@@ -748,8 +748,9 @@ The rules, in short:
 
 Nights are not stored in the app and not in the backup. The app reads the
 last 1,100 days again after each start and at most every 5 minutes after a
-good read. Health Connect gives an app the records from 30 days
-before its first sleep grant on, so the nights start there and grow.
+good read. The 1,100 days are the range the app asks for. Health
+Connect gives an app the records from 30 days before the app's first Health
+Connect permission on, so the nights start there and grow.
 
 The nights show in three places:
 

@@ -17,8 +17,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class NightStoreForcedReadTest {
-    @Test fun `a forced refresh during a read without access reads again and loads the nights`() = runBlocking {
+class NightStoreChangeReadTest {
+    @Test fun `a grant during a read without access gives one more read for every waiting caller`() = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val zone = ZoneId.of("Asia/Tashkent")
         val day = LocalDate.of(2026, 11, 26)
@@ -40,10 +40,12 @@ class NightStoreForcedReadTest {
             val first = launch { store.refresh() }
             firstStarted.await()
             granted.set(true)
-            val forced = launch { store.refresh(force = true) }
+            val granted1 = launch { store.refreshAfterChange() }
+            val granted2 = launch { store.refreshAfterChange() }
+            val retry = launch { store.refresh(force = true) }
             yield()
             release.complete(Unit)
-            joinAll(first, forced)
+            joinAll(first, granted1, granted2, retry)
             assertEquals(2, reads.get())
             val state = store.state.value
             assertTrue("$state", state is NightsState.Loaded && state.nights.isNotEmpty())

@@ -100,7 +100,7 @@ fun NightsScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock.
     var status by remember { mutableStateOf(statusOf()) }
     RefreshNightsOnResume(store)
     val permLauncher = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) {
-        scope.launch { store.refresh(force = true) }
+        scope.launch { store.refreshAfterChange() }
     }
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize()) {

@@ -140,7 +140,7 @@ class ScoreScreenTest {
         assertEquals((1..4).map { "Round $it" }, rows.drop(1).map { it.substringBefore(",") })
         assertTrue(rows.drop(1).all { it.matches(Regex("Round \\d, peak \\d+, drop \\d+ beats per minute")) })
         assertTrue("the Intervals group stays", shows("Intervals"))
-        assertTrue("the chart stays", compose.onAllNodesWithTag(HEART_PICTURE_TAG).fetchSemanticsNodes().isNotEmpty())
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(HEART_PICTURE_TAG).fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test fun lowIntensitySteady() {

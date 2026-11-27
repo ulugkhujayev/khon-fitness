@@ -25,7 +25,7 @@ there is no progress to look at.
 2. Cardio: cardio exercises, modalities, interval timer, manual entry,
    Health Connect import.
 3. Stretching and eating window (0.4): a daily stretch routine on Today
-   with a full-screen player and figures drawn in the app; an eating window
+   with a full-screen player and studio photos of each stretch; an eating window
    with fixed daily hours, open-early and close-late taps, reminders, and a
    small widget that shows open or closed. Task list: docs/TASKS-0.4.md.
 
@@ -833,10 +833,12 @@ REQUEST_INSTALL_PACKAGES.
 ## Stretching (phase 3)
 
 Stretching is a daily routine, not a plan item. Today shows one row: the
-active routine and its length, the line green with a check when done today. Tap opens a ready screen with an automatically playing 3D demonstration, stretch name, side, and
+active routine and its length, the line green with a check when done today. Tap opens a ready screen with an automatically playing photo demonstration, stretch name, side, and
 Start button. Start gives a three-second preparation countdown before work.
-Numbered steps let the user inspect setup and movement, and Change view
-switches camera angles. Demo playback is independent of the exercise clock.
+Each stretch has a start photo and a hold photo (Cat cow also a setup
+photo), shot from the side and from the front. Numbered steps each show
+one of them, and Change view switches between the side and the front.
+Demo playback is independent of the exercise clock.
 Each stretch and side change waits for the user to start the next one.
 Skip moves to the next stretch or side; Back returns to the one before
 with its timer reset, waiting for Start, and takes back its done or

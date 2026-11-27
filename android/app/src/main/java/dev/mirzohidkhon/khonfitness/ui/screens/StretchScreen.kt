@@ -24,7 +24,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -102,6 +104,7 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
     val bg by animateColorAsState(if (st?.active == true) K.WorkFill else K.Bg, label = "bg")
     BoxWithConstraints(Modifier.fillMaxSize().background(bg)) {
         val compact = maxHeight < 680.dp
+        val photoMax = (maxWidth - 32.dp) / DEMO_PHOTO_ASPECT
         Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
                 // Equal 96 dp sides keep the title centered: Stop on the left, Back and Skip on the right.
@@ -116,7 +119,9 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
                 }
             }
             if (st != null && phase != null) RoutineProgress(runSegments(st.phases.size, st.index), st.index, playerProgress(st), Modifier.padding(top = 10.dp))
-            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
+            // The photo takes the height the rest leaves, so all of it shows; only below its minimum does the column scroll.
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 16.dp).atLeast(maxHeight - 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 if (phase != null) {
                     Text(phase.label, color = Color.White, style = MaterialTheme.typography.titleLarge,
@@ -130,7 +135,7 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
                     key(st.sessionId, st.index) {
                         StretchDemonstration(phase.figure, mirror = phase.side == "Right",
                             preview = st.awaitingStart, exerciseProgress = if (phase.reps > 0) motion else null,
-                            compact = compact, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), onPhase = true)
+                            maxPanelHeight = photoMax, modifier = Modifier.weight(1f, fill = false).fillMaxWidth().padding(top = 12.dp), onPhase = true)
                     }
                     // A ready screen has no status line: its length is in the line under the name, the button says what comes.
                     playerStatus(st, phase)?.let { status ->
@@ -145,6 +150,7 @@ fun StretchScreen(vm: AppViewModel, nav: NavHostController, routineId: String) {
                 } else {
                     Text(if (routine == null) "Loading routine" else "No stretches to play", color = Color.White)
                 }
+            }
             }
             if (st != null && phase != null) {
                 val action = when { st.awaitingStart -> TimerService.ACTION_BEGIN; st.paused -> TimerService.ACTION_RESUME; else -> TimerService.ACTION_PAUSE }
@@ -171,4 +177,11 @@ private fun PlayerTextButton(text: String, modifier: Modifier, enabled: Boolean 
         colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }
+}
+
+/** At least [height] high, or as high as the content's minimum when that is more; weighted children share the rest. */
+private fun Modifier.atLeast(height: Dp) = layout { measurable, constraints ->
+    val fixed = maxOf(height.roundToPx(), measurable.minIntrinsicHeight(constraints.maxWidth))
+    val placeable = measurable.measure(constraints.copy(minHeight = fixed, maxHeight = fixed))
+    layout(placeable.width, placeable.height) { placeable.place(0, 0) }
 }

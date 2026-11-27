@@ -150,7 +150,7 @@ fun StretchEditorScreen(vm: AppViewModel, nav: NavHostController, id: String?) {
         else if (o != null) vm.run { vm.repo.saveStretchEdits(o, d) }
     }
     EditorScaffold("Stretches", if (isNew) "New stretch" else opened?.name ?: "Stretch", onBack = { leave { leave.pop() } }, onDone = { leave { save(); leave.pop() } }) {
-        StretchDemonstration(draft.figure, compact = true, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))
+        StretchDemonstration(draft.figure, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))
         GroupedList {
             FieldRow("Name", divider = false) { InlineTextField(draft.name, { draft = draft.copy(name = it) }, placeholder = "Stretch name", label = "Name") }
             FieldRow("Guide", onClick = { figureSheet = true }) { FieldValue(Figures.name(draft.figure)) }

@@ -175,29 +175,30 @@ fun runningLine(s: Session, logs: List<SetLog>, timer: TimerState?, now: Long): 
     return if (t.paused) "Paused · $phase" else phase
 }
 
-/** "5:46 /km" from seconds and metres; null without both. */
-fun paceLine(timeSec: Int?, distanceM: Int?): String? {
+/** "5:46 /km" from seconds and metres, "2:05 /100 m" for a swim; null without both. */
+fun paceLine(timeSec: Int?, distanceM: Int?, swim: Boolean = false): String? {
     if (timeSec == null || distanceM == null || timeSec <= 0 || distanceM <= 0) return null
-    val p = Math.round(timeSec / (distanceM / 1000.0)).toInt()
-    return "${p / 60}:${"%02d".format(p % 60)} /km"
+    val p = Math.round(timeSec / (distanceM / if (swim) 100.0 else 1000.0)).toInt()
+    return "${p / 60}:${"%02d".format(p % 60)} ${if (swim) "/100 m" else "/km"}"
 }
 
 /**
  * A saved session's stats: "12 sets · 3.1 t · 58 min" ("3 of 12 sets" when some were skipped) for a program,
  * "5.2 km · 30 min · 5:46 /km" for cardio. A part with no value is left out.
  */
-fun statLine(s: Session, logs: List<SetLog>): String {
+fun statLine(s: Session, logs: List<SetLog>, swim: Boolean = false): String {
     if (s.itemType == ItemType.PROGRAM) {
         val mine = logs.filter { it.sessionId == s.id }
         val done = mine.filter { it.status == SetStatus.DONE }
         val tons = fmt(done.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) } / 1000.0, 1)
         return listOfNotNull(setsLine(SetProgress(done.size, mine.size)), "$tons t", s.finishedAt?.let { sessionTime(sessionSeconds(s.startedAt, it)) }).joinToString(" · ")
     }
-    return listOfNotNull(s.distanceM?.let { "${fmt(it / 1000.0)} km" }, s.timeSec?.let { sessionMinutes(it) }, paceLine(s.timeSec, s.distanceM)).joinToString(" · ")
+    val m = shownMeters(s, swim)
+    return listOfNotNull(m?.let { "${fmt(it / 1000.0)} km" }, s.timeSec?.let { sessionMinutes(it) }, paceLine(s.timeSec, m, swim)).joinToString(" · ")
 }
 
 /** Green line on Today once today's item is done: "Done · 3 of 12 sets · 3.1 t · 58 min", "Done · 5.2 km · 30 min · 5:46 /km". */
-fun doneLine(s: Session, logs: List<SetLog>): String = statLine(s, logs).let { if (it.isEmpty()) "Done" else "Done · $it" }
+fun doneLine(s: Session, logs: List<SetLog>, swim: Boolean = false): String = statLine(s, logs, swim).let { if (it.isEmpty()) "Done" else "Done · $it" }
 
 /**
  * Today's saved session for the card (the last one saved today, whatever the plan held) and how many other sessions

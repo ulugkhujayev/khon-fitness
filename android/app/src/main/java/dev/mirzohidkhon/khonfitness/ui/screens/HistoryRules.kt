@@ -179,6 +179,15 @@ private fun count(n: Int, word: String) = "$n ${if (n == 1) word else word + "s"
 /** Distance of a cardio session in meters: the distance, else laps × pool length. */
 fun meters(s: Session): Int? = s.distanceM ?: s.laps?.let { it * (s.poolLength ?: 25) }
 
+private const val SLOWEST_SHOWN_METERS_PER_HOUR = 1000L
+
+/** The distance to show and to pace by. A band on a stationary bike reports a few metres for a whole session: those are left out. */
+fun shownMeters(s: Session, swim: Boolean): Int? {
+    val m = meters(s) ?: return null
+    val seconds = s.timeSec ?: 0
+    return m.takeIf { swim || seconds <= 0 || m * 3600L >= SLOWEST_SHOWN_METERS_PER_HOUR * seconds }
+}
+
 /** Pace as "5:12 /km", or "2:05 /100 m" for a swim; null without time or distance. */
 fun pace(seconds: Int?, meters: Int?, swim: Boolean): String? {
     if (seconds == null || seconds <= 0 || meters == null || meters <= 0) return null
@@ -219,7 +228,7 @@ fun sessionLine(s: Session, logs: List<SetLog>, ex: Exercise?): String {
         val time = s.finishedAt?.let { sessionMinutes(sessionSeconds(s.startedAt, it)) }
         return listOfNotNull(setsLine(s.id, logs), tons(done.sumOf { lifted(it) }), time).joinToString(" · ")
     }
-    val m = meters(s)
+    val m = shownMeters(s, isSwim(ex))
     return listOfNotNull(
         m?.let { "${fmt(it / 1000.0, 2)} km" }, s.timeSec?.let { sessionMinutes(it) }, pace(s.timeSec, m, isSwim(ex)),
         if (s.sourceId != null) "Health Connect" else null,
@@ -437,9 +446,10 @@ fun cardioTypesIn(period: Period, sessions: List<Session>, exercises: List<Exerc
 
 private fun cardioType(type: String, sessions: List<Session>): CardioType {
     val sorted = sessions.sortedWith(compareBy({ it.date }, { it.startedAt }))
-    val both = sorted.filter { (it.timeSec ?: 0) > 0 && (meters(it) ?: 0) > 0 }
-    return CardioType(type, sorted, sorted.sumOf { meters(it) ?: 0 }, sorted.sumOf { it.timeSec ?: 0 },
-        pace(both.sumOf { it.timeSec ?: 0 }, both.sumOf { meters(it) ?: 0 }, type == "swim"))
+    val swim = type == "swim"
+    val both = sorted.filter { (it.timeSec ?: 0) > 0 && (shownMeters(it, swim) ?: 0) > 0 }
+    return CardioType(type, sorted, sorted.sumOf { shownMeters(it, swim) ?: 0 }, sorted.sumOf { it.timeSec ?: 0 },
+        pace(both.sumOf { it.timeSec ?: 0 }, both.sumOf { shownMeters(it, swim) ?: 0 }, swim))
 }
 
 /** "2 h 5 m", or "45 m" under an hour: [roundMinutes] of the seconds. */
@@ -451,5 +461,6 @@ fun durationText(sec: Int): String {
 /** "4 sessions · 21.4 km · 2 h 5 m · 5:51 /km", or "No sessions in 30 days" for a type without one in the span. */
 fun cardioLine(t: CardioType, days: Long = 30): String {
     if (t.sessions.isEmpty()) return "No sessions in $days days"
-    return listOfNotNull(count(t.sessions.size, "session"), "${fmt(t.meters / 1000.0, 1).ifEmpty { "0" }} km", durationText(t.seconds), t.pace).joinToString(" · ")
+    val km = t.meters.takeIf { it > 0 }?.let { "${fmt(it / 1000.0, 1)} km" }
+    return listOfNotNull(count(t.sessions.size, "session"), km, durationText(t.seconds), t.pace).joinToString(" · ")
 }

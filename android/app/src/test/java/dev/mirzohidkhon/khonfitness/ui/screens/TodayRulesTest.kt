@@ -165,6 +165,17 @@ class TodayRulesTest {
         assertEquals("Done", doneLine(cardio.copy(timeSec = null, distanceM = null), emptyList()))
     }
 
+    @Test fun `done line for a swim gives pace per 100 m`() {
+        val swim = Session("w", "2026-11-27", start, start + 4_126_000, ItemType.CARDIO, exerciseId = "swim", timeSec = 4126, distanceM = 775)
+        assertEquals("Done · 0.8 km · 69 min · 8:52 /100 m", doneLine(swim, emptyList(), swim = true))
+    }
+
+    @Test fun `done line leaves out the few metres a band reports on a stationary bike`() {
+        val bike = Session("b", "2026-11-19", start, start + 2_400_000, ItemType.CARDIO, exerciseId = "bike", timeSec = 2400, distanceM = 100)
+        assertEquals("Done · 40 min", doneLine(bike, emptyList()))
+        assertEquals("Done · 0.1 km · 40 min · 40:00 /100 m", doneLine(bike, emptyList(), swim = true))
+    }
+
     @Test fun `done line for stretching says done today with its length, singular and plural`() {
         assertEquals("Done today · 1 stretch · 1 min", routineLine(routineSummary(45, 1), doneToday = true))
         assertEquals("Done today · 10 stretches · 12 min", routineLine(routineSummary(700, 10), doneToday = true))

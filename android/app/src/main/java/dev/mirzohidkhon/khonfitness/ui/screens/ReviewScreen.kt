@@ -52,11 +52,13 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val facts = hrFacts(s, hrRow, zone)
     val nightRows = nightReviewRows((nights as? NightsState.Loaded)?.nights?.get(s.date.toDate()), zone)
     val scroll = rememberScrollState()
+    val exercise = exercises.find { it.id == s.exerciseId }
+    val swim = isSwim(exercise)
     Column(Modifier.fillMaxSize()) {
         EditorTopBar(back, s.programName ?: s.exerciseName ?: "Session", scrollPx = { scroll.value }, onBack = { leave { leave.pop() } })
         Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             Text(s.date.toDate().format(shortDate), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-            Text(statLine(s, logs), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = if (hrLine(s, facts) == null) 16.dp else 0.dp))
+            Text(statLine(s, logs, swim), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = if (hrLine(s, facts) == null) 16.dp else 0.dp))
             hrLine(s, facts)?.let { Text(it, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp).semantics { contentDescription = hrSpoken(s, facts).orEmpty() }) }
             if (picture?.hasChart == true) HeartPicture(picture, Modifier.padding(bottom = 16.dp))
             if (nightRows.isNotEmpty()) GroupedList(Modifier.padding(bottom = 16.dp)) {
@@ -64,7 +66,7 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
             }
             if (s.itemType == ItemType.PROGRAM) reviewExercises(logs).forEach { sets -> ExerciseReview(sets) }
             if (s.itemType == ItemType.PROGRAM) picture?.let { SetsInOrder(it.rows) }
-            else CardioReview(s, facts, intervals, exercises.find { it.id == s.exerciseId }?.let { ex -> modalities.find { it.id == ex.modalityId }?.name })
+            else CardioReview(s, facts, intervals, exercise?.let { ex -> modalities.find { it.id == ex.modalityId }?.name }, swim)
             if (s.itemType == ItemType.CARDIO) ReviewScores(vm, s, exercises.find { it.id == s.exerciseId }, facts, intervals)
             if (s.note.isNotBlank() || s.effort != null) {
                 SectionTitle("Notes", Modifier.padding(top = 12.dp))
@@ -130,12 +132,12 @@ private fun ExerciseReview(sets: List<SetLog>) {
 }
 
 @Composable
-private fun CardioReview(s: Session, facts: HrFacts, intervals: List<IntervalLog>, type: String?) {
+private fun CardioReview(s: Session, facts: HrFacts, intervals: List<IntervalLog>, type: String?, swim: Boolean) {
     val rows = listOfNotNull(
         type?.let { "Type" to it },
         s.timeSec?.let { "Time" to "${it / 60} min" + if (it % 60 > 0) " ${it % 60} s" else "" },
         s.distanceM?.let { "Distance" to "${fmt(it / 1000.0, 2)} km" },
-        paceLine(s.timeSec, s.distanceM)?.let { "Pace" to it },
+        paceLine(s.timeSec, shownMeters(s, swim), swim)?.let { "Pace" to it },
         shownAvgHr(s, facts)?.let { "Avg heart rate" to "$it bpm" },
         s.watts?.let { "Avg watts" to "$it W" },
         s.laps?.let { "Laps" to "$it" },

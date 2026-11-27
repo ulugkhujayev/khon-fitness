@@ -306,6 +306,16 @@ class HistoryRulesTest {
         assertNull(pace(600, 0, false))
     }
 
+    @Test fun `a stationary bike with a few band metres shows no distance and no pace`() {
+        val bike = Exercise("bk", "Norwegian 4x4", Kind.CARDIO, modalityId = "bike")
+        val sessions = listOf(cardio("a", monday, 2400, 100, ex = "bk", start = 1), cardio("b", monday, 2280, 0, ex = "bk", start = 2))
+        assertEquals("40 min", sessionLine(sessions[0], emptyList(), bike))
+        assertEquals("2 sessions · 1 h 18 m", cardioLine(cardioTypes(sessions, listOf(bike), today).single()))
+        assertEquals(100, shownMeters(sessions[0], swim = true))
+        assertNull(shownMeters(sessions[0], swim = false))
+        assertEquals(1000, shownMeters(cardio("walk", monday, 3600, 1000), swim = false))
+    }
+
     // ---- Records
 
     private fun day(i: Long) = monday.minusDays(30 - i)

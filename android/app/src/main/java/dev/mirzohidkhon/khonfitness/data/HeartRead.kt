@@ -34,13 +34,17 @@ fun touching(records: List<BoundedHeartRecord>, range: HrRange): List<HeartRecor
     records.filter { it.endMs > range.fromMs && it.startMs < range.toMs }.map { it.record }
 
 /** The records of every page, the first page asked with a null token. A throw on any page throws. */
-suspend fun readAllPages(page: suspend (token: String?) -> HeartPage): List<HeartRecord> {
-    val all = mutableListOf<HeartRecord>()
+suspend fun readAllPages(page: suspend (token: String?) -> HeartPage): List<HeartRecord> =
+    readEveryPage { token -> page(token).let { it.records to it.next } }
+
+/** The items of every page; each page gives its items and the next token, null or empty after the last. */
+suspend fun <T> readEveryPage(page: suspend (token: String?) -> Pair<List<T>, String?>): List<T> {
+    val all = mutableListOf<T>()
     var token: String? = null
     do {
-        val p = page(token)
-        all += p.records
-        token = p.next?.takeIf { it.isNotEmpty() }
+        val (items, next) = page(token)
+        all += items
+        token = next?.takeIf { it.isNotEmpty() }
     } while (token != null)
     return all
 }

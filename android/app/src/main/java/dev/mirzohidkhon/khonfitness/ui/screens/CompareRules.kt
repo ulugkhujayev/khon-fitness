@@ -4,6 +4,7 @@ import dev.mirzohidkhon.khonfitness.data.Bodyweight
 import dev.mirzohidkhon.khonfitness.data.Exercise
 import dev.mirzohidkhon.khonfitness.data.ItemType
 import dev.mirzohidkhon.khonfitness.data.MUSCLE_GROUPS
+import dev.mirzohidkhon.khonfitness.data.Night
 import dev.mirzohidkhon.khonfitness.data.Program
 import dev.mirzohidkhon.khonfitness.data.Session
 import dev.mirzohidkhon.khonfitness.data.SetLog
@@ -99,13 +100,15 @@ data class PeriodStats(
     val musclesPerWeek: Map<String, Double> = emptyMap(),
     val bestSets: Map<String, SetLog> = emptyMap(),
     val cardio: List<CardioType> = emptyList(),
+    val nights: Int = 0,
+    val nightAvgSec: Int? = null,
 ) {
     val setsPerWeek: Double get() = sets / period.weeks
 }
 
 fun periodStats(
     period: Period, sessions: List<Session>, logs: List<SetLog>, exercises: List<Exercise>,
-    stretches: List<StretchSession>, bodyweights: List<Bodyweight>,
+    stretches: List<StretchSession>, bodyweights: List<Bodyweight>, nights: Map<LocalDate, Night> = emptyMap(),
 ): PeriodStats {
     val inPeriod = sessions.filter { it.countsIn(period) }
     val gym = inPeriod.filter { it.itemType == ItemType.PROGRAM }
@@ -114,6 +117,7 @@ fun periodStats(
     val gymSets = logs.filter { it.sessionId in gymIds }
     val counted = gymSets.filter(::countsAsDone)
     val weights = bodyweights.filter { it.date.toDate() in period }
+    val nightsIn = nights.filterKeys { it in period }.values.map { it.asleepSec }
     return PeriodStats(
         period = period,
         gymSessions = gym.size,
@@ -128,6 +132,8 @@ fun periodStats(
         musclesPerWeek = muscleSets(period, logs, sessions, exercises).mapValues { it.value / period.weeks },
         bestSets = gymSets.groupBy { it.exerciseId }.mapNotNull { (id, sets) -> bestSet(sets)?.let { id to it } }.toMap(),
         cardio = cardioTypesIn(period, sessions, exercises),
+        nights = nightsIn.size,
+        nightAvgSec = averageSec(nightsIn),
     )
 }
 
@@ -190,6 +196,10 @@ fun compareGroups(
         row("Average") { s -> s.bodyweightKg?.let { "${oneDecimal(it)} kg" } ?: NO_VALUE },
         row("Entries") { it.bodyweights.toString() },
     ))
+    val nights = CompareGroup("Nights", if (left.nights + right.nights == 0) emptyList() else listOf(
+        row("Sleep per night") { s -> s.nightAvgSec?.let(::nightLength) ?: NO_VALUE },
+        row("Nights with data") { it.nights.toString() },
+    ))
     val muscles = (left.musclesPerWeek.keys + right.musclesPerWeek.keys)
         .filter { (left.musclesPerWeek[it] ?: 0.0) > 0 || (right.musclesPerWeek[it] ?: 0.0) > 0 }
         .sortedWith(compareBy<String> { MUSCLE_GROUPS.indexOf(it).let { i -> if (i < 0) Int.MAX_VALUE else i } }.thenBy { it })
@@ -210,7 +220,7 @@ fun compareGroups(
             row("$name · pace") { of(it)?.pace ?: NO_VALUE },
         )
     }.filterNot { it.left == NO_VALUE && it.right == NO_VALUE }
-    return listOf(totals, body, CompareGroup("Sets per muscle · per week", muscles), CompareGroup("Best set", best), CompareGroup("Cardio", cardio))
+    return listOf(totals, body, nights, CompareGroup("Sets per muscle · per week", muscles), CompareGroup("Best set", best), CompareGroup("Cardio", cardio))
         .filter { it.rows.isNotEmpty() }
 }
 

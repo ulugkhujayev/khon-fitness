@@ -160,10 +160,9 @@ The status is the first word of the second cell: `done`, `deviation`, or
 Run `~/.config/agents/tools/task-result check <task file>` before your final
 message.
 
-## Lead decisions after the deep review (2026-11-27)
+## After the deep review (2026-11-27)
 
-- Fixed: a photo file that is missing decodes to nothing; the panel keeps the previous photo or stays black (test in `StretchPhotoPlayerTest`).
-- Declined: the instruction of a rep changes with the motion value, and the photo follows after its decode and a 300 ms cross-fade. The lag is one decode before the prefetch ends. The text does not wait for the photo.
-- Declined: Cat cow has three poses (set up, start, hold) by the step table of this file, so its set holds three photos plus the photo that fades out. Rule 8 means "the photos of one stretch in one view".
-- Declined: a pixel test of the mirror. One `mirror` value drives the drawn layer and the test's semantics text in the same function, and the lead saw the mirrored photo in the `right-*` pictures.
-
+Rule 8, corrected: a set holds the photos of one stretch in one view. In
+the exercise that is the two rep poses (start and hold), or the one hold
+pose, plus the photo that fades out. The findings F1 to F5 of the deep
+review are fixed by the task `FIG05-fix1.md` in this folder.

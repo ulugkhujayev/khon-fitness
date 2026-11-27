@@ -207,17 +207,35 @@ from before the range.
 The owner can type one bodyweight target and one target per strength
 exercise. The app never suggests a target and never prefills one. The
 targets live in the settings DataStore next to the maximum heart rate, so
-a backup does not carry them, and Reset removes them. A missing, broken,
-or out-of-range stored value reads as no target. An empty field removes
-the target.
+a backup does not carry them, and Reset removes them. An empty field
+removes the target.
 
-- Bodyweight: 20.0 to 300.0 kg, one decimal. The app stores it with the
-  entry date and the 7-day average of that day as History prints it, else
-  the latest entry, else nothing.
-- Exercise: the est. 1RM in kg (1.0 to 500.0, steps of 0.5) for an
-  exercise with a counted set above 0 kg, else reps (1 to 500, whole).
-  The app stores the unit with the value. A target typed in the other
-  unit reads as not set.
+The sheet checks the text as typed, before it changes a character. It
+takes ASCII digits with at most one point or comma, and a comma is the
+decimal sign. Leading zeros keep the value, so "0080" is 80. The value
+must be inside the limits and on the step of its kind. Anything else
+(a letter, a sign, a space, a second separator, digits of another script)
+turns Save off, stores nothing, and stays in the field. The − and + steps
+stay inside the limits.
+
+- Bodyweight: 20.0 to 300.0 kg, one decimal ("80,5" is 80.5, "80.25" is
+  refused). The app stores it with the entry date and the exact 7-day
+  average of that day as the sum and the count of its entries, else the
+  latest entry, else nothing.
+- Exercise: the est. 1RM in kg (1.0 to 500.0, steps of 0.5, so "100.50"
+  is 100.5 and "100.3" is refused) for an exercise with a counted set
+  above 0 kg, else reps (1 to 500, whole, so "12.0" is refused). The app
+  stores the unit with the value. A target of the other unit reads as
+  not set, and the next save replaces or removes it. When the unit
+  changes while the sheet is open, the sheet closes and its text is lost.
+
+A stored target reads as none unless each number in it is a plain
+decimal (no exponent) of at most 12 characters, the value is inside its
+limits and on its step, the stored sum and count are positive, the count
+is at most 1000, and the entry average is from 20 to 300 kg. The date
+must parse. A date after today counts as today's entry. A bodyweight
+record from before the sum and count holds one average; the app reads
+that average as exact.
 
 The second row of a target shows when the trend reaches it. It uses
 measured values only and names the rate it used. Each date comes from the
@@ -232,10 +250,12 @@ zero, or a rate that prints "±0.0", is "Not at this rate". Else the date is
 the first day from today on which the line is at or above the target, or
 "More than 2 years" when that day is more than 730 days away.
 
-For bodyweight, the direction is the sign of the target minus the stored
-average. Without a stored average, or when the two are equal, the present
+For bodyweight, the direction is the sign of the target minus the exact
+stored average. Without a stored average, or when the two are equal, the present
 7-day average gives the direction; equal again is "Reached". The target is
-"Reached" once the present average is at or beyond it that way. Without
+"Reached" once the exact present average is at or beyond it that way, so
+an average of 80.04 has not reached 80.0 on the way down although it
+prints 80.0. Without
 the present average or the one 7 days earlier there is no second row. A
 rate of "±0.0" or a rate the other way is "Not at this rate". Else the date
 is today plus the days the distance needs at that rate, rounded up, or

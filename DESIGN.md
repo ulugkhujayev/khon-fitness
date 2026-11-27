@@ -503,7 +503,9 @@ Two lines, 88 px total, hairline between rows.
   green or red, no arrows, no progress bar, no verdict words. TalkBack
   reads each row as one line in full words: "Target, 100 kilograms,
   button", "Target, not set, button", "At plus 0.4 kilograms per week,
-  March 14, 2027", "Reached, November 20".
+  March 14, 2027", "Reached, November 20", "At plus 12.5 kilograms per
+  week, more than 2 years". A "Not at this rate" row speaks "Not at this
+  rate" only.
 
 ## Stretch player
 
@@ -703,8 +705,9 @@ then a full-width Save, dim while the value is outside 100 to 230.
 The target sheets ("Target bodyweight", "Target est. 1RM", "Target reps")
 follow it: one elevated group with a "Target" row and a number widget in kg
 or reps, empty or with the owner's own target and no placeholder, then
-Save. Save is dim for a value outside the limits or off its step (80.25
-kg, 100.3 kg, 7.5 reps).
+Save. Save is dim for text that is not a plain number inside the limits
+and on the step (80.25 kg, 100.3 kg, 12.0 reps, "8x0", "-80"); the text
+stays as typed. A comma reads as the decimal point.
 
 A finished cardio Review with figures gets a "Heart rate" group after
 Intervals: 48 px label and value rows in body, values white with tabular

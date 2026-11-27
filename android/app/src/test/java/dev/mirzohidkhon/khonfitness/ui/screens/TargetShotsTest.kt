@@ -146,7 +146,7 @@ class TargetShotsTest {
                 }
             }
         }
-        for ((id, spoken) in listOf("date" to "At plus 12.5", "reached" to "Reached, ", "flat" to "not at this rate", "unset" to "Target, not set")) {
+        for ((id, spoken) in listOf("date" to "At plus 12.5", "reached" to "Reached, ", "flat" to "Not at this rate", "unset" to "Target, not set")) {
             compose.runOnIdle { screen = id }
             said(spoken)
             shot("$tag-lift-$id")

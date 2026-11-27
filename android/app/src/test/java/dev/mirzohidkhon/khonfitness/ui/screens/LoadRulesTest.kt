@@ -35,6 +35,42 @@ class LoadRulesTest {
         assertEquals(5, sessionLoad(s, filled(s, gaps), 200))
     }
 
+    @Test fun eachOffsetCountsOnceTheFirstStored() {
+        val s = session("s")
+        assertEquals(5, sessionLoad(s, filled(s, buckets(12, 190) + buckets(12, 190)), 200))
+        val firstLow = buckets(12, 120).zip(buckets(12, 190)).flatMap { (a, b) -> listOf(a, b) }
+        assertEquals(2, sessionLoad(s, filled(s, firstLow), 200))
+        val firstHigh = buckets(12, 190).zip(buckets(12, 120)).flatMap { (a, b) -> listOf(a, b) }
+        assertEquals(5, sessionLoad(s, filled(s, firstHigh), 200))
+    }
+
+    @Test fun sumsAndThresholdsDoNotWrap() {
+        val monday = LocalDate.of(2026, 11, 23)
+        val week = LoadWeek(monday, listOf(LoadDay(monday, 1, Int.MAX_VALUE), LoadDay(monday.plusDays(1), 1, 1)))
+        assertEquals(2_147_483_648L, week.load)
+        assertEquals("Week of November 23, load 2147483648, 2 days", loadWeekSpoken(week))
+        assertEquals(4, loadStep(600_000_000, 600_000_000))
+        assertEquals(listOf(1, 2, 3, 4), listOf(1, 2, 3, 4).map { loadStep(it * 500_000_000, Int.MAX_VALUE) })
+        assertEquals(Int.MAX_VALUE, dayLoad(listOf(Int.MAX_VALUE - 1, Int.MAX_VALUE - 1)))
+        assertEquals(Int.MAX_VALUE, dayLoad(listOf(Int.MAX_VALUE, 1)))
+        assertEquals(3, dayLoad(listOf(1, 2)))
+        assertNull(dayLoad(emptyList()))
+        assertEquals(5, loadWeight(Int.MAX_VALUE, 200))
+        assertEquals(0, loadWeight(Int.MIN_VALUE, 200))
+        val year = LoadYear(listOf(week, LoadWeek(monday.minusWeeks(1), listOf(LoadDay(monday.minusWeeks(1), 1, 0)))))
+        assertEquals(listOf(0.0, 2_147_483_648.0), loadChart(year).map { it.value })
+    }
+
+    @Test fun monthLabelOnlyFromDrawnDays() {
+        val monday = LocalDate.of(2026, 11, 30)
+        assertNull(loadMonth(loadYear(emptyList(), emptyMap(), null, monday).weeks.first()))
+        assertEquals("Dec", loadMonth(loadYear(emptyList(), emptyMap(), null, monday.plusDays(1)).weeks.first()))
+        val full = loadYear(emptyList(), emptyMap(), null, LocalDate.of(2026, 12, 9)).weeks[1]
+        assertEquals(LocalDate.of(2026, 11, 30), full.monday)
+        assertEquals(7, full.days.size)
+        assertEquals("Dec", loadMonth(full))
+    }
+
     @Test fun noLoadWithoutAFilledFactOrAMaximum() {
         val s = session("s")
         val range = hrWindow(s, zone)!!
@@ -67,7 +103,7 @@ class LoadRulesTest {
         assertNull(trained.load)
         assertFalse(trained.empty)
         assertTrue(year.day(day.minusDays(2)).empty)
-        assertEquals(40, year.weeks[0].load)
+        assertEquals(40L, year.weeks[0].load)
         assertEquals(2, year.weeks[0].sessionDays)
         assertNull(year.weeks[1].load)
     }
@@ -87,9 +123,9 @@ class LoadRulesTest {
         assertEquals(monday, year.weeks[0].monday)
         assertEquals(DayOfWeek.MONDAY, year.weeks[0].days.first().date.dayOfWeek)
         assertEquals(listOf(monday, monday.plusDays(1), monday.plusDays(2), monday.plusDays(3), monday.plusDays(4)), year.weeks[0].days.map { it.date })
-        assertEquals(5 + 10 + 1, year.weeks[0].load)
+        assertEquals(5L + 10 + 1, year.weeks[0].load)
         assertEquals(3, year.weeks[0].sessionDays)
-        assertEquals(5, year.weeks[1].load)
+        assertEquals(5L, year.weeks[1].load)
         assertEquals(sunday, year.weeks[1].days.last().date)
         assertEquals("Jan", loadMonth(year.weeks[0]))
         assertNull(loadMonth(year.weeks[1]))
@@ -117,9 +153,9 @@ class LoadRulesTest {
         assertEquals((0L until 52L).map { monday.minusWeeks(it) }, year.weeks.map { it.monday })
         assertEquals(listOf(monday, monday.plusDays(1), today), year.weeks[0].days.map { it.date })
         assertTrue(year.weeks.drop(1).all { it.days.size == 7 })
-        assertEquals(5, year.weeks.last().load)
+        assertEquals(5L, year.weeks.last().load)
         assertEquals(5, year.highest)
-        assertEquals(listOf(5), year.weeks.mapNotNull { it.load })
+        assertEquals(listOf(5L), year.weeks.mapNotNull { it.load })
     }
 
     @Test fun anyLoadNeedsALoadedSessionInTheYear() {

@@ -35,7 +35,7 @@ import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDate
-import java.time.LocalDateTime
+import java.time.ZonedDateTime
 
 /**
  * History: the title row names the two pages as tabs, Log (a week of sessions against the plan) and Progress (records,
@@ -59,8 +59,8 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock
     }
 }
 
-/** Time from [now] to the next midnight, plus a second so the new date has begun. */
-fun untilNextDay(now: LocalDateTime): Duration = Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay()).plusSeconds(1)
+/** Time from [now] to the start of the next day in its zone, between instants, plus a second so the new date has begun. */
+fun untilNextDay(now: ZonedDateTime): Duration = Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay(now.zone)).plusSeconds(1)
 
 /** Today's date from [clock], read again each time the screen resumes and at each midnight while it is shown. */
 @Composable
@@ -71,7 +71,7 @@ fun rememberToday(clock: Clock): LocalDate {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (true) {
                 today = LocalDate.now(clock)
-                delay(untilNextDay(LocalDateTime.now(clock)).toMillis())
+                delay(untilNextDay(ZonedDateTime.now(clock)).toMillis())
             }
         }
     }

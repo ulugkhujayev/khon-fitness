@@ -104,6 +104,9 @@ fun parseSamples(text: String): List<HrSample>? {
     }
 }
 
+/** The buckets of [row]: the first sample of each offset, in the stored order; a later one with the same offset is dropped. */
+fun rowBuckets(row: SessionHr): List<HrSample> = parseSamples(row.samples).orEmpty().distinctBy { it.offsetSec }
+
 fun formatSamples(samples: List<HrSample>): String = samples.joinToString(",") { "${it.offsetSec}:${it.bpm}" }
 
 /** The mean of [values] rounded half up; null for no value. */
@@ -121,6 +124,6 @@ fun roundAverage(facts: HrFacts, round: IntervalLog): Int? {
     val row = (facts as? HrFacts.Filled)?.row ?: return null
     val start = round.startedAt ?: return null
     val end = round.endedAt ?: return null
-    val inside = parseSamples(row.samples).orEmpty().filter { row.fromMs + it.offsetSec * 1000L in start until end }
+    val inside = rowBuckets(row).filter { row.fromMs + it.offsetSec * 1000L in start until end }
     return if (inside.size >= 2) meanHalfUp(inside.map { it.bpm }) else null
 }

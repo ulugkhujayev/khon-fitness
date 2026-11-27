@@ -15,12 +15,15 @@ private val WEIGHT_PERCENTS = listOf(50, 60, 70, 80, 90)
 private const val MIN_LOAD_CHART_POINTS = 2
 
 /** 0 below 50 % of [max], then one more for each 10 % up to 5 at 90 % and over: `bpm * 100` against `max * percent`. */
-fun loadWeight(bpm: Int, max: Int): Int = WEIGHT_PERCENTS.count { bpm * 100 >= max * it }
+fun loadWeight(bpm: Int, max: Int): Int = WEIGHT_PERCENTS.count { bpm * 100L >= max.toLong() * it }
 
-/** Weighted minutes: each bucket counts [SCORE_BUCKET_SEC] seconds times its weight, over 60, rounded half up. */
+/**
+ * Weighted minutes: each bucket of [pictureBuckets] counts [SCORE_BUCKET_SEC] seconds times its weight, over 60, rounded
+ * half up, and at most [Int.MAX_VALUE].
+ */
 fun bucketsLoad(facts: HrFacts.Filled, max: Int): Int {
-    val sec = pictureBuckets(facts).sumOf { loadWeight(it.bpm, max) * SCORE_BUCKET_SEC }
-    return Math.floorDiv(2 * sec + 60, 120)
+    val sec = pictureBuckets(facts).sumOf { loadWeight(it.bpm, max).toLong() * SCORE_BUCKET_SEC }
+    return Math.floorDiv(2 * sec + 60, 120L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 }
 
 /** Null without a finished session, a filled fact, or a maximum in use. */
@@ -29,14 +32,18 @@ fun sessionLoad(session: Session, facts: HrFacts?, max: Int?): Int? {
     return bucketsLoad(facts as? HrFacts.Filled ?: return null, max)
 }
 
-/** One day of the grid: [sessions] finished there, and the sum of their loads, null when none has one. */
+/** One day of the grid: [sessions] finished there, and the sum of their loads ([dayLoad]), null when none has one. */
 data class LoadDay(val date: LocalDate, val sessions: Int, val load: Int?) {
     val empty: Boolean get() = sessions == 0
 }
 
+/** The sum of [loads], at most [Int.MAX_VALUE]; null for no load. */
+fun dayLoad(loads: List<Int>): Int? =
+    loads.takeIf { it.isNotEmpty() }?.sumOf { it.toLong() }?.coerceAtMost(Int.MAX_VALUE.toLong())?.toInt()
+
 /** A week from its Monday; [days] stop at today, so the current week may hold fewer than 7. */
 data class LoadWeek(val monday: LocalDate, val days: List<LoadDay>) {
-    val load: Int? get() = days.mapNotNull { it.load }.takeIf { it.isNotEmpty() }?.sum()
+    val load: Long? get() = days.mapNotNull { it.load }.takeIf { it.isNotEmpty() }?.sumOf { it.toLong() }
     val sessionDays: Int get() = days.count { !it.empty }
 }
 
@@ -54,7 +61,7 @@ fun loadYear(sessions: List<Session>, facts: Map<String, HrFacts>, max: Int?, to
         val monday = current.minusWeeks(i.toLong())
         val days = (0L until 7L).map { monday.plusDays(it) }.filter { it <= today }.map { d ->
             val on = byDate[d].orEmpty()
-            LoadDay(d, on.size, on.mapNotNull { sessionLoad(it, facts[it.id], max) }.takeIf { it.isNotEmpty() }?.sum())
+            LoadDay(d, on.size, dayLoad(on.mapNotNull { sessionLoad(it, facts[it.id], max) }))
         }
         LoadWeek(monday, days)
     }
@@ -66,9 +73,9 @@ fun loadYear(sessions: List<Session>, facts: Map<String, HrFacts>, max: Int?, to
  * loaded day step 1.
  */
 fun loadStep(load: Int, highest: Int): Int = when {
-    LOAD_STEPS * load <= highest -> 1
-    2 * load <= highest -> 2
-    LOAD_STEPS * load <= 3 * highest -> 3
+    LOAD_STEPS.toLong() * load <= highest -> 1
+    2L * load <= highest -> 2
+    LOAD_STEPS.toLong() * load <= 3L * highest -> 3
     else -> 4
 }
 
@@ -77,9 +84,9 @@ fun loadChart(year: LoadYear): List<ChartPoint> =
     year.weeks.take(LOAD_CHART_WEEKS).mapNotNull { w -> w.load?.let { ChartPoint(w.monday, it.toDouble()) } }.asReversed()
         .takeIf { it.size >= MIN_LOAD_CHART_POINTS }.orEmpty()
 
-/** The short month name on the week that holds that month's first day, else null. */
+/** The short month name on the week whose drawn [LoadWeek.days] hold that month's first day, else null. */
 fun loadMonth(week: LoadWeek): String? =
-    (0L until 7L).map { week.monday.plusDays(it) }.firstOrNull { it.dayOfMonth == 1 }?.month?.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
+    week.days.firstOrNull { it.date.dayOfMonth == 1 }?.date?.month?.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
 
 fun loadWeekSpoken(week: LoadWeek): String {
     val date = "${week.monday.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)} ${week.monday.dayOfMonth}"

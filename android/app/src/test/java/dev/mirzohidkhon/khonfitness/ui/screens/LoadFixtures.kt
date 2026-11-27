@@ -40,6 +40,14 @@ fun loadYearFixtures(today: LocalDate, zone: ZoneId): List<PictureFixture> {
     return out
 }
 
+/** [weeks] full weeks before the current one, each as the heavy week of [loadYearFixtures]: gym and a run each day. */
+fun loadHeavyFixtures(today: LocalDate, zone: ZoneId, weeks: Int): List<PictureFixture> = (1..weeks).flatMap { w ->
+    val monday = weekOf(today).minusWeeks(w.toLong())
+    (0L until 7L).flatMap { d ->
+        listOf(gymFixture(monday.plusDays(d), zone, id = "eg$w-$d"), zoneFixture(monday.plusDays(d), zone, id = "ez$w-$d", lift = d.toInt() * 2))
+    }
+}
+
 /** Three sessions: a gym session and a run with heart rate, an interval session without. */
 fun loadFewFixtures(today: LocalDate, zone: ZoneId): List<PictureFixture> {
     val current = weekOf(today)

@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.Density
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
@@ -44,6 +43,10 @@ import dev.mirzohidkhon.khonfitness.KhonApp
 import dev.mirzohidkhon.khonfitness.data.SessionHr
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Routes
+import dev.mirzohidkhon.khonfitness.ui.components.ChartDrawn
+import dev.mirzohidkhon.khonfitness.ui.components.ChartPoint
+import dev.mirzohidkhon.khonfitness.ui.components.LocalChartDrawn
+import dev.mirzohidkhon.khonfitness.ui.khonScreens
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
 import kotlinx.coroutines.Dispatchers
@@ -53,6 +56,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -114,23 +118,39 @@ class LoadScreenTest {
         }
     }
 
+    private var drawn: ChartDrawn? = null
+
     private fun show(scale: Float = 1f, start: String = Routes.LOAD) {
         compose.setContent {
             val d = LocalDensity.current
             val config = Configuration(LocalConfiguration.current).apply { fontScale = scale }
-            CompositionLocalProvider(LocalDensity provides Density(d.density, scale), LocalConfiguration provides config) {
+            CompositionLocalProvider(
+                LocalDensity provides Density(d.density, scale), LocalConfiguration provides config,
+                LocalChartDrawn provides { drawn = it },
+            ) {
                 KhonTheme {
                     Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) {
                         nav = rememberNavController()
-                        NavHost(nav, startDestination = start) {
-                            composable(Routes.HISTORY) { HistoryScreen(vm, nav, clock) }
-                            composable(Routes.LOAD) { LoadScreen(vm, nav, clock) }
-                        }
+                        NavHost(nav, startDestination = start) { khonScreens(vm, nav, clock) }
                     }
                 }
             }
         }
         compose.waitForIdle()
+    }
+
+    /** The chart as it draws now: Robolectric draws a canvas only when a test takes its image. */
+    private fun drawChart(): ChartDrawn? {
+        drawn = null
+        if (compose.onAllNodesWithTag(LOAD_CHART_TAG).fetchSemanticsNodes().isEmpty()) return null
+        image(compose.onNodeWithTag(LOAD_CHART_TAG))
+        return compose.runOnIdle { drawn }
+    }
+
+    private fun drawnPoints(): List<ChartPoint> = drawChart()?.points.orEmpty()
+
+    private fun waitChart(points: List<ChartPoint>) {
+        runCatching { compose.waitUntil(15_000) { drawnPoints() == points } }.onFailure { throw AssertionError("want $points, drawn ${drawnPoints()}", it) }
     }
 
     private fun expected(fixtures: List<PictureFixture>, max: Int = LOAD_FIXTURE_MAX): LoadYear {
@@ -171,7 +191,10 @@ class LoadScreenTest {
         assertTrue(shows("Load per week"))
         val points = loadChart(expected(f))
         assertEquals(10, points.size)
-        assertEquals(points.sortedBy { it.date }, points)
+        waitChart(points)
+        val dates = drawnPoints().map { it.date }
+        assertEquals(dates.sorted(), dates)
+        assertEquals(weekOf(today), dates.last())
         val (columns, width) = accentColumns()
         assertTrue("accent in $columns of $width columns", columns > width * 0.6)
     }
@@ -200,9 +223,10 @@ class LoadScreenTest {
         val highest = year.highest!!
         val days = year.weeks.flatMap { it.days }
         val byStep = (1..4).associateWith { s -> days.first { it.load != null && loadStep(it.load!!, highest) == s } }
+        val alphas = listOf(0.30f, 0.50f, 0.75f, 1f)
         for ((step, day) in byStep) {
             val bmp = image(cell(day.date))
-            val want = K.Accent.copy(alpha = LOAD_STEP_ALPHAS[step - 1]).compositeOver(K.Bg)
+            val want = K.Accent.copy(alpha = alphas[step - 1]).compositeOver(K.Bg)
             val center = bmp.getPixel(bmp.width / 2, bmp.height / 2)
             assertTrue("step $step on ${day.date}: ${Integer.toHexString(center)}", near(center, want))
         }
@@ -226,24 +250,30 @@ class LoadScreenTest {
     }
 
     @Test fun gridAndChartFollowTheMaximumAndAFill() {
-        val few = loadFewFixtures(today, zone)
+        val week = 8
+        val interval = intervalFixture(weekOf(today).minusWeeks(week.toLong()).plusDays(3), zone, "fill-i")
+        val few = loadFewFixtures(today, zone) + interval.copy(row = null)
         io { seedLoad(app, few) }
         show()
         waitTag(LOAD_CHART_TAG)
         val at186 = expected(few)
         waitRow(at186.weeks[2])
+        waitChart(loadChart(at186))
         io { vm.maxHeartRate.set(150) }
         val at150 = expected(few, 150)
         assertTrue(at150.weeks[2].load!! > at186.weeks[2].load!!)
         waitRow(at150.weeks[2])
-        val interval = few[2]
-        val filled = intervalFixture(interval.session.date.let { LocalDate.parse(it) }, zone, "few-i").row!!
-        val week = 20
+        waitChart(loadChart(at150))
+        assertNull(at150.weeks[week].load)
         assertTrue(spoken(loadWeekSpoken(at150.weeks[week])))
-        io { app.db.dao().upsertSessionHr(filled) }
-        val after = expected(few.dropLast(1) + interval.copy(row = filled), 150)
+        io { app.db.dao().upsertSessionHr(interval.row!!) }
+        val after = expected(few.dropLast(1) + interval, 150)
         assertNotNull(after.weeks[week].load)
         waitRow(after.weeks[week])
+        val points = loadChart(after)
+        assertEquals(3, points.size)
+        assertTrue(points.any { it.date == after.weeks[week].monday })
+        waitChart(points)
     }
 
     private fun layout(n: SemanticsNode): TextLayoutResult {
@@ -276,7 +306,37 @@ class LoadScreenTest {
         assertTrue("sum inside its row", sum.right <= row.boundsInRoot.right + 0.5f)
         val rows = year.weeks.map { compose.onNodeWithTag(loadWeekTag(it.monday), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot }
         rows.zipWithNext().forEach { (a, b) -> assertFalse("rows overlap", a.overlaps(b) && a.intersect(b).height > 0.5f) }
+        chartLabelsFit()
     }
+
+    private fun chartLabelsFit(): ChartDrawn {
+        val d = drawChart()!!
+        val labels = d.labels.values.toList()
+        assertTrue("the last label draws: ${d.labels.keys}", d.points.lastIndex in d.labels.keys)
+        for (box in labels + d.ticks) assertTrue("$box inside ${d.width}", box.left >= 0f && box.right <= d.width + 0.5f && box.top >= 0f && box.bottom <= d.height)
+        for (group in listOf(labels, d.ticks)) for (a in group.indices) for (b in a + 1 until group.size) {
+            assertFalse("${group[a]} meets ${group[b]}", group[a].overlaps(group[b]))
+        }
+        assertTrue("ticks ${d.ticks.size}", d.ticks.size <= 5)
+        return d
+    }
+
+    private fun equalWeeksFit(scale: Float, drawnLabels: Int) {
+        io { seedLoad(app, loadHeavyFixtures(today, zone, 7)) }
+        show(scale)
+        waitTag(LOAD_CHART_TAG)
+        val points = loadChart(expected(loadHeavyFixtures(today, zone, 7)))
+        assertEquals(7, points.size)
+        assertEquals(1, points.map { it.value }.distinct().size)
+        assertTrue("4 digits: ${points.first().value}", points.first().value in 1000.0..9999.0)
+        waitChart(points)
+        val d = chartLabelsFit()
+        assertEquals("drawn ${d.labels.keys}", drawnLabels, d.labels.size)
+    }
+
+    @Test fun equalWeekLabelsStayApartAt360Scale13() = equalWeeksFit(1.3f, 5)
+    @Config(qualifiers = "w411dp-h3200dp-xxhdpi")
+    @Test fun equalWeekLabelsStayApartAt411() = equalWeeksFit(1f, 7)
 
     @Test fun fitsAt360() = fits(1f)
     @Test fun fitsAt360Scale13() = fits(1.3f)

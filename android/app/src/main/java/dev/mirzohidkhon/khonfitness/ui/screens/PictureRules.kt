@@ -9,7 +9,7 @@ import dev.mirzohidkhon.khonfitness.data.Session
 import dev.mirzohidkhon.khonfitness.data.SetLog
 import dev.mirzohidkhon.khonfitness.data.SetStatus
 import dev.mirzohidkhon.khonfitness.data.hrWindow
-import dev.mirzohidkhon.khonfitness.data.parseSamples
+import dev.mirzohidkhon.khonfitness.data.rowBuckets
 import dev.mirzohidkhon.khonfitness.ui.components.fmt
 import java.time.Instant
 import java.time.ZoneId
@@ -51,10 +51,11 @@ fun bucketAtMs(range: HrRange, b: HrSample): Long = range.fromMs + b.offsetSec *
 
 fun HrRange.holds(ms: Long): Boolean = ms >= fromMs && ms < toMs
 
+/** The [rowBuckets] of a filled fact inside its range, by offset; empty for any other fact. */
 fun pictureBuckets(facts: HrFacts): List<HrSample> {
     val row = (facts as? HrFacts.Filled)?.row ?: return emptyList()
     val range = HrRange(row.fromMs, row.toMs)
-    return parseSamples(row.samples).orEmpty().filter { range.holds(bucketAtMs(range, it)) }.sortedBy { it.offsetSec }
+    return rowBuckets(row).filter { range.holds(bucketAtMs(range, it)) }.sortedBy { it.offsetSec }
 }
 
 fun curveSegments(buckets: List<HrSample>): List<List<HrSample>> {

@@ -33,8 +33,6 @@ import dev.mirzohidkhon.khonfitness.ui.components.PrimaryButton
 import dev.mirzohidkhon.khonfitness.ui.components.SectionTitle
 import dev.mirzohidkhon.khonfitness.ui.components.fmt
 import dev.mirzohidkhon.khonfitness.ui.theme.K
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -45,8 +43,8 @@ fun LiftTargetGroup(vm: AppViewModel, exerciseId: String, history: List<LiftSess
     val rows = remember(stored, history, today) { liftRows(stored, history, today) }
     val kind = if (withWeight(history)) TargetKind.LIFT_KG else TargetKind.LIFT_REPS
     val current = liftTargetFor(stored, kind == TargetKind.LIFT_KG)?.value
-    TargetGroup(rows, kind, current, stored != null, modifier) { value ->
-        vm.run { withContext(Dispatchers.IO) { vm.targets.setLift(exerciseId, value, kind == TargetKind.LIFT_REPS, today) } }
+    TargetGroup(rows, kind, current, modifier) { value ->
+        vm.run { vm.targets.setLift(exerciseId, value, kind == TargetKind.LIFT_REPS, today, keepEqual = true) }
     }
 }
 
@@ -55,24 +53,23 @@ fun LiftTargetGroup(vm: AppViewModel, exerciseId: String, history: List<LiftSess
 fun BodyTargetGroup(vm: AppViewModel, bodyweights: List<Bodyweight>, today: LocalDate, modifier: Modifier = Modifier) {
     val stored by vm.bodyTarget.collectAsStateWithLifecycle()
     val rows = remember(stored, bodyweights, today) { bodyRows(stored, bodyweights, today) }
-    TargetGroup(rows, TargetKind.BODY, stored?.kg, stored != null, modifier) { value ->
+    TargetGroup(rows, TargetKind.BODY, stored?.kg, modifier) { value ->
         val start = value?.let { bodyStart(bodyweights, today) }
-        vm.run { withContext(Dispatchers.IO) { vm.targets.setBody(value, start, today) } }
+        vm.run { vm.targets.setBody(value, start, today, keepEqual = true) }
     }
 }
 
 /**
- * [current] is the stored target in [kind]'s unit; [hasRecord] is true while any target is stored, also one of the other
- * unit. A sheet's draft belongs to its unit: a new unit closes the sheet and drops the draft.
+ * [current] is the stored target in [kind]'s unit. A sheet's draft belongs to its unit: a new unit closes the sheet and
+ * drops the draft. Every Save goes to the store, which keeps a record of the same value.
  */
 @Composable
-private fun TargetGroup(rows: TargetRows, kind: TargetKind, current: BigDecimal?, hasRecord: Boolean, modifier: Modifier, onSave: (BigDecimal?) -> Unit) {
+private fun TargetGroup(rows: TargetRows, kind: TargetKind, current: BigDecimal?, modifier: Modifier, onSave: (BigDecimal?) -> Unit) {
     var open by remember(kind) { mutableStateOf(false) }
     TargetRowsGroup(rows, kind, modifier) { open = true }
     if (open) TargetSheet(kind, current, onDismiss = { open = false }) { value ->
         open = false
-        val same = if (value == null) !hasRecord else current != null && value.compareTo(current) == 0
-        if (!same) onSave(value)
+        onSave(value)
     }
 }
 

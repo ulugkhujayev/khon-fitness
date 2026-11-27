@@ -1,13 +1,18 @@
 package dev.mirzohidkhon.khonfitness.data
 
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
@@ -44,12 +49,12 @@ fun entryAverageValid(a: EntryAverage): Boolean =
 
 private val STORED_NUMBER = Regex("""[0-9]+(\.[0-9]+)?""")
 private val STORED_COUNT = Regex("""[0-9]+""")
-private val STORED_DATE = Regex("""[0-9]{4}-[0-9]{2}-[0-9]{2}""")
+private const val MAX_DATE_CHARS = 16
 private const val MAX_STORED_CHARS = 12
 
 private fun storedNumber(text: String): BigDecimal? = text.takeIf { it.length <= MAX_STORED_CHARS && STORED_NUMBER.matches(it) }?.let(::BigDecimal)
 private fun storedCount(text: String): Int? = text.takeIf { it.length <= MAX_STORED_CHARS && STORED_COUNT.matches(it) }?.toBigInteger()?.takeIf { it <= MAX_ENTRY_COUNT.toBigInteger() }?.toInt()
-private fun storedDate(text: String): LocalDate? = text.takeIf(STORED_DATE::matches)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+private fun storedDate(text: String): LocalDate? = text.takeIf { it.length <= MAX_DATE_CHARS }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
 /**
  * The typed targets, in the settings DataStore as `target_bodyweight` and `target_lift.<exercise id>`: no table, so
@@ -63,26 +68,43 @@ class Targets(private val store: DataStore<Preferences>) {
     fun lift(exerciseId: String): Flow<LiftTarget?> =
         store.data.map { readLift(it.asMap()[liftKey(exerciseId)] as? String) }.catch { emit(null) }.distinctUntilChanged()
 
-    /** Stores [kg], or removes the target for null. A value outside its limits stores nothing. */
-    suspend fun setBody(kg: BigDecimal?, start: EntryAverage?, date: LocalDate): Boolean {
+    private val writes = Mutex()
+
+    /** One write at a time, in the order of the calls, off the caller's thread. */
+    private suspend fun write(change: (MutablePreferences) -> Unit) {
+        writes.withLock { withContext(Dispatchers.IO) { store.edit { change(it) } } }
+    }
+
+    /**
+     * Stores [kg], or removes the target for null. A value outside its limits stores nothing. With [keepEqual], a stored
+     * target of the same value stays as it is, with its entry average and date.
+     */
+    suspend fun setBody(kg: BigDecimal?, start: EntryAverage?, date: LocalDate, keepEqual: Boolean = false): Boolean {
         if (kg != null && !bodyTargetValid(kg)) return false
         val kept = start?.takeIf { entryAverageValid(it) && storedNumber(it.sum.toPlainString()) != null }
-        store.edit {
+        write {
             if (kg == null) it.remove(BODY_KEY)
-            else it[BODY_KEY] = listOf(kg.setScale(1, RoundingMode.UNNECESSARY).toPlainString(), kept?.sum?.toPlainString().orEmpty(), kept?.count?.toString().orEmpty(), date.toString()).joinToString(SEP)
+            else if (!keepEqual || readBody(it[BODY_KEY])?.kg?.compareTo(kg) != 0)
+                it[BODY_KEY] = listOf(kg.setScale(1, RoundingMode.UNNECESSARY).toPlainString(), kept?.sum?.toPlainString().orEmpty(), kept?.count?.toString().orEmpty(), date.toString()).joinToString(SEP)
         }
         return true
     }
 
-    suspend fun setLift(exerciseId: String, value: BigDecimal?, reps: Boolean, date: LocalDate): Boolean {
+    /** As [setBody]; with [keepEqual], a stored target of the same value and unit stays with its date. */
+    suspend fun setLift(exerciseId: String, value: BigDecimal?, reps: Boolean, date: LocalDate, keepEqual: Boolean = false): Boolean {
         if (value != null && !liftTargetValid(value, reps)) return false
         val key = liftKey(exerciseId)
-        store.edit { if (value == null) it.remove(key) else it[key] = listOf(if (reps) REPS else KG, plain(value), date.toString()).joinToString(SEP) }
+        write {
+            val old = readLift(it[key])
+            if (value == null) it.remove(key)
+            else if (!keepEqual || old == null || old.reps != reps || old.value.compareTo(value) != 0)
+                it[key] = listOf(if (reps) REPS else KG, plain(value), date.toString()).joinToString(SEP)
+        }
         return true
     }
 
     suspend fun clearAll() {
-        store.edit { prefs -> prefs.asMap().keys.filter { it.name == BODY_KEY.name || it.name.startsWith(LIFT_PREFIX) }.forEach { prefs.remove(it) } }
+        write { prefs -> prefs.asMap().keys.filter { it.name == BODY_KEY.name || it.name.startsWith(LIFT_PREFIX) }.forEach { prefs.remove(it) } }
     }
 
     companion object {

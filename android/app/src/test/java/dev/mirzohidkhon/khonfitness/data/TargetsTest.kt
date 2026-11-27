@@ -5,10 +5,13 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -104,7 +107,7 @@ class TargetsTest {
             "80.0|240.1|0|2026-11-20", "80.0|240.1|-3|2026-11-20", "80.0|-240.1|3|2026-11-20", "80.0|0|1|2026-11-20",
             "80.0|19|1|2026-11-20", "80.0|301|1|2026-11-20", "80.0|19|2026-11-20", "80.0|301|2026-11-20", "80.0|57|3|2026-11-20",
             "80.0|240.1|1001|2026-11-20", "80.0|240.1|99999999999999999999|2026-11-20", "80.0|240.1||2026-11-20", "80.0||3|2026-11-20",
-            "80.0|240.1|3|2026-02-30", "80.0|240.1|3|+999999999-12-31", "80.0|240.1|3|20261120", "80.0|240.1|3|", "80.0|240.1|3|2026-11-20|x",
+            "80.0|240.1|3|2026-02-30", "80.0|240.1|3|+9999999999-12-31", "80.0|240.1|3|20261120", "80.0|240.1|3|", "80.0|240.1|3|2026-11-20|x",
             " 80.0|83.2|2026-11-20", "80.0|83.2 |2026-11-20", "80,0|83.2|2026-11-20", "\u0668\u0660|83.2|2026-11-20", "80.0|" + "9".repeat(5000) + "|2026-11-20",
         )
         for (text in bodyBroken) {
@@ -115,7 +118,7 @@ class TargetsTest {
             store.edit { it[Targets.BODY_KEY] = text }
             assertTrue(text, targets.body.first() != null)
         }
-        val liftBroken = listOf("kg|1e2|2026-11-20", "kg|1E+2|2026-11-20", "kg|100.0000000000|2026-11-20", "reps|-5|2026-11-20", "kg|100|2026-02-30", "kg|100|+999999999-12-31", "kg|" + "1".repeat(5000) + "|2026-11-20")
+        val liftBroken = listOf("kg|1e2|2026-11-20", "kg|1E+2|2026-11-20", "kg|100.0000000000|2026-11-20", "reps|-5|2026-11-20", "kg|100|2026-02-30", "kg|100|+9999999999-12-31", "kg|" + "1".repeat(5000) + "|2026-11-20")
         for (text in liftBroken) {
             store.edit { it[Targets.liftKey("bench")] = text }
             assertNull(text.take(60), targets.lift("bench").first())
@@ -127,6 +130,40 @@ class TargetsTest {
         assertEquals(BodyTarget(BigDecimal("80.0"), null, day), targets.body.first())
         assertTrue(targets.setBody(BigDecimal("80.0"), EntryAverage(BigDecimal("80.123456789012"), 1), day))
         assertEquals(BodyTarget(BigDecimal("80.0"), null, day), targets.body.first())
+    }
+
+    @Test fun aStoredDateFarAfterTodayStillReads() = runBlocking {
+        store.edit { it[Targets.BODY_KEY] = "80.0|240.1|3|+10000-01-01" }
+        assertEquals(BodyTarget(BigDecimal("80.0"), EntryAverage(BigDecimal("240.1"), 3), LocalDate.of(10000, 1, 1)), targets.body.first())
+        store.edit { it[Targets.liftKey("bench")] = "kg|100|+999999999-12-31" }
+        assertEquals(LiftTarget(BigDecimal(100), false, LocalDate.MAX), targets.lift("bench").first())
+    }
+
+    @Test fun writesLandInTheOrderOfTheirCalls() = runBlocking {
+        repeat(200) { i ->
+            val first = launch(start = CoroutineStart.UNDISPATCHED) { targets.setLift("bench", BigDecimal(100 + i % 50), reps = false, date = day) }
+            val second = launch(start = CoroutineStart.UNDISPATCHED) { targets.setLift("bench", BigDecimal(15), reps = true, date = day) }
+            joinAll(first, second)
+            assertEquals("pair $i", LiftTarget(BigDecimal(15), true, day), targets.lift("bench").first())
+        }
+    }
+
+    @Test fun aSaveOfTheStoredValueKeepsItsRecord() = runBlocking {
+        val later = day.plusDays(3)
+        targets.setLift("bench", BigDecimal(100), reps = false, date = day)
+        targets.setLift("bench", BigDecimal("100.0"), reps = false, date = later, keepEqual = true)
+        assertEquals(LiftTarget(BigDecimal(100), false, day), targets.lift("bench").first())
+        targets.setLift("bench", BigDecimal(100), reps = true, date = later, keepEqual = true)
+        assertEquals(LiftTarget(BigDecimal(100), true, later), targets.lift("bench").first())
+        targets.setLift("bench", BigDecimal(101), reps = true, date = day, keepEqual = true)
+        assertEquals(LiftTarget(BigDecimal(101), true, day), targets.lift("bench").first())
+
+        val average = EntryAverage(BigDecimal("240.1"), 3)
+        targets.setBody(BigDecimal("80.0"), average, day)
+        targets.setBody(BigDecimal("80"), null, later, keepEqual = true)
+        assertEquals(BodyTarget(BigDecimal("80.0"), average, day), targets.body.first())
+        targets.setBody(BigDecimal("79.9"), null, later, keepEqual = true)
+        assertEquals(BodyTarget(BigDecimal("79.9"), null, later), targets.body.first())
     }
 
     @Test fun clearAllRemovesEveryTargetAndKeepsOtherSettings() = runBlocking {

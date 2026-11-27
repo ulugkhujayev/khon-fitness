@@ -211,15 +211,15 @@ a backup does not carry them, and Reset removes them. An empty field
 removes the target.
 
 The sheet checks the text as typed, before it changes a character. It
-takes ASCII digits with at most one point or comma, and a comma is the
-decimal sign. Leading zeros keep the value, so "0080" is 80. The value
+takes ASCII digits with at most one point or comma, 16 characters at
+most, and a comma is the decimal sign. Leading zeros keep the value, so "0080" is 80. The value
 must be inside the limits and on the step of its kind. Anything else
 (a letter, a sign, a space, a second separator, digits of another script)
 turns Save off, stores nothing, and stays in the field. The − and + steps
 stay inside the limits.
 
-- Bodyweight: 20.0 to 300.0 kg, one decimal ("80,5" is 80.5, "80.25" is
-  refused). The app stores it with the entry date and the exact 7-day
+- Bodyweight: 20.0 to 300.0 kg, one decimal as typed ("80,5" is 80.5,
+  "80.25" and "80.10" are refused). The app stores it with the entry date and the exact 7-day
   average of that day as the sum and the count of its entries, else the
   latest entry, else nothing.
 - Exercise: the est. 1RM in kg (1.0 to 500.0, steps of 0.5, so "100.50"

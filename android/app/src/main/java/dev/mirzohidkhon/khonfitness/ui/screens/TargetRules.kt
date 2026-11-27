@@ -119,16 +119,21 @@ sealed interface TargetEntry {
 
 private val TYPED_DECIMAL = Regex("""[0-9]*[.,]?[0-9]*""")
 private val TYPED_WHOLE = Regex("""[0-9]+""")
+private const val MAX_TYPED_CHARS = 16
 
 /**
  * The sheet's verdict on its text as typed. Empty clears the target. Else only ASCII digits with at most one point or
- * comma (a decimal comma), none for reps; leading zeros keep the value; the value must be inside the kind's limits and
- * on its step. Anything else is refused, so no character is dropped or changed before the check.
+ * comma (a decimal comma), none for reps, [MAX_TYPED_CHARS] characters at most; leading zeros keep the value; the value
+ * must be inside the kind's limits and on its step, and a bodyweight has one digit at most after its separator. Anything
+ * else is refused, so no character is dropped or changed before the check.
  */
 fun targetEntry(text: String, kind: TargetKind): TargetEntry {
     if (text.isEmpty()) return TargetEntry.Clear
+    if (text.length > MAX_TYPED_CHARS) return TargetEntry.Refused
     val shape = if (kind == TargetKind.LIFT_REPS) TYPED_WHOLE else TYPED_DECIMAL
     if (!shape.matches(text) || text.none { it in '0'..'9' }) return TargetEntry.Refused
+    val separator = text.indexOfFirst { it == '.' || it == ',' }
+    if (kind == TargetKind.BODY && separator >= 0 && text.length - separator > 2) return TargetEntry.Refused
     val v = BigDecimal(text.replace(',', '.').let { if (it.startsWith('.')) "0$it" else it.removeSuffix(".") })
     val ok = when (kind) {
         TargetKind.BODY -> bodyTargetValid(v)

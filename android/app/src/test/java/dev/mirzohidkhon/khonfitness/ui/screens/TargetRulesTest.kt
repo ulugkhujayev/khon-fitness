@@ -179,13 +179,19 @@ class TargetRulesTest {
         assertEquals(TargetEntry.Refused, targetEntry("100.25", TargetKind.LIFT_KG))
         assertEquals(TargetEntry.Refused, targetEntry("100.3", TargetKind.LIFT_KG))
         assertEquals(TargetEntry.Refused, targetEntry("80.05", TargetKind.BODY))
+        assertEquals(TargetEntry.Refused, targetEntry("80.10", TargetKind.BODY))
+        assertEquals(TargetEntry.Refused, targetEntry("80,00", TargetKind.BODY))
+        for (kind in TargetKind.entries) {
+            assertEquals(TargetEntry.Refused, targetEntry("00000000000000080", kind))
+            assertEquals(TargetEntry.Refused, targetEntry("9".repeat(30_000) + "x", kind))
+        }
     }
 
     @Test fun `X2 the sheet keeps leading zeros and reads a decimal comma`() {
         assertEquals(TargetEntry.Store(BigDecimal("80.0")), targetEntry("0080", TargetKind.BODY))
         assertEquals(TargetEntry.Store(BigDecimal("80.0")), targetEntry("80.0", TargetKind.BODY))
         assertEquals(TargetEntry.Store(BigDecimal("80.5")), targetEntry("80,5", TargetKind.BODY))
-        assertEquals(TargetEntry.Store(BigDecimal("80.1")), targetEntry("80.10", TargetKind.BODY))
+        assertEquals(TargetEntry.Store(BigDecimal("80.0")), targetEntry("0000000000000080", TargetKind.BODY))
         assertEquals(TargetEntry.Store(BigDecimal("100")), targetEntry("100,0", TargetKind.LIFT_KG))
         assertEquals(TargetEntry.Store(BigDecimal("100.5")), targetEntry("100.50", TargetKind.LIFT_KG))
         assertEquals(TargetEntry.Store(BigDecimal("15")), targetEntry("0000015", TargetKind.LIFT_KG))

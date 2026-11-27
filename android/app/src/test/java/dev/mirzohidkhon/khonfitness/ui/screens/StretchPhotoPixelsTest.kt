@@ -90,6 +90,27 @@ class StretchPhotoPixelsTest {
         return sum / (3.0 * a.width * a.height)
     }
 
+    private fun pixels(b: Bitmap) = IntArray(b.width * b.height).also { b.getPixels(it, 0, b.width, 0, 0, b.width, b.height) }
+    private fun channels(p: Int) = intArrayOf(Color.red(p), Color.green(p), Color.blue(p))
+
+    /** How far [frame] is on the way from [from] (0) to [to] (1), and its mean distance per channel from that blend. */
+    private fun blend(frame: Bitmap, from: IntArray, to: IntArray): Pair<Double, Double> {
+        val now = pixels(frame)
+        var along = 0.0
+        var length = 0.0
+        for (i in now.indices) {
+            val f = channels(now[i]); val a = channels(from[i]); val b = channels(to[i])
+            for (c in 0..2) { along += (f[c] - a[c]) * (b[c] - a[c]).toDouble(); length += (b[c] - a[c]) * (b[c] - a[c]).toDouble() }
+        }
+        val share = along / length
+        var off = 0.0
+        for (i in now.indices) {
+            val f = channels(now[i]); val a = channels(from[i]); val b = channels(to[i])
+            for (c in 0..2) off += abs(f[c] - (a[c] + share * (b[c] - a[c])))
+        }
+        return share to off / (3.0 * now.size)
+    }
+
     @Test fun `the right side draws the left side's photo flipped`() {
         var mirror by mutableStateOf(false)
         compose.setContent { view = LocalView.current; KhonTheme { StretchDemonstration("needle", mirror = mirror, preview = false) } }
@@ -170,6 +191,28 @@ class StretchPhotoPixelsTest {
         assertEquals(setOf(photo("start", DemoView.FRONT), photo("hold", DemoView.FRONT)), inMemory())
     }
 
+    @Test fun `the start of the exercise from the preview drops the preview photos at once`() {
+        var preview by mutableStateOf(true)
+        compose.mainClock.autoAdvance = false
+        compose.setContent { view = LocalView.current; KhonTheme { StretchDemonstration("catcow", preview = preview) } }
+        fun photo(pose: String) = demoPhotoPath("catcow", pose, DemoView.SIDE)
+        fun inMemory() = held() + listOfNotNull(shown(), fading())
+        until("the three preview photos") { held() == setOf(photo("setup"), photo("start"), photo("hold")) && fading() == null }
+        loadsWait {
+            compose.runOnIdle { preview = false }
+            repeat(30) { frame(); assertTrue("frame $it while the hold photo waits: ${inMemory()}", inMemory().size <= 2) }
+        }
+        var settled = 0
+        var frames = 0
+        while (settled < 30) {
+            frame(); Thread.sleep(5)
+            assertTrue("frame $frames after the start: ${inMemory()}", inMemory().size <= 2)
+            if (shown() == photo("hold") && fading() == null) settled++
+            assertTrue("the hold photo never settled", ++frames < 300)
+        }
+        assertEquals(setOf(photo("hold")), inMemory())
+    }
+
     @Test fun `a change of pose fades from one photo to the other with a photo in every frame`() {
         val motion = mutableFloatStateOf(1f)
         compose.mainClock.autoAdvance = false
@@ -198,19 +241,24 @@ class StretchPhotoPixelsTest {
                 assertTrue("frame $it while the hold photo loads is empty", brightness(photoArea(name)) > lit)
             }
         }
+        val from = pixels(before)
+        val to = pixels(holdAlone)
         var frames = 0
         var after = 0
-        var blended = 0
+        var between = 0
         while (after < 30) {
             frame(); Thread.sleep(5)
             val area = photoArea(name)
             val now = brightness(area)
             assertTrue("frame $frames of the change to the hold photo is empty: brightness $now", now > lit)
-            if (difference(area, before, flipA = false) > apart / 5 && difference(area, holdAlone, flipA = false) > apart / 5) blended++
+            val (share, off) = blend(area, from, to)
+            assertTrue("frame $frames is a mix of the start photo and the hold photo only: $off from the mix at $share", off < 1.5)
+            assertTrue("frame $frames is between the two photos: $share", share > -0.02 && share < 1.02)
+            if (share > 0.2 && share < 0.8) between++
             if (shown() == hold) after++
             assertTrue("the hold photo never showed", ++frames < 300)
         }
-        assertTrue("the change is a fade through blends of the two photos: $blended blended frames", blended >= 3)
+        assertTrue("the change passes through mixes of the two photos: $between frames between them", between >= 3)
         val end = difference(photoArea(name), holdAlone, flipA = false)
         assertTrue("the panel ends on the hold photo: mean difference $end", end < 2)
     }

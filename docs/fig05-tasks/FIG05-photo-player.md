@@ -188,3 +188,22 @@ Verify round 3 kept F2, F3, and F4 open. The lead fixed them in
   the hold photo shown alone. It needs 3 or more blended frames and the
   hold photo at the end. Break proof: with a fade time of 0, the test
   fails.
+
+## After verify round 4 (2026-11-27)
+
+Verify round 4 closed F2 and kept F3 and F4 open. F4 failed for the
+second time, so the fix approach changed.
+
+- F3: the cache drops the photos outside the new set at the call of
+  `load`, before it waits for a decode that still runs. Test: "the start
+  of the exercise from the preview drops the preview photos at once"
+  counts the cache and the panel in every frame; the limit there is the
+  hold photo and one photo that goes. Break proof: with the drop after
+  the wait, the test fails at frame 0 with three photos.
+- F4, redesign: the fade test no longer takes "far from both end
+  photos" as proof of a fade. It fits each frame to a mix of the start
+  photo and the hold photo, and the frame must be within 1.5 per channel
+  of that mix. It needs 3 or more frames between 20 % and 80 % of the
+  way. Break proofs: a fade time of 0 gives 0 frames between the photos;
+  the start photo drawn at half strength is 4.26 from the mix at frame
+  0; a fade from black fails the brightness check at frame 0.

@@ -108,10 +108,13 @@ private object DemoPhotos {
 
     fun peek(path: String): ImageBitmap? = synchronized(held) { held[path] }
 
-    suspend fun load(context: Context, set: Set<String>, path: String): ImageBitmap? = lock.withLock {
+    /** Drops the photos outside [set] at once, before it waits for a decode that still runs. */
+    suspend fun load(context: Context, set: Set<String>, path: String): ImageBitmap? {
         synchronized(held) { if (panels > 0 && this.set != set) { held.keys.retainAll(set); this.set = set } }
-        peek(path) ?: withContext(Dispatchers.IO) { decodePhoto(context, path, 1) }?.also { image ->
-            synchronized(held) { if (panels > 0 && this.set == set && path in set) held[path] = image }
+        return lock.withLock {
+            peek(path) ?: withContext(Dispatchers.IO) { decodePhoto(context, path, 1) }?.also { image ->
+                synchronized(held) { if (panels > 0 && this.set == set && path in set) held[path] = image }
+            }
         }
     }
 

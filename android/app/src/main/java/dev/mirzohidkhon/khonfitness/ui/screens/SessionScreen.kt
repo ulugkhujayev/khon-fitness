@@ -55,7 +55,7 @@ import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
 import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.Flow
@@ -104,6 +104,7 @@ fun SessionScreen(
     // twice or pop Today too.
     val leave = rememberExitGuard(nav)
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     // The bar is 56 dp, taller only when a large font makes its title taller; the progress row holds a footnote line,
     // measured so a large font makes the row and its fold taller.
@@ -126,28 +127,32 @@ fun SessionScreen(
     // What the folded header still hides: the bar and the progress line on its edge.
     val cover = if (running) navHeight + SESSION_LINE.dp else 0.dp
 
+    // A Review row that comes or goes during the scroll moves the indexes: the scroll starts again for the same block.
+    val scrolls = remember { intArrayOf(0) }
+    suspend fun scrollTo(target: BlockReveal) {
+        val run = ++scrolls[0]
+        val index = blocks.indexOfFirst { it.first().blockIndex == target.blockIndex }
+        if (index < 0) return
+        val row = sessionState.first?.finished == true && !editing
+        try {
+            listState.animateScrollToItem(index + if (row) 1 else 0, target.offset)
+        } catch (e: CancellationException) {
+            if (scrolls[0] == run) reveal = null
+            throw e
+        }
+        if (scrolls[0] == run) reveal = null
+    }
     // Opens block [i] (null: none). An opened block scrolls to the top of the list, under the header.
     fun open(i: Int?) {
         if (i != null && i != expanded) {
             val offset = with(density) { revealOffset(topPadding.value, cover.value, cardTop(i).value).dp.roundToPx() }
-            reveal = BlockReveal(blocks[i].first().blockIndex, offset)
+            val target = BlockReveal(blocks[i].first().blockIndex, offset)
+            reveal = target
+            scope.launch { scrollTo(target) }
         }
         pick = OpenPick(true, i)
     }
-    val shownBlocks by rememberUpdatedState(blocks)
-    LaunchedEffect(reveal, reviewRow) {
-        val target = reveal ?: return@LaunchedEffect
-        val index = shownBlocks.indexOfFirst { it.first().blockIndex == target.blockIndex }
-        if (index >= 0) {
-            try {
-                listState.animateScrollToItem(index + if (reviewRow) 1 else 0, target.offset)
-            } catch (e: CancellationException) {
-                if (isActive) reveal = null
-                throw e
-            }
-        }
-        reveal = null
-    }
+    LaunchedEffect(reviewRow) { reveal?.let { scrollTo(it) } }
     fun toggleSet(log: SetLog) {
         if (log.status == SetStatus.DONE) { vm.run { vm.repo.setSetStatus(log.id, SetStatus.PENDING) }; return }
         val after = afterCheck(blocks, log, live = running)

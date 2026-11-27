@@ -25,6 +25,7 @@ import dev.mirzohidkhon.khonfitness.ui.theme.K
 import dev.mirzohidkhon.khonfitness.ui.theme.Inter
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
@@ -49,15 +50,24 @@ internal fun niceStep(span: Double, target: Int): Double {
 
 const val MAX_AXIS_TICKS = 5
 
+/** A chart draws no value beyond this: up to here every sum and difference of the scale is exact. */
+const val MAX_CHART_VALUE = 1e15
+
+internal fun chartable(value: Double): Boolean = abs(value) <= MAX_CHART_VALUE
+
 data class ValueAxis(val low: Double, val high: Double, val step: Double) {
     val ticks: List<Double> get() {
         val last = floor((high - low) / step + 1.0 / 1000).takeIf { it.isFinite() }?.coerceIn(0.0, MAX_AXIS_TICKS - 1.0)?.toInt() ?: 0
         return (0..last).map { low + it * step }.filter { it.isFinite() }.distinct()
     }
+
+    /** Where [value] sits between [high] (0) and [low] (1). */
+    fun fraction(value: Double): Double = (high - value) / (high - low)
 }
 
 fun valueAxis(values: List<Double>, domain: ClosedFloatingPointRange<Double>? = null): ValueAxis {
-    var vmin = values.min(); var vmax = values.max()
+    val inRange = values.filterNot { it.isNaN() }.map { it.coerceIn(-MAX_CHART_VALUE, MAX_CHART_VALUE) }.ifEmpty { listOf(0.0) }
+    var vmin = inRange.min(); var vmax = inRange.max()
     if (vmin == vmax) { vmin -= 1; vmax += 1 }
     if (domain != null) {
         if (vmin < domain.start) { vmax = minOf(domain.endInclusive, vmax + domain.start - vmin); vmin = domain.start }
@@ -136,8 +146,8 @@ fun LineChart(
     val lastStyle = TextStyle(fontFamily = Inter, color = K.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     val emptyStyle = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     val onDrawn = LocalChartDrawn.current
-    val points = points.filter { it.value.isFinite() }
-    val trend = trend.filter { it.value.isFinite() }
+    val points = points.filter { chartable(it.value) }
+    val trend = trend.filter { chartable(it.value) }
     Canvas(modifier.fillMaxWidth().height(CHART_HEIGHT.dp)) {
         if (points.isEmpty()) {
             val t = measurer.measure("No data yet", emptyStyle)
@@ -150,7 +160,7 @@ fun LineChart(
         val tickText = ticks.map { measurer.measure(format?.invoke(it) ?: fmt(it, if (step < 1) 1 else 0), tick) }
         val padL = axisWidth(tickText.map { it.size.width.toFloat() }, AXIS_GAP.dp.toPx()); val padR = 8.dp.toPx(); val padT = 22.dp.toPx(); val padB = 24.dp.toPx()
         val plotW = size.width - padL - padR; val plotH = size.height - padT - padB
-        fun yFor(v: Double) = padT + ((yMax - v) / (yMax - yMin) * plotH).toFloat()
+        fun yFor(v: Double) = padT + (axis.fraction(v) * plotH).toFloat()
         val n = points.size
         fun xFor(i: Int) = if (n == 1) padL + plotW / 2 else padL + i * plotW / (n - 1)
         val tickBoxes = ticks.mapIndexed { k, v ->

@@ -655,8 +655,9 @@ are seven or fewer (else on the last and the highest), the last point
 filled in accent with its unit, and dates along the bottom. The grid step
 is the smallest of 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500 and
 1000, then 1, 2, 2.5 and 5 times each higher power of ten, that is at
-least a third of the value range, so the axis has at most 5 labels. Value
-labels never meet. The last point's label draws first, then the highest
+least a third of the value range, so the axis has at most 5 labels. A
+chart leaves out a point whose value is not a number or is beyond 1e15.
+Value labels never meet. The last point's label draws first, then the highest
 point's, then the others from the newest to the oldest. A label draws only
 when its box, grown by 2 px on each side, meets no label that already
 draws; the others are left out. A line

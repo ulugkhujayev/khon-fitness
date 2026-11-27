@@ -49,6 +49,12 @@ class StretchDemoTest {
     @Test fun `a rep pose no step names keeps the last instruction`() {
         assertEquals(2, guide.copy(reps = listOf("other", "hold")).exerciseStep(0f))
     }
+    @Test fun `a panel may show the step poses in the preview, the rep poses in reps, and the hold pose in a timed hold`() {
+        assertEquals(listOf("setup", "start", "hold"), guide.shownPoses(preview = true, reps = true))
+        assertEquals(listOf("start", "hold"), guide.shownPoses(preview = false, reps = true))
+        assertEquals(listOf("hold"), guide.shownPoses(preview = false, reps = false))
+        assertEquals(listOf("hold"), still.shownPoses(preview = false, reps = true))
+    }
     @Test fun `right side reverses instructions without damaging other words`() {
         assertEquals("Right hand under your left arm. Stay upright.",
             "Left hand under your right arm. Stay upright.".forDemoSide(true))

@@ -4,7 +4,7 @@ Task-ID: LOAD01-fix1
 Class: Normal
 Protocol: ~/.config/agents/review-protocol.md
 Workdir: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/load01
-Base: __BASE__
+Base: 1e8dfe0
 Capabilities: static
 Tests: JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" android/gradlew -p android :app:testDebugUnitTest :app:assembleDebug :app:lintVitalRelease
 Report: /Users/mirzohidkhon/deepvision/personal/khon-fitness-wt/load01/docs/load01-tasks/LOAD01-fix1-REPORT.md

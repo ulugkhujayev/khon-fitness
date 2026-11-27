@@ -13,6 +13,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.compose.rememberNavController
@@ -41,10 +42,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * Screenshots of "Heart rate data", its sheet, Review's line and the cardio form's placeholders, at 360 and 411 dp and
- * font scales 1.0 and 1.3, for a visual check. Runs only when `app/build/shots-hr` exists; the PNGs land there.
- */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -74,7 +71,7 @@ class HeartShotsTest {
     private fun io(block: suspend () -> Unit) = runBlocking(Dispatchers.IO) { block() }
     private fun t(h: Int, m: Int, day: LocalDate) = day.atTime(h, m).atZone(zone).toInstant().toEpochMilli()
 
-    /** Every window of the app drawn in order, so a sheet over the screen is in the picture. */
+    /** A sheet is a window of its own, so the decor view alone leaves it out of the picture. */
     @Suppress("UNCHECKED_CAST")
     private fun shot(name: String) {
         compose.waitForIdle()
@@ -159,6 +156,31 @@ class HeartShotsTest {
         waitText("Waiting for data")
         Thread.sleep(400)
         shot("360-f1.0-4-sheet-waiting")
+    }
+
+    @Test @Config(qualifiers = "w360dp-h800dp-xxhdpi") fun sheetFailed() {
+        fill = app.repo.heartFill(FakeHeart { throw IllegalStateException("no provider") }, scope)
+        seed()
+        screen()
+        waitSaid("Pull day,")
+        compose.onNodeWithContentDescription("Pull day,", substring = true).performSemanticsAction(SemanticsActions.OnClick)
+        waitText("Waiting for data")
+        compose.onNodeWithText("Read again").performSemanticsAction(SemanticsActions.OnClick)
+        waitText("Health Connect did not answer")
+        Thread.sleep(400)
+        shot("360-f1.0-11-sheet-failed")
+    }
+
+    @Test @Config(qualifiers = "w360dp-h800dp-xxhdpi") fun confirmRemove() {
+        seed()
+        screen()
+        waitSaid("Push day,")
+        compose.onNodeWithContentDescription("Push day,", substring = true).performSemanticsAction(SemanticsActions.OnClick)
+        waitText("Remove")
+        compose.onNodeWithText("Remove").performSemanticsAction(SemanticsActions.OnClick)
+        waitText("Remove heart rate?")
+        Thread.sleep(400)
+        shot("360-f1.0-10-confirm-remove")
     }
 
     @Test @Config(qualifiers = "w360dp-h800dp-xxhdpi") fun noPermission() {

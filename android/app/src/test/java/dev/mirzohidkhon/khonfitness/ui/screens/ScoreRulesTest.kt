@@ -1,7 +1,7 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
 import dev.mirzohidkhon.khonfitness.data.*
-import dev.mirzohidkhon.khonfitness.ui.components.cleanTyped
+import dev.mirzohidkhon.khonfitness.ui.components.valueAxis
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -39,6 +39,19 @@ class ScoreRulesTest {
         assertNull(measuredMaxHr(emptyList(), emptyList(), nowMs, zone))
     }
 
+    @Test fun measuredMaximumCountsFinishesFromNowLess365DaysToNow() {
+        val s = session("edge", day = today.minusDays(30))
+        val rows = listOf(filledFor(s, zone, buckets(150, 183)))
+        val finish = s.finishedAt!!
+        val year = 365 * 86_400_000L
+        assertEquals(183, measuredMaxHr(listOf(s), rows, finish, zone))
+        assertNull(measuredMaxHr(listOf(s), rows, finish - 1, zone))
+        assertEquals(183, measuredMaxHr(listOf(s), rows, finish + year, zone))
+        assertNull(measuredMaxHr(listOf(s), rows, finish + year + 1, zone))
+        val tomorrow = session("tomorrow", day = today.plusDays(1))
+        assertNull(measuredMaxHr(listOf(tomorrow), listOf(filledFor(tomorrow, zone, buckets(150, 220))), nowMs, zone))
+    }
+
     @Test fun measuredMaximumIgnoresRowsThatAreNotFilled() {
         val s = session()
         val filled = filledFor(s, zone, buckets(150, 183))
@@ -47,14 +60,14 @@ class ScoreRulesTest {
         }
     }
 
-    @Test fun sheetEntryRefusesValuesOutsideTheRange() {
-        assertEquals(MaxEntry.Refused, maxEntry(99.0))
-        assertEquals(MaxEntry.Refused, maxEntry(231.0))
-        assertEquals(MaxEntry.Refused, maxEntry(186.5))
-        assertEquals(MaxEntry.Store(100), maxEntry(100.0))
-        assertEquals(MaxEntry.Store(230), maxEntry(230.0))
-        assertEquals(MaxEntry.Clear, maxEntry(null))
-        assertEquals("", cleanTyped("abc", 0))
+    @Test fun sheetEntryJudgesTheTextAsTyped() {
+        assertEquals(MaxEntry.Clear, maxEntry(""))
+        assertEquals(MaxEntry.Store(150), maxEntry("150"))
+        assertEquals(MaxEntry.Store(100), maxEntry("100"))
+        assertEquals(MaxEntry.Store(230), maxEntry("230"))
+        assertEquals(MaxEntry.Store(150), maxEntry("0150"))
+        val refused = listOf("abc", "200.5", "-201", "2x02", " 150", "150 ", "1 50", "99", "231", "099", "0231", "000", "+150", "١٥٠", "150.", "9999999999999")
+        refused.forEach { assertEquals(it, MaxEntry.Refused, maxEntry(it)) }
     }
 
     @Test fun hardLineIsTheCeilingOf85Percent() {
@@ -86,9 +99,10 @@ class ScoreRulesTest {
         val b = work + buckets(120, 119, 118, fromSec = 840)
         val r = roundScores(range(s), b, listOf(round(s, 0, 600, 840)))
         assertEquals(listOf(RoundScore(1, 168, 40)), r)
-        assertEquals(emptyList<RoundScore>(), roundScores(range(s), buckets(150, fromSec = 600) + buckets(120, 119, fromSec = 700), listOf(round(s, 0, 600, 700))))
-        assertEquals(emptyList<RoundScore>(), roundScores(range(s), b, listOf(round(s, 0, null, 840), round(s, 1, 600, null))))
-        assertEquals(emptyList<RoundScore>(), roundScores(range(s), b, listOf(round(s, 0, -60, 840))))
+        assertEquals(listOf(RoundScore(1, null, null)), roundScores(range(s), buckets(150, fromSec = 600) + buckets(120, 119, fromSec = 700), listOf(round(s, 0, 600, 700))))
+        assertEquals(listOf(RoundScore(1, null, null), RoundScore(2, null, null)), roundScores(range(s), b, listOf(round(s, 0, null, 840), round(s, 1, 600, null))))
+        assertEquals(listOf(RoundScore(1, null, null)), roundScores(range(s), b, listOf(round(s, 0, -60, 840))))
+        assertNull(roundRow(RoundScore(1, null, null)))
     }
 
     @Test fun roundDrop() {
@@ -100,6 +114,77 @@ class ScoreRulesTest {
         assertEquals(RoundScore(1, 166, 42), roundScores(range(s), work + rest + next, rounds)[0])
         assertNull(roundScores(range(s), work + buckets(124, fromSec = 615) + next, rounds)[0].drop)
         assertEquals(RoundScore(1, 166, -4), roundScores(range(s), work + buckets(170, 172, fromSec = 615) + next, rounds)[0])
+    }
+
+    private val clockBuckets = (0 until 360).map { HrSample(it * 5, 120 + it % 50) }
+
+    @Test fun aRoundInsideAnotherTakesTheRoundFiguresOfTheSession() {
+        val s = session()
+        val rounds = listOf(round(s, 0, 300, 400), round(s, 1, 600, 840), round(s, 2, 650, 700), round(s, 3, 1000, 1100))
+        assertEquals(List(4) { RoundScore(it + 1, null, null) }, roundScores(range(s), clockBuckets, rounds))
+    }
+
+    @Test fun roundTimesOutOfOrderTakeTheRoundFiguresOfTheSession() {
+        val s = session()
+        val ordered = listOf(round(s, 0, 300, 400), round(s, 1, 600, 700), round(s, 2, 900, 1000))
+        val whole = roundScores(range(s), clockBuckets, ordered)
+        assertTrue(whole.all { it.peak != null && it.drop != null })
+        val none = List(3) { RoundScore(it + 1, null, null) }
+        val overlap = ordered.take(2) + round(s, 2, 690, 800)
+        assertEquals(none, roundScores(range(s), clockBuckets, overlap))
+        val early = ordered.take(2) + round(s, 2, 500, 580)
+        assertEquals(none, roundScores(range(s), clockBuckets, early))
+        val firstIsLast = listOf(round(s, 0, 1100, 1200), round(s, 1, 100, 200), round(s, 2, 400, 500), round(s, 3, 800, 900))
+        assertEquals(List(4) { RoundScore(it + 1, null, null) }, roundScores(range(s), clockBuckets, firstIsLast))
+        val untimedBetween = listOf(round(s, 0, 600, 700), round(s, 1, null, null), round(s, 2, 300, 400))
+        assertEquals(none, roundScores(range(s), clockBuckets, untimedBetween))
+        val touching = ordered.take(2) + round(s, 2, 700, 800)
+        val t = roundScores(range(s), clockBuckets, touching)
+        assertEquals(whole[0], t[0])
+        assertEquals(whole[1].copy(drop = null), t[1])
+        assertTrue(t[2].peak != null && t[2].drop != null)
+    }
+
+    @Test fun aRoundWithOneTimeOrWithItsEndNotAfterItsStartTakesTheRoundFiguresOfTheSession() {
+        val s = session()
+        val ordered = listOf(round(s, 0, 300, 400), round(s, 1, 600, 700), round(s, 2, 900, 1000))
+        assertTrue(roundScores(range(s), clockBuckets, ordered).all { it.peak != null && it.drop != null })
+        val none = List(3) { RoundScore(it + 1, null, null) }
+        val broken = listOf(
+            round(s, 0, null, 250), round(s, 0, null, 620), round(s, 0, 600, null), round(s, 0, 300, null),
+            round(s, 0, 400, 400), round(s, 0, 400, 300),
+        )
+        broken.forEach { b -> assertEquals(b.toString(), none, roundScores(range(s), clockBuckets, listOf(b) + ordered.drop(1))) }
+        val last = ordered.take(2) + round(s, 2, 600, null)
+        assertEquals(none, roundScores(range(s), clockBuckets, last))
+        val untimed = listOf(round(s, 0, null, null)) + ordered.drop(1)
+        val u = roundScores(range(s), clockBuckets, untimed)
+        assertEquals(RoundScore(1, null, null), u[0])
+        assertTrue(u.drop(1).all { it.peak != null && it.drop != null })
+    }
+
+    @Test fun orderedRoundsGiveTheSameFiguresInAnyListOrder() {
+        val s = session()
+        val ordered = listOf(round(s, 0, 300, 400), round(s, 1, 600, 700), round(s, 2, 900, 1000))
+        assertEquals(roundScores(range(s), clockBuckets, ordered), roundScores(range(s), clockBuckets, ordered.reversed()))
+    }
+
+    @Test fun oneBucketPerOffsetTheFirstInTimeOrder() {
+        val s = session()
+        val row = filledFor(s, zone, listOf(HrSample(5, 175), HrSample(0, 100), HrSample(0, 175), HrSample(5, 100), HrSample(10, 175)))
+        val f = hrFacts(s, row, zone)
+        assertEquals(listOf(HrSample(0, 100), HrSample(5, 175), HrSample(10, 175)), scoreBuckets(f))
+        assertEquals("0:10", scoreRows(s, HIGH_EXERCISE, f, emptyList(), 186).first().value)
+        val dup = filledFor(s, zone, listOf(HrSample(0, 175), HrSample(0, 175), HrSample(5, 175)))
+        val start = s.timedFrom!!
+        val rows = scoreRows(s, HIGH_EXERCISE, hrFacts(s, dup, zone), listOf(IntervalLog("r", s.id, 0, startedAt = start, endedAt = start + 5_000)), 186)
+        assertEquals(listOf(ScoreRow("At or above 159 bpm", "0:10", "At or above 159 beats per minute, 10 seconds")), rows)
+        val zoneRows = scoreRows(s, LOW_EXERCISE, hrFacts(s, filledFor(s, zone, listOf(HrSample(0, 100), HrSample(0, 100), HrSample(0, 100), HrSample(5, 120))), zone), emptyList(), 186)
+        assertEquals(listOf("50 %", "50 %", "0 %"), zoneRows.map { it.value })
+        val other = session("o", day = today.minusDays(2))
+        val charts = scoreCharts(listOf(s, other), mapOf(HIGH_EXERCISE.id to HIGH_EXERCISE),
+            mapOf(s.id to hrFacts(s, dup, zone), other.id to hrFacts(other, filledFor(other, zone, listOf(HrSample(0, 175), HrSample(0, 175), HrSample(0, 175))), zone)), 186)
+        assertEquals(listOf(5.0 / 60, 10.0 / 60), charts.hardMinutes.map { it.value })
     }
 
     @Test fun dropOfTheLastRoundRunsToTheRangeEnd() {
@@ -163,6 +248,21 @@ class ScoreRulesTest {
         assertEquals(MaxShown("186 bpm", true, "Maximum heart rate, 186 beats per minute"), maxShown(186, 183))
         assertEquals(MaxShown("183 bpm", false, "Maximum heart rate, measured 183 beats per minute"), maxShown(null, 183))
         assertEquals(MaxShown("Not set", false, "Maximum heart rate, not set"), maxShown(null, null))
+    }
+
+    @Test fun chartTicksStayInsideThePossibleValues() {
+        val minutes = 0.0..Double.POSITIVE_INFINITY
+        val percent = 0.0..100.0
+        assertEquals(listOf("0:00", "1:00", "2:00"), valueAxis(listOf(0.0, 0.0), minutes).ticks.map { minSec(Math.round(it * 60)) })
+        assertEquals(listOf(0.0, 1.0, 2.0), valueAxis(listOf(0.0, 0.0), percent).ticks)
+        assertEquals(listOf(98.0, 99.0, 100.0), valueAxis(listOf(100.0, 100.0), percent).ticks)
+        assertEquals(listOf(40.0, 50.0, 60.0), valueAxis(listOf(40.0, 60.0), percent).ticks)
+        assertEquals(listOf(54.0, 55.0, 56.0), valueAxis(listOf(55.0, 55.0), percent).ticks)
+        assertEquals(listOf(-1.0, 0.0, 1.0), valueAxis(listOf(0.0, 0.0)).ticks)
+        for (a in 0..100 step 5) for (b in 0..100 step 5) {
+            val axis = valueAxis(listOf(a.toDouble(), b.toDouble()), percent)
+            assertTrue("$a $b", axis.ticks.all { it in percent } && axis.high > axis.low && axis.low <= minOf(a, b) && axis.high >= maxOf(a, b))
+        }
     }
 
     @Test fun typeChartPointsInDateOrder() {

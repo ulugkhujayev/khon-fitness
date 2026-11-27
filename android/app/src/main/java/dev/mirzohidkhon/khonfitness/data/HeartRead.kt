@@ -137,14 +137,16 @@ fun laterThan(row: SessionHr?, now: Long): Long =
 /**
  * Whether a heart rate row from a backup file holds what a read or "Remove" could have written: `fromMs < toMs`, one of
  * the four states, `fromMs` of 0 or more, samples that parse with every offset in seconds from 0 to below the range's
- * length rounded up to whole seconds, and every bpm from [BPM_MIN] to [BPM_MAX];
+ * length rounded up to whole seconds, offsets strictly rising multiples of [BUCKET_SEC], and every bpm from [BPM_MIN]
+ * to [BPM_MAX];
  * `filled` with at least one sample and both values in that bpm range; `off` with no sample and no value.
  */
 fun validFileHr(row: SessionHr): Boolean {
     if (row.fromMs < 0 || row.fromMs >= row.toMs) return false
     val seconds = (row.toMs - row.fromMs - 1) / 1000 + 1
     val samples = parseSamples(row.samples) ?: return false
-    if (samples.any { it.offsetSec < 0 || it.offsetSec >= seconds || it.bpm !in BPM_MIN..BPM_MAX }) return false
+    if (samples.any { it.offsetSec < 0 || it.offsetSec >= seconds || it.offsetSec % BUCKET_SEC != 0 || it.bpm !in BPM_MIN..BPM_MAX }) return false
+    if (samples.zipWithNext().any { (a, b) -> b.offsetSec <= a.offsetSec }) return false
     fun bpm(v: Int?) = v != null && v in BPM_MIN..BPM_MAX
     return when (row.state) {
         HrState.FILLED -> samples.isNotEmpty() && bpm(row.avgHr) && bpm(row.maxHr)

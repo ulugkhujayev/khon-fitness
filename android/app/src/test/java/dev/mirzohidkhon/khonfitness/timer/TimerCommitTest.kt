@@ -64,6 +64,7 @@ class TimerCommitTest {
         override suspend fun halt() { calls += "halt" }
         override fun clear() { calls += "clear"; TimerSnapshots.clearAll(context) }
         override fun resume() { calls += "resume" }
+        override fun resultPending() = TimerSnapshots.resultPending(context, clocks.wall, clocks.elapsed)
     }
 
     @Before fun open() {

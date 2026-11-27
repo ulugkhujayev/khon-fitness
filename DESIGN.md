@@ -210,8 +210,9 @@ padded cards, per-item buttons, "Updated" lines.
   take its time range). Under it, 20 px down, action rows: "Use this time
   range" (a check) and "Read again" (a clock arrow) in accent, dim while
   they run, and "Remove" (a trash can) in red in a group of its own,
-  which asks in a confirm sheet first. The result of "Read again" is a
-  muted footnote under the groups.
+  which asks in a confirm sheet first. A failed "Read again" shows one
+  muted footnote under the groups, "Health Connect did not answer". Any
+  other result shows only in the rows.
 - Empty state: one muted line, no illustration. Where a screen has nothing
   to show yet and an action fixes it, a card shows a 32 px symbol, a title
   in Headline, a muted 15 line and the action (iOS content-unavailable

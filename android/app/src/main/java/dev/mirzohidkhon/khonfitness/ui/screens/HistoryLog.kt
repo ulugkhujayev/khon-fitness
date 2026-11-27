@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +38,7 @@ import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -64,6 +66,8 @@ fun HistoryLog(vm: AppViewModel, nav: NavHostController, today: LocalDate) {
     fun show(m: LocalDate) { shown = if (m >= weeks.endInclusive) null else m.toEpochDay() }
     val planFor: (LocalDate) -> PlanItem = { historyPlanFor(plan, it, today) }
     val histories = remember(logs, sessions) { liftHistories(logs, sessions) }
+    val nights by vm.nights.collectAsStateWithLifecycle()
+    val zone = ZoneId.systemDefault()
 
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         WeekArrow(Icons.ChevronLeft, "Previous week", monday > weeks.start) { show(monday.minusWeeks(1)) }
@@ -94,8 +98,10 @@ fun HistoryLog(vm: AppViewModel, nav: NavHostController, today: LocalDate) {
     GroupedList {
         rows.forEachIndexed { i, row ->
             // A day's stretch runs go under its last row.
-            val stretches = if (rows.getOrNull(i + 1)?.date == row.date) emptyList() else stretchLines(row.date, stretchSessions)
-            LogRowView(row, i > 0 && rows[i - 1].date == row.date, i > 0, row.date == today, logs, exercises, modalities, histories, bodyweights, stretches, nav)
+            val last = rows.getOrNull(i + 1)?.date != row.date
+            val stretches = if (last) stretchLines(row.date, stretchSessions) else emptyList()
+            val night = if (!last) null else nightLogLine(row.date, nights, today, zone)?.let { it to nightLogSpoken(row.date, nights, today, zone).orEmpty() }
+            LogRowView(row, i > 0 && rows[i - 1].date == row.date, i > 0, row.date == today, logs, exercises, modalities, histories, bodyweights, stretches, night, nav)
         }
     }
 }
@@ -112,11 +118,21 @@ private fun WeekArrow(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
 private fun dayWeight(date: LocalDate, bodyweights: List<Bodyweight>): String? =
     bodyweights.find { it.date == date.iso() }?.let { String.format(Locale.US, "%.1f kg", it.kg) }
 
+/**
+ * A done day's line: the session line, then the green "N PR" and the "N rep PR" when above 0. A no-break space joins
+ * each "·" to the count after it, so a wrap never leaves the "·" at a line end.
+ */
+internal fun doneLine(session: String, records: Int, repRecords: Int): AnnotatedString = buildAnnotatedString {
+    append(session)
+    if (records > 0) { append(" ·\u00A0"); withStyle(SpanStyle(color = K.Green, fontWeight = FontWeight.SemiBold)) { append("$records PR") } }
+    if (repRecords > 0) { append(" ·\u00A0"); withStyle(SpanStyle(color = K.Text, fontWeight = FontWeight.SemiBold)) { append("$repRecords\u00A0rep\u00A0PR") } }
+}
+
 @Composable
 private fun LogRowView(
     row: LogRow, sameDay: Boolean, divider: Boolean, isToday: Boolean,
     logs: List<SetLog>, exercises: List<Exercise>, modalities: List<Modality>,
-    histories: Map<String, List<LiftSession>>, bodyweights: List<Bodyweight>, stretches: List<String>, nav: NavHostController,
+    histories: Map<String, List<LiftSession>>, bodyweights: List<Bodyweight>, stretches: List<String>, night: Pair<String, String>?, nav: NavHostController,
 ) {
     val s = row.session
     val planned = itemColor(row.item, modalities)?.first ?: K.Muted
@@ -140,11 +156,9 @@ private fun LogRowView(
         DayKind.PLANNED -> "Planned: $name" to K.Muted
     }
     val records = if (row.kind == DayKind.DONE && s != null) recordCount(s.id, histories) else 0
+    val repRecords = if (row.kind == DayKind.DONE && s != null) repRecordCount(s.id, histories) else 0
     val line = when (row.kind) {
-        DayKind.DONE -> buildAnnotatedString {
-            append(sessionLine(s!!, logs, exercises.find { it.id == s.exerciseId }))
-            if (records > 0) { append(" · "); withStyle(SpanStyle(color = K.Green, fontWeight = FontWeight.SemiBold)) { append("$records PR") } }
-        }
+        DayKind.DONE -> doneLine(sessionLine(s!!, logs, exercises.find { it.id == s.exerciseId }), records, repRecords)
         DayKind.RUNNING -> buildAnnotatedString { append(if (s!!.itemType == ItemType.PROGRAM) "In progress · ${setsLine(s.id, logs)}" else "In progress") }
         DayKind.TODAY -> buildAnnotatedString { append(listOfNotNull("Not started", extra).joinToString(" · ")) }
         else -> extra?.let { buildAnnotatedString { append(it) } }
@@ -174,6 +188,10 @@ private fun LogRowView(
                 Text(title, style = MaterialTheme.typography.bodyLarge, color = titleColor, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (line != null) Text(line, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                 stretches.forEach { Text(it, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp)) }
+                night?.let { (text, spoken) ->
+                    Text(text, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp).semantics { contentDescription = spoken })
+                }
             }
             if (onClick != null) Chevron()
         }

@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -206,7 +207,6 @@ interface KhonDao {
     @Query("SELECT * FROM sessions WHERE id = :id") fun sessionFlow(id: String): Flow<Session?>
     @Query("SELECT * FROM sessions WHERE finishedAt IS NULL ORDER BY startedAt DESC LIMIT 1") fun unfinishedSession(): Flow<Session?>
     @Query("SELECT * FROM sessions WHERE finishedAt IS NULL ORDER BY startedAt DESC LIMIT 1") suspend fun unfinishedSessionOnce(): Session?
-    @Query("SELECT sourceId FROM sessions WHERE sourceId IS NOT NULL") suspend fun importedSourceIds(): List<String>
     @Upsert suspend fun upsert(session: Session)
     @Upsert suspend fun upsertSessions(list: List<Session>)
     @Query("DELETE FROM sessions WHERE id = :id") suspend fun deleteSession(id: String)
@@ -217,10 +217,76 @@ interface KhonDao {
     @Query("UPDATE sessions SET note = :note WHERE id = :id") suspend fun setSessionNote(id: String, note: String)
     @Query("UPDATE sessions SET timeSec = :timeSec WHERE id = :id") suspend fun setSessionTime(id: String, timeSec: Int?)
     @Query("UPDATE sessions SET finishedAt = :finishedAt WHERE id = :id") suspend fun setSessionFinishedAt(id: String, finishedAt: Long?)
-    @Query("UPDATE set_logs SET status = '${SetStatus.SKIPPED}' WHERE sessionId = :sessionId AND status = '${SetStatus.PENDING}'")
+    @Query("UPDATE sessions SET timerRun = :run WHERE id = :id") suspend fun setTimerRun(id: String, run: Int)
+    @Query("UPDATE sessions SET timedFrom = :from, timedTo = :to, timerDone = :run WHERE id = :id")
+    suspend fun setTimerClock(id: String, from: Long?, to: Long?, run: Int)
+    @Query("UPDATE interval_logs SET startedAt = NULL, endedAt = NULL WHERE sessionId = :sessionId") suspend fun clearRoundTimes(sessionId: String)
+    @Query("UPDATE interval_logs SET startedAt = :startedAt, endedAt = :endedAt WHERE sessionId = :sessionId AND `index` = :index")
+    suspend fun setRoundTimes(sessionId: String, index: Int, startedAt: Long, endedAt: Long)
+
+    /** The Start of a timer run: the session's next run number (`timerRun + 1`) is stored and returned. Null when the session is gone. */
+    @Transaction suspend fun startTimerRun(id: String): TimerStart? {
+        val session = session(id) ?: return null
+        val run = (session.timerRun ?: 0) + 1
+        setTimerRun(id, run)
+        return TimerStart(run, session.timeSec)
+    }
+
+    /**
+     * The end of a timer run, accepted only when the session exists, [current] (the repository generation is still the
+     * one the commit call began with), `timerRun` is the run's number, and `timerDone` is not. Then the duration when
+     * `timeSec` is still the value noted at Start, the range and every round's times by index (null for an untrusted
+     * run and for rounds that did not run), and `timerDone`. A run without a number writes only the duration, and only
+     * into a session with neither a duration nor a run.
+     */
+    @Transaction suspend fun commitTimerRun(r: TimerRunResult, current: () -> Boolean): TimerCommit {
+        if (!current()) return TimerCommit.RETRY
+        val session = session(r.sessionId) ?: return TimerCommit.GONE
+        val run = r.run
+        if (run == null) {
+            if (session.timeSec != null || session.timerRun != null) return TimerCommit.DROPPED
+            setSessionTime(r.sessionId, r.durationSec)
+            return TimerCommit.COMMITTED
+        }
+        if (session.timerRun != run || session.timerDone == run) return TimerCommit.DROPPED
+        if (session.timeSec == r.notedTimeSec) setSessionTime(r.sessionId, r.durationSec)
+        setTimerClock(r.sessionId, r.from, r.to, run)
+        clearRoundTimes(r.sessionId)
+        r.rounds.forEach { setRoundTimes(r.sessionId, it.index, it.startedAt, it.endedAt) }
+        return TimerCommit.COMMITTED
+    }
+    @Query("UPDATE set_logs SET status = '${SetStatus.SKIPPED}', checkedAt = NULL WHERE sessionId = :sessionId AND status = '${SetStatus.PENDING}'")
     suspend fun skipPendingSets(sessionId: String)
-    /** Ends a session: its pending sets become skipped, then only [Session.finishedAt] is set. */
-    @Transaction suspend fun finishSession(id: String, finishedAt: Long) { skipPendingSets(id); setSessionFinishedAt(id, finishedAt) }
+    @Query("UPDATE sessions SET timedFrom = :from, timedTo = :to WHERE id = :id AND timedFrom IS NULL")
+    suspend fun setSessionRangeIfNone(id: String, from: Long, to: Long): Int
+    /**
+     * Ends an unfinished session: its pending sets become skipped and [Session.finishedAt] is set. A gym session also
+     * stores its range ([gymRange]) when it has none. A missing or finished session writes nothing. Returns whether it
+     * finished the session.
+     */
+    @Transaction suspend fun finishSession(id: String, finishedAt: Long, elapsedMs: Long): Boolean {
+        val session = session(id) ?: return false
+        if (session.finished) return false
+        skipPendingSets(id)
+        setSessionFinishedAt(id, finishedAt)
+        if (session.itemType == ItemType.PROGRAM && session.timedFrom == null) {
+            val stamps = setLogsOnce(id).filter { it.status == SetStatus.DONE }.mapNotNull { it.checkedAt }
+            gymRange(session, stamps, finishedAt, elapsedMs)?.let { setSessionRangeIfNone(id, it.fromMs, it.toMs) }
+        }
+        return true
+    }
+    /**
+     * "Use this time range" for a finished gym session without a range ([confirmableRange]): stored only while [from] and
+     * [to] are still the session's `startedAt` and `finishedAt`, checked in this transaction with the [zone] it reads.
+     * Else nothing is written.
+     */
+    @Transaction suspend fun confirmRange(id: String, from: Long, to: Long, zone: () -> ZoneId): ConfirmRangeResult {
+        val session = session(id) ?: return ConfirmRangeResult.Refused(RangeRefusal.MISSING)
+        confirmableRange(session, zone())?.let { return ConfirmRangeResult.Refused(it) }
+        if (session.startedAt != from || session.finishedAt != to) return ConfirmRangeResult.Refused(RangeRefusal.BOUNDS_CHANGED)
+        if (setSessionRangeIfNone(id, from, to) == 0) return ConfirmRangeResult.Refused(RangeRefusal.HAS_RANGE)
+        return ConfirmRangeResult.Confirmed
+    }
     /**
      * The cardio form's Save: the columns changed from [opened] to [edited] go onto the row as it is now, so a timer
      * write since the form opened stays ([mergeCardioEdits]); then each interval field the user touched, alone, by id
@@ -264,15 +330,26 @@ interface KhonDao {
         }
         return result
     }
-    /**
-     * A Health Connect import ([insertSessionWithLogs]), written only while none of its source records is imported yet,
-     * checked in the same transaction: a second tap on the same draft writes nothing. Returns whether it wrote.
-     */
-    @Transaction suspend fun insertImportedSession(session: Session, intervalLogs: List<IntervalLog>): Boolean {
-        val ids = session.sourceId?.split(",").orEmpty().filter { it.isNotEmpty() }.toSet()
-        if (importedSourceIds().any { stored -> stored.split(",").any { it in ids } }) return false
+    @Query("SELECT * FROM sessions WHERE sourceId IS NOT NULL OR linkedIds IS NOT NULL OR (itemType = '${ItemType.CARDIO}' AND timedFrom IS NOT NULL AND timedTo IS NOT NULL)")
+    suspend fun importSessions(): List<Session>
+
+    @Transaction suspend fun importLocal(zone: ZoneId, between: suspend () -> Unit): ImportLocal {
+        val modalities = exercisesOnce().associate { it.id to it.modalityId }
+        between()
+        return importLocal(importSessions(), modalities, zone)
+    }
+
+    @Transaction suspend fun insertImportedSession(
+        session: Session, intervalLogs: List<IntervalLog>, records: List<BandRecord>, timerPending: () -> Boolean, zone: () -> ZoneId,
+        checked: suspend () -> Unit,
+    ): ImportResult {
+        val local = importLocal(zone()) {}
+        if ((claimedIds(session) + records.map { it.id }).any { it in local.claimed }) return ImportResult.ALREADY_IMPORTED
+        if (records.any { covered(it, local.runs) }) return ImportResult.COVERED
+        if (timerPending()) return ImportResult.TIMER_PENDING
+        checked()
         insertSessionWithLogs(session, emptyList(), intervalLogs)
-        return true
+        return ImportResult.SAVED
     }
 
     @Query("SELECT * FROM set_logs WHERE sessionId = :sessionId ORDER BY `order`") fun setLogs(sessionId: String): Flow<List<SetLog>>
@@ -283,15 +360,29 @@ interface KhonDao {
     @Upsert suspend fun upsertSetLogs(list: List<SetLog>)
     // One field of a set the user edits in the live session: a whole-row write from the row on screen would undo
     // another field's save that has not come back yet (a weight typed, then the check tapped at once).
-    @Query("UPDATE set_logs SET status = :status WHERE id = :id") suspend fun setSetStatus(id: String, status: String)
+    /** A set's status; a status other than done also clears its [SetLog.checkedAt]. */
+    @Query("UPDATE set_logs SET status = :status, checkedAt = CASE WHEN :status = '${SetStatus.DONE}' THEN checkedAt ELSE NULL END WHERE id = :id")
+    suspend fun setSetStatus(id: String, status: String)
     @Query("UPDATE set_logs SET weightKg = :weightKg WHERE id = :id") suspend fun setSetWeight(id: String, weightKg: Double?)
     @Query("UPDATE set_logs SET reps = :reps WHERE id = :id") suspend fun setSetReps(id: String, reps: Int?)
     /**
      * The check on a set, written only when the stored set has reps above 0 and, unless it is a bodyweight one (step
      * 0 kg), a weight above 0 ([dev.mirzohidkhon.khonfitness.ui.screens.setMissing]). Returns whether it wrote. The
      * stored row decides, so a weight typed just before the check counts: writes run in the order they were sent.
+     * In the same statement a pending or skipped set of an unfinished session gets [stamp] as its `checkedAt`; a done
+     * set, or a set of a finished session, keeps its own.
      */
-    @Query("UPDATE set_logs SET status = 'done' WHERE id = :id AND reps > 0 AND (stepKg <= 0 OR weightKg > 0)") suspend fun checkSet(id: String): Int
+    @Query(
+        "UPDATE set_logs SET status = '${SetStatus.DONE}', checkedAt = CASE WHEN status != '${SetStatus.DONE}' " +
+            "AND EXISTS (SELECT 1 FROM sessions WHERE sessions.id = set_logs.sessionId AND sessions.finishedAt IS NULL) " +
+            "THEN :stamp ELSE checkedAt END WHERE id = :id AND reps > 0 AND (stepKg <= 0 OR weightKg > 0)"
+    )
+    suspend fun checkSetStamped(id: String, stamp: Long?): Int
+    @Query("SELECT sessions.* FROM sessions JOIN set_logs ON set_logs.sessionId = sessions.id WHERE set_logs.id = :setId")
+    suspend fun sessionOfSet(setId: String): Session?
+    /** [checkSetStamped] with the wall time [wallMs] as the stamp, only when the clocks are in step since the session's anchor. */
+    @Transaction suspend fun checkSet(id: String, wallMs: Long, elapsedMs: Long): Int =
+        checkSetStamped(id, verifiedWall(sessionOfSet(id)?.anchor, wallMs, elapsedMs))
     @Query("UPDATE set_logs SET exerciseId = :toId, exerciseName = :toName, stepKg = :stepKg WHERE sessionId = :sessionId AND blockIndex = :blockIndex AND slot = :slot")
     suspend fun swapSetExercise(sessionId: String, blockIndex: Int, slot: Int, toId: String, toName: String, stepKg: Double)
     /**
@@ -315,7 +406,7 @@ interface KhonDao {
         return SwapResult.ProgramUpdated(programSnapshot(origin.programId)?.fingerprint ?: return refused)
     }
     /** A session with its set and interval logs: all or nothing. */
-    @Transaction suspend fun deleteSessionWithLogs(id: String) { deleteSetLogsFor(id); deleteIntervalLogsFor(id); deleteSession(id) }
+    @Transaction suspend fun deleteSessionWithLogs(id: String) { deleteSetLogsFor(id); deleteIntervalLogsFor(id); deleteSessionHr(id); deleteSession(id) }
     @Query("DELETE FROM set_logs WHERE sessionId = :sessionId") suspend fun deleteSetLogsFor(sessionId: String)
 
     @Query("SELECT * FROM interval_logs WHERE sessionId = :sessionId ORDER BY `index`") fun intervalLogs(sessionId: String): Flow<List<IntervalLog>>
@@ -326,6 +417,57 @@ interface KhonDao {
     @Query("UPDATE interval_logs SET avgHr = :avgHr WHERE id = :id") suspend fun setIntervalAvgHr(id: String, avgHr: Int?)
     @Query("UPDATE interval_logs SET watts = :watts WHERE id = :id") suspend fun setIntervalWatts(id: String, watts: Int?)
     @Query("DELETE FROM interval_logs WHERE sessionId = :sessionId") suspend fun deleteIntervalLogsFor(sessionId: String)
+
+    // heart rate rows
+    @Query("SELECT * FROM session_hr WHERE sessionId = :sessionId") suspend fun sessionHr(sessionId: String): SessionHr?
+    @Query("SELECT * FROM session_hr WHERE sessionId = :sessionId") fun sessionHrFlow(sessionId: String): Flow<SessionHr?>
+    @Query("SELECT * FROM session_hr") suspend fun sessionHrOnce(): List<SessionHr>
+    @Query("SELECT * FROM session_hr") fun allSessionHr(): Flow<List<SessionHr>>
+    @Upsert suspend fun upsertSessionHr(row: SessionHr)
+    @Upsert suspend fun upsertSessionHrs(list: List<SessionHr>)
+    @Query("DELETE FROM session_hr WHERE sessionId = :sessionId") suspend fun deleteSessionHr(sessionId: String)
+    @Query("DELETE FROM session_hr") suspend fun clearSessionHr()
+
+    /**
+     * A read's [row], written only when [current] holds (the repository generation is the one the read began with), the
+     * session exists, its range ([hrWindow]) in the [zone] read in this transaction is the range read, and its row is
+     * still [from]: the same state and `fetchedAt`, or still absent. Returns whether it wrote.
+     */
+    @Transaction suspend fun commitSessionHr(row: SessionHr, from: SessionHr?, zone: () -> ZoneId, current: () -> Boolean): Boolean {
+        if (!current()) return false
+        val session = session(row.sessionId) ?: return false
+        if (hrWindow(session, zone()) != HrRange(row.fromMs, row.toMs)) return false
+        val now = sessionHr(row.sessionId)
+        if (now?.state != from?.state || now?.fetchedAt != from?.fetchedAt) return false
+        upsertSessionHr(row)
+        return true
+    }
+
+    /**
+     * Deletes [seen] while it is still the session's row, not `off`, and not for the session's range in the [zone] read in
+     * this transaction.
+     */
+    @Transaction suspend fun deleteStaleSessionHr(seen: SessionHr, zone: () -> ZoneId): Boolean {
+        val row = sessionHr(seen.sessionId) ?: return false
+        if (row != seen || row.state == HrState.OFF) return false
+        val range = session(seen.sessionId)?.let { hrWindow(it, zone()) }
+        if (range == HrRange(row.fromMs, row.toMs)) return false
+        deleteSessionHr(seen.sessionId)
+        return true
+    }
+
+    /**
+     * "Remove": the session's row becomes `off` with no sample and no value, for the session's range in the [zone] read in
+     * this transaction (else the row's own), with a `fetchedAt` later than the old one. No row and no range, or no
+     * session: nothing is written.
+     */
+    @Transaction suspend fun removeSessionHr(sessionId: String, zone: () -> ZoneId, now: Long): Boolean {
+        val session = session(sessionId) ?: return false
+        val row = sessionHr(sessionId)
+        val range = hrWindow(session, zone()) ?: row?.let { HrRange(it.fromMs, it.toMs) } ?: return false
+        upsertSessionHr(SessionHr(sessionId, range.fromMs, range.toMs, HrState.OFF, fetchedAt = laterThan(row, now)))
+        return true
+    }
 
     // bodyweight
     @Query("SELECT * FROM bodyweights ORDER BY date") fun bodyweights(): Flow<List<Bodyweight>>
@@ -535,8 +677,8 @@ interface KhonDao {
     @Transaction suspend fun seedIfEmpty() { if (programsOnce().isEmpty() && exercisesOnce().isEmpty()) Seed.apply(this); seedStretchesIfEmpty() }
     /** Older installs have no stretches yet; the routine arrives on first start after the update. */
     @Transaction suspend fun seedStretchesIfEmpty() { if (stretchesOnce().isEmpty()) Seed.applyStretches(this) }
-    /** Wipe and built-in data: all or nothing, so a failed reset keeps the old data. */
-    @Transaction suspend fun resetToSeed() { clearAll(); Seed.apply(this); Seed.applyStretches(this) }
+    /** Wipe and built-in data: all or nothing, so a failed reset keeps the old data. [inside] runs first in the transaction. */
+    @Transaction suspend fun resetToSeed(inside: () -> Unit = {}) { inside(); clearAll(); Seed.apply(this); Seed.applyStretches(this) }
 
     @Query("SELECT id FROM programs WHERE active = 1 ORDER BY sortOrder, name LIMIT 1") suspend fun firstActiveProgramId(): String?
     @Query("SELECT id FROM programs ORDER BY sortOrder, name LIMIT 1") suspend fun firstProgramId(): String?
@@ -549,15 +691,31 @@ interface KhonDao {
      * active routine, or none when none is active; a replace, or a merge onto a phone with no routine, takes the backup's
      * first active routine by sortOrder, id, else none. One statement after every write (the seed too) marks only that
      * one. Routine rows whose routine or stretch is missing go, and the eating-window settings row exists afterwards.
-     * Stretch sessions take the backup's rows, the one overwrite of a recorded session.
+     * Stretch sessions take the backup's rows, the one overwrite of a recorded session. [inside] runs first in the
+     * transaction.
+     *
+     * Clock facts: no session takes the file's anchor ([importedSession]). Replace takes every other value of the file.
+     * Merge keeps the local unit: an existing session keeps its range, anchor, run numbers, and linked ids, an existing
+     * set its stamp, an existing round its times, and an existing session its heart rate row; then a session whose
+     * [boundsChanged] loses its range and round times, and a set that is not done loses its stamp. Heart rate rows come
+     * only with sessions new to this database, and only valid ones ([importedHr]).
      */
-    @Transaction suspend fun importBackup(b: Backup, replace: Boolean) {
+    @Transaction suspend fun importBackup(b: Backup, replace: Boolean, inside: () -> Unit = {}) {
+        inside()
         val kept = if (replace) null else firstActiveProgramId()
         val backupRoutine = b.stretchRoutines.filter { it.active }.minWithOrNull(compareBy({ it.sortOrder }, { it.id }))?.id
         val routineWinner = if (!replace && stretchRoutinesOnce().isNotEmpty()) firstActiveRoutineId() else backupRoutine
+        val localSessions = if (replace) emptyMap() else sessionsOnce().associateBy { it.id }
+        val localSets = if (replace) emptyMap() else allSetLogsOnce().associateBy { it.id }
+        val localRounds = if (replace) emptyMap() else intervalLogsOnce().associateBy { it.id }
         if (replace) clearAll()
         upsertModalities(b.modalities); upsertExercises(b.exercises); upsertPrograms(b.programs); upsertBlocks(b.blocks)
-        upsertBlockExercises(b.blockExercises); upsertSessions(b.sessions); upsertSetLogs(b.setLogs); upsertIntervalLogs(b.intervalLogs)
+        upsertBlockExercises(b.blockExercises)
+        upsertSessions(b.sessions.map { importedSession(localSessions[it.id], it) })
+        upsertSetLogs(if (replace) b.setLogs else b.setLogs.map { mergedSet(localSets[it.id], it) })
+        upsertIntervalLogs(if (replace) b.intervalLogs else b.intervalLogs.map { mergedRound(localRounds[it.id], it) })
+        b.sessions.forEach { f -> localSessions[f.id]?.let { if (boundsChanged(it, f)) clearRoundTimes(f.id) } }
+        upsertSessionHrs(importedHr(b.sessionHr, b.sessions.map { it.id }.filter { it !in localSessions }.toSet()))
         upsertBodyweights(b.bodyweights); upsertWeekPlan(b.weekPlan); upsertOverrides(b.overrides)
         upsertStretches(b.stretches); upsertStretchRoutines(b.stretchRoutines); upsertRoutineStretches(b.routineStretches)
         upsertStretchSessions(b.stretchSessions); b.eatingWindow?.let { upsert(it) }; upsertWindowDays(b.windowDays)
@@ -575,11 +733,12 @@ interface KhonDao {
         bodyweights = bodyweightsOnce(), weekPlan = weekPlanOnce(), overrides = overridesOnce(),
         stretches = stretchesOnce(), stretchRoutines = stretchRoutinesOnce(), routineStretches = routineStretchesOnce(),
         stretchSessions = stretchSessionsOnce(), eatingWindow = eatingWindowOnce(), windowDays = windowDaysOnce(),
+        sessionHr = sessionHrOnce(),
     )
 
     @Transaction
     suspend fun clearAll() {
-        clearSetLogs(); clearIntervalLogs(); clearSessions(); clearBlockExercises(); clearBlocks(); clearPrograms()
+        clearSetLogs(); clearIntervalLogs(); clearSessionHr(); clearSessions(); clearBlockExercises(); clearBlocks(); clearPrograms()
         clearExercises(); clearModalities(); clearBodyweights(); clearWeekPlan(); clearOverrides()
         clearRoutineStretches(); clearStretchSessions(); clearStretchRoutines(); clearStretches(); clearEatingWindow(); clearWindowDays()
     }

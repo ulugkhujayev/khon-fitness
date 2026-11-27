@@ -1,0 +1,56 @@
+# HR01 design 3 attack
+
+**READ.** Review of the R3 contracts, coverage list, and base source. The cases below are test specifications.
+
+## Missing contract rows
+
+| ID | Part | Case | Expected result |
+|---|---|---|---|
+| C36 | Gym clock trust | The phone wall clock moves during a live gym session. The check stamps still pass the wall-clock bounds and duration checks. | Finish saves the workout and its set edits. Store no HR range unless the app can verify that the start, stamps used, and finish agree with elapsed time. |
+| C37 | Timer commit order | A newer untrusted run commits before an older trusted result reaches Room. Its commit clears the run and round times. | The commit records which run it accepted independently of the nullable clock fields. The older result and a replay of the newer result change neither the duration nor the clock fields. |
+| C38 | Timer Ready | Open the interval timer, wait on Ready, then start from the screen or notification. Also stop once directly from Ready. | Time on Ready is outside the run range. Use the action that starts the timer as the common start for both paths. Stop before that action stores no run or round times. |
+| C39 | Cleanup concurrency | A fill pass selects a stale HR row. A Merge backup installs a current row for that session before cleanup writes. | Recheck the current session and HR row in the delete transaction. Keep the current row. Apply the same check to a row that became `off`. |
+| C40 | Heart record limits | The source stores in-range samples in two records that extend across the window endpoints. | Read both records. Count all their samples in `rawCount` and use only those in `[from, to)` for the result. |
+| D21 | Old pairs: owner values | The imported copy alone has an effort, stroke, session watts, or watts for an existing round index. | Copy each of these values to the surviving session or round. Verify the same outcome when all four are present. |
+| D22 | Old pairs: edited date | The owner moves the imported copy to another date. Its original endpoints still match the app session. | The pair stays separate. Keep the owner's date and both sessions. |
+| E12 | Detail sheet: late result | A successful Read again result reaches the sheet after Remove or a change of range. The old result still contains measured values. | Resolve the line against the current `hrFacts`. Omit measured values from that result. The list and sheet agree on the current state. |
+
+## Missing coverage entries
+
+The source locations are **READ**. The entries describe paths that need checks in the new code.
+
+| ID | Entry | Add to coverage |
+|---|---|---|
+| M1 | [Repository.kt:267](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/data/Repository.kt:267), [Dao.kt:223](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/data/Dao.kt:223) | Trace the gym start, set stamp and Finish clocks to the range write. Check a wall-clock step that still leaves each stamp inside the wall-clock bounds. |
+| M2 | [TimerService.kt:270](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/timer/TimerService.kt:270), [TimerService.kt:393](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/timer/TimerService.kt:393), [TimerSnapshot.kt:35](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/timer/TimerSnapshot.kt:35) | Extend L4 to follow the latest accepted run when a successful commit sets every clock field to null. Check late writes and replays against that run. |
+| M3 | [TimerService.kt:90](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/timer/TimerService.kt:90), [TimerService.kt:110](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/timer/TimerService.kt:110), [TimerService.kt:347](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/timer/TimerService.kt:347) | Extend D10 and D12 to track Ready, the two Start entries, and Stop before Start. Trace the point where each path starts or declines to start a range. |
+| M4 | [Dao.kt:554](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/data/Dao.kt:554), [2-HR01-COMMON.md:139](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/inputs/2-HR01-COMMON.md:139) | Track Merge and Remove against cleanup's selection and delete. Check whether cleanup still qualifies at the delete. |
+| M5 | [HealthImport.kt:106](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/health/HealthImport.kt:106), [2-HR01-COMMON.md:120](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/inputs/2-HR01-COMMON.md:120) | Inventory how the new HeartSource finds records that cross either bound. Distinguish record selection from sample filtering. |
+| M6 | [CardioScreen.kt:74](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/ui/screens/CardioScreen.kt:74), [Repository.kt:46](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/data/Repository.kt:46), [Entities.kt:123](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/data/Entities.kt:123) | Trace History edits on the imported side into pair planning. Include the edited date and owner values that exist only on the imported session or its rounds. |
+| M7 | [6-HR01-P3-ui.md:59](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/inputs/6-HR01-P3-ui.md:59) | Extend L8 with the explicit Read again result line. Follow its delivery after Remove or a range change, even when the read committed successfully. |
+| M8 | [Repository.kt:359](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/data/Repository.kt:359), [Repository.kt:370](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/src/android/app/src/main/java/dev/mirzohidkhon/khonfitness/data/Repository.kt:370) | Extend F4 and F5 with row-level decoding failures in `sessionHr`. Check both the Restore preview and the import. |
+
+## Sequence attacks
+
+| ID | Phase | Steps | Expected result |
+|---|---|---|---|
+| AT1 | P1 | Start gym at 18:00. Check a set at 18:08. At true 18:10 advance only the phone clock by 40 minutes. Check the last set at true 18:15 and Finish at true 18:17. Correct the phone clock. Supply one 160 bpm band sample each minute from true 18:24 through 18:54, during a later workout. Read again at 19:00. | C36. Keep the gym session and checks. The gym has no range or measured heart rate. |
+| AT2 | P1 | Hold a trusted run's completion just before its Room transaction. Start a second run on the same session as in C15. Change wall time during the second run. Commit that run, then Save 25 minutes in the cardio form. Release the older commit. | C37. Keep 25 minutes. The run and round clock fields remain null. |
+| AT3 | P1 | Open Ready at 18:00. Supply 160 bpm each minute from 18:03 through 18:35. Start the timer from the notification at 18:40, and Stop at 19:00. Save at 19:01 with the fake source offering only the earlier samples. | C38. The stored range starts at 18:40. The earlier samples supply no measured average or maximum. |
+| AT4 | P1 | Hold cleanup after it selects a filled row for a stale range. Merge an exported copy that has a filled row matching the current range. Resume cleanup and make the source fail. | C39. The matching row remains filled. Its values remain available in `hrFacts`. |
+| AT5 | P1 | Use a range of 18:00 to 18:30. Return records spanning 17:59 to 18:12 and 18:18 to 18:31. Supply 130 bpm each minute within the range in those records. Add 200 bpm at 17:59 and 18:30. | C40. Both records contribute. The read is filled. The out-of-range samples count only toward `rawCount`. The average and maximum are both 130. |
+| AT6 | P1 | Export a session with a typed value and an HR row. In the copy, change that row's `state` to a JSON number. Open the file through Restore, then Replace. | C33. Preview and import succeed. The session and typed value survive. The malformed HR row is absent. |
+| AT7 | P1 | Start a read for a session whose range begins at 00:15 local time. Hold the result. Move the phone to a zone where that instant falls on the previous date. Release a complete read. | C18 and C26. The current zone invalidates the range. The read makes no write. |
+| AT8 | P2 | Make a unique old pair with matching round indexes. Set only B's effort to 8, session watts to 220, stroke to Backstroke, and first-round watts to 240. Verify the copy and run the merge. | D21. The survivor carries all four values. |
+| AT9 | P2 | Create an old pair whose bounds and modality match. Move B to the previous date in History. Start the old-pair pass. | D22. Both sessions remain. History still shows B on the date the owner saved. |
+| AT10 | P2 | Verify a safety copy of a unique pair. Set B's first-round watts to 240 after the copy. Leave both session rows and the candidate relation unchanged. Run the merge transaction. | D17. The pair stays whole. The edited log remains at 240 watts. |
+| AT11 | P2 | Open a grouped draft with run records 18:00 to 18:20 and 18:15 to 18:45. End an app run for 18:00 to 18:20 and leave its form unsaved. Tap the old grouped draft. | D1 and D7. The old group writes no session. The refreshed list offers only the second record. |
+| AT12 | P3 | Reread an already filled session. Let the complete result commit and hold delivery to the sheet. Tap Remove. Release the result to the sheet. | E12. The list and sheet show Removed. The old response supplies no measured fact line. |
+
+## Verdict
+
+**Open-ended.** Gym Finish uses wall-clock bounds alone. The rule takes stamps “inside `[startedAt, finishedAt]`” and sets “`timedTo = min(finishedAt, last stamp + 5 min)`.” [2-HR01-COMMON.md:169](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/inputs/2-HR01-COMMON.md:169)
+
+AT1 passes those checks. The rule stores 18:00 to 18:57 on the phone clock. The band samples cover 30 minutes of that 57-minute range. The read qualifies and shows 160 bpm as the gym average, although every accepted sample comes from the later workout. [2-HR01-COMMON.md:88](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/inputs/2-HR01-COMMON.md:88), [2-HR01-COMMON.md:127](/Users/mirzohidkhon/.config/agents/state/snapshots/HR01-P1-data-453ace09-R3/inputs/2-HR01-COMMON.md:127)
+
+8 contract rows, 8 coverage entries, 12 cases.

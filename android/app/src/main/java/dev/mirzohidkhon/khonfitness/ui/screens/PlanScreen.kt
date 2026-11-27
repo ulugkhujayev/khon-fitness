@@ -364,7 +364,7 @@ fun SettingsScreen(vm: AppViewModel, nav: NavHostController) {
     Column(Modifier.fillMaxSize()) {
         val barScroll = rememberScrollState()
         EditorTopBar("Today", "Settings", scrollPx = { barScroll.value }, onBack = { nav.popBackStack() })
-        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) { Settings(vm) }
+        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) { Settings(vm) { nav.navigate(Routes.HEART_DATA) } }
     }
 }
 
@@ -375,7 +375,7 @@ fun SettingsScreen(vm: AppViewModel, nav: NavHostController) {
  * a safety copy of the current data first.
  */
 @Composable
-private fun Settings(vm: AppViewModel) {
+private fun Settings(vm: AppViewModel, onHeartData: () -> Unit) {
     val context = LocalContext.current
     var backupStatus by remember { mutableStateOf<BackupStatus?>(null) }
     var downloadError by remember { mutableStateOf<String?>(null) }
@@ -436,6 +436,12 @@ private fun Settings(vm: AppViewModel) {
         error = footnote?.error == true,
     )
 
+    SectionTitle("Health", Modifier.padding(top = 24.dp))
+    GroupedList {
+        ListRow("Heart rate data", divider = false, leading = { IconTile(Icons.Heart, K.Red) }, onClick = onHeartData)
+        MaxHeartRow(vm, divider = true)
+    }
+
     val status = updateStatus(update, progress, downloadError)
     SectionTitle("App", Modifier.padding(top = 24.dp))
     GroupedList {
@@ -482,6 +488,6 @@ private fun Settings(vm: AppViewModel) {
     }
     if (confirmReset) ConfirmSheet("Reset to built-in data?", "Every session, bodyweight, program and setting goes back to the built-in data.", "Reset", onDismiss = { confirmReset = false }) {
         confirmReset = false
-        vm.run { vm.repo.resetToSeed(); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context); backupStatus = BackupStatus("Reset to built-in data.") }
+        vm.run { vm.repo.resetToSeed(); vm.maxHeartRate.set(null); vm.targets.clearAll(); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context); backupStatus = BackupStatus("Reset to built-in data.") }
     }
 }

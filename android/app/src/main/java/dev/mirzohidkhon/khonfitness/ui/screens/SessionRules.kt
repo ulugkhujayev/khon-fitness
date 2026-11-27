@@ -3,8 +3,11 @@ package dev.mirzohidkhon.khonfitness.ui.screens
 import dev.mirzohidkhon.khonfitness.data.SetLog
 import dev.mirzohidkhon.khonfitness.data.SetStatus
 
-/** What the finish sheet shows, as of opening it: how long the workout took ("52 min"), sets done of total, volume, new bests. */
-data class Summary(val time: String, val done: Int, val total: Int, val volume: Double, val bests: Int)
+/**
+ * What the finish sheet shows, as of opening it: how long the workout took ("52 min"), sets done of total, volume, new
+ * bests, rep records.
+ */
+data class Summary(val time: String, val done: Int, val total: Int, val volume: Double, val bests: Int, val repRecords: Int)
 
 /** A set that counts as done: checked with reps. A 0-rep set checked by an older version counts as not done. */
 fun countsAsDone(l: SetLog): Boolean = l.status == SetStatus.DONE && (l.reps ?: 0) > 0
@@ -31,13 +34,17 @@ fun discardBody(checked: Int): String = when (checked) {
 /**
  * The finish figures. A new best is an exercise whose best set today [beats] its best of every other session, under
  * History's record rule ([bestSet]); like History's PR count ([recordCount]), an exercise's first counted sets are no new best.
+ * A rep record is an exercise with no new best and a rep record ([repRecordsOf]) against every other session's sets.
  */
 fun summarize(logs: List<SetLog>, all: List<SetLog>, sessionId: String, startedAt: Long, now: Long): Summary {
     val done = logs.filter(::countsAsDone)
     val volume = done.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }
-    val before = all.filter { it.sessionId != sessionId }.groupBy { it.exerciseId }.mapValues { e -> bestSet(e.value) }
-    val bests = done.groupBy { it.exerciseId }.count { (ex, ls) -> before[ex]?.let { top -> beats(bestSet(ls), top) } ?: false }
-    return Summary(sessionTime(sessionSeconds(startedAt, now)), done.size, logs.size, volume, bests)
+    val others = all.filter { it.sessionId != sessionId }.groupBy { it.exerciseId }
+    val before = others.mapValues { e -> bestSet(e.value) }
+    val best = done.groupBy { it.exerciseId }.filter { (ex, ls) -> before[ex]?.let { top -> beats(bestSet(ls), top) } ?: false }.keys
+    val repRecords = logs.sortedBy { it.order }.groupBy { it.exerciseId }
+        .count { (ex, ls) -> ex !in best && repRecordsOf(ls, others[ex].orEmpty()).isNotEmpty() }
+    return Summary(sessionTime(sessionSeconds(startedAt, now)), done.size, logs.size, volume, best.size, repRecords)
 }
 
 /**

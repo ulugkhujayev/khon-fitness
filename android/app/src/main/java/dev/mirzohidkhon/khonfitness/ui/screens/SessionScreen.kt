@@ -51,11 +51,16 @@ import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.Icons
+import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /** How long a block takes to open or close (ms), ease in and out. */
@@ -65,17 +70,28 @@ private const val BLOCK_MS = 250
  * A program session: live logging while unfinished, read-only with an Edit toggle after. Every tap saves; a session
  * field writes only its own column. One block is open at a time; in a running session a check moves focus on, and after
  * a block's last set the next block with work opens ([afterCheck]). A running session's header sits over the list and
- * folds as the sets scroll ([SessionHeader]).
+ * folds as the sets scroll ([SessionHeader]). The finish sheet counts from [allSets], collected while the screen shows,
+ * and takes the tap time from [clock].
  */
 @Composable
-fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
+fun SessionScreen(
+    vm: AppViewModel, nav: NavHostController, sessionId: String,
+    allSets: Flow<List<SetLog>> = vm.repo.allSetLogs,
+    clock: () -> Long = System::currentTimeMillis,
+) {
     val sessionState by remember(sessionId) { vm.repo.session(sessionId).map { it to true } }.collectAsStateWithLifecycle(null to false)
     val session = sessionState.first
     LeaveIfSessionMissing(nav, "session/{id}", sessionId, loaded = sessionState.second, missing = session == null)
-    val logs by vm.repo.setLogs(sessionId).collectAsStateWithLifecycle(emptyList())
+    // No other screen may be collecting every set, so this one does; null until the first list arrives.
+    val everySet by remember(allSets) { allSets.map<List<SetLog>, List<SetLog>?> { it } }.collectAsStateWithLifecycle(null)
+    // Set by Finish, cleared by Dismiss and Save: the sheet shows while it is set, once every set is loaded.
+    var finishTap by remember(sessionId) { mutableStateOf<Long?>(null) }
+    val loadedLogs by remember(sessionId) { vm.repo.setLogs(sessionId).map<List<SetLog>, List<SetLog>?> { it } }.collectAsStateWithLifecycle(null)
+    val hrRow by remember(sessionId) { vm.repo.sessionHr(sessionId) }.collectAsStateWithLifecycle(null)
     val exercises by vm.exercises.collectAsStateWithLifecycle()
     var previous by remember { mutableStateOf<Map<String, SetLog>>(emptyMap()) }
     var editing by remember { mutableStateOf(false) }
+    var reveal by remember { mutableStateOf<BlockReveal?>(null) }
     // The open block: the first with work until the user opens or closes one, or a check moves on.
     var pick by rememberOpenPick(vm.openPicks, sessionId)
     // The set whose kg field takes focus once its row is composed and placed (a wrap target may still be off screen).
@@ -83,7 +99,6 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     var swapLog by remember { mutableStateOf<SetLog?>(null) }
     // Why "Update the program too" changed only this workout ([SWAP_REFUSED]), until the sheet closes.
     var swapNotice by remember { mutableStateOf<String?>(null) }
-    var summary by remember { mutableStateOf<Summary?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     // Sets whose check was refused for a missing weight or reps: their rows say what to enter ([setMissing]).
     var refused by remember { mutableStateOf(emptySet<String>()) }
@@ -101,23 +116,47 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val lineHeight = with(density) { remember(footnote, density) { measurer.measure("0 / 0", footnote).size.height }.toDp() }
     val rowHeight = sessionRowHeight(lineHeight.value).dp
     val s = session ?: return
+    val logs = loadedLogs.orEmpty()
 
     LaunchedEffect(s.id, s.programId) { previous = vm.repo.previousLogsByKey(s.programId, s.id) }
     val live = !s.finished || editing
     val running = !s.finished
+    val reviewRow = s.finished && !editing
+    val facts = hrFacts(s, hrRow, java.time.ZoneId.systemDefault())
     val blocks = remember(logs) { groupBlocks(logs) }
     val expanded = openBlock(blocks, pick.picked, pick.chosen)
     val topPadding = if (running) navHeight + rowHeight else 4.dp
     // What the folded header still hides: the bar and the progress line on its edge.
     val cover = if (running) navHeight + SESSION_LINE.dp else 0.dp
 
+    val scrolls = remember { intArrayOf(0) }
+    suspend fun scrollTo(target: BlockReveal) {
+        val run = ++scrolls[0]
+        val index = blocks.indexOfFirst { it.first().blockIndex == target.blockIndex }
+        if (index < 0) return
+        val row = sessionState.first?.finished == true && !editing
+        try {
+            listState.animateScrollToItem(index + if (row) 1 else 0, target.offsetPx)
+        } catch (e: CancellationException) {
+            if (currentCoroutineContext().isActive && scrolls[0] == run) reveal = null
+            throw e
+        }
+        if (scrolls[0] == run) reveal = null
+    }
     // Opens block [i] (null: none). An opened block scrolls to the top of the list, under the header.
     fun open(i: Int?) {
         if (i != null && i != expanded) {
             val offset = with(density) { revealOffset(topPadding.value, cover.value, cardTop(i).value).dp.roundToPx() }
-            scope.launch { listState.animateScrollToItem(i, offset) }
+            val target = BlockReveal(blocks[i].first().blockIndex, offset)
+            reveal = target
+            scope.launch { scrollTo(target) }
         }
         pick = OpenPick(true, i)
+    }
+    LaunchedEffect(reviewRow) {
+        val open = expanded?.let(blocks::getOrNull)?.first()?.blockIndex
+        reveal = reveal?.takeIf { it.blockIndex == open }
+        reveal?.let { scrollTo(it) }
     }
     fun toggleSet(log: SetLog) {
         if (log.status == SetStatus.DONE) { vm.run { vm.repo.setSetStatus(log.id, SetStatus.PENDING) }; return }
@@ -132,12 +171,22 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         }
     }
     val done = doneCount(logs)
-    val openSummary = { summary = summarize(logs, vm.allSetLogs.value, s.id, s.startedAt, System.currentTimeMillis()) }
+    val tap = finishTap
+    val loaded = everySet
+    val summary = remember(tap, loaded == null) {
+        if (tap == null || loaded == null) null else summarize(loaded.filter { it.sessionId == s.id }, loaded, s.id, s.startedAt, tap)
+    }
+    val openSummary: () -> Unit = { if (finishTap == null) finishTap = clock() }
 
     Column(Modifier.fillMaxSize()) {
-        if (s.finished) EditorTopBar("History", s.programName ?: "Session", scrollPx = { listState.barOffset() }, onBack = { leave { leave.pop() } }, done = if (editing) "Done" else "Edit") { editing = !editing }
+        if (s.finished) EditorTopBar("History", s.programName ?: "Session", scrollPx = { listState.barOffset() }, onBack = { leave { leave.pop() } }, done = if (editing) "Done" else "Edit") { leave.leave { editing = !editing } }
         Box(Modifier.weight(1f)) {
-            LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = topPadding, bottom = 24.dp)) {
+            if (loadedLogs != null) LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = topPadding, bottom = 24.dp)) {
+                if (reviewRow) item(key = "review") {
+                    ReviewEntry(hrLine(s, facts), hrSpoken(s, facts), Modifier.padding(top = 6.dp, bottom = 4.dp)) {
+                        leave.visit { if (sessionState.first?.finished == true && !editing) nav.navigate(Routes.review(s.id)) }
+                    }
+                }
                 itemsIndexed(blocks, key = { _, b -> b.first().blockIndex }) { bi, blockLogs ->
                     BlockCard(bi, blockLogs, open = expanded == bi, onToggle = { pendingFocus.cancel(); open(if (expanded == bi) null else bi) }) {
                         blockLogs.forEach { log ->
@@ -187,7 +236,7 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         if (s.finished) "Delete" else "Discard",
         onDismiss = { confirmDelete = false },
     ) { leave { confirmDelete = false; vm.openPicks.drop(s.id); vm.run { vm.repo.deleteSession(s.id) }; leave.pop() } }
-    summary?.let { sum -> Sheet("Workout done", onDismiss = { summary = null }) {
+    if (running) summary?.let { sum -> Sheet("Workout done", onDismiss = { finishTap = null }) {
         // The figures as of opening, then effort and note (the page's own fields: both read the session, so an edit in
         // one shows in the other) so they are asked for as the workout ends. The content scrolls above the keyboard;
         // Save stays under it, in reach.
@@ -198,13 +247,14 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                     ListRow("Sets done", secondary = "${sum.done} of ${sum.total}", chevron = false)
                     ListRow("Volume", secondary = "${fmt(sum.volume, 0)} kg", chevron = false)
                     ListRow("New bests", secondary = sum.bests.toString(), chevron = false)
+                    ListRow("Rep records", secondary = sum.repRecords.toString(), chevron = false)
                 }
                 GroupedList(Modifier.padding(top = 12.dp), elevated = true) {
                     FieldRow("Effort", divider = false) { EffortField(s.effort) { v -> vm.run { vm.repo.setSessionEffort(s.id, v) } } }
                     FieldRow("Note") { InlineTextField(s.note, { n -> vm.run { vm.repo.setSessionNote(s.id, n) } }, placeholder = "Optional", label = "Note") }
                 }
             }
-            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { leave { vm.openPicks.drop(s.id); vm.run { vm.repo.finishSession(s.id) }; summary = null; leave.toToday() } }
+            PrimaryButton("Save", Modifier.padding(top = 16.dp)) { leave { vm.openPicks.drop(s.id); vm.run { vm.repo.finishSession(s.id) }; finishTap = null; leave.toToday() } }
         }
     } }
 }
@@ -213,6 +263,8 @@ fun SessionScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
 @Composable
 internal fun rememberOpenPick(picks: OpenPicks, sessionId: String): MutableState<OpenPick> =
     remember(picks, sessionId) { picks.state(sessionId) }
+
+private data class BlockReveal(val blockIndex: Int, val offsetPx: Int)
 
 /** Room above a block card inside its list item: 6 dp for the first, 10 between cards. */
 private fun cardTop(index: Int): Dp = if (index == 0) 6.dp else 10.dp

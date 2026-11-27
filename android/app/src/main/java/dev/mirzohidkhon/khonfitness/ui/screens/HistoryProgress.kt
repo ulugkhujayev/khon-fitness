@@ -130,10 +130,12 @@ fun HistoryProgress(vm: AppViewModel, nav: NavHostController, today: LocalDate) 
                 Spacer(Modifier.weight(1f))
                 if (change != null) Text(change, style = MaterialTheme.typography.bodySmall, color = if (change.startsWith("+")) K.Muted else K.Green, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp))
             }
+            trendText(bodyweights, today)?.let { Text(it, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = TABULAR), color = K.Muted) }
             if (inRange.isEmpty()) Text("No entries in this range", style = MaterialTheme.typography.bodyMedium, color = K.Muted, modifier = Modifier.padding(top = 12.dp))
-            else LineChart(inRange.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp))
+            else LineChart(inRange.map { ChartPoint(it.date.toDate(), it.kg) }, "kg", Modifier.padding(top = 8.dp), trend = trendPoints(bodyweights, inRange))
         }
     }
+    BodyTargetGroup(vm, bodyweights, today, Modifier.padding(top = 16.dp))
 
     // ---- Cardio by type: every type ever used, its last 30 days
     val types = cardioTypes(sessions, exercises, today, order = modalities.map { it.id })
@@ -145,6 +147,12 @@ fun HistoryProgress(vm: AppViewModel, nav: NavHostController, today: LocalDate) 
             CardioTypeRow(t, mod?.name ?: "Other", mod?.let { Color(it.color) } ?: K.Muted, divider = i > 0) { nav.navigate(Routes.cardioType(t.id.ifEmpty { NO_TYPE })) }
         }
     }
+
+    GroupedList(Modifier.padding(top = 24.dp)) {
+        ListRow("Compare two periods", divider = false) { nav.navigate(Routes.COMPARE) }
+        ListRow("Nights") { nav.navigate(Routes.NIGHTS) }
+        if (rememberLoadYear(vm, today).anyLoad) ListRow("Load") { nav.navigate(Routes.LOAD) }
+    }
 }
 
 /** The route id of cardio whose exercise has no type. */
@@ -152,7 +160,7 @@ const val NO_TYPE = "none"
 
 /** A section title over a group, in the grouped-list footnote style. */
 @Composable
-private fun ProgressTitle(text: String) {
+internal fun ProgressTitle(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = K.Muted, modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp).semantics { heading() })
 }
 

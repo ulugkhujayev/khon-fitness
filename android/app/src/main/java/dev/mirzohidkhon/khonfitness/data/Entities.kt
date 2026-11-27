@@ -5,6 +5,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
+object HrState { const val FILLED = "filled"; const val WAITING = "waiting"; const val NONE = "none"; const val OFF = "off" }
+
 /** Kind of an exercise: strength lives in programs, cardio is planned directly on a day. */
 object Kind { const val STRENGTH = "strength"; const val CARDIO = "cardio" }
 object Intensity { const val LOW = "low"; const val MODERATE = "moderate"; const val HIGH = "high" }
@@ -95,6 +97,14 @@ data class Session(
     val poolLength: Int? = null,
     val stroke: String? = null,
     val sourceId: String? = null, // Health Connect record id when imported
+    val timedFrom: Long? = null,
+    val timedTo: Long? = null,
+    /** Elapsed realtime at [startedAt]; with it the pair is the session's [Anchor]. Valid only on the boot that took it. */
+    val startedElapsed: Long? = null,
+    val timerRun: Int? = null,
+    val timerDone: Int? = null,
+    /** Health Connect record ids merged into this app session, joined by `,`. */
+    val linkedIds: String? = null,
 ) { val finished: Boolean get() = finishedAt != null }
 
 /** One set inside a program session. Carries a snapshot of names so history never changes. */
@@ -116,6 +126,7 @@ data class SetLog(
     val weightKg: Double? = null,
     val reps: Int? = null,
     val status: String = SetStatus.PENDING,
+    val checkedAt: Long? = null,
 )
 
 @Serializable
@@ -126,6 +137,8 @@ data class IntervalLog(
     val index: Int,
     val avgHr: Int? = null,
     val watts: Int? = null,
+    val startedAt: Long? = null,
+    val endedAt: Long? = null,
 )
 
 @Serializable
@@ -141,3 +154,28 @@ data class WeekPlan(@PrimaryKey val weekday: Int, val itemType: String, val item
 @Serializable
 @Entity(tableName = "day_overrides")
 data class DayOverride(@PrimaryKey val date: String, val itemType: String, val itemId: String? = null, @ColumnInfo(defaultValue = "0") val auto: Boolean = false)
+
+/**
+ * The heart rate read for a session's range `[fromMs, toMs)`; at most one row per session. No foreign key: an upsert of
+ * the session must never delete it, so every path that deletes a session deletes this row too.
+ * [samples] is `offsetSec:bpm` joined by `,`, one pair per 5-second bucket.
+ */
+@Serializable
+@Entity(tableName = "session_hr")
+data class SessionHr(
+    @PrimaryKey val sessionId: String,
+    val fromMs: Long,
+    val toMs: Long,
+    val state: String,
+    val samples: String = "",
+    val rawCount: Int = 0,
+    val sampleCount: Int = 0,
+    val origin: String? = null,
+    val origins: String = "",
+    val firstMs: Long? = null,
+    val lastMs: Long? = null,
+    val maxGapSec: Int? = null,
+    val avgHr: Int? = null,
+    val maxHr: Int? = null,
+    val fetchedAt: Long,
+)

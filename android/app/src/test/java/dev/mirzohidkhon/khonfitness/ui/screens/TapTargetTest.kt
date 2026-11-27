@@ -128,8 +128,10 @@ class TapTargetTest {
                     composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                     composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "") }
                     composable(Routes.LIFTS) { LiftListScreen(vm, nav) }
+                    composable(Routes.COMPARE) { CompareScreen(vm, nav) }
                     composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
                     composable(Routes.IMPORT) { ImportScreen(vm, nav) }
+                    composable(Routes.HEART_DATA) { HeartDataScreen(vm, nav, heart = app.heartFill, access = HeartAccess({ dev.mirzohidkhon.khonfitness.health.HcStatus.AVAILABLE }, { true })) }
                 }
             }
         }
@@ -188,6 +190,18 @@ class TapTargetTest {
         compose.runOnIdle { nav.navigate(Routes.exerciseDetail("bench")) }
         waitFor { shows("Bench press") }
         assertTargets("Exercise detail")
+    }
+
+    @Test fun `the compare screen and its period sheet have 48 dp targets`() {
+        seed(); openApp()
+        compose.runOnIdle { nav.navigate(Routes.COMPARE) }
+        waitFor { shows("Last 4 weeks") && shows("Best set") }
+        assertTargets("Compare")
+        compose.onNodeWithText("Last 4 weeks").performSemanticsAction(SemanticsActions.OnClick)
+        waitFor { shows("Right column") }
+        compose.onNodeWithText("Custom dates").performSemanticsAction(SemanticsActions.OnClick)
+        waitFor { shows("From") }
+        assertTargets("Compare period sheet")
     }
 
     @Test fun `Plan, its library and search have 48 dp targets`() {
@@ -266,6 +280,15 @@ class TapTargetTest {
         assertTargets("Timer")
     }
 
+    @Test fun `a finished session's screens with their Review row have 48 dp targets`() {
+        seed()
+        io { dao.upsert(Session(id = "oldrun", date = today.minusDays(1).toString(), startedAt = System.currentTimeMillis() - 86_400_000L,
+            finishedAt = System.currentTimeMillis() - 86_400_000L + 1_800_000L, itemType = ItemType.CARDIO, exerciseId = "z2", exerciseName = "Zone 2 run", timeSec = 1800)) }
+        openApp()
+        visit(Routes.session("old"), "Review")
+        visit(Routes.cardio("oldrun"), "Review")
+    }
+
     @Test fun `settings, review, the week plan and the lists have 48 dp targets`() {
         seed(); openApp()
         visit(Routes.SETTINGS, "Version")
@@ -275,6 +298,18 @@ class TapTargetTest {
         visit(Routes.STRETCHES, "Forward fold")
         visit(Routes.cardioType("run"), "No sessions yet")
         visit(Routes.IMPORT, "Import")
+        visit(Routes.HEART_DATA, "Heart rate data")
+    }
+
+    @Test fun `heart rate data and its sheet have 48 dp targets`() {
+        seed(); openApp()
+        compose.runOnIdle { nav.navigate(Routes.HEART_DATA) }
+        compose.waitForIdle()
+        waitFor { compose.onAllNodesWithContentDescription("Push day, ", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        assertTargets("Heart rate data")
+        compose.onNodeWithContentDescription("Push day, ", substring = true).performSemanticsAction(SemanticsActions.OnClick)
+        waitFor { shows("Use this time range") }
+        assertTargets("Heart rate sheet")
     }
 
     @Test fun `the stretch player has 48 dp targets`() {

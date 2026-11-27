@@ -25,6 +25,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val blocks = stream(repo.blocks, emptyList())
     val blockExercises = stream(repo.blockExercises, emptyList())
     val allIntervalLogs = stream(repo.allIntervalLogs, emptyList())
+    val allSessionHr = stream(repo.allSessionHr, emptyList())
+    val maxHeartRate: MaxHeartRate = (app as KhonApp).maxHeartRate
+    val typedMaxHr = stream(maxHeartRate.typed, null)
+    val targets: dev.mirzohidkhon.khonfitness.data.Targets = (app as KhonApp).targets
+    val bodyTarget = stream(targets.body, null)
+    val nightStore: NightStore = (app as KhonApp).nightStore
+    val nights: StateFlow<NightsState> = nightStore.state
     val stretches = stream(repo.stretches, emptyList())
     val stretchRoutines = stream(repo.stretchRoutines, emptyList())
     val routineStretches = stream(repo.routineStretches, emptyList())

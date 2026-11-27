@@ -13,6 +13,8 @@ there is no progress to look at.
 
 - Kotlin, Jetpack Compose, Material 3, dark theme only, English only.
 - Room (SQLite) on the phone. No server. minSdk 28 (Health Connect floor).
+- Health Connect is read only. The app reads exercise sessions, heart rate,
+  distance, and sleep sessions. It writes nothing back.
 - Signed APK on GitHub releases. Same keystore every release.
 - Repo: `personal/khon-fitness`. Package id `dev.mirzohidkhon.khonfitness`.
 
@@ -23,7 +25,7 @@ there is no progress to look at.
 2. Cardio: cardio exercises, modalities, interval timer, manual entry,
    Health Connect import.
 3. Stretching and eating window (0.4): a daily stretch routine on Today
-   with a full-screen player and figures drawn in the app; an eating window
+   with a full-screen player and studio photos of each stretch; an eating window
    with fixed daily hours, open-early and close-late taps, reminders, and a
    small widget that shows open or closed. Task list: docs/TASKS-0.4.md.
 
@@ -51,8 +53,8 @@ Three tabs.
   release to install (Today checks on open; tap downloads and installs,
   the row shows the download percent), the stretch routine, the eating
   window, and band sessions waiting for import. Below: a bodyweight card
-  with the last entry or today's save and its change since the day
-  before, − and + that step 0.1 kg (hold repeats, 20 to 250 kg), the value
+  with the last entry, or after today's save the 7-day average and its
+  change per week (else the change since the day before), − and + that step 0.1 kg (hold repeats, 20 to 250 kg), the value
   to type (comma or dot), and one button: Save for a new day, Update when
   today has another value (the save replaces it), Saved (off) when the
   value is today's entry. Text that is not 20 to 250 kg stays, shows
@@ -66,7 +68,8 @@ Three tabs.
   position. Each page keeps its own
   scroll position and state (the week shown, the bodyweight range), also
   across page and tab switches. Today's date is read again on resume and
-  at midnight; every range ends at today, so a later-dated session or
+  at midnight in the phone's time zone, so a day of 23 or 25 hours at a
+  clock change turns over at its real end; every range ends at today, so a later-dated session or
   weight counts nowhere. A session belongs to the day it started.
   - Log: one week at a time, "‹ Nov 2 – 8, 2026 ›". ‹ stops at the week
     of the first session (this week when none), › at this week. A week
@@ -79,7 +82,8 @@ Three tabs.
     past days keep theirs, a one-day change counts. Then one row per day,
     Monday to Sunday: a finished session (gym "d of n sets · t · min",
     cardio "km · min · pace", "Health Connect" when imported, "<k> PR"
-    in green when the session set records) opens the session with Edit;
+    in green when the session set records, "<k> rep PR" when it set rep
+    records) opens the session with Edit and a Review row;
     two sessions on a day give two rows; "Rest" with the bodyweight
     ("83.0 kg") when present; under a day's last row one line per stretch
     run, "Stretch: Daily · 10 min" ("· 2 skipped" when some were skipped,
@@ -87,13 +91,45 @@ Three tabs.
     <item>" opens Today; "In progress · d of n sets" opens the running
     session; "Planned: <item>" for a later day.
   - Progress: personal records, sets per muscle this week / last week,
-    bodyweight (1M / 3M / All, the change since the range's first entry),
+    bodyweight (1M / 3M / All, the change since the range's first entry,
+    the 7-day average and its change per week, the average as a second
+    line in the chart, the typed target and its date; see Targets),
     cardio of the last 30 days per type (sessions, km, time, pace, a
     sparkline "Distance per session" with the first and last value and
     date). Every type with a session ever has a row; one without sessions
     in the 30 days says "No sessions in 30 days". A type opens its detail: pace, average heart rate, heart rate
-    in work intervals (else time), and its sessions. Each section without
+    in work intervals (else time), time at or above 85 % and time in zone (see
+    "Heart rate"), and its sessions. Each section without
     data shows one line.
+  - Compare two periods: the first row of the last group of Progress. Two rows name the
+    left and the right column's period as a date range ("Oct 3 – Oct 30",
+    with the year for a date outside this year); the defaults are the 4
+    weeks before and the last 4 weeks. A tap opens one choice list: Last 4
+    weeks, The 4 weeks before (the 28 days before those), Last 12 weeks,
+    The 12 weeks before, This year, Last year, then each program with a
+    finished session (from its first to its last session), then Custom
+    dates with From and To (a From after the To moves the To to that day).
+    The choices survive rotation and a process restart. Under them, both
+    periods side by side, the left one first: days, gym sessions, done
+    sets with reps, sets per week, lifted, cardio sessions, cardio time,
+    distance and stretch runs; bodyweight average and entries; sets per
+    muscle per week (the same rule as above); the best set of each
+    exercise; and per cardio type its sessions, distance and pace. A value
+    that does not exist is "–"; a group or cardio row with nothing to show
+    is left out. The screen states numbers only: no verdict, arrow or color
+    tells which period is better.
+  - Load: the row under Compare, there only while a session of the last
+    52 weeks has a load (see "Heart rate"). Its screen has "Load per week",
+    a chart of the weeks with a load among the last 12 (it needs 2 points),
+    and a grid of the 52 weeks to the current one, newest at the top: one
+    row per week, the month name on the row whose drawn days hold the
+    month's first day, a cell for each day from Monday to Sunday, and the week's load on
+    the right. A day with a load is accent in 4 steps, a day with only
+    sessions without a load has a muted outline, and a day without a
+    finished session is a plain cell. Days after today are not drawn.
+    Nothing on it can be tapped. A row speaks as "Week of November 23,
+    load 412, 4 days", or "no load", with the count of days that have a
+    session. The screen follows the maximum and new reads while it is open.
 - Plan. A "+" adds a gym program, a cardio workout, a stretch routine or
   an exercise. This week: Monday to Sunday as seven day symbols (gym,
   run, bike, swim, other cardio, rest) under the day's letter, today's
@@ -111,6 +147,21 @@ Three tabs.
   with "New type…" in the workout's editor: name and color) colors it on
   Today and in History. The type is stored on the workout, so a change
   also retypes and recolors its past sessions; the editor says so.
+- A finished session opened from History has one row, "Review", that
+  opens the same read-only Review as Today's Review button. On a gym
+  session it is the first item of the list; Edit mode hides it. On the
+  cardio form it is its own group above the form, and it shows only
+  while nothing is typed, so a tap never drops a typed value. An
+  unfinished session has no such row. The row's value is Review's heart
+  rate line ("avg 121 · max 163 bpm") in muted, and it follows the read
+  while the screen is open. With no line the row has no value. A screen
+  reader hears "Review, average 121, maximum 163 beats per minute,
+  button", or "Review, button".
+- Review's back button names the screen under it: "Today" over Today,
+  "History" over a session screen. Back returns to that screen with its
+  open block and scroll place. When the session is deleted while its
+  Review is open, Review and the session screen both close and History
+  shows.
 
 ## Exercise progress
 
@@ -118,21 +169,132 @@ A record is the heaviest weight lifted. The best set of a session is the
 heaviest weight, then the most reps at that weight. A session sets a
 record when its best set beats every earlier session's; a tie on weight
 and reps keeps the record with the earlier session. Only done sets with
-reps count (a 0-rep set never does). No estimated 1RM is shown.
+reps count (a 0-rep set never does). No estimated 1RM is shown as a value.
+The rate per setup below is the only place that uses one.
+
+A rep record is more reps at a weight already lifted. A done set above
+0 kg is one when an earlier session has a set at its weight or heavier
+and every such set has fewer reps. A set of the same session that is as
+heavy or heavier with as many reps or more takes its place (of two equal
+sets the first one counts), and so does the session's weight record set.
+Most weeks hold no weight record, so this is where most progress shows.
+A 0 kg exercise has no rep records: more reps there is a weight record.
 
 History's Progress lists every exercise's record, newest first: five
 rows, then "All <n> exercises", a searchable list of every strength
 exercise (its record, or "No sets yet") that opens each one's detail. "New" marks a record set this week. The
 Log's "<k> PR" counts the session's exercises that set a record, not an
 exercise's first session. The finish sheet's "New bests" uses the same rule
-and the same count.
+and the same count. "<k> rep PR" and the finish sheet's "Rep records"
+count the exercises with a rep record and no weight record. The finish
+sheet compares with every other session, also later ones when an old
+session is edited.
 
 An exercise's detail (from a record row) shows the Best card ("62.5 kg × 6
 · Oct 29"), a chart "Heaviest set per session" with record points green,
 and every session newest first with every saved set ("60×8 · 62.5×6 ·
-60×5 skipped", the record set green, skipped sets dim), each opening the
-session. A session whose sets were all skipped lists with no chart point. An exercise without sets
+60×5 skipped", the record set green, rep record sets bold, skipped sets
+dim, a "PR" chip for a weight record, else a "Rep PR" chip), each opening
+the session. Between the Best card and the sessions, "Most reps by
+weight" lists the sets that no other set matches in both weight and reps
+("80 kg" and its date, "× 8"), heaviest first, at most six, when there
+are two or more. A session whose sets were all skipped lists with no chart point. An exercise without sets
 shows its muscles and "No sets yet".
+
+A program change shows on the exercise as a change of setup. The setup of
+a session is its program id, the count of the exercise's set rows (every
+status) and the rep range of its first row. A period is a run of sessions
+with one setup. A single session inside a run is a one-day deviation and
+stays in the period before it (or the next one when there is none before).
+The latest run is always a period. After the single sessions join, two
+neighbor periods with one setup are one period, so A A B A is one period
+and A A B is two. A renamed program keeps its id, so it is
+no change. When an exercise has two periods or more, its detail shows
+"Est. 1RM per week" between the Best card and "Most reps by weight", or
+"Reps per week" for an exercise that never had a counted set above 0 kg.
+One row per period, newest first: "Since Nov 3" or "Oct 2 – Nov 2" (the
+year only when it is not this year) over "TP v4 · 4 sets · 5–8 reps", and
+the rate on the right. The rate is the least-squares slope of the session
+values per week: the best Epley estimate (weight × (1 + reps / 30)) of the
+counted sets above 0 kg, or the most reps for an exercise without weight.
+It needs 3 valued sessions over 14 days or more, else the row shows "–".
+It rounds like the bodyweight trend ("+0.8", "−0.3", "±0.0"). The app
+says nothing about which setup was better. The "Heaviest set per session"
+chart draws a thin muted vertical line at the first charted session of
+each period after the first. A period with no charted session gets no
+line.
+
+One bodyweight entry can move a kilogram from water alone, so the trend
+uses a 7-day average: the mean of the entries from 6 days before a date to
+that date, shown only with 3 or more entries. The change per week is
+today's average minus the average that ends 7 days earlier ("7-day avg
+83.2 kg · −0.3 kg/week", "±0.0" inside 0.05 kg). History's chart draws the
+average for each entry as a thin muted line; its first days use entries
+from before the range.
+
+### Targets
+
+The owner can type one bodyweight target and one target per strength
+exercise. The app never suggests a target and never prefills one. The
+targets live in the settings DataStore next to the maximum heart rate, so
+a backup does not carry them, and Reset removes them. An empty field
+removes the target.
+
+The sheet checks the text as typed, before it changes a character. It
+takes ASCII digits with at most one point or comma, 16 characters at
+most, and a comma is the decimal sign. Leading zeros keep the value, so "0080" is 80. The value
+must be inside the limits and on the step of its kind. Anything else
+(a letter, a sign, a space, a second separator, digits of another script)
+turns Save off, stores nothing, and stays in the field. The − and + steps
+stay inside the limits.
+
+- Bodyweight: 20.0 to 300.0 kg, one decimal as typed ("80,5" is 80.5,
+  "80.25" and "80.10" are refused). The app stores it with the entry date and the exact 7-day
+  average of that day as the sum and the count of its entries, else the
+  latest entry, else nothing.
+- Exercise: the est. 1RM in kg (1.0 to 500.0, steps of 0.5, so "100.50"
+  is 100.5 and "100.3" is refused) for an exercise with a counted set
+  above 0 kg, else reps (1 to 500, whole, so "12.0" is refused). The app
+  stores the unit with the value. A target of the other unit reads as
+  not set, and the next save replaces or removes it. When the unit
+  changes while the sheet is open, the sheet closes and its text is lost.
+
+A stored target reads as none unless each number in it is a plain
+decimal (no exponent) of at most 12 characters, the value is inside its
+limits and on its step, the stored sum and count are positive, the count
+is at most 1000, and the entry average is from 20 to 300 kg. The date
+must parse. A date after today counts as today's entry. A bodyweight
+record from before the sum and count holds one average; the app reads
+that average as exact.
+
+The second row of a target shows when the trend reaches it. It uses
+measured values only and names the rate it used. Each date comes from the
+exact rate, not its rounded text.
+
+For an exercise, the first session on or after the entry date at or above
+the target is "Reached" with that session's date. Else, when the newest
+valued session is more than 28 days before today, the row reads "No session
+since Nov 3" (that session's date) with no rate and no date. Else the app fits the
+least-squares line of "Est. 1RM per week" through the valued sessions of
+the last 56 days (today and the 55 days before). It needs 3 such sessions
+over 14 days or more; else it shows no second row. A slope at or below
+zero, or a rate that prints "±0.0", is "Not at this rate". A line that is at
+or above the target today, or was there on an earlier day, gives "No date"
+next to the rate, because no session reached the target. Else the date is
+the first day after today on which the line is at or above the target, or
+"More than 2 years" when that day is more than 730 days away.
+
+For bodyweight, the direction is the sign of the target minus the exact
+stored average. Without a stored average, or when the two are equal, the present
+7-day average gives the direction; equal again is "Reached". The target is
+"Reached" once the exact present average is at or beyond it that way, so
+an average of 80.04 has not reached 80.0 on the way down although it
+prints 80.0. Without
+the present average or the one 7 days earlier there is no second row. A
+rate of "±0.0" or a rate the other way is "Not at this rate". Else the date
+is today plus the days the distance needs at that rate, rounded up, or
+"More than 2 years" past 730 days. For example: stored 83.2, present 82.0,
+−0.3 kg/week, target 80.0 gives today plus 47 days.
 
 ## Copy and chrome
 
@@ -186,10 +348,24 @@ no native spinner arrows. The accessible name lives in the aria-label.
   Per exercise in the block: set count, min reps, max reps.
 - Session: date-time (editable, can be backdated), what was done: a
   program snapshot (gym) or a cardio exercise snapshot, note, effort
-  1-10, finished flag.
+  1-10, finished flag. Clock facts, all nullable: `timedFrom` and
+  `timedTo` (the workout's range, see "Heart rate"), `startedElapsed`
+  (elapsed realtime at the start of a gym session), `timerRun` and
+  `timerDone` (the numbers of the latest timer run that started and of the
+  latest one that committed), and `linkedIds` (Health Connect record ids
+  merged into this app session).
 - SetLog: session, exercise, set index, weight kg, reps, status
-  (done | skipped | pending). Every tap saves. Reopening resumes an
-  unfinished session.
+  (done | skipped | pending), `checkedAt`. Every tap saves. Reopening
+  resumes an unfinished session.
+- IntervalLog: one per work round, with typed average heart rate and
+  watts, and `startedAt`, `endedAt`: the clock times of that round. A
+  round has both or neither.
+- SessionHr: at most one per session, written only by the heart rate
+  reader, "Remove", session delete, and backup import. It holds the range
+  that was read, a state (filled, waiting, none, off), the 5-second
+  buckets as `offsetSec:bpm`, the sample counts, the packages, and the
+  average and maximum (filled only). It has no foreign key, so every path
+  that deletes a session deletes this row too.
 - CardioLog (phase 2): per type fields, see below.
 - Bodyweight: date, kg.
 - WeekPlan: seven rows, each one item: a program (gym day), a cardio
@@ -260,7 +436,7 @@ its exercises.
 - Discard workout asks first: "Discard this workout? 3 checked sets are
   lost." Cancel keeps everything.
 - Finish sits in the header only. It shows a summary: time since start,
-  sets done, total volume, new bests, then effort and note (the same values
+  sets done, total volume, new bests, rep records, then effort and note (the same values
   as the page's fields), then Save. Save finishes the session: unfinished
   sets become skipped and stay visible as empty rows in history. A set
   checked with 0 reps (older versions allowed it) counts as not done and
@@ -314,6 +490,23 @@ show one row per work interval for manual entry.
   one row per work interval. You add HR or watts and save. Save of an
   unfinished session lands on Today, wherever the form was opened; Save of
   an edit to a saved session goes back to History.
+- Each run has a number. The Start action, on the screen or in the
+  notification, writes `timerRun + 1` to the session and takes the anchor
+  (wall time and elapsed realtime at that instant). Ready takes no anchor,
+  and Stop on Ready stores nothing. Every time of the run is the anchor's
+  wall time plus the elapsed realtime since it. A work round gets its start
+  when work begins and its end at its last second, Skip, or Stop. A pause
+  stays inside its round.
+- A run is trusted while its clocks stay in step at every restore and at
+  its end. A reboot, a changed phone clock, or a snapshot of the older app
+  version makes it untrusted for good. On finish and on Stop one
+  transaction writes the duration (only when the owner typed nothing since
+  Start), and for a trusted run the range and every round's times. An
+  untrusted run writes null clock fields. The commit of run n is accepted
+  only while `timerRun` is n, `timerDone` is not n, and no import or reset
+  ran since the commit began. A replay or an older run writes nothing. The
+  snapshot of an ended run goes only after its commit returns; a failed
+  commit runs again at the next app start.
 - After Stop, or after the last round, the timer stores its time. If you
   leave the form without saving, Today shows "Timer stopped" with Save
   (the form with the time and rounds) and Discard, not Resume. The stored
@@ -324,6 +517,264 @@ show one row per work interval for manual entry.
   confirmed to write swim laps or interval splits, so those fields stay manual.
   Nothing is saved until the user confirms a draft.
   A draft that is already imported saves nothing, so a second tap adds no copy.
+- A band record is already imported when its id is in the `sourceId` or the
+  `linkedIds` of any session. Ids match as whole ids, so `id1` does not claim
+  `id10`.
+- A band cardio record is covered, and does not show, when an app cardio
+  session has a run range (`[timedFrom, timedTo)`, finished or not, under the
+  date and length rules of the heart rate range), its exercise has the
+  record's modality (an archived exercise counts), and the overlap is at least
+  half of the record and at least half of the run. Touching ends overlap by
+  zero. A record of unknown modality is never covered. A gym session never
+  covers a band record. Band strength records stay hidden.
+- The rule runs on each band record before records that overlap are grouped
+  into one draft, so a group of records that are not covered one by one always
+  shows. Records of one modality that overlap, also through a chain, form one
+  group, in any input order. The list and the Today count use the same
+  function and read the claimed ids, the run ranges and the exercise
+  modalities in one Room read transaction.
+- An import takes the timer lock and writes nothing while an ended timer run
+  still waits for its commit: a result in the pending store, or a saved
+  snapshot that has ended, or reaches its end now, before the startup restore
+  moved it. Inside its write it checks every record of the draft again. It
+  returns saved, already imported, covered, or timer result pending. A saved
+  import stores the band's start and end as its range and asks for a heart
+  rate fill. A timer that still runs does not block an import, so that case
+  still gives two sessions.
+- A failed write leaves nothing of its draft. "Import all" goes on with the
+  next draft, and the list is read again after each import or batch. The
+  Import screen asks for one heart rate fill each time it opens.
+
+## Heart rate
+
+The app reads the band's heart rate from Health Connect for the time range
+of each workout. It reads only, writes only `session_hr`, and never writes a
+column the owner can type into. A typed value shows where it exists; a
+measured value shows only where the typed one is empty. No data is better
+than wrong data: an uncertain time gives no range, and a thin read shows
+nothing.
+
+Clocks. A wall time counts as a clock fact only when the wall clock and
+elapsed realtime moved by the same amount since the anchor, within 2 s. A
+gym session takes its anchor at Start. A set check stamps `checkedAt` only
+in an unfinished session with clocks in step; else the set is done without
+a stamp. A second check keeps the first stamp. Every path that makes a set
+pending or skipped clears it.
+
+The range is stored once, by the code that saw the workout:
+
+- Gym Finish, with at least one stamp and clocks in step: from the start
+  to the last stamp plus 5 minutes, at most the finish time.
+- The timer commit of a trusted cardio run.
+- The band's own start and end for an imported cardio session.
+- "Use this time range": the owner confirms the start and finish of a
+  finished gym session without a range, 10 minutes to 4 hours long, on
+  the date of its start. The write checks that the shown times are still
+  the session's.
+
+The range a read uses needs a finished session whose date is the local
+date of `timedFrom` or of its start. Gym: 10 minutes to 4 hours. App cardio
+adds 60 s after `timedTo`, but never past the finish; cardio ranges are 2
+minutes to 6 hours. A session moved to another date has no range.
+
+A read takes every record that touches the range from every page. It
+accepts samples inside the range with 30 to 230 bpm, and drops exact
+duplicates. The package with the most accepted samples is the origin, and
+only its samples count, one per instant. The read is complete with 10 or
+more instants that span at least half of the range. Complete gives
+`filled`. Else the row is `waiting` while the range ended 7 days ago or
+less, then `none`. A missing Health Connect, a missing heart rate
+permission, or any error writes nothing and does not count as a try.
+
+One runner reads, one read at a time. Gym Finish, cardio Save, and the app
+coming to the foreground (at most once per 10 minutes of elapsed time) ask
+it to run; none of them waits. A pass first deletes each row that is not
+off and no longer matches its session's range. Then it reads each session
+whose range ended in the last 30 days and that has no row or a waiting row.
+It never reads off or none. A result is written only when, in its
+transaction, the session still exists, no import or reset ran since the
+read began, the range is unchanged, and the row is the one the read started
+from.
+
+Reread reads one session now, at any age and from any state. Remove turns
+the row off with no samples and no values, and no pass reads it again.
+
+The average of a work round is computed when shown, from the buckets of a
+filled row inside the round's times, when 2 or more buckets fall inside.
+
+What the screens show comes from one rule, `hrFacts`, and no screen reads a
+row directly. A row for another range than the session's current one shows
+nothing. The maximum is always the measured one.
+
+- Review shows "avg 128 · max 164 bpm" under the stats line, or only the
+  value that exists, or no line. A screen reader hears "average 128,
+  maximum 164 beats per minute". The line follows the session and its row,
+  so a read that lands while Review is open shows up.
+- Review's average heart rate row and its rounds, and the cardio type
+  screen's two heart rate charts, show the measured value where the typed
+  one is empty.
+- The cardio form shows the measured average, and each round's measured
+  average, as the placeholder of an empty field. Save writes only what the
+  owner typed.
+- Settings has a "Heart rate data" row. Its screen lists the finished
+  sessions of the last 30 days, newest first: the name over the date, and
+  the state on the right ("avg 128 · max 164", "Waiting for data", "No
+  data", "Removed", "Not read", "No time range"). A tap opens a sheet with
+  the facts of the read: the range as clock times, readings read and used,
+  first and last reading, the longest gap, each work round's average, the
+  source app and other apps seen, average and maximum. A fact without a
+  value is left out.
+  The screen shows what the band sent: the list's average, the sheet's
+  round rows, and its "Average" row are measured values, also when the
+  owner typed one.
+- The sheet has "Read again" (not without a range) and "Remove" (only
+  while a row that is not off exists; it asks first). After "Read again"
+  the rows show the state: the new facts, "Waiting for data", "No data",
+  or "Not read". A read that fails shows one line, "Health Connect did not
+  answer". The line belongs to the open sheet, its range, and the row it
+  showed at the tap. Remove, "Use this time range", a range change (also
+  one that goes back), a new row, a closed sheet, a rotation, or leaving
+  the screen clears it. Remove, a closed sheet,
+  and leaving the screen also stop the read. A
+  second tap while a read runs does nothing. A session deleted meanwhile
+  closes the sheet.
+- A finished gym session without a range that "Use this time range"
+  accepts shows its start and finish as clock times and that action.
+- Without Health Connect or without the heart rate permission, the screen
+  shows the Import screen's card for that case. It asks only for heart
+  rate.
+
+Review of a finished session with a range shows its heart rate as one
+picture. What it shows comes from `hrFacts` alone, so a stale, removed, or
+waiting row shows nothing. With a filled row, a chart sits under the header
+figures: the buckets as a curve, cut where two neighbors are more than 60 s
+apart (a lone bucket is a dot), a tick at the bottom at each set check
+inside the range (gym), and a band behind each timed round (cardio). Nothing
+is drawn between buckets. A gym session with 2 or more checks inside the
+range also gets "Sets in order" after its exercises: each checked set in
+time order, with the clock time of its check, the time since the check
+before, and the highest bucket from that check to its own when 2 or more
+buckets fall in between. The group shows without heart rate too, then with
+no bpm. An unfinished session or one without a range shows neither.
+
+The maximum heart rate is a setting, a whole number from 100 to 230 bpm,
+empty by default. It sits in the Health group of Settings as "Maximum heart
+rate" with the typed value on the right ("186 bpm"). Without a typed value
+the row shows the measured one in muted ("183 bpm"). That is the highest
+maximum of the filled reads of sessions that finished in the last 365 days.
+With neither, the row says "Not set". A tap opens a sheet with one number
+field and Save. Save is off for a value outside 100 to 230, and an empty
+field removes the typed value. The setting lives in DataStore next to the
+other app settings, so a backup does not carry it. Reset removes it.
+
+The app uses the typed maximum, else the measured one. With no maximum,
+none of the figures below show. Each figure counts the 5-second buckets of
+a filled read and nothing else. A bucket stands for 5 s, and a gap adds no
+time. An offset counts once: when a row holds two samples with one offset,
+the first stored one is the bucket and the later one is dropped. The load,
+the cardio figures, the Review picture and the round averages all read the
+buckets this way.
+
+- Hard line: 85 % of the maximum, rounded up. A maximum of 186 gives 159
+  bpm. The time at or above it is the bucket count times 5 s.
+- Zone: from 60 % of the maximum rounded up to 70 % rounded down, both
+  ends inside. A maximum of 186 gives 112 to 130 bpm. The shares below, in
+  and above the zone are rounded half up. When the three do not sum to 100,
+  the part with the largest remainder takes the step. On a tie the order is
+  below, in, above, so 1, 1 and 1 buckets give 34, 33 and 33.
+- Round peak: the highest bucket inside the round's `[startedAt,
+  endedAt)`. It needs 2 or more buckets there.
+- Round drop: the round's last bucket minus the lowest bucket of the rest
+  after it. The rest runs from `endedAt` to the next round's `startedAt`,
+  or to the range end after the last round. The drop needs a peak and 2 or
+  more buckets in the rest. A negative drop shows as it is.
+- A round without both times, or one that starts outside the range, has no
+  figures. The app's timer stores both times of a round or none, and
+  each round starts at or after the end of the round before it. When a
+  round has one time only, an end that is not after its start, or a start
+  before the end of an earlier round (a changed backup file), no round of
+  that session has figures.
+
+Review of a finished cardio session with a filled read adds a "Heart rate"
+group after its rounds, or after its figures when it has no rounds. A
+high-intensity exercise gets "At or above 159 bpm" with the time ("11:35").
+A low-intensity one gets "Below 112 bpm", "112 to 130 bpm" and "Above 130
+bpm" with their percents. Moderate intensity gets neither. Each round with
+a peak adds "Round 1" with "peak 168 · drop 41". The rows are not
+tappable. They speak in full words: "At or above 159 beats per minute, 11
+minutes 35 seconds", "Round 1, peak 168, drop 41 beats per minute". They
+follow the setting and the read while Review is open.
+
+The cardio type screen adds "At or above 85 %", minutes per session of its
+high-intensity exercises, and "In zone", the percent per session of its
+low-intensity ones. Each point uses today's maximum, and a chart needs 2
+points.
+
+A finished session with a filled read has a load: weighted minutes. Each
+bucket stands for 5 s and gets a weight from its bpm against the maximum,
+compared as whole numbers (`bpm * 100` against `maximum * percent`):
+below 50 % gives 0, 50 % gives 1, 60 % gives 2, 70 % gives 3, 80 % gives 4,
+and 90 % and over gives 5. The load is the sum of weight times 5 s, over 60,
+rounded half up. With a maximum of 200, one minute at 180 bpm is a load of
+5. A gap adds nothing. A session without a filled read, or with no maximum,
+has no load, which is not a load of 0. A day's load is the sum of its
+sessions' loads, held at 2,147,483,647 when the sum is larger, and a
+week's load is the sum of its days with a load, with no upper limit. The
+color step of a day compares its load with the highest day of the 52
+weeks: up to a quarter is step 1, up to a half step 2, up to three
+quarters step 3, and above that step 4. When the highest day is 0, every
+day with a load is step 1. The app computes loads when it shows them and
+stores none.
+
+## Nights
+
+The app reads the band's sleep sessions from Health Connect and shows the
+night before each day next to the training. It shows facts only: no score,
+no verdict word, no color that judges a night, no advice, no target, no
+notification. It asks for the sleep permission on its own, apart from the
+Import permissions.
+
+The rules, in short:
+
+- A night belongs to day D when the middle of its session falls between
+  18:00 of D-1 and 12:00 of D, local time. A session with its middle from
+  12:00 to 18:00 is a nap and counts for no night.
+- Asleep time is the session time minus its awake stages. Two sessions of
+  one app in one night count shared time once. When two apps wrote the same
+  night, the app with more asleep time wins; the app never adds them.
+- A session longer than 24 hours, and a night under one minute, count for
+  nothing.
+- Lengths read "7 h 05 m", or "45 m" under an hour.
+
+Nights are not stored in the app and not in the backup. The app reads the
+last 1,100 days again after each start and at most every 5 minutes after a
+good read. The 1,100 days are the range the app asks for. Health
+Connect gives an app the records from 30 days before the app's first Health
+Connect permission on, so the nights start there and grow.
+
+The nights show in three places:
+
+- **Log.** Each day of the week gets one muted line under its last row and
+  its stretch lines: "Night 7 h 05 m · 23:10 – 06:15". A day from the first
+  night up to today without a night reads "No night data". Days before the
+  first night and later days have no line. Without access, before the first
+  read, or after a failed read with no nights loaded before, the Log has no
+  night line at all. A failed read after a good one keeps the nights that
+  were loaded.
+- **Nights screen.** The row "Nights" on Progress, under "Compare two
+  periods", opens it. Without Health Connect, with an old Health Connect, or
+  without the sleep permission, it shows the same card as Heart rate data,
+  and Allow asks for the sleep permission only. A failed read shows "Could
+  not read Health Connect" with "Try again". With no night at all it reads
+  "No night data. Health Connect has no sleep sessions." With nights it
+  shows the average and the shortest of the 14 days that end today, a bar
+  per night with a dot per finished session of that day (two at most), and
+  "Night before a session · last 8 weeks": the average night per session
+  title with its count.
+- **Review and Compare.** Review shows "Night before" and "Asleep" after the
+  heart picture when the session's day has a night. Compare shows the group
+  "Nights" ("Sleep per night", "Nights with data") when either period has a
+  night.
 
 ## Day plan
 
@@ -354,6 +805,23 @@ backup nor the phone has one. It writes the backup's stretch sessions over the
 phone's, the one case where a recorded session changes. After an import, a
 restore or a reset, the app re-arms the window alarms and redraws the widgets.
 
+The clock columns and the heart rate rows travel in the file. A file from
+before them imports as before, and its sessions have no range. No import
+takes `startedElapsed` from a file: an anchor holds only on the phone and
+the boot that took it. Each heart rate row is decoded and checked by
+itself, and a bad one never fails the preview or the import. A row is
+taken only when its session exists after the import, its range is not
+empty, its state is one of the four, every sample lies inside the range
+with 30 to 230 bpm, a filled row has samples and values in that range, and
+an off row has neither. Of two rows for one session the last wins.
+
+Replace takes the file's rows. Merge keeps the local unit: a session, set,
+or round that exists on the phone keeps its own range, anchor, run numbers,
+linked ids, stamp, round times, and heart rate row. A new one takes the
+file's values with its row. Then, in the same transaction, a session whose
+start, finish, kind, or exercise changed loses its range, anchor, and round
+times, and a set that is not done loses its stamp.
+
 ## Update
 
 Settings has Check for update, and Today checks once on open and shows an
@@ -365,10 +833,12 @@ REQUEST_INSTALL_PACKAGES.
 ## Stretching (phase 3)
 
 Stretching is a daily routine, not a plan item. Today shows one row: the
-active routine and its length, the line green with a check when done today. Tap opens a ready screen with an automatically playing 3D demonstration, stretch name, side, and
+active routine and its length, the line green with a check when done today. Tap opens a ready screen with an automatically playing photo demonstration, stretch name, side, and
 Start button. Start gives a three-second preparation countdown before work.
-Numbered steps let the user inspect setup and movement, and Change view
-switches camera angles. Demo playback is independent of the exercise clock.
+Each stretch has a start photo and a hold photo (Cat cow also a setup
+photo), shot from the side and from the front. Numbered steps each show
+one of them, and Change view switches between the side and the front.
+Demo playback is independent of the exercise clock.
 Each stretch and side change waits for the user to start the next one.
 Skip moves to the next stretch or side; Back returns to the one before
 with its timer reset, waiting for Start, and takes back its done or

@@ -4,6 +4,9 @@ Nine 3D human guides, each with two camera angles and numbered setup,
 movement, and hold steps. Android plays offline sprite sheets. There is no
 browser, network dependency, or runtime 3D engine.
 
+The app no longer ships these sprite sheets. Since the photo player it shows
+studio photos from `android/app/src/main/assets/stretch_demos/`.
+
 The model uses a continuous athletic human mesh with its native skeleton and
 skin weights. It is drawn like an anatomy atlas: near-white skin with muscle
 borders, short dark hair, dark shorts from a high waist to about 6 cm below

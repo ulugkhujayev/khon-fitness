@@ -1,5 +1,6 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -7,22 +8,29 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import dev.mirzohidkhon.khonfitness.data.*
 import dev.mirzohidkhon.khonfitness.ui.AppViewModel
 import dev.mirzohidkhon.khonfitness.ui.LeaveIfSessionMissing
+import dev.mirzohidkhon.khonfitness.ui.Routes
 import dev.mirzohidkhon.khonfitness.ui.components.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
 import kotlinx.coroutines.flow.map
 
 /**
- * A saved session from Today's Review, read-only: the date over its stats, then each exercise with its sets (a set
- * not done reads "skipped"), or a cardio session's values. No Edit and no Delete here; History's entry keeps them.
+ * A saved session read-only, from Today's Review or the Review row of a finished session's screen: the date over its
+ * stats, then each exercise with its sets (a set not done reads "skipped"), or a cardio session's values. No Edit and
+ * no Delete here; History's entry keeps them. Back names the screen under it ([reviewBack]).
  */
 @Composable
 fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
@@ -31,17 +39,33 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     LeaveIfSessionMissing(nav, "review/{id}", sessionId, loaded = sessionState.second, missing = session == null)
     val logs by vm.repo.setLogs(sessionId).collectAsStateWithLifecycle(emptyList())
     val intervals by vm.repo.intervalLogs(sessionId).collectAsStateWithLifecycle(emptyList())
+    val hrRow by remember(sessionId) { vm.repo.sessionHr(sessionId) }.collectAsStateWithLifecycle(null)
     val modalities by vm.modalities.collectAsStateWithLifecycle()
     val exercises by vm.exercises.collectAsStateWithLifecycle()
+    val nights by vm.nights.collectAsStateWithLifecycle()
+    RefreshNightsOnOpen(vm.nightStore)
+    val back = remember(sessionId) { reviewBack(nav.previousBackStackEntry?.destination?.route) }
+    val leave = rememberExitGuard(nav)
     val s = session ?: return
+    val picture = rememberWorkoutPicture(vm, s, logs, intervals)
+    val zone = java.time.ZoneId.systemDefault()
+    val facts = hrFacts(s, hrRow, zone)
+    val nightRows = nightReviewRows((nights as? NightsState.Loaded)?.nights?.get(s.date.toDate()), zone)
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize()) {
-        EditorTopBar("Today", s.programName ?: s.exerciseName ?: "Session", scrollPx = { scroll.value }, onBack = { nav.popBackStack() })
+        EditorTopBar(back, s.programName ?: s.exerciseName ?: "Session", scrollPx = { scroll.value }, onBack = { leave { leave.pop() } })
         Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             Text(s.date.toDate().format(shortDate), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-            Text(statLine(s, logs), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp))
+            Text(statLine(s, logs), style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = if (hrLine(s, facts) == null) 16.dp else 0.dp))
+            hrLine(s, facts)?.let { Text(it, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp).semantics { contentDescription = hrSpoken(s, facts).orEmpty() }) }
+            if (picture?.hasChart == true) HeartPicture(picture, Modifier.padding(bottom = 16.dp))
+            if (nightRows.isNotEmpty()) GroupedList(Modifier.padding(bottom = 16.dp)) {
+                nightRows.forEachIndexed { i, f -> NightReviewRow(f, muted = i > 0, divider = i > 0) }
+            }
             if (s.itemType == ItemType.PROGRAM) reviewExercises(logs).forEach { sets -> ExerciseReview(sets) }
-            else CardioReview(s, intervals, exercises.find { it.id == s.exerciseId }?.let { ex -> modalities.find { it.id == ex.modalityId }?.name })
+            if (s.itemType == ItemType.PROGRAM) picture?.let { SetsInOrder(it.rows) }
+            else CardioReview(s, facts, intervals, exercises.find { it.id == s.exerciseId }?.let { ex -> modalities.find { it.id == ex.modalityId }?.name })
+            if (s.itemType == ItemType.CARDIO) ReviewScores(vm, s, exercises.find { it.id == s.exerciseId }, facts, intervals)
             if (s.note.isNotBlank() || s.effort != null) {
                 SectionTitle("Notes", Modifier.padding(top = 12.dp))
                 GroupedList {
@@ -52,6 +76,35 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
         }
     }
 }
+
+fun reviewBack(previousRoute: String?): String = if (previousRoute == Routes.TODAY) "Today" else "History"
+
+fun reviewEntrySpoken(spokenLine: String?): String = listOfNotNull("Review", spokenLine).joinToString(", ")
+
+@Composable
+fun ReviewEntry(line: String?, spokenLine: String?, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val measurer = rememberTextMeasurer()
+    val title = MaterialTheme.typography.bodyLarge
+    val value = MaterialTheme.typography.bodyMedium
+    val density = LocalDensity.current
+    GroupedList(modifier) {
+        BoxWithConstraints {
+            val stacked = line != null && with(density) {
+                val text = measurer.measure("Review", title).size.width + measurer.measure(line, value).size.width
+                text.toDp() + ROW_SIDES + ROW_GAP + CHEVRON_COLUMN > maxWidth
+            }
+            ListRow(
+                "Review", secondary = line, divider = false, stacked = stacked,
+                modifier = Modifier.clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = reviewEntrySpoken(spokenLine) },
+            )
+        }
+    }
+}
+
+/** [ListRow]'s room beside its texts: start and end padding, the gap before the secondary, the chevron with its gap. */
+private val ROW_SIDES = 30.dp
+private val ROW_GAP = 8.dp
+private val CHEVRON_COLUMN = 20.dp
 
 /** A program session's sets, one list per exercise, in the order the session ran them. */
 fun reviewExercises(logs: List<SetLog>): List<List<SetLog>> =
@@ -77,13 +130,13 @@ private fun ExerciseReview(sets: List<SetLog>) {
 }
 
 @Composable
-private fun CardioReview(s: Session, intervals: List<IntervalLog>, type: String?) {
+private fun CardioReview(s: Session, facts: HrFacts, intervals: List<IntervalLog>, type: String?) {
     val rows = listOfNotNull(
         type?.let { "Type" to it },
         s.timeSec?.let { "Time" to "${it / 60} min" + if (it % 60 > 0) " ${it % 60} s" else "" },
         s.distanceM?.let { "Distance" to "${fmt(it / 1000.0, 2)} km" },
         paceLine(s.timeSec, s.distanceM)?.let { "Pace" to it },
-        s.avgHr?.let { "Avg heart rate" to "$it bpm" },
+        shownAvgHr(s, facts)?.let { "Avg heart rate" to "$it bpm" },
         s.watts?.let { "Avg watts" to "$it W" },
         s.laps?.let { "Laps" to "$it" },
         s.poolLength?.takeIf { s.laps != null }?.let { "Pool length" to "$it m" },
@@ -94,9 +147,16 @@ private fun CardioReview(s: Session, intervals: List<IntervalLog>, type: String?
         SectionTitle("Intervals", Modifier.padding(top = 24.dp))
         GroupedList {
             intervals.forEachIndexed { i, iv ->
-                ReviewRow("Round ${i + 1}", listOfNotNull(iv.avgHr?.let { "$it bpm" }, iv.watts?.let { "$it W" }).joinToString(" · ").ifEmpty { "—" }, divider = i > 0)
+                ReviewRow("Round ${i + 1}", listOfNotNull(shownRoundHr(iv, facts)?.let { "$it bpm" }, iv.watts?.let { "$it W" }).joinToString(" · ").ifEmpty { "—" }, divider = i > 0)
             }
         }
+    }
+}
+
+@Composable
+private fun NightReviewRow(f: NightFact, muted: Boolean, divider: Boolean) {
+    Box(Modifier.clearAndSetSemantics { contentDescription = f.spoken }) {
+        FieldRow(f.label, divider = divider) { Text(f.value, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), color = if (muted) K.Muted else K.Text) }
     }
 }
 

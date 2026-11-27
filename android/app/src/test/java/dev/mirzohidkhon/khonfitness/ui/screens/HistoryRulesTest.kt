@@ -22,6 +22,7 @@ import org.junit.Test
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 
 /** History rules: the Log week, session lines, records, bodyweight range and cardio types (UI06 P3). */
 class HistoryRulesTest {
@@ -266,9 +267,17 @@ class HistoryRulesTest {
     }
 
     @Test fun `the next day begins one second after midnight`() {
-        assertEquals(Duration.ofSeconds(31), untilNextDay(LocalDateTime.of(2026, 11, 4, 23, 59, 30)))
-        assertEquals(Duration.ofHours(24).plusSeconds(1), untilNextDay(LocalDateTime.of(2026, 11, 4, 0, 0)))
-        assertFalse(untilNextDay(LocalDateTime.of(2026, 11, 4, 12, 0)).isNegative)
+        val tashkent = ZoneId.of("Asia/Tashkent")
+        assertEquals(Duration.ofSeconds(31), untilNextDay(LocalDateTime.of(2026, 11, 4, 23, 59, 30).atZone(tashkent)))
+        assertEquals(Duration.ofHours(24).plusSeconds(1), untilNextDay(LocalDateTime.of(2026, 11, 4, 0, 0).atZone(tashkent)))
+        assertFalse(untilNextDay(LocalDateTime.of(2026, 11, 4, 12, 0).atZone(tashkent)).isNegative)
+    }
+
+    @Test fun `a day of 23 or 25 hours waits that long for the next day`() {
+        val newYork = ZoneId.of("America/New_York")
+        assertEquals(Duration.ofHours(23).plusSeconds(1), untilNextDay(LocalDate.of(2026, 3, 8).atStartOfDay(newYork)))
+        assertEquals(Duration.ofHours(25).plusSeconds(1), untilNextDay(LocalDate.of(2026, 11, 1).atStartOfDay(newYork)))
+        assertEquals(Duration.ofHours(24).plusSeconds(1), untilNextDay(LocalDate.of(2026, 3, 8).atStartOfDay(ZoneId.of("Asia/Tashkent"))))
     }
 
     @Test fun `the bar colors done days, grays open days and darkens rest`() {

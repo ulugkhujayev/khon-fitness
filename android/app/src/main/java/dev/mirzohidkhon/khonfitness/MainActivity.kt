@@ -23,6 +23,11 @@ class MainActivity : ComponentActivity() {
         setContent { KhonTheme { KhonNav() } }
     }
 
+    override fun onStart() {
+        super.onStart()
+        (application as KhonApp).heartFill.foreground()
+    }
+
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         if (intent.action == dev.mirzohidkhon.khonfitness.widget.TodayWidget.ACTION_START_TODAY) startRequested.value = true

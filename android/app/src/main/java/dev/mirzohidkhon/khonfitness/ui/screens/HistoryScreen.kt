@@ -35,7 +35,7 @@ import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDate
-import java.time.LocalDateTime
+import java.time.ZonedDateTime
 
 /**
  * History: the title row names the two pages as tabs, Log (a week of sessions against the plan) and Progress (records,
@@ -50,6 +50,7 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock
     val progressScroll = rememberScrollState()
     val pages = rememberSaveableStateHolder()
     val today = rememberToday(clock)
+    RefreshNightsOnResume(vm.nightStore)
     TabScreen(
         trailing = { BarCircleButton(Icons.Download, "Import workouts") { nav.navigate(Routes.IMPORT) } },
         scroll = if (page == 0) logScroll else progressScroll,
@@ -59,8 +60,8 @@ fun HistoryScreen(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock
     }
 }
 
-/** Time from [now] to the next midnight, plus a second so the new date has begun. */
-fun untilNextDay(now: LocalDateTime): Duration = Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay()).plusSeconds(1)
+/** Time from [now] to the start of the next day in its zone, between instants, plus a second so the new date has begun. */
+fun untilNextDay(now: ZonedDateTime): Duration = Duration.between(now, now.toLocalDate().plusDays(1).atStartOfDay(now.zone)).plusSeconds(1)
 
 /** Today's date from [clock], read again each time the screen resumes and at each midnight while it is shown. */
 @Composable
@@ -71,7 +72,7 @@ fun rememberToday(clock: Clock): LocalDate {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (true) {
                 today = LocalDate.now(clock)
-                delay(untilNextDay(LocalDateTime.now(clock)).toMillis())
+                delay(untilNextDay(ZonedDateTime.now(clock)).toMillis())
             }
         }
     }
@@ -105,8 +106,7 @@ fun muscleVolume(logs: List<SetLog>, sessions: List<Session>, exercises: List<Ex
         val d = dates[l.sessionId] ?: continue
         val idx = when { d in monday..today -> 0; d in lastMonday..<monday -> 1; else -> continue }
         val ex = exById[l.exerciseId] ?: continue
-        ex.primaryMuscle?.let { acc.getOrPut(it) { DoubleArray(2) }[idx] += 1.0 }
-        ex.secondaryList.forEach { acc.getOrPut(it) { DoubleArray(2) }[idx] += 0.5 }
+        forEachMuscleShare(ex) { m, share -> acc.getOrPut(m) { DoubleArray(2) }[idx] += share }
     }
     return acc.map { (m, v) -> MuscleVolume(m, v[0], v[1]) }.sortedByDescending { maxOf(it.thisWeek, it.lastWeek) }
 }

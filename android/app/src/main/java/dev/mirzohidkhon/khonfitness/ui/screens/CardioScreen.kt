@@ -26,9 +26,12 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val session = sessionState.first
     LeaveIfSessionMissing(nav, "cardio/{id}", sessionId, loaded = sessionState.second, missing = session == null)
     // One flow for the screen's life: a new one on each recomposition would start its query again.
-    val intervals by remember(sessionId) { vm.repo.intervalLogs(sessionId) }.collectAsStateWithLifecycle(emptyList())
+    val loadedIntervals by remember(sessionId) { vm.repo.intervalLogs(sessionId).map<List<IntervalLog>, List<IntervalLog>?> { it } }.collectAsStateWithLifecycle(null)
     val exercises by vm.exercises.collectAsStateWithLifecycle()
+    val hrRow by remember(sessionId) { vm.repo.sessionHr(sessionId) }.collectAsStateWithLifecycle(null)
     val s = session ?: return
+    val intervals = loadedIntervals.orEmpty()
+    val facts = hrFacts(s, hrRow, java.time.ZoneId.systemDefault())
     val ex = exercises.find { it.id == s.exerciseId }
     // Current exercise fields, plus any value this session already stores: a field removed later must not hide old data.
     val stored = listOfNotNull("time".takeIf { s.timeSec != null }, "distance".takeIf { s.distanceM != null }, "avgHr".takeIf { s.avgHr != null },
@@ -69,7 +72,13 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                 }
             }
         }
-        Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+        if (loadedIntervals != null) Column(Modifier.weight(1f).verticalScroll(barScroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
+            fun untouched() = draft == opened && edits.isEmpty()
+            if (s.finished && untouched()) {
+                ReviewEntry(hrLine(s, facts), hrSpoken(s, facts), Modifier.padding(bottom = 24.dp)) {
+                    leave.visit { if (sessionState.first?.finished == true && untouched()) nav.navigate(Routes.review(s.id)) }
+                }
+            }
             GroupedList {
                 DateRow(draft.date.toDate(), divider = false) { d -> draft = draft.copy(date = d.iso()) }
                 fields.forEachIndexed { i, f ->
@@ -77,7 +86,7 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                     when (f) {
                         "time" -> NumberRow("Time", draft.timeSec?.let { it / 60.0 }, "min", 1.0, 1, divider) { draft = draft.copy(timeSec = it?.let { scaled(it, 60.0) }) }
                         "distance" -> NumberRow("Distance", draft.distanceM?.let { it / 1000.0 }, "km", 0.1, 1, divider) { draft = draft.copy(distanceM = it?.let { scaled(it, 1000.0) }) }
-                        "avgHr" -> NumberRow("Avg heart rate", draft.avgHr?.toDouble(), "bpm", 1.0, 0, divider) { draft = draft.copy(avgHr = it?.toInt()) }
+                        "avgHr" -> NumberRow("Avg heart rate", draft.avgHr?.toDouble(), "bpm", 1.0, 0, divider, placeholder = measuredAvgHr(facts)?.toString()) { draft = draft.copy(avgHr = it?.toInt()) }
                         "watts" -> NumberRow("Avg watts", draft.watts?.toDouble(), "W", 5.0, 0, divider) { draft = draft.copy(watts = it?.toInt()) }
                         "laps" -> NumberRow("Laps", draft.laps?.toDouble(), "", 1.0, 0, divider) { draft = draft.copy(laps = it?.toInt()) }
                         "poolLength" -> NumberRow("Pool length", (draft.poolLength ?: 25).toDouble(), "m", 5.0, 0, divider) { draft = draft.copy(poolLength = it?.toInt()) }
@@ -102,7 +111,7 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                         val e = edits[iv.id] ?: IntervalEdit()
                         FieldRow("Round ${i + 1}", divider = i > 0) {
                             Column(Modifier.padding(vertical = 8.dp), horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                                NumberField(e.avgHr.or(iv.avgHr)?.toDouble(), { v -> edit(iv.id) { it.copy(avgHr = Edit.Set(v?.toInt())) } }, 1.0, "bpm", width = 176.dp, decimals = 0, height = 38, label = "Round ${i + 1} heart rate")
+                                NumberField(e.avgHr.or(iv.avgHr)?.toDouble(), { v -> edit(iv.id) { it.copy(avgHr = Edit.Set(v?.toInt())) } }, 1.0, "bpm", width = 176.dp, decimals = 0, height = 38, placeholder = roundAverage(facts, iv)?.toString(), label = "Round ${i + 1} heart rate")
                                 Spacer(Modifier.height(6.dp))
                                 NumberField(e.watts.or(iv.watts)?.toDouble(), { v -> edit(iv.id) { it.copy(watts = Edit.Set(v?.toInt())) } }, 5.0, "W", width = 176.dp, decimals = 0, height = 38, label = "Round ${i + 1} watts")
                             }
@@ -140,6 +149,6 @@ private fun StrokeSheet(current: String?, onPick: (String) -> Unit, onDismiss: (
 }
 
 @Composable
-fun NumberRow(label: String, value: Double?, unit: String, step: Double, decimals: Int, divider: Boolean, min: Double = 0.0, max: Double = Double.POSITIVE_INFINITY, set: (Double?) -> Unit) {
-    FieldRow(label, divider = divider) { NumberField(value, set, step, unit, width = 176.dp, decimals = decimals, height = 38, min = min, max = max) }
+fun NumberRow(label: String, value: Double?, unit: String, step: Double, decimals: Int, divider: Boolean, min: Double = 0.0, max: Double = Double.POSITIVE_INFINITY, placeholder: String? = null, set: (Double?) -> Unit) {
+    FieldRow(label, divider = divider) { NumberField(value, set, step, unit, width = 176.dp, decimals = decimals, height = 38, placeholder = placeholder, min = min, max = max) }
 }

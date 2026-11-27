@@ -170,11 +170,49 @@ padded cards, per-item buttons, "Updated" lines.
   new workout). Type opens a sheet of the live types with their colors
   and "New type…", which opens a sheet with Name, Color and Add type (off
   while the name is blank).
-- Settings has three groups: Backup (export, import, restore a saved
-  copy), App (version, the APK updater's state, reopen after updates)
-  and Reset to built-in data in red on its own. A footnote under each
-  says what it holds or does; the backup footnote shows how the last
-  export or import went, red on error.
+- Settings has four groups: Backup (export, import, restore a saved
+  copy), Health ("Heart rate data" with a red heart tile, then "Maximum
+  heart rate" with a red heart-square tile and its value on the right in
+  15 tabular figures: white when typed, muted when measured, "Not set"
+  muted without either), App (version,
+  the APK updater's state, reopen after updates) and Reset to built-in
+  data in red on its own. A footnote under Backup, App and Reset says
+  what it holds or does; the backup footnote shows how the last export
+  or import went, red on error.
+- The compare screen (from the last group of Progress, a plain row with a
+  chevron) has the nav bar "Compare", then a group of two rows, the left
+  and the right period: the date range, the choice in muted text, a
+  chevron. Each opens a sheet titled "Left column" or "Right column" with
+  one choice list: six presets, the programs (name over a muted date
+  range), and Custom dates, whose From and To date rows appear under it
+  while it is checked. The facts follow as grouped lists under the
+  History section titles (the first group has none). Each row holds the
+  label, then two right-aligned value columns in tabular figures and the
+  same color. Both columns are as wide as the widest value on the screen,
+  at most 30 % of the row, so a long label wraps or ends in an ellipsis
+  and never moves them; a set wraps before "×", a pace before its unit.
+  When a value part does not fit that width (a large font on a narrow
+  phone), every row puts the label on its own line over the two columns.
+  A row speaks its label and each value with its period's range.
+- Heart rate data: the editor bar with Back, then one grouped list of
+  56 px rows: the session name 17 over the date 15 muted, the state on
+  the right in 15 muted with tabular figures ("avg 128 · max 164",
+  "Waiting for data", "No data", "Removed", "Not read", "No time range"),
+  at most 136 px wide so the date keeps its line, and a chevron. A row
+  speaks its name, date and state in words. Without Health Connect or
+  its heart rate permission, the Import screen's card sits over the
+  list ("Read heart rate" and Allow). A tap opens a sheet: the name as
+  its title, the date in muted, then an elevated group of label/value
+  rows (Time range "18:02 to 19:14", Readings "412 read · 398 used",
+  First reading, Last reading, Longest gap "45 s", Round 1, Source, Also
+  seen, Average, Maximum; "Heart rate" with the state when there is no
+  filled read; "Workout" with start and finish for a gym session that can
+  take its time range). Under it, 20 px down, action rows: "Use this time
+  range" (a check) and "Read again" (a clock arrow) in accent, dim while
+  they run, and "Remove" (a trash can) in red in a group of its own,
+  which asks in a confirm sheet first. A failed "Read again" shows one
+  muted footnote under the groups, "Health Connect did not answer". Any
+  other result shows only in the rows.
 - Empty state: one muted line, no illustration. Where a screen has nothing
   to show yet and an action fixes it, a card shows a 32 px symbol, a title
   in Headline, a muted 15 line and the action (iOS content-unavailable
@@ -357,7 +395,16 @@ Two lines, 88 px total, hairline between rows.
   Edit, no Delete): the date 17/600 over the stats line in muted, then
   one group per exercise with "Set 1  80 kg × 10" rows, a set not done
   reading "skipped" in muted; cardio shows its values as label/value rows.
-  History's entry keeps Edit.
+  A session with heart rate adds "avg 128 · max 164 bpm" in muted under
+  the stats line. History's entry keeps Edit.
+- A finished session opened from History opens Review from one list row,
+  "Review" with a chevron, in its own group: the first item of the gym
+  session (not in Edit mode), and the first group of the cardio form
+  while nothing is typed. The value is Review's heart rate line in body
+  muted; no line, no value. When the title and the value do not fit on
+  one line (360 px at font scale 1.3 with "avg 188 · max 201 bpm"), the
+  value goes under the title, as list rows do at font scale 1.5. Review's
+  back button is spoken "Today" over Today and "History" over a session.
 - 16 px gap. One group of 64 px rows sized for the home screen: the
   symbol in a 40 px circle of its color like the item card's, the name
   17/600 over a line of state 15 muted (green when it is good news), a
@@ -373,8 +420,10 @@ Two lines, 88 px total, hairline between rows.
 - 16 px gap. Bodyweight on one group-surface card (radius 20, 16 padding
   at the sides, 14 top and bottom), no chart (History has it):
   "Bodyweight" 17/600, under it on its own line a status in muted 13:
-  "No entry yet", "Last: 83.4 kg · Oct 30", or "Saved for today · −0.4 kg
-  since Oct 30". Then a row: − and + as 52 px squares (radius 12,
+  "No entry yet", "Last: 83.4 kg · Oct 30", "Saved for today · −0.4 kg
+  since Oct 30", or after today's save with 3 entries in 7 days "7-day avg
+  83.2 kg · −0.3 kg/week" (the rate only when the week before also has
+  an average). Then a row: − and + as 52 px squares (radius 12,
   Surface2, accent glyph 28) around the value on Surface2 (52 px tall,
   radius 12): the number 28/700 right-aligned in a 96 px slot (it grows
   with the font scale) and "kg" in muted 15. A tap steps 0.1 kg, a hold
@@ -410,7 +459,8 @@ Two lines, 88 px total, hairline between rows.
   color; ring for rest, green once stretched or weighed; ring in the item
   color for today's open item; Surface3 for skipped, Surface2 for later),
   the title 17 (muted for rest, skipped and planned) over a muted
-  13 line, "<k> PR" in green 600, a chevron on rows that open. Stretch
+  13 line, "<k> PR" in green 600 and "<k> rep PR" in white 600 (no
+  break inside it), a chevron on rows that open. Stretch
   runs add one muted 13 line each under the day's last row. Today's
   row is tinted with the accent at 12 percent.
 - History Progress: section titles in muted 13 over grouped lists.
@@ -421,15 +471,51 @@ Two lines, 88 px total, hairline between rows.
   shares of the biggest count of either week) and "8 / 6" muted in a
   60 px column (96 at large text). Bodyweight: range chips 1M / 3M / All
   (48 px targets, the selected one on Surface3), a card with the latest
-  value 24/700 and the change in green (muted when up), the chart under
-  it. Cardio rows: dot, type, the muted line, "Distance per session" dim
+  value 24/700 and the change in green (muted when up), "7-day avg 83.2 kg
+  · −0.3 kg/week" in muted 13 tabular on the next line when there is an
+  average, the chart under it with the average as a 1.5 px muted line
+  without points. Cardio rows: dot, type, the muted line, "Distance per session" dim
   11 over a 28 px sparkline in the type color with the first and last
   value and date in muted 11. A chip is 11/600 on its color at 18 percent.
 - Detail screens (exercise, cardio type, the full exercise list) use the
   editor bar with Back. The exercise list: the search field, then list
   rows with the record or "No sets yet" muted on the right.
-  Session rows: the date 15/500 (a green "PR" chip) over the sets or the
-  stat line in muted 15. Record points on a chart are green.
+  Session rows: the date 15/500 (a green "PR" chip, else a white "Rep PR"
+  chip, one chip per row) over the sets or the stat line in muted 15; the
+  record set green 600, rep record sets white 600. Record points on a
+  chart are green. "Most reps by weight" sits between the Best card and
+  the sessions when it has two or more rows, at most six: "80 kg" over the
+  date in muted 13, "× 8" bold tabular on the right. Its rows do not open
+  anything. With two setup periods or more, "Est. 1RM per week" (or "Reps
+  per week") sits between the Best card and "Most reps by weight": one row
+  per period, newest first, the dates (17, tabular) over the setup in muted
+  13 ("TP v4 · 4 sets · 5–8 reps"), the rate bold tabular on the right
+  ("+0.8", "−0.3", "±0.0", or "–"). Both signs are white. A long program
+  name ends with an ellipsis and the sets and reps stay. The rows have no
+  chevron and do not open anything. TalkBack reads the dates, the setup and
+  the rate in words ("Oct 2 to Nov 2, TP v4, 4 sets, 5 to 8 repetitions,
+  plus 0.8 kilograms per week", "no rate").
+- A strength exercise has a "Target" group after the setup periods, or
+  after the Best card when there are none, and also when it has no
+  session yet. For an exercise with weight the group title is "Target
+  est. 1RM", because the chart above it shows the heaviest set. Cardio has none. Bodyweight on Progress has the same group
+  under its card, with entries or without. The first row is "Target" with
+  the value and a chevron: "100 kg" (a decimal only when needed), "12
+  reps", "80.0 kg" (bodyweight, always one decimal), or "Not set" in
+  muted. A tap opens the sheet. The second row shows only with a target
+  and a result, and does not open anything: "At +0.4 kg/week" (or
+  "reps/week") with "Mar 14" ("Mar 14, 2027" in another year), "More than
+  2 years", "Not at this rate", or "No date" on the right; or "Reached"
+  with the session date ("Reached" alone for bodyweight); or "No session
+  since Nov 3" alone. Label and value are white
+  body text with tabular figures. "kg/week" never breaks at the slash. No
+  green or red, no arrows, no progress bar, no verdict words. TalkBack
+  reads each row as one line in full words: "Target, 100 kilograms,
+  button", "Target, not set, button", "At plus 0.4 kilograms per week,
+  March 14, 2027", "Reached, November 20", "At plus 12.5 kilograms per
+  week, more than 2 years", "At plus 1.0 kilograms per week, no date",
+  "No session since November 3". A "Not at this rate" row speaks "Not at
+  this rate" only.
 
 ## Stretch player
 
@@ -454,10 +540,13 @@ Two lines, 88 px total, hairline between rows.
   button under Start to test a routine quickly.
 - One primary action stays at the bottom: Start, Pause, or Resume. Content
   scrolls above it on short screens or with large text. Controls never overlap.
-- The stretch name and side appear above an offline 3D human demonstration.
-  Before Start, the guide automatically plays setup, movement, and hold steps.
-  Numbered steps pause on a position. Play demo restarts the lesson. Change
-  view switches between two camera angles. Each step has a plain instruction.
+- The stretch name and side appear above a photo demonstration: one man in
+  a studio, on black, a start photo and a hold photo per stretch (Cat cow
+  also has a setup photo), each from the side and from the front. Before
+  Start, the guide shows each step for 2.6 s in turn, and the photo
+  cross-fades in 300 ms when it changes. Play demo restarts the lesson.
+  Change view switches between the side and the front and keeps the pose.
+  Each step has a plain instruction.
   Play/Pause and Change view are 40 px round controls (48 px targets) over the image's
   bottom corners, 10 px in, a white symbol on black at 45 percent, like a
   video player's. The steps are a timeline: 26 px numbered nodes on a
@@ -465,21 +554,24 @@ Two lines, 88 px total, hairline between rows.
   the shown step are accent with black numbers, the shown one also sits
   in a 34 px accent-tinted halo with its title white and semibold, later
   ones are Surface3 with muted numbers. The line runs between the first
-  and the last node in Surface2 and fills in accent as far as the demo
-  has come, moving on as the pose moves into each step. A tap on a step
-  holds its pose. During the stretch the steps are hidden and the
-  instruction follows the nearest step. The same demonstration heads the
-  stretch editor.
+  and the last node in Surface2. While the guide plays it fills in accent
+  toward the next step; a tap on a step stops the guide, shows that step's
+  photo and fills the line to its node. During the stretch the steps are
+  hidden. The same demonstration heads the stretch editor at 208 px high.
+- The photo sits in a black panel with 16 px corners, fitted whole: never
+  cropped, never stretched. In the player the panel is as wide as the
+  content and takes the height the other controls leave, from 240 px up to
+  the photo's own 720:820 shape. When even 240 px does not leave room, the
+  content scrolls above Start. The list thumbnail is the side hold photo.
 - Demo playback does not start the exercise clock. A new stretch or side
   opens with its demonstration playing. The Start button stays fixed below
-  the scrollable guide, timer, and routine progress.
-- Held stretches show the held position. Repeated movements follow the
-  exercise clock and freeze when paused. No bouncing through a held pose.
-- The continuous human mesh has a gray body, dark shorts from the navel to
-  just below the knees, coral muscle highlights, visible hands and feet,
-  and floor contact shadows. Right-side
-  guides mirror both images and cues.
-  Plow places feet beyond the head; 90/90 shows both knee bends.
+  the scrollable guide, timer, and routine progress. The panel keeps the
+  last photo until the next one has loaded, so it never shows empty.
+- A held stretch shows the photo and instruction of the last step. A
+  stretch that moves in reps shows the start photo for the first half of
+  each half-cycle and the hold photo for the second, with the instruction
+  of the last step that uses that photo. Paused reps stop on their photo.
+- Right-side guides mirror the photo and swap left and right in the cues.
 - Beeps and speech use Android media audio and its selected output. The
   notification is silent. Disconnecting headphones pauses active playback.
 - A run's result is written once. A session the user deleted can come back
@@ -548,6 +640,8 @@ Two lines, 88 px total, hairline between rows.
 - Intervals, when the session has them: one row per work interval,
   "Round 1", with heart rate and watts as two stacked number widgets.
   Their spoken labels are "Round 1 heart rate" and "Round 1 watts".
+  An empty heart rate field, the session's or a round's, shows the
+  measured value as its placeholder in muted.
 - Notes: Effort (1 to 10, spoken "Effort, 1 to 10") and Note. Under them
   a red text button, "Delete session" for a saved session or "Discard"
   for a new one, asks in a confirm sheet first.
@@ -593,9 +687,100 @@ element that is not on the grid.
 Every chart has: dashed grid lines at round values with a label on the
 left, a marker on every point, a value label on every point when there
 are seven or fewer (else on the last and the highest), the last point
-filled in accent with its unit, and dates along the bottom. A line
+filled in accent with its unit, and dates along the bottom. The grid step
+is the smallest of 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500 and
+1000, then 1, 2, 2.5 and 5 times each higher power of ten, that is at
+least a third of the value range, so the axis has at most 5 labels. A
+chart leaves out a point whose value is not a number or is beyond 1e15.
+Value labels never meet. The last point's label draws first, then the highest
+point's, then the others from the newest to the oldest. A label draws only
+when its box, grown by 2 px on each side, meets no label that already
+draws; the others are left out. A line
 without markers and labels is a defect. Every chart is 190 px tall
 (Today and History alike). Axis and date labels 12/500 in muted; value
 labels 12/500 muted, the last one 13/700 in white. The value axis is as
 wide as its widest label plus 8 px, the right inset 8 px, so the chart
-sits even between the screen margins.
+sits even between the screen margins. The exercise chart marks each setup
+change with a 1 px muted vertical line through the plot at the first point
+of the new period. A period without a point has no line.
+
+The heart rate picture on Review is the one chart without markers and
+value labels: it draws hundreds of 5-second buckets. It keeps the grid,
+axis labels, insets and 190 px height of the other charts. The bpm grid
+has 3 to 5 lines 10 or 20 apart. The curve is 2 px accent, a lone bucket
+a 4 px accent dot. Gym set checks are 8 px muted ticks on the bottom grid
+line; cardio rounds are Surface2 bands the full plot height behind the
+curve. The range's start and end clock times sit under the two ends. No
+legend, no caption, no colors per zone. The chart speaks as one line:
+"Heart rate from 18:02 to 19:14, lowest 92 beats per minute, highest 164
+beats per minute, 18 sets marked".
+
+"Sets in order" follows a gym session's exercise groups, before Notes. Each
+row is two lines and nothing to tap: the exercise name (ellipsis when
+long) with the check's clock time on the right, over the set text with
+the time since the set before and "151 bpm" on the right. Time and bpm sit
+in fixed columns as wide as the group's widest value, in muted tabular 15.
+Each row speaks as one line with full unit words.
+
+The "Maximum heart rate" sheet holds one elevated group with a "Maximum"
+row and a number widget in bpm (the measured value as its placeholder),
+then a full-width Save, dim while the value is outside 100 to 230.
+
+The target sheets ("Target bodyweight", "Target est. 1RM", "Target reps")
+follow it: one elevated group with a "Target" row and a number widget in kg
+or reps, empty or with the owner's own target and no placeholder, then
+Save. Save is dim for text that is not a plain number inside the limits
+and on the step (80.25 kg, 100.3 kg, 12.0 reps, "8x0", "-80"); the text
+stays as typed. A comma reads as the decimal point.
+
+A finished cardio Review with figures gets a "Heart rate" group after
+Intervals: 48 px label and value rows in body, values white with tabular
+figures, nothing to tap. "At or above 159 bpm" with "11:35"; or "Below
+112 bpm", "112 to 130 bpm", "Above 130 bpm" with "7 %"; then "Round 1"
+with "peak 168 · drop 41". No green or red for a value, no target line,
+no arrows, no verdict words. Each row speaks as one line with full unit
+words.
+
+The cardio type screen's "At or above 85 %" chart labels its points as
+minutes and seconds ("9:50 min" on the last); "In zone" labels percents
+("86 %"). Both are ordinary charts, no point marked green.
+
+The Load screen (the "Load" row under "Compare two periods", a plain row
+with a chevron) has the nav bar "Load" with Back. "Load per week" is an
+ordinary chart of week loads, its dates the Mondays. Under it, 24 px down,
+sits the year grid on the page background, not in a group. A header line
+holds the weekday letters in muted 12, centered over their columns. Each
+week is one row, newest at the top: the short month name ("Nov") in muted
+12 on the row whose drawn days hold the month's first day, then 7 equal cells 14 px
+high, 2 px apart with 3 px corners, then the week's load in muted 12 with
+tabular figures. The month and load columns are as wide as their widest
+text ("Sep", "0000" or a longer load), so every row's cells line up. A day
+with a load is accent at 30, 50, 75 or 100 % alpha by its step. A day with
+sessions but no load is Surface with a 1 px muted outline, and a day
+without a session is Surface. Rows sit 2 px apart and grow with a large
+font. Nothing is tappable, the whole page scrolls, and each row speaks as
+one line ("Week of November 23, load 412, 4 days").
+
+The Nights screen (the "Nights" row under "Compare two periods", a plain
+row with a chevron) has the nav bar "Nights" with Back. One group holds two
+figures side by side, each a 24 bold length over a muted caption: the
+average on the left ("average · last 14 nights", or "average · 11 of 14
+nights"), the shortest on the right ("shortest · Nov 3"). With no night in
+the 14 days each figure is a dash. Under them sits the bar chart of the 14
+days, oldest left. Every bar is indigo (`K.Night`, #5E5CE6), 10 px wide with
+4 px top corners, one color for every night. The axis starts at 0 and ends
+at the next 2 hours at or above the longest night, 8 hours at least. Dashed
+guide lines with muted 12 labels ("0 h", "4 h", "8 h") follow the other
+charts. Under each bar is its weekday letter in muted 12, today in bold
+accent, and under the letter up to two 6 px dots in the colors of that
+day's finished sessions. A day without a night has no bar. Each day speaks
+as one element ("Tuesday, November 3, 5 hours 40 minutes, GYM"). The
+section "Night before a session · last 8 weeks" follows with one row per
+title: the title, and on the right the length over a muted count ("7
+nights"). Missing access, a failed read, and no data reuse the Heart rate
+data card, a card with "Try again", and one muted line.
+
+The Log's night line uses the style of the stretch lines (muted, small,
+tabular) and may wrap. Review's "Night before" and "Asleep" rows sit in one
+group after the heart picture; the length is white and the clock range
+muted. Compare's "Nights" values use the color of every other value.

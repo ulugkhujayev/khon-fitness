@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -59,11 +60,12 @@ import androidx.navigation.compose.rememberNavController
 import dev.mirzohidkhon.khonfitness.data.Kind
 import dev.mirzohidkhon.khonfitness.ui.screens.*
 import dev.mirzohidkhon.khonfitness.ui.theme.K
+import java.time.Clock
 
 object Routes {
     const val TODAY = "today"; const val HISTORY = "history"; const val PROGRAMS = "programs" // the Plan tab; the route id stays
     fun session(id: String) = "session/$id"
-    /** A saved session read-only, from Today's Review: no Edit. */
+    /** A saved session read-only, from Today's Review or a finished session's Review row: no Edit. */
     fun review(sessionId: String) = "review/$sessionId"
     // A new program, block, exercise or stretch has its own route, never an id inside an edit route: a stored row
     // (a restored backup) can hold any id, "new" too.
@@ -83,9 +85,13 @@ object Routes {
     fun cardioType(id: String) = "cardiotype/$id"
     /** Every strength exercise, searchable; each opens its exercise detail. */
     const val LIFTS = "lifts"
+    const val COMPARE = "compare"
+    const val LOAD = "load"
+    const val NIGHTS = "nights"
     const val STRETCHES = "stretches"
     const val IMPORT = "import"
     const val LIBRARY = "library"; const val WEEK_PLAN = "weekplan"; const val SETTINGS = "settings"
+    const val HEART_DATA = "heartdata"
 }
 
 @Composable
@@ -119,34 +125,43 @@ fun KhonNav() {
     Scaffold(containerColor = K.Bg, bottomBar = { if (showBar) BottomBar(tab) { i -> nav.openTab(TABS[i]) } }) { pad ->
         Box(Modifier.fillMaxSize().padding(pad).consumeWindowInsets(pad).imePadding()) {
             NavHost(nav, startDestination = Routes.TODAY, enterTransition = enter, exitTransition = exit, popEnterTransition = enter, popExitTransition = exit) {
-                composable(Routes.TODAY) { TodayScreen(vm, nav) }
-                composable(Routes.HISTORY) { HistoryScreen(vm, nav) }
-                composable(Routes.PROGRAMS) { PlanScreen(vm, nav) }
-                composable("session/{id}") { e -> SessionScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("review/{id}") { e -> ReviewScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("cardio/{id}") { e -> CardioScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("program/{id}") { e -> ProgramEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable(Routes.NEW_PROGRAM) { ProgramEditorScreen(vm, nav, null) }
-                composable("block/{programId}/{blockId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", e.arguments?.getString("blockId") ?: "") }
-                composable("block-new/{programId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", null) }
-                composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("exercise-new/{kind}") { e -> ExerciseEditorScreen(vm, nav, null, newKind = e.arguments?.getString("kind") ?: Kind.STRENGTH) }
-                composable("timer/{id}") { e -> TimerScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("stretch/{id}") { e -> StretchScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("routine/{id}") { e -> RoutineEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable(Routes.NEW_STRETCH) { StretchEditorScreen(vm, nav, null) }
-                composable("lift/{id}") { e -> ExerciseDetailScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "") }
-                composable(Routes.LIFTS) { LiftListScreen(vm, nav) }
-                composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
-                composable(Routes.IMPORT) { ImportScreen(vm, nav) }
-                composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }
-                composable(Routes.WEEK_PLAN) { WeekPlanScreen(vm, nav) }
-                composable(Routes.SETTINGS) { SettingsScreen(vm, nav) }
+                khonScreens(vm, nav)
             }
         }
     }
+}
+
+/** Every screen of the app by its route. A screen reads [clock] when it composes, so a new time zone of the phone counts. */
+fun NavGraphBuilder.khonScreens(vm: AppViewModel, nav: NavHostController, clock: () -> Clock = Clock::systemDefaultZone) {
+    composable(Routes.TODAY) { TodayScreen(vm, nav) }
+    composable(Routes.HISTORY) { HistoryScreen(vm, nav, clock()) }
+    composable(Routes.PROGRAMS) { PlanScreen(vm, nav) }
+    composable("session/{id}") { e -> SessionScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("review/{id}") { e -> ReviewScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("cardio/{id}") { e -> CardioScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("program/{id}") { e -> ProgramEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable(Routes.NEW_PROGRAM) { ProgramEditorScreen(vm, nav, null) }
+    composable("block/{programId}/{blockId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", e.arguments?.getString("blockId") ?: "") }
+    composable("block-new/{programId}") { e -> BlockEditorScreen(vm, nav, e.arguments?.getString("programId") ?: "", null) }
+    composable("exercise/{id}") { e -> ExerciseEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("exercise-new/{kind}") { e -> ExerciseEditorScreen(vm, nav, null, newKind = e.arguments?.getString("kind") ?: Kind.STRENGTH) }
+    composable("timer/{id}") { e -> TimerScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("stretch/{id}") { e -> StretchScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("routine/{id}") { e -> RoutineEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
+    composable(Routes.NEW_STRETCH) { StretchEditorScreen(vm, nav, null) }
+    composable("lift/{id}") { e -> ExerciseDetailScreen(vm, nav, e.arguments?.getString("id") ?: "", clock()) }
+    composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "", clock()) }
+    composable(Routes.LIFTS) { LiftListScreen(vm, nav, clock()) }
+    composable(Routes.COMPARE) { CompareScreen(vm, nav, clock()) }
+    composable(Routes.LOAD) { LoadScreen(vm, nav, clock()) }
+    composable(Routes.NIGHTS) { NightsScreen(vm, nav, clock()) }
+    composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
+    composable(Routes.IMPORT) { ImportScreen(vm, nav) }
+    composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }
+    composable(Routes.WEEK_PLAN) { WeekPlanScreen(vm, nav) }
+    composable(Routes.SETTINGS) { SettingsScreen(vm, nav) }
+    composable(Routes.HEART_DATA) { HeartDataScreen(vm, nav) }
 }
 
 private val TABS = listOf(Routes.TODAY, Routes.HISTORY, Routes.PROGRAMS)
@@ -198,13 +213,18 @@ internal fun BottomBar(selected: Int, onSelect: (Int) -> Unit) {
     }
 }
 
-/** Leave a session screen whose session no longer exists, while that screen is still on top. Without this it draws nothing. */
+/**
+ * Leave a session screen whose session no longer exists, while that screen is still on top, for the tab it was opened
+ * from: every screen above that tab goes, so a Review over the session's own screen leaves with it. Without this it
+ * draws nothing.
+ */
 @Composable
 fun LeaveIfSessionMissing(nav: NavHostController, route: String, sessionId: String, loaded: Boolean, missing: Boolean) {
     LaunchedEffect(loaded, missing) {
         val top = nav.currentBackStackEntry
         if (loaded && missing && top?.destination?.route == route && top.arguments?.getString("id") == sessionId) {
-            if (!nav.popBackStack(Routes.TODAY, inclusive = false)) nav.navigate(Routes.TODAY) { launchSingleTop = true }
+            val tab = nav.currentBackStack.value.lastOrNull { it.destination.route in TABS }?.destination?.route
+            if (tab == null || !nav.popBackStack(tab, inclusive = false)) nav.navigate(Routes.TODAY) { launchSingleTop = true }
         }
     }
 }

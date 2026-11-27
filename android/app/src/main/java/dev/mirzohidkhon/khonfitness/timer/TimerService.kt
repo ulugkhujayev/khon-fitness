@@ -34,11 +34,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import dev.mirzohidkhon.khonfitness.data.Clocks
+import dev.mirzohidkhon.khonfitness.data.EndedRun
+import dev.mirzohidkhon.khonfitness.data.SystemClocks
+import dev.mirzohidkhon.khonfitness.data.KhonRepository
+import dev.mirzohidkhon.khonfitness.data.TimerCommit
+import dev.mirzohidkhon.khonfitness.data.TimerControl
+import dev.mirzohidkhon.khonfitness.data.newId
 
 /** Foreground service that owns the countdown. UI observes [TimerService.state]. */
 class TimerService : Service() {
@@ -54,12 +64,15 @@ class TimerService : Service() {
     private var finishing = false
     private var teardown: Job? = null
     private var restoring: Job? = null
+    private var beginning: Job? = null
+    private var beginningRun: String? = null
+    private var commands: Job? = null
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
                 silence()
                 state.value?.takeIf { !it.done && !it.awaitingStart }?.let {
-                    state.value = it.copy(paused = true)
+                    state.value = it.copy(paused = true, instant = SystemClock.elapsedRealtime())
                     updateNotification(state.value!!)
                 }
             }
@@ -68,16 +81,17 @@ class TimerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        live = this
         androidx.core.content.ContextCompat.registerReceiver(this, noisyReceiver,
             IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),
             androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
         // Persist on transitions only (phase, pause, start, countdown, speed); the remaining time follows from the wall clock.
         scope.launch {
-            var saved: List<Any>? = null
+            var saved: List<Any?>? = null
             state.collect { s ->
                 if (s == null || s.done) { saved = null; return@collect }
-                val key = listOf(s.sessionId, s.index, s.paused, s.awaitingStart, s.preparing, s.speed)
-                if (key != saved) { saved = key; TimerSnapshots.save(this@TimerService, s) }
+                val key = listOf(s.sessionId, s.runId, s.index, s.paused, s.awaitingStart, s.preparing, s.speed, s.clock?.number, s.clock?.broken)
+                if (key != saved) { saved = key; TimerSnapshots.save(this@TimerService, s, wall.wallMs()) }
             }
         }
     }
@@ -85,12 +99,12 @@ class TimerService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        lastTickNanos = System.nanoTime()
+        lastTickNanos = SystemClock.elapsedRealtimeNanos()
         when (intent?.action) {
             ACTION_START -> {
                 if (continueExisting(intent.getStringExtra("sessionId") ?: "", stretch = false)) return START_STICKY
                 val phases = buildPhases(intent.getIntExtra("warmup", 0), intent.getIntExtra("work", 240), intent.getIntExtra("rest", 180), intent.getIntExtra("rounds", 4))
-                val s = TimerState(intent.getStringExtra("sessionId") ?: "", intent.getStringExtra("title") ?: "Timer", phases, remaining = phases.firstOrNull()?.seconds?.toDouble() ?: 0.0, speed = intent.getDoubleExtra("speed", 1.0), awaitingStart = true, startedAt = System.currentTimeMillis())
+                val s = TimerState(intent.getStringExtra("sessionId") ?: "", intent.getStringExtra("title") ?: "Timer", phases, remaining = phases.firstOrNull()?.seconds?.toDouble() ?: 0.0, speed = intent.getDoubleExtra("speed", 1.0), awaitingStart = true, startedAt = wall.wallMs(), runId = newId())
                 if (phases.isEmpty()) { stopSelf(); return START_NOT_STICKY }
                 finished.value = null
                 state.value = s
@@ -100,7 +114,7 @@ class TimerService : Service() {
             ACTION_START_STRETCH -> {
                 if (continueExisting(intent.getStringExtra("sessionId") ?: "", stretch = true)) return START_STICKY
                 val phases = Json.decodeFromString<List<Phase>>(intent.getStringExtra("steps") ?: "[]")
-                val s = TimerState(intent.getStringExtra("sessionId") ?: "", intent.getStringExtra("title") ?: "Stretching", phases, remaining = phases.firstOrNull()?.seconds?.toDouble() ?: 0.0, speed = intent.getDoubleExtra("speed", 1.0), stretch = true, startedAt = System.currentTimeMillis())
+                val s = TimerState(intent.getStringExtra("sessionId") ?: "", intent.getStringExtra("title") ?: "Stretching", phases, remaining = phases.firstOrNull()?.seconds?.toDouble() ?: 0.0, speed = intent.getDoubleExtra("speed", 1.0), stretch = true, startedAt = wall.wallMs(), runId = newId())
                 if (phases.isEmpty()) { stopSelf(); return START_NOT_STICKY }
                 finished.value = null
                 state.value = s
@@ -109,34 +123,36 @@ class TimerService : Service() {
             }
             ACTION_BEGIN -> {
                 val s = state.value ?: return START_NOT_STICKY
-                val next = s.begin()
-                if (next != s) { state.value = next; silence(); beep(short = true); updateNotification(next) }
+                if (s.stretch) {
+                    val next = s.beginRun(null, wall.wallMs(), SystemClock.elapsedRealtime())
+                    if (next != s) { state.value = next; silence(); beep(short = true); updateNotification(next) }
+                } else beginRun(s)
             }
-            ACTION_SKIP -> {
-                val s = state.value ?: return START_NOT_STICKY
-                if (s.done) return START_NOT_STICKY
-                silence()
-                val next = s.skip()
-                state.value = next
-                if (next.done) finish(early = false)
-                else { say("Ready for ${phaseSpeech(next)}"); updateNotification(next) }
+            ACTION_SKIP -> forLiveRun { s ->
+                if (!s.done) {
+                    silence()
+                    val next = s.skipAt(SystemClock.elapsedRealtime())
+                    state.value = next
+                    if (next.done) finish(early = false)
+                    else { say("Ready for ${phaseSpeech(next)}"); updateNotification(next) }
+                }
             }
-            ACTION_BACK -> {
-                val s = state.value ?: return START_NOT_STICKY
+            ACTION_BACK -> forLiveRun { s ->
                 val next = s.back()
                 if (next != s) { silence(); state.value = next; say("Ready for ${phaseSpeech(next)}"); updateNotification(next) }
             }
-            ACTION_PAUSE -> {
-                state.value?.takeIf { !it.done && !it.awaitingStart }?.let {
-                    state.value = it.copy(paused = true); silence(); updateNotification(state.value!!)
+            ACTION_PAUSE -> forLiveRun { s ->
+                if (!s.done && !s.awaitingStart) {
+                    state.value = s.copy(paused = true, instant = SystemClock.elapsedRealtime()); silence(); updateNotification(state.value!!)
                 }
             }
-            ACTION_RESUME -> {
-                state.value?.takeIf { it.paused && !it.awaitingStart && !it.done }?.let {
-                    state.value = it.copy(paused = false); updateNotification(state.value!!)
+            ACTION_RESUME -> forLiveRun { s ->
+                if (s.paused && !s.awaitingStart && !s.done) {
+                    lastTickNanos = SystemClock.elapsedRealtimeNanos()
+                    state.value = s.copy(paused = false, instant = lastTickNanos / 1_000_000L); updateNotification(state.value!!)
                 }
             }
-            ACTION_STOP -> finish(early = true)
+            ACTION_STOP -> if (state.value == null) finish(early = true) else forLiveRun { finish(early = true) }
             // A null intent is the system restarting the sticky service after it killed the process.
             ACTION_RESTORE, null -> restore()
         }
@@ -151,10 +167,10 @@ class TimerService : Service() {
         fun same(id: String) = if (stretch) id.substringBefore(":") == sessionId.substringBefore(":") else id == sessionId
         state.value?.takeIf { !it.done && it.stretch == stretch && same(it.sessionId) }?.let { startInForeground(it); return true }
         if (state.value != null) return false
-        val now = System.currentTimeMillis()
+        val now = wall.wallMs()
         val snap = TimerSnapshots.load(this)?.takeIf { it.state.stretch == stretch && same(it.state.sessionId) && !it.expired(now) } ?: return false
         restoring?.cancel()
-        val s = snap.advanced(now)
+        val s = snap.advancedAt(now, SystemClock.elapsedRealtime())
         finished.value = null
         state.value = s
         startInForeground(s)
@@ -163,31 +179,87 @@ class TimerService : Service() {
         return true
     }
 
-    /** Brings back the timer from its snapshot, advanced by the wall-clock time the process was dead. */
+    /**
+     * Brings back the live timer from its snapshot, advanced by the time the process was dead, then commits every
+     * pending result once. A run that reached its end while the process was dead ends as a live run does ([endRun]),
+     * and that end commits them together with its own.
+     */
     private fun restore() {
         if (state.value != null || restoring?.isActive == true) return
-        val snap = TimerSnapshots.load(this) ?: return stopIfIdle()
         val app = applicationContext as KhonApp
+        val snap = TimerSnapshots.load(this)
+        if (snap == null) { drainPending(app); return stopIfIdle() }
         restoring = scope.launch {
-            val open = runCatching { withContext(Dispatchers.IO) { stillOpen(app.repo, snap.state) } }.getOrNull() ?: return@launch stopIfIdle()
-            if (state.value != null) return@launch
-            if (!open || snap.expired(System.currentTimeMillis())) { TimerSnapshots.clear(app, snap.state.sessionId); return@launch stopIfIdle() }
-            val s = snap.advanced(System.currentTimeMillis())
-            if (s.done) {
-                // The workout ended while the process was dead: write the result the live timer would have written.
-                app.scope.launch { recordTimer(app, s); TimerSnapshots.clear(app, s.sessionId) }
-                return@launch stopIfIdle()
+            val open = runCatching { withContext(Dispatchers.IO) { stillOpen(app.repo, snap.state) } }.getOrNull()
+            val s = when {
+                open == null || state.value != null -> null
+                !open || snap.expired(wall.wallMs()) -> { TimerSnapshots.clearRun(app, snap.state); null }
+                else -> snap.advancedAt(wall.wallMs(), SystemClock.elapsedRealtime())
             }
-            // Android can refuse a foreground start from the background; the snapshot stays for the next app open.
-            if (runCatching { startInForeground(s) }.isFailure) return@launch stopIfIdle()
-            finished.value = null
-            state.value = s
-            runLoop()
-            updateNotification(s)
+            when {
+                s == null -> drainPending(app)
+                s.done -> { TimerSnapshots.save(app, s, wall.wallMs()); app.scope.launch { endRun(app, s) } }
+                // Android can refuse a foreground start from the background; the snapshot stays for the next app open.
+                runCatching { startInForeground(s) }.isFailure -> drainPending(app)
+                else -> { finished.value = null; state.value = s; runLoop(); updateNotification(s); drainPending(app) }
+            }
+            stopIfIdle()
         }
     }
 
+    private fun drainPending(app: KhonApp) { if (TimerSnapshots.hasPending(app)) app.scope.launch { drain(app.repo, app) } }
+
     private fun stopIfIdle() { if (state.value == null) stopSelf() }
+
+    /**
+     * A command that can act later than it was given (Stop, Skip, Back, Pause, Resume): it waits for the Start write
+     * and for the commands given before it, then acts only while the live run is the one it was given for. A run that
+     * got its number during the wait is the same run.
+     */
+    private fun forLiveRun(act: (TimerState) -> Unit) {
+        val given = state.value ?: return
+        val waits = listOfNotNull(beginning, commands).filter { it.isActive }
+        if (waits.isEmpty()) return act(given)
+        commands = scope.launch {
+            waits.joinAll()
+            state.value?.takeIf { sameRunId(it, given) }?.let(act)
+        }
+    }
+
+    /**
+     * The Start action of a cardio run, from the screen or the notification: the session gives the run its number,
+     * then the run begins with the anchor of that instant. Without a number (the session is gone, the write failed)
+     * it begins without a clock.
+     */
+    private fun beginRun(s: TimerState) {
+        if (s.done || !s.awaitingStart || (beginning?.isActive == true && beginningRun == s.runId)) return
+        val app = applicationContext as KhonApp
+        beginningRun = s.runId
+        beginning = scope.launch {
+            val start = runCatching { withContext(Dispatchers.IO) { app.repo.startTimerRun(s.sessionId) } }.getOrNull()
+            val current = state.value?.takeIf { sameRunId(it, s) && it.awaitingStart && !it.done } ?: return@launch
+            val elapsed = SystemClock.elapsedRealtime()
+            val next = current.beginRun(start, wall.wallMs(), elapsed)
+            lastTickNanos = elapsed * 1_000_000L
+            state.value = next; silence(); beep(short = true); updateNotification(next)
+        }
+    }
+
+    /** Ends the live timer without its result, for a Replace import or a reset; the snapshot stays. */
+    private fun halt() {
+        restoring?.cancel()
+        beginning?.cancel()
+        commands?.cancel()
+        loop?.cancel()
+        teardown?.cancel()
+        finishing = true
+        silence()
+        state.value = null
+        finished.value = null
+        wakeLock?.let { if (it.isHeld) it.release() }
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
 
     private fun runLoop() {
         loop?.cancel()
@@ -207,16 +279,17 @@ class TimerService : Service() {
             }
         }
         state.value?.takeIf { it.active }?.let { say(phaseSpeech(it)) }
-        lastTickNanos = System.nanoTime()
+        lastTickNanos = state.value?.instant?.let { it * 1_000_000L } ?: SystemClock.elapsedRealtimeNanos()
         loop = scope.launch {
             while (true) {
                 delay(50)
-                val now = System.nanoTime()
+                val now = SystemClock.elapsedRealtimeNanos()
                 val dt = (now - lastTickNanos) / 1e9
                 lastTickNanos = now
                 val before = state.value ?: break
                 if (before.done) break
-                val next = before.tick(dt)
+                val ticked = before.tickAt(dt, now / 1_000_000L)
+                val next = if (ticked.index != before.index) ticked.checkClock(wall.wallMs(), now / 1_000_000L) else ticked
                 if (next == before) continue
                 state.value = next
                 if (next.done) { finish(early = false); break }
@@ -275,19 +348,20 @@ class TimerService : Service() {
         val s = state.value
         if (s != null) {
             val elapsed = s.elapsed.toInt()
-            val done = s.copy(index = s.phases.size, remaining = 0.0)
+            val done = s.finishedAt(wall.wallMs(), SystemClock.elapsedRealtime())
             state.value = done
-            // A done snapshot until the result is written: if the process dies in between, restore writes it.
-            TimerSnapshots.save(this, done)
+            // Before any later command: a cardio result moves to the pending store, a stretch stays in the live slot.
+            TimerSnapshots.save(this, done, wall.wallMs())
             if (!early) { beep(short = false); say(if (s.stretch) "Routine done" else "All rounds done") }
             // The service writes the duration itself, so it survives even when no screen is watching.
             val app = applicationContext as KhonApp
             app.scope.launch {
-                recordTimer(app, done)
-                TimerSnapshots.clear(app, s.sessionId)
-                if (state.value?.sessionId == s.sessionId) {
-                    finished.value = FinishedTimer(s.sessionId, elapsed, early)
-                    state.value = null
+                endRun(app, done)
+                withContext(Dispatchers.Main) {
+                    if (sameRun(state.value, done)) {
+                        finished.value = FinishedTimer(s.sessionId, elapsed, early)
+                        state.value = null
+                    }
                 }
             }
         }
@@ -353,6 +427,7 @@ class TimerService : Service() {
     }
 
     override fun onDestroy() {
+        if (live === this) live = null
         unregisterReceiver(noisyReceiver)
         scope.cancel()
         tone?.release()
@@ -370,6 +445,12 @@ class TimerService : Service() {
         const val ACTION_BEGIN = "begin"; const val ACTION_RESTORE = "restore"
         val state = MutableStateFlow<TimerState?>(null)
         val finished = MutableStateFlow<FinishedTimer?>(null)
+        @Volatile private var live: TimerService? = null
+        /** The wall clock of every clock fact the service takes; elapsed realtime comes from [SystemClock]. */
+        @Volatile internal var wall: Clocks = SystemClocks
+
+        /** Stops the live timer without writing its result ([halt]); its snapshot stays. */
+        suspend fun halt() = withContext(Dispatchers.Main.immediate) { live?.halt() ?: run { state.value = null } }
 
         fun start(context: Context, sessionId: String, title: String, warmup: Int, work: Int, rest: Int, rounds: Int, speed: Double = 1.0) {
             val i = Intent(context, TimerService::class.java).setAction(ACTION_START)
@@ -390,10 +471,80 @@ class TimerService : Service() {
     }
 }
 
-/** Writes the timer result: the stretch session, or the cardio duration. Repeating it for the same state changes nothing. */
-internal suspend fun recordTimer(app: KhonApp, s: TimerState) = runCatching {
-    if (s.stretch) stretchResult(s, java.time.LocalDate.now())?.let { app.repo.recordStretchSession(it) } // written once per session id
-    else app.repo.setSessionTime(s.sessionId, s.elapsed.toInt()) // Only the duration: an effort or note typed meanwhile stays.
+/**
+ * The end of a run, live or restored, after [TimerSnapshots.save] took it out of the live slot in memory. A stretch run
+ * writes its session and clears its own snapshot. A cardio result is staged on disk ([TimerSnapshots.stage], tried
+ * again when the write fails), then every pending result commits ([drain]). False when the result could not be
+ * staged: the live snapshot on disk then brings the run back at the next start. Repeating it for the same state
+ * changes nothing.
+ */
+internal suspend fun endRun(app: KhonApp, s: TimerState): Boolean = endRun(app.repo, app, s)
+
+internal suspend fun endRun(repo: KhonRepository, context: Context, s: TimerState, retryMs: Long = STAGE_RETRY_MS): Boolean {
+    if (s.stretch) {
+        runCatching { stretchResult(s, java.time.LocalDate.now())?.let { repo.recordStretchSession(it) } } // written once per session id
+        TimerSnapshots.clearRun(context, s)
+        return true
+    }
+    if (PendingRun.of(s) == null) return true
+    repeat(STAGE_TRIES) { attempt ->
+        if (attempt > 0) delay(retryMs)
+        if (withContext(Dispatchers.IO) { TimerSnapshots.stage(context, s) }) {
+            drain(repo, context)
+            return true
+        }
+    }
+    return false
+}
+
+private const val STAGE_TRIES = 5
+private const val STAGE_RETRY_MS = 500L
+private const val DRAIN_PASSES = 3
+private val draining = Mutex()
+
+/** A cardio run's end: its result; once the outcome settles, only this run's pending entry and live snapshot go. */
+internal suspend fun recordRun(repo: KhonRepository, context: Context, s: TimerState, generation: Long?): TimerCommit =
+    repo.endTimerRun(generation) { EndedRun(s.runResult()) { TimerSnapshots.settle(context, s); TimerSnapshots.clearRun(context, s) } }
+
+internal suspend fun commitPending(app: KhonApp): List<TimerCommit> = drain(app.repo, app)
+
+/**
+ * Commits every pending result, one drain at a time. A result refused because an import or a reset ran meanwhile
+ * ([TimerCommit.RETRY]) is tried again in the same drain, against the data that import left.
+ */
+internal suspend fun drain(repo: KhonRepository, context: Context): List<TimerCommit> = draining.withLock {
+    val outcomes = mutableListOf<TimerCommit>()
+    var passes = 0
+    do {
+        val pass = commitPass(repo, context)
+        outcomes += pass
+        passes++
+    } while (TimerCommit.RETRY in pass && passes < DRAIN_PASSES)
+    outcomes
+}
+
+/** One pass over the pending results, the outcome of each result tried. */
+internal suspend fun commitPending(repo: KhonRepository, context: Context): List<TimerCommit> = draining.withLock { commitPass(repo, context) }
+
+/**
+ * Commits the pending results in the order their runs ended. A result of a session whose earlier result did not
+ * settle waits for it, so two results of one session commit in the order of their ends.
+ */
+private suspend fun commitPass(repo: KhonRepository, context: Context): List<TimerCommit> {
+    val unsettled = mutableSetOf<String>()
+    return TimerSnapshots.pending(context).mapNotNull { entry ->
+        if (entry.sessionId in unsettled) return@mapNotNull null
+        repo.endTimerRun { TimerSnapshots.pending(context).find { it == entry }?.let { EndedRun(it.result()) { TimerSnapshots.settle(context, it) } } }
+            .also { if (!it.settled) unsettled += entry.sessionId }
+    }
+}
+
+/** The timer as [KhonRepository] stops and clears it for a Replace import and a reset. */
+class ServiceTimerControl(private val context: Context) : TimerControl {
+    override suspend fun halt() = TimerService.halt()
+    override fun clear() = TimerSnapshots.clearAll(context)
+    override fun resume() = TimerService.restore(context)
+    override fun resultPending(): Boolean = TimerService.wall.let { TimerSnapshots.resultPending(context, it.wallMs(), it.elapsedMs()) }
 }
 
 /**

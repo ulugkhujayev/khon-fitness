@@ -193,4 +193,4 @@ message.
 
 - D13: the 1,100 days are the range the store asks for. Health Connect gives an app the records from 30 days before the app's first Health Connect permission on.
 - D13: calls at one time share one read, also forced calls. `refreshAfterChange()` is for a permission grant: the calls that arrive during one read share one more read after it.
-- Declined by the lead: the 2 dp minimum height of a chart bar stays, so that every night with data shows; `HealthImport.status` (one status for a missing and an outdated provider) is not changed by this branch.
+- A chart bar is at least 1 px high and else proportional. A phone with no Health Connect app reads as "not installed", one with an old app as "update" (`HealthImport.status`).

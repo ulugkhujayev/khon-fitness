@@ -173,6 +173,7 @@ private fun NightBars(days: List<Pair<LocalDate, Night?>>, today: LocalDate, ses
     val tickStyle = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     val labels = ticks.map { measurer.measure(nightAxisLabel(it), tickStyle) }
     val axis = with(LocalDensity.current) { axisWidth(labels.map { it.size.width.toFloat() }, AXIS_GAP.toPx()).toDp() }
+    val onePx = with(LocalDensity.current) { 1.toDp() }
     Box(modifier.fillMaxWidth().testTag(NIGHTS_CHART_TAG)) {
         Canvas(Modifier.matchParentSize()) {
             val plotH = PLOT_HEIGHT.toPx()
@@ -193,7 +194,7 @@ private fun NightBars(days: List<Pair<LocalDate, Night?>>, today: LocalDate, ses
                 ) {
                     Box(Modifier.fillMaxWidth().height(PLOT_HEIGHT), contentAlignment = Alignment.BottomCenter) {
                         if (night != null) {
-                            val h = (PLOT_HEIGHT * (night.asleepSec / (top * 3600f))).coerceIn(2.dp, PLOT_HEIGHT)
+                            val h = (PLOT_HEIGHT * (night.asleepSec / (top * 3600f))).coerceIn(onePx, PLOT_HEIGHT)
                             Box(Modifier.width(BAR_WIDTH).height(h).testTag(nightFillTag(day)).clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)).background(K.Night))
                         }
                     }

@@ -107,7 +107,8 @@ class StretchPhotoPixelsTest {
         until("the photo loads to pause") { lock.tryLock() }
         try {
             compose.runOnIdle { motion.floatValue = 0.5f }
-            repeat(5) {
+            // Longer than the 300 ms fade, as on a phone where the decode is slow.
+            repeat(30) {
                 frame()
                 assertTrue("frame $it while the hold photo loads is empty", brightness(photoArea("World's greatest stretch")) > lit)
             }

@@ -39,3 +39,12 @@ Both findings are test gaps. No production code changed.
 The two witness runs of the lead at `4f5a2f6` did not run their tests: each stopped at its own guard "less than 30 GiB free" (30.4 GB were free, which is 28.3 GiB). Their receipts say `reproduces` for that reason only. The lead confirmed both findings by reading and with the breaks above.
 
 Sol's protocol notes: the task keeps class Normal (two display rules and one manifest flag, no stored data). The rows S4 and S5 are kept behavior; their tests pass on both heads, and the task's break rule applies to S1 to S3 and S6 only.
+
+## Verify round R2
+
+Sol read the fix and found no defect in it. It gave `open` only because no `fixed` witness record existed yet, and it reported N1: witness F1 rejected the `ComparisonFailure` of the root check. The lead changed that one test in the witness file (it accepts `AssertionError` and `ComparisonFailure`), as Sol asked.
+
+Witness runs at `a0bfe0b` (ran, 31.3 GiB free):
+
+- `WITNESS F1 fixed at=a0bfe0b2101b receipt=r-20261127043646-db68bf`. Log: the baseline passed, and `BackupOffTest` rejected both breaks.
+- `WITNESS F2 fixed at=a0bfe0b2101b receipt=r-20261127043716-d6606a`. Log: the baseline passed, and the new test rejected the reversed order.

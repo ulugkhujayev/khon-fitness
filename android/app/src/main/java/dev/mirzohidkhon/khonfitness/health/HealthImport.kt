@@ -52,9 +52,19 @@ object HealthImport {
 
     fun status(context: Context): HcStatus = when (HealthConnectClient.getSdkStatus(context)) {
         HealthConnectClient.SDK_AVAILABLE -> HcStatus.AVAILABLE
-        HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> HcStatus.UPDATE_REQUIRED
+        HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> if (providerInstalled(context)) HcStatus.UPDATE_REQUIRED else HcStatus.NOT_INSTALLED
         else -> HcStatus.NOT_INSTALLED
     }
+
+    /** Health Connect reports one status for a provider app that is missing and one that is too old. */
+    private fun providerInstalled(context: Context): Boolean = try {
+        context.packageManager.getPackageInfo(PROVIDER_PACKAGE, 0)
+        true
+    } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+        false
+    }
+
+    private const val PROVIDER_PACKAGE = "com.google.android.apps.healthdata"
 
     fun client(context: Context): HealthConnectClient = HealthConnectClient.getOrCreate(context)
 

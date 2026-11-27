@@ -13,6 +13,8 @@ there is no progress to look at.
 
 - Kotlin, Jetpack Compose, Material 3, dark theme only, English only.
 - Room (SQLite) on the phone. No server. minSdk 28 (Health Connect floor).
+- Health Connect is read only. The app reads exercise sessions, heart rate,
+  distance, and sleep sessions. It writes nothing back.
 - Signed APK on GitHub releases. Same keystore every release.
 - Repo: `personal/khon-fitness`. Package id `dev.mirzohidkhon.khonfitness`.
 
@@ -723,6 +725,56 @@ weeks: up to a quarter is step 1, up to a half step 2, up to three
 quarters step 3, and above that step 4. When the highest day is 0, every
 day with a load is step 1. The app computes loads when it shows them and
 stores none.
+
+## Nights
+
+The app reads the band's sleep sessions from Health Connect and shows the
+night before each day next to the training. It shows facts only: no score,
+no verdict word, no color that judges a night, no advice, no target, no
+notification. It asks for the sleep permission on its own, apart from the
+Import permissions.
+
+The rules, in short:
+
+- A night belongs to day D when the middle of its session falls between
+  18:00 of D-1 and 12:00 of D, local time. A session with its middle from
+  12:00 to 18:00 is a nap and counts for no night.
+- Asleep time is the session time minus its awake stages. Two sessions of
+  one app in one night count shared time once. When two apps wrote the same
+  night, the app with more asleep time wins; the app never adds them.
+- A session longer than 24 hours, and a night under one minute, count for
+  nothing.
+- Lengths read "7 h 05 m", or "45 m" under an hour.
+
+Nights are not stored in the app and not in the backup. The app reads the
+last 1,100 days again after each start and at most every 5 minutes after a
+good read. The 1,100 days are the range the app asks for. Health
+Connect gives an app the records from 30 days before the app's first Health
+Connect permission on, so the nights start there and grow.
+
+The nights show in three places:
+
+- **Log.** Each day of the week gets one muted line under its last row and
+  its stretch lines: "Night 7 h 05 m · 23:10 – 06:15". A day from the first
+  night up to today without a night reads "No night data". Days before the
+  first night and later days have no line. Without access, before the first
+  read, or after a failed read with no nights loaded before, the Log has no
+  night line at all. A failed read after a good one keeps the nights that
+  were loaded.
+- **Nights screen.** The row "Nights" on Progress, under "Compare two
+  periods", opens it. Without Health Connect, with an old Health Connect, or
+  without the sleep permission, it shows the same card as Heart rate data,
+  and Allow asks for the sleep permission only. A failed read shows "Could
+  not read Health Connect" with "Try again". With no night at all it reads
+  "No night data. Health Connect has no sleep sessions." With nights it
+  shows the average and the shortest of the 14 days that end today, a bar
+  per night with a dot per finished session of that day (two at most), and
+  "Night before a session · last 8 weeks": the average night per session
+  title with its count.
+- **Review and Compare.** Review shows "Night before" and "Asleep" after the
+  heart picture when the session's day has a night. Compare shows the group
+  "Nights" ("Sleep per night", "Nights with data") when either period has a
+  night.
 
 ## Day plan
 

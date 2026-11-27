@@ -754,3 +754,27 @@ sessions but no load is Surface with a 1 px muted outline, and a day
 without a session is Surface. Rows sit 2 px apart and grow with a large
 font. Nothing is tappable, the whole page scrolls, and each row speaks as
 one line ("Week of November 23, load 412, 4 days").
+
+The Nights screen (the "Nights" row under "Compare two periods", a plain
+row with a chevron) has the nav bar "Nights" with Back. One group holds two
+figures side by side, each a 24 bold length over a muted caption: the
+average on the left ("average · last 14 nights", or "average · 11 of 14
+nights"), the shortest on the right ("shortest · Nov 3"). With no night in
+the 14 days each figure is a dash. Under them sits the bar chart of the 14
+days, oldest left. Every bar is indigo (`K.Night`, #5E5CE6), 10 px wide with
+4 px top corners, one color for every night. The axis starts at 0 and ends
+at the next 2 hours at or above the longest night, 8 hours at least. Dashed
+guide lines with muted 12 labels ("0 h", "4 h", "8 h") follow the other
+charts. Under each bar is its weekday letter in muted 12, today in bold
+accent, and under the letter up to two 6 px dots in the colors of that
+day's finished sessions. A day without a night has no bar. Each day speaks
+as one element ("Tuesday, November 3, 5 hours 40 minutes, GYM"). The
+section "Night before a session · last 8 weeks" follows with one row per
+title: the title, and on the right the length over a muted count ("7
+nights"). Missing access, a failed read, and no data reuse the Heart rate
+data card, a card with "Try again", and one muted line.
+
+The Log's night line uses the style of the stretch lines (muted, small,
+tabular) and may wrap. Review's "Night before" and "Asleep" rows sit in one
+group after the heart picture; the length is white and the clock range
+muted. Compare's "Nights" values use the color of every other value.

@@ -397,6 +397,14 @@ Two lines, 88 px total, hairline between rows.
   reading "skipped" in muted; cardio shows its values as label/value rows.
   A session with heart rate adds "avg 128 · max 164 bpm" in muted under
   the stats line. History's entry keeps Edit.
+- A finished session opened from History opens Review from one list row,
+  "Review" with a chevron, in its own group: the first item of the gym
+  session (not in Edit mode), and the first group of the cardio form
+  while nothing is typed. The value is Review's heart rate line in body
+  muted; no line, no value. When the title and the value do not fit on
+  one line (360 px at font scale 1.3 with "avg 188 · max 201 bpm"), the
+  value goes under the title, as list rows do at font scale 1.5. Review's
+  back button is spoken "Today" over Today and "History" over a session.
 - 16 px gap. One group of 64 px rows sized for the home screen: the
   symbol in a 40 px circle of its color like the item card's, the name
   17/600 over a line of state 15 muted (green when it is good news), a

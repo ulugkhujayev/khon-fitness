@@ -194,3 +194,4 @@ message.
 - D13: the 1,100 days are the range the store asks for. Health Connect gives an app the records from 30 days before the app's first Health Connect permission on.
 - D13: calls at one time share one read, also forced calls. `refreshAfterChange()` is for a permission grant: the calls that arrive during one read share one more read after it.
 - A chart bar is at least 1 px high and else proportional. A phone with no Health Connect app reads as "not installed", one with an old app as "update" (`HealthImport.status`).
+- D13, after verify round 3: the store has one worker. A source that cancels only its own read (a timeout) gives a failed read; the worker goes on and keeps a read that a permission grant asked for. Only a cancel of the store's own scope ends the worker. Tests: `NightStoreChangeReadTest` (two tests), and the one-read test of `NightStoreTest` starts its later calls before it releases the first read.

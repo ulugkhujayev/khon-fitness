@@ -270,12 +270,16 @@ measured values only and names the rate it used. Each date comes from the
 exact rate, not its rounded text.
 
 For an exercise, the first session on or after the entry date at or above
-the target is "Reached" with that session's date. Else the app fits the
+the target is "Reached" with that session's date. Else, when the newest
+valued session is more than 28 days before today, the row reads "No session
+since Nov 3" (that session's date) with no rate and no date. Else the app fits the
 least-squares line of "Est. 1RM per week" through the valued sessions of
 the last 56 days (today and the 55 days before). It needs 3 such sessions
 over 14 days or more; else it shows no second row. A slope at or below
-zero, or a rate that prints "±0.0", is "Not at this rate". Else the date is
-the first day from today on which the line is at or above the target, or
+zero, or a rate that prints "±0.0", is "Not at this rate". A line that is at
+or above the target today, or was there on an earlier day, gives "No date"
+next to the rate, because no session reached the target. Else the date is
+the first day after today on which the line is at or above the target, or
 "More than 2 years" when that day is more than 730 days away.
 
 For bodyweight, the direction is the sign of the target minus the exact

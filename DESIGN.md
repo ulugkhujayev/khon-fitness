@@ -505,15 +505,17 @@ Two lines, 88 px total, hairline between rows.
   muted. A tap opens the sheet. The second row shows only with a target
   and a result, and does not open anything: "At +0.4 kg/week" (or
   "reps/week") with "Mar 14" ("Mar 14, 2027" in another year), "More than
-  2 years", or "Not at this rate" on the right; or "Reached" with the
-  session date ("Reached" alone for bodyweight). Label and value are white
+  2 years", "Not at this rate", or "No date" on the right; or "Reached"
+  with the session date ("Reached" alone for bodyweight); or "No session
+  since Nov 3" alone. Label and value are white
   body text with tabular figures. "kg/week" never breaks at the slash. No
   green or red, no arrows, no progress bar, no verdict words. TalkBack
   reads each row as one line in full words: "Target, 100 kilograms,
   button", "Target, not set, button", "At plus 0.4 kilograms per week,
   March 14, 2027", "Reached, November 20", "At plus 12.5 kilograms per
-  week, more than 2 years". A "Not at this rate" row speaks "Not at this
-  rate" only.
+  week, more than 2 years", "At plus 1.0 kilograms per week, no date",
+  "No session since November 3". A "Not at this rate" row speaks "Not at
+  this rate" only.
 
 ## Stretch player
 

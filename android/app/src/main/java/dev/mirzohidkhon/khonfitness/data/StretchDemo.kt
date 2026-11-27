@@ -32,6 +32,16 @@ data class StretchDemo(
     fun exercisePose(motion: Float?): String =
         if (motion == null || reps.size < 2) steps.last().pose else reps[if (motion >= 0.5f) 1 else 0]
 
+    /**
+     * The poses a panel may show: in the preview those its steps name; during the exercise the two rep poses when it
+     * runs in [reps], else the hold pose.
+     */
+    fun shownPoses(preview: Boolean, reps: Boolean): List<String> = when {
+        preview -> steps.map { it.pose }.distinct()
+        reps -> listOf(exercisePose(0f), exercisePose(1f)).distinct()
+        else -> listOf(exercisePose(null))
+    }
+
     /** The instruction during the exercise: the last step that shows the pose on screen. */
     fun exerciseStep(motion: Float?): Int {
         if (motion == null || reps.size < 2) return steps.lastIndex

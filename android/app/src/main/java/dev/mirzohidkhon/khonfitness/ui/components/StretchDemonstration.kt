@@ -48,12 +48,17 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
+/** Empty when the file is missing, so every stretch shows that it has no demonstration. */
+internal fun readDemoGuides(context: Context, path: String): Map<String, StretchDemo> = try {
+    context.assets.open(path).bufferedReader().use { Json.decodeFromString<Map<String, StretchDemo>>(it.readText()) }
+} catch (e: java.io.IOException) {
+    emptyMap()
+}
+
 private object DemoCatalog {
     @Volatile private var cached: Map<String, StretchDemo>? = null
     fun read(context: Context): Map<String, StretchDemo> = cached ?: synchronized(this) {
-        cached ?: context.assets.open("stretch_demos/guides.json").bufferedReader().use {
-            Json.decodeFromString<Map<String, StretchDemo>>(it.readText())
-        }.also { cached = it }
+        cached ?: readDemoGuides(context, "stretch_demos/guides.json").also { cached = it }
     }
 }
 
@@ -66,6 +71,9 @@ val ShownDemoPhoto = SemanticsPropertyKey<String>("ShownDemoPhoto")
 private var SemanticsPropertyReceiver.shownDemoPhoto by ShownDemoPhoto
 
 private data class DemoPhoto(val path: String, val image: ImageBitmap)
+
+/** What the panel and the instruction under it show together; [photo] is null when its file is missing. */
+private data class DemoFrame(val photo: DemoPhoto?, val instruction: String, val description: String)
 
 /** Full color avoids banding in the studio background. Null when the file is missing or is no picture. */
 internal fun decodePhoto(context: Context, path: String, sample: Int): ImageBitmap? = try {
@@ -80,66 +88,63 @@ internal fun decodePhoto(context: Context, path: String, sample: Int): ImageBitm
 }
 
 /**
- * Holds only the photos of one stretch in one view: a load for another stretch or view drops them. [last] lets a new
- * panel start on the photo shown before it. Everything goes a second after the last panel leaves (the gap covers a
+ * Holds only the photos a panel may show next ([load]'s set): a load with another set drops the others. [last] lets a
+ * new panel start on the frame shown before it. Everything goes a second after the last panel leaves (the gap covers a
  * phase change, which disposes one panel before the next appears). Decodes run one at a time.
  */
 private object DemoPhotos {
     private val lock = Mutex()
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
     private var panels = 0
-    private var set = ""
+    private var set = emptySet<String>()
     private val held = HashMap<String, ImageBitmap>()
-    @Volatile var last: DemoPhoto? = null
+    @Volatile var last: DemoFrame? = null
         private set
 
     fun peek(path: String): DemoPhoto? = synchronized(held) { held[path] }?.let { DemoPhoto(path, it) }
 
-    suspend fun load(context: Context, set: String, path: String): DemoPhoto? = lock.withLock {
+    suspend fun load(context: Context, set: Set<String>, path: String): DemoPhoto? = lock.withLock {
+        synchronized(held) { if (panels > 0 && this.set != set) { held.keys.retainAll(set); this.set = set } }
         peek(path) ?: withContext(Dispatchers.IO) { decodePhoto(context, path, 1) }?.let { image ->
-            synchronized(held) {
-                if (panels > 0) {
-                    if (this.set != set) { held.clear(); this.set = set }
-                    held[path] = image
-                }
-            }
+            synchronized(held) { if (panels > 0 && this.set == set && path in set) held[path] = image }
             DemoPhoto(path, image)
         }
     }
 
-    fun shown(photo: DemoPhoto) { if (panels > 0) last = photo }
+    fun shown(frame: DemoFrame) { if (panels > 0) last = frame }
     fun enter() { panels++ }
     fun leave() {
-        if (--panels == 0) main.postDelayed({ if (panels == 0) synchronized(held) { held.clear(); set = ""; last = null } }, 1000)
+        if (--panels == 0) main.postDelayed({ if (panels == 0) synchronized(held) { held.clear(); set = emptySet(); last = null } }, 1000)
     }
 }
 
 /**
- * A black panel with the photo fitted inside it, never cropped or stretched. Decodes off the main thread; until the
- * new photo is ready the previous one stays, then the two cross-fade, so the panel never flashes empty.
+ * The frame for [path] with its texts. Decodes off the main thread; until the photo is ready the previous frame stays,
+ * photo and texts together, so the panel never flashes empty and the texts never describe a photo not yet shown.
  */
 @Composable
-private fun DemoPanel(figure: String, pose: String, view: DemoView, mirror: Boolean, description: String,
-    modifier: Modifier) {
+private fun rememberDemoFrame(path: String, set: Set<String>, instruction: String, description: String): DemoFrame {
     val context = LocalContext.current
-    val path = demoPhotoPath(figure, pose, view)
-    val set = "$figure-${view.file}"
     DisposableEffect(Unit) { DemoPhotos.enter(); onDispose { DemoPhotos.leave() } }
     // A cancelled load never assigns, so a late photo of the previous pose or view is never drawn as the new one.
-    val photo by produceState(DemoPhotos.peek(path) ?: DemoPhotos.last, path) {
-        DemoPhotos.load(context, set, path)?.let { value = it }
+    val loaded by produceState(DemoPhotos.peek(path)?.let { DemoFrame(it, instruction, description) } ?: DemoPhotos.last,
+        path, instruction, description) {
+        value = DemoFrame(DemoPhotos.load(context, set, path), instruction, description)
     }
-    SideEffect { photo?.let(DemoPhotos::shown) }
-    LaunchedEffect(set) {
-        DemoCatalog.read(context)[figure]?.let { guide ->
-            (guide.steps.map { it.pose } + guide.reps).distinct().forEach { DemoPhotos.load(context, set, demoPhotoPath(figure, it, view)) }
-        }
-    }
+    LaunchedEffect(set) { set.forEach { DemoPhotos.load(context, set, it) } }
+    val frame = loaded.let { if (it == null || it.photo?.path == path) DemoFrame(it?.photo, instruction, description) else it }
+    SideEffect { DemoPhotos.shown(frame) }
+    return frame
+}
+
+/** A black panel with the photo fitted inside it, never cropped or stretched; a new photo cross-fades in. */
+@Composable
+private fun DemoPanel(frame: DemoFrame, mirror: Boolean, modifier: Modifier) {
     Box(modifier.clip(RoundedCornerShape(16.dp)).background(Color.Black).semantics {
-        contentDescription = description
-        photo?.let { shownDemoPhoto = it.path + if (mirror) " mirrored" else "" }
+        contentDescription = frame.description
+        frame.photo?.let { shownDemoPhoto = it.path + if (mirror) " mirrored" else "" }
     }) {
-        Crossfade(photo, animationSpec = tween(300), label = "demo photo") { shown ->
+        Crossfade(frame.photo, animationSpec = tween(300), label = "demo photo") { shown ->
             if (shown != null) DemoImage(shown.image, mirror)
         }
     }
@@ -211,13 +216,17 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
     val playStep by remember(guide) { derivedStateOf { guide.previewStep(elapsedMs) } }
     val step = when { !preview -> guide.exerciseStep(exerciseProgress); playing -> playStep; else -> manualStep }
     val pose = if (preview) guide.steps[step].pose else guide.exercisePose(exerciseProgress)
-    val instruction = guide.steps[step].instruction.forDemoSide(mirror)
+    val set = remember(guide, view, preview, exerciseProgress == null) {
+        guide.shownPoses(preview, reps = exerciseProgress != null).map { demoPhotoPath(figure, it, view) }.toSet()
+    }
+    val target = guide.steps[step].instruction.forDemoSide(mirror)
+    val frame = rememberDemoFrame(demoPhotoPath(figure, pose, view), set, target, "${guide.name}. ${guide.steps[step].title}. $target")
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         val panel = if (maxPanelHeight == null) Modifier.height(208.dp)
             else Modifier.weight(1f, fill = false).heightIn(min = DEMO_PANEL_MIN_HEIGHT, max = maxPanelHeight.coerceAtLeast(DEMO_PANEL_MIN_HEIGHT)).fillMaxHeight()
         Box(panel.fillMaxWidth()) {
             // Sized by the box, so the photo's own size never counts toward the minimum the player reserves for it.
-            DemoPanel(figure, pose, view, mirror, "${guide.name}. ${guide.steps[step].title}. $instruction", Modifier.matchParentSize())
+            DemoPanel(frame, mirror, Modifier.matchParentSize())
             // Over the image's bottom corners, 10 dp in (6 dp and the 48 dp target's edge), like a video player's controls.
             Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 if (preview) DemoControl(if (playing) Icons.Pause else Icons.Play, if (playing) "Pause demo" else "Play demo") {
@@ -237,7 +246,7 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
         val style = MaterialTheme.typography.bodyLarge
         val measurer = rememberTextMeasurer()
         val threeLines = with(LocalDensity.current) { remember(style, this) { measurer.measure("1\n2\n3", style).size.height.toDp() } }
-        Text(instruction, color = K.Text, style = style, minLines = 3,
+        Text(frame.instruction, color = K.Text, style = style, minLines = 3,
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp).heightIn(min = threeLines), textAlign = TextAlign.Start)
     }
 }

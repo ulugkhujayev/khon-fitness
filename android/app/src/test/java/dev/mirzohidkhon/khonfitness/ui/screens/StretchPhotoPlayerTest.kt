@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
@@ -39,6 +40,7 @@ import dev.mirzohidkhon.khonfitness.ui.theme.KhonTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -171,6 +173,98 @@ class StretchPhotoPlayerTest {
         everyFrame(demoPhotoPath("wgs", "hold", DemoView.FRONT))
         figure = "plow"
         everyFrame(demoPhotoPath("plow", "start", DemoView.SIDE))
+    }
+
+    private fun cache(name: String): Any = Class.forName("dev.mirzohidkhon.khonfitness.ui.components.DemoPhotos")
+        .getDeclaredField(name).apply { isAccessible = true }.get(null)
+
+    private fun held(): Set<String> = (cache("held") as Map<*, *>).let { synchronized(it) { it.keys.map { k -> k as String }.toSet() } }
+
+    /** Runs [block] while no photo can load, as if every decode were still running. */
+    private fun <T> loadsWait(block: () -> T): T {
+        val lock = cache("lock") as Mutex
+        until("the photo loads to pause") { lock.tryLock() }
+        try { return block() } finally { lock.unlock() }
+    }
+
+    /** The shown photo, the panel's spoken text, and the instruction under it all belong to one step of [key]. */
+    private fun onePair(key: String, view: DemoView = DemoView.SIDE): Int {
+        val guide = guides.getValue(key)
+        val step = guide.steps.indexOfLast { description().endsWith("${it.title}. ${it.instruction}") }
+        assertTrue("no step has the text ${description()}", step >= 0)
+        assertEquals("the photo of '${description()}'", demoPhotoPath(key, guide.steps[step].pose, view), shown())
+        assertTrue("the instruction under the photo of step $step",
+            compose.onAllNodesWithText(guide.steps[step].instruction).fetchSemanticsNodes().isNotEmpty())
+        return step
+    }
+
+    @Test fun `the instruction and the spoken text change with the photo, not before it`() {
+        val wgs = guides.getValue("wgs")
+        var preview by mutableStateOf(false)
+        val motion = mutableFloatStateOf(0.49f)
+        compose.mainClock.autoAdvance = false
+        compose.setContent { KhonTheme { key(preview) { StretchDemonstration("wgs", preview = preview, exerciseProgress = motion.floatValue) } } }
+        showing("wgs", "start")
+        assertEquals(1, onePair("wgs"))
+        loadsWait {
+            compose.runOnIdle { motion.floatValue = 0.5f }
+            repeat(5) { frame(); assertEquals(1, onePair("wgs")) }
+        }
+        until("the hold photo") { frame(); onePair("wgs") == 2 }
+        assertEquals(demoPhotoPath("wgs", "hold", DemoView.SIDE), shown())
+
+        preview = true
+        frame()
+        tap("Pause demo")
+        tap("Step 1: ${wgs.steps[0].title}")
+        until("the start photo") { onePair("wgs") == 0 }
+        loadsWait {
+            tap("Step 3: ${wgs.steps[2].title}")
+            repeat(5) { frame(); assertEquals(0, onePair("wgs")) }
+        }
+        until("the hold photo of step 3") { frame(); onePair("wgs") == 2 }
+        tap("Step 2: ${wgs.steps[1].title}")
+        until("step 2") { onePair("wgs") == 1 }
+        loadsWait {
+            tap("Change camera angle. View 1 of 2")
+            repeat(5) { frame(); assertEquals(1, onePair("wgs")) }
+        }
+        until("the front photo of step 2") { frame(); shown() == demoPhotoPath("wgs", "start", DemoView.FRONT) }
+        assertEquals(1, onePair("wgs", DemoView.FRONT))
+    }
+
+    @Test fun `the cache holds only the poses the panel can show next`() {
+        var preview by mutableStateOf(true)
+        compose.mainClock.autoAdvance = false
+        compose.setContent { KhonTheme { StretchDemonstration("catcow", preview = preview, exerciseProgress = 0f) } }
+        fun paths(view: DemoView, vararg poses: String) = poses.map { demoPhotoPath("catcow", it, view) }.toSet()
+        val previewSide = paths(DemoView.SIDE, "setup", "start", "hold")
+        until("the preview poses") { held() == previewSide }
+
+        fun within(allowed: Set<String>, what: String, done: () -> Boolean) {
+            repeat(250) {
+                val now = held()
+                assertTrue("$what: held $now, allowed $allowed", allowed.containsAll(now) && now.size <= 2)
+                if (done()) return
+                frame(); Thread.sleep(10)
+            }
+            throw AssertionError("$what never settled: held ${held()}")
+        }
+        preview = false
+        frame()
+        val repSide = paths(DemoView.SIDE, "start", "hold")
+        until("the setup photo to go") { frame(); held() == repSide }
+        tap("Change camera angle. View 1 of 2")
+        val repFront = paths(DemoView.FRONT, "start", "hold")
+        within(repSide + repFront, "the change to the front view") { held() == repFront && shown() == demoPhotoPath("catcow", "start", DemoView.FRONT) }
+        tap("Change camera angle. View 2 of 2")
+        within(repSide + repFront, "the change back to the side view") { held() == repSide && shown() == demoPhotoPath("catcow", "start", DemoView.SIDE) }
+    }
+
+    @Test fun `a guide file that is missing reads as no demonstrations`() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        assertEquals(emptyMap<String, StretchDemo>(), dev.mirzohidkhon.khonfitness.ui.components.readDemoGuides(context, "stretch_demos/missing.json"))
+        assertEquals(guides, dev.mirzohidkhon.khonfitness.ui.components.readDemoGuides(context, "stretch_demos/guides.json"))
     }
 
     @Test fun `a photo file that is missing decodes to nothing`() {

@@ -84,7 +84,7 @@ class Targets(private val store: DataStore<Preferences>) {
         val kept = start?.takeIf { entryAverageValid(it) && storedNumber(it.sum.toPlainString()) != null }
         write {
             if (kg == null) it.remove(BODY_KEY)
-            else if (!keepEqual || readBody(it[BODY_KEY])?.kg?.compareTo(kg) != 0)
+            else if (!keepEqual || readBody(it.asMap()[BODY_KEY] as? String)?.kg?.compareTo(kg) != 0)
                 it[BODY_KEY] = listOf(kg.setScale(1, RoundingMode.UNNECESSARY).toPlainString(), kept?.sum?.toPlainString().orEmpty(), kept?.count?.toString().orEmpty(), date.toString()).joinToString(SEP)
         }
         return true
@@ -95,9 +95,9 @@ class Targets(private val store: DataStore<Preferences>) {
         if (value != null && !liftTargetValid(value, reps)) return false
         val key = liftKey(exerciseId)
         write {
-            val old = readLift(it[key])
+            val old = if (keepEqual) readLift(it.asMap()[key] as? String) else null
             if (value == null) it.remove(key)
-            else if (!keepEqual || old == null || old.reps != reps || old.value.compareTo(value) != 0)
+            else if (old == null || old.reps != reps || old.value.compareTo(value) != 0)
                 it[key] = listOf(if (reps) REPS else KG, plain(value), date.toString()).joinToString(SEP)
         }
         return true

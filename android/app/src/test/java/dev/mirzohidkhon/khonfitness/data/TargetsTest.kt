@@ -139,6 +139,22 @@ class TargetsTest {
         assertEquals(LiftTarget(BigDecimal(100), false, LocalDate.MAX), targets.lift("bench").first())
     }
 
+    @Test fun aSaveReplacesOrRemovesAStoredValueOfAnotherType() = runBlocking {
+        val liftKey = intPreferencesKey(Targets.liftKey("bench").name)
+        val bodyKey = intPreferencesKey(Targets.BODY_KEY.name)
+        for (keepEqual in listOf(false, true)) {
+            store.edit { it[liftKey] = 7; it[bodyKey] = 7 }
+            assertTrue(targets.setLift("bench", BigDecimal(100), reps = false, date = day, keepEqual = keepEqual))
+            assertEquals(LiftTarget(BigDecimal(100), false, day), targets.lift("bench").first())
+            assertTrue(targets.setBody(BigDecimal("80.0"), null, day, keepEqual = keepEqual))
+            assertEquals(BodyTarget(BigDecimal("80.0"), null, day), targets.body.first())
+            store.edit { it[liftKey] = 7; it[bodyKey] = 7 }
+            assertTrue(targets.setLift("bench", null, reps = false, date = day, keepEqual = keepEqual))
+            assertTrue(targets.setBody(null, null, day, keepEqual = keepEqual))
+            assertTrue(store.data.first().asMap().keys.none { it.name == liftKey.name || it.name == bodyKey.name })
+        }
+    }
+
     @Test fun writesLandInTheOrderOfTheirCalls() = runBlocking {
         repeat(200) { i ->
             val first = launch(start = CoroutineStart.UNDISPATCHED) { targets.setLift("bench", BigDecimal(100 + i % 50), reps = false, date = day) }

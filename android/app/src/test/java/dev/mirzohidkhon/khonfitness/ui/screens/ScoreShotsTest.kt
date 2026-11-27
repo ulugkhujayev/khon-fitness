@@ -107,7 +107,8 @@ class ScoreShotsTest {
         dao.upsert(Modality("run", "Run", 0xFF7CE0A8))
         val high = listOf(1L to 0, 4L to -3, 8L to 2, 11L to -6).mapIndexed { i, (ago, lift) -> intervalFixture(today.minusDays(ago), zone, if (i == 0) "hiit" else "hiit$i", lift = lift) }
         val low = listOf(2L to 0, 5L to 4, 9L to -5, 12L to 7).mapIndexed { i, (ago, lift) -> zoneFixture(today.minusDays(ago), zone, if (i == 0) "z2" else "z2$i", lift = lift) }
-        (high + low).forEach { f -> dao.upsert(f.session); dao.upsertIntervalLogs(f.rounds); f.row?.let { dao.upsertSessionHr(it) } }
+        val ten = intervalFixture(today.minusDays(14), zone, "hiit10", rounds = 10)
+        (high + low + ten).forEach { f -> dao.upsert(f.session); dao.upsertIntervalLogs(f.rounds); f.row?.let { dao.upsertSessionHr(it) } }
         vm.maxHeartRate.set(186)
     }
 
@@ -133,7 +134,7 @@ class ScoreShotsTest {
         }
         for (s in listOf(1f, 1.3f)) {
             val tag = "${width}dp-x${if (s == 1f) "1_0" else "1_3"}"
-            for ((id, marker) in listOf("hiit" to "Round 4", "z2" to "Above 130 bpm")) {
+            for ((id, marker) in listOf("hiit" to "Round 4", "hiit10" to "Round 10", "z2" to "Above 130 bpm")) {
                 compose.runOnIdle { screen = id; scale = s }
                 compose.waitUntil(5_000) { compose.onAllNodesWithText(marker).fetchSemanticsNodes().isNotEmpty() }
                 compose.waitUntil(5_000) { compose.onAllNodesWithTag(HEART_PICTURE_TAG).fetchSemanticsNodes().isNotEmpty() }

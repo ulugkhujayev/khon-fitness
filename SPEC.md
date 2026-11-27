@@ -592,7 +592,11 @@ time.
   or to the range end after the last round. The drop needs a peak and 2 or
   more buckets in the rest. A negative drop shows as it is.
 - A round without both times, or one that starts outside the range, has no
-  figures.
+  figures. The app's timer stores both times of a round or none, and
+  each round starts at or after the end of the round before it. When a
+  round has one time only, an end that is not after its start, or a start
+  before the end of an earlier round (a changed backup file), no round of
+  that session has figures.
 
 Review of a finished cardio session with a filled read adds a "Heart rate"
 group after its rounds, or after its figures when it has no rounds. A

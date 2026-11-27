@@ -267,6 +267,7 @@ fun NumberField(
     max: Double = Double.POSITIVE_INFINITY,
     elevated: Boolean = false,
     label: String? = null,
+    onTextChange: ((String) -> Unit)? = null,
 ) {
     val stepper = remember { Stepper(step) }.also { it.step = step; it.min = min; it.max = max }
     var text by remember { mutableStateOf(TextFieldValue(fmt(value, decimals))) }
@@ -275,17 +276,18 @@ fun NumberField(
     val scope = rememberCoroutineScope()
     // Sync from outside (prefill, another field, a late save) by [Stepper.showsOutside]. Keeps the cursor where the user left it.
     LaunchedEffect(value) {
-        if (stepper.showsOutside(value, text.text, hasFocus)) { val t = fmt(value, decimals); text = TextFieldValue(t, TextRange(t.length)) }
+        if (onTextChange == null && stepper.showsOutside(value, text.text, hasFocus)) { val t = fmt(value, decimals); text = TextFieldValue(t, TextRange(t.length)) }
     }
     val tick = rememberTick()
     fun stepBy(sign: Int, save: Boolean) {
         val s = stepper.step(sign, save, text.text, value, placeholder)
         val t = fmt(s.shown, decimals)
         text = TextFieldValue(t, TextRange(t.length))
+        onTextChange?.invoke(t)
         tick(false)
         s.save?.let(onValueChange)
     }
-    fun release() { stepper.release()?.let { val t = fmt(it, decimals); text = TextFieldValue(t, TextRange(t.length)); onValueChange(it) } }
+    fun release() { stepper.release()?.let { val t = fmt(it, decimals); text = TextFieldValue(t, TextRange(t.length)); onTextChange?.invoke(t); onValueChange(it) } }
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val valueStyle = MaterialTheme.typography.bodyLarge.copy(color = K.Text, fontSize = 19.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End)
@@ -325,6 +327,7 @@ fun NumberField(
         BasicTextField(
             value = text,
             onValueChange = { new ->
+                if (onTextChange != null) { text = new; onTextChange(new.text); return@BasicTextField }
                 val cleaned = cleanTyped(new.text, decimals)
                 // Cleaning may add or drop characters: move the selection with them, and end any composition.
                 text = if (cleaned == new.text) new else TextFieldValue(
@@ -356,7 +359,7 @@ fun NumberField(
                     }
                     // On leaving, show what the field saved: the typed number inside the bounds (its save may not have
                     // come back yet), or the value when the field was left empty.
-                    if (!st.isFocused && hasFocus) {
+                    if (!st.isFocused && hasFocus && onTextChange == null) {
                         val shown = fmt(stepper.parseTyped(text.text) ?: value, decimals)
                         if (shown != text.text) text = TextFieldValue(shown)
                     }

@@ -61,12 +61,12 @@ fun MaxHeartRow(vm: AppViewModel, divider: Boolean) {
 
 @Composable
 private fun MaxHeartSheet(typed: Int?, measured: Int?, onDismiss: () -> Unit, onSave: (Int?) -> Unit) {
-    var draft by remember { mutableStateOf(typed?.toDouble()) }
+    var draft by remember { mutableStateOf(typed?.toString().orEmpty()) }
     val entry = maxEntry(draft)
     Sheet("Maximum heart rate", onDismiss) {
         GroupedList(elevated = true) {
             FieldRow("Maximum", divider = false) {
-                NumberField(draft, { draft = it }, 1.0, "bpm", width = 176.dp, decimals = 0, height = 38, placeholder = measured?.toString(), elevated = true, label = "Maximum heart rate, beats per minute")
+                NumberField(typed?.toDouble(), {}, 1.0, "bpm", width = 176.dp, decimals = 0, height = 38, placeholder = measured?.toString(), elevated = true, label = "Maximum heart rate, beats per minute", onTextChange = { draft = it })
             }
         }
         PrimaryButton("Save", Modifier.padding(top = 20.dp), enabled = entry != MaxEntry.Refused) {

@@ -35,6 +35,23 @@ private fun niceStep(span: Double, target: Int): Double {
     return steps.firstOrNull { it >= raw } ?: steps.last()
 }
 
+data class ValueAxis(val low: Double, val high: Double, val step: Double) {
+    val ticks: List<Double> get() = generateSequence(low) { it + step }.takeWhile { it <= high + step / 1000 }.toList()
+}
+
+fun valueAxis(values: List<Double>, domain: ClosedFloatingPointRange<Double>? = null): ValueAxis {
+    var vmin = values.min(); var vmax = values.max()
+    if (vmin == vmax) { vmin -= 1; vmax += 1 }
+    if (domain != null) {
+        if (vmin < domain.start) { vmax = minOf(domain.endInclusive, vmax + domain.start - vmin); vmin = domain.start }
+        if (vmax > domain.endInclusive) { vmin = maxOf(domain.start, vmin - (vmax - domain.endInclusive)); vmax = domain.endInclusive }
+    }
+    val step = niceStep(vmax - vmin, 3)
+    var yMin = floor(vmin / step) * step; var yMax = ceil(vmax / step) * step
+    if (domain != null) { yMin = yMin.coerceAtLeast(domain.start); yMax = yMax.coerceAtMost(domain.endInclusive) }
+    return ValueAxis(yMin, yMax, step)
+}
+
 private val dateFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d")
 
 /** Each [trend] point as the index of the point of its date and its value; a trend point without one is left out. */
@@ -60,7 +77,10 @@ private const val AXIS_GAP = 8
  * draws a thin muted vertical line through the plot.
  */
 @Composable
-fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modifier, decimals: Int = 1, format: ((Double) -> String)? = null, trend: List<ChartPoint> = emptyList()) {
+fun LineChart(
+    points: List<ChartPoint>, unit: String, modifier: Modifier = Modifier, decimals: Int = 1, format: ((Double) -> String)? = null,
+    trend: List<ChartPoint> = emptyList(), domain: ClosedFloatingPointRange<Double>? = null,
+) {
     val measurer = rememberTextMeasurer()
     // Axis and date labels in secondary label at Caption 1: tertiary at 11 was too faint to read on black.
     val tick = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
@@ -74,11 +94,8 @@ fun LineChart(points: List<ChartPoint>, unit: String, modifier: Modifier = Modif
             return@Canvas
         }
         val trendAt = trendAt(points, trend)
-        var (vmin, vmax) = valueBounds(points, trendAt)
-        if (vmin == vmax) { vmin -= 1; vmax += 1 }
-        val step = niceStep(vmax - vmin, 3)
-        val yMin = floor(vmin / step) * step; val yMax = ceil(vmax / step) * step
-        val ticks = generateSequence(yMin) { it + step }.takeWhile { it <= yMax + step / 1000 }.toList()
+        val axis = valueAxis(valueBounds(points, trendAt).toList(), domain)
+        val yMin = axis.low; val yMax = axis.high; val step = axis.step; val ticks = axis.ticks
         val tickText = ticks.map { measurer.measure(format?.invoke(it) ?: fmt(it, if (step < 1) 1 else 0), tick) }
         val padL = axisWidth(tickText.map { it.size.width.toFloat() }, AXIS_GAP.dp.toPx()); val padR = 8.dp.toPx(); val padT = 22.dp.toPx(); val padB = 24.dp.toPx()
         val plotW = size.width - padL - padR; val plotH = size.height - padT - padB

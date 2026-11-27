@@ -20,6 +20,7 @@ import java.util.Locale
 
 const val TARGET_TREND_DAYS = 56L
 const val TARGET_HORIZON_DAYS = 730L
+const val TARGET_STALE_DAYS = 28L
 
 /** When the present trend reaches a target, from measured values only. [rate] is the text the row names. */
 sealed interface Forecast {
@@ -28,6 +29,8 @@ sealed interface Forecast {
     data class OnDate(val rate: String, val date: LocalDate) : Forecast
     data class Beyond(val rate: String) : Forecast
     data class NotAtThisRate(val rate: String) : Forecast
+    data class Stale(val since: LocalDate) : Forecast
+    data class Passed(val rate: String) : Forecast
     data object NoLine : Forecast
 }
 
@@ -41,9 +44,11 @@ private fun forecastIn(rate: String, days: BigDecimal, today: LocalDate): Foreca
 private fun entryDay(date: LocalDate, today: LocalDate): LocalDate = minOf(date, today)
 
 /**
- * The first session on or after the entry date at or above the target is "Reached". Else the least-squares line of
- * [periodRate] through the valued sessions of the last [TARGET_TREND_DAYS] days: the first day from [today] on which
- * the line is at or above the target, or [Forecast.Beyond] after [TARGET_HORIZON_DAYS] days.
+ * The first session on or after the entry date at or above the target is "Reached". Else [Forecast.Stale] when the
+ * newest valued session is more than [TARGET_STALE_DAYS] days before [today]. Else the least-squares line of
+ * [periodRate] through the valued sessions of the last [TARGET_TREND_DAYS] days: the first day after [today] on which
+ * the line is at or above the target, [Forecast.Beyond] after [TARGET_HORIZON_DAYS] days, or [Forecast.Passed] when
+ * the line is there today or was there before.
  */
 fun liftForecast(target: LiftTarget, history: List<LiftSession>, withWeight: Boolean, today: LocalDate): Forecast {
     val target30 = target.value * THIRTY
@@ -52,6 +57,9 @@ fun liftForecast(target: LiftTarget, history: List<LiftSession>, withWeight: Boo
         val d = h.session.date.toDate()
         d >= entry && d <= today && value30(h, withWeight)?.let { it >= target30 } == true
     }?.let { return Forecast.Reached(it.session.date.toDate()) }
+
+    val newest = history.filter { value30(it, withWeight) != null }.map { it.session.date.toDate() }.filter { it <= today }.maxOrNull()
+    if (newest != null && ChronoUnit.DAYS.between(newest, today) > TARGET_STALE_DAYS) return Forecast.Stale(newest)
 
     val from = today.minusDays(TARGET_TREND_DAYS - 1)
     val window = history.filter { h -> h.session.date.toDate().let { it >= from && it <= today } }
@@ -71,7 +79,8 @@ fun liftForecast(target: LiftTarget, history: List<LiftSession>, withWeight: Boo
     // The line is sv / 30n + rise / (30 run) × (x − sx / n); it meets the target at this x.
     val meets = (sx * rise + (THIRTY * n * target.value - sv) * run).divide(n * rise, 0, RoundingMode.CEILING)
     val todayX = BigDecimal(ChronoUnit.DAYS.between(first, today))
-    return forecastIn(rate, (meets - todayX).max(BigDecimal.ZERO), today)
+    val days = meets - todayX
+    return if (days.signum() <= 0) Forecast.Passed(rate) else forecastIn(rate, days, today)
 }
 
 /**
@@ -182,6 +191,8 @@ fun targetRows(value: BigDecimal?, kind: TargetKind, forecast: Forecast?, today:
         is Forecast.OnDate -> TargetLine(at(forecast.rate), targetDate(forecast.date, today), "${spokenAt(forecast.rate)}, ${spokenTargetDate(forecast.date, today)}")
         is Forecast.Beyond -> TargetLine(at(forecast.rate), "More than 2 years", "${spokenAt(forecast.rate)}, more than 2 years")
         is Forecast.NotAtThisRate -> TargetLine(at(forecast.rate), "Not at this rate", "Not at this rate")
+        is Forecast.Stale -> TargetLine("No session since ${targetDate(forecast.since, today)}", null, "No session since ${spokenTargetDate(forecast.since, today)}")
+        is Forecast.Passed -> TargetLine(at(forecast.rate), "No date", "${spokenAt(forecast.rate)}, no date")
     }
     return TargetRows(target, true, result)
 }

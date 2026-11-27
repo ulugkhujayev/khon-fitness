@@ -52,9 +52,10 @@ class TargetRulesTest {
         assertEquals(Forecast.NoLine, liftForecast(target, lifts(listOf(0, 6, 13), listOf(90.0, 92.0, 94.0)), true, day(13)))
         val old = lifts(listOf(0, 14, 28), listOf(90.0, 92.0, 94.0))
         assertTrue(liftForecast(target, old, true, day(55)) is Forecast.OnDate)
-        assertEquals(Forecast.NoLine, liftForecast(target, old, true, day(84)))
+        assertEquals(Forecast.Stale(day(28)), liftForecast(target, old, true, day(84)))
         val rows = liftRows(target, old, day(84))
-        assertNull(rows.result)
+        assertEquals("No session since Oct 29", rows.result!!.label)
+        assertNull(rows.result!!.value)
         assertEquals("100 kg", rows.target.value)
     }
 
@@ -79,6 +80,12 @@ class TargetRulesTest {
         assertEquals(Forecast.Reached(day(14)), liftForecast(kg("100", day(1)), later, true, day(42)))
         val rows = liftRows(kg("100", day(1)), later, day(42))
         assertEquals(TargetLine("Reached", "Oct 15", "Reached, October 15"), rows.result)
+    }
+
+    @Test fun `a reached target stays reached when the newest session is older than 28 days`() {
+        val history = lifts(rising, listOf(90.0, 101.0, 102.0, 96.0))
+        assertEquals(Forecast.Reached(day(14)), liftForecast(kg("100", day(1)), history, true, day(71)))
+        assertEquals(TargetLine("Reached", "Oct 15", "Reached, October 15"), liftRows(kg("100", day(1)), history, day(71)).result)
     }
 
     @Test fun `G6 731 days ahead is more than 2 years, 730 is a date`() {
@@ -260,10 +267,10 @@ class TargetRulesTest {
         assertEquals(Forecast.OnDate("+0.7", day(42).plusDays(61)), liftForecast(kg("100"), h, true, day(42)))
     }
 
-    @Test fun `F6 a line at or above the target today with no session at it gives today`() {
+    @Test fun `a line at or above the target today with no session at it gives no date`() {
         val h = lifts(rising, listOf(90.0, 96.0, 96.0, 95.0))
-        assertEquals(Forecast.OnDate("+0.8", day(42)), liftForecast(kg("96.5", day(0)), h, true, day(42)))
-        assertEquals(Forecast.OnDate("+0.8", day(42)), liftForecast(kg("96", day(30)), h, true, day(42)))
+        assertEquals(Forecast.Passed("+0.8"), liftForecast(kg("96.5", day(0)), h, true, day(42)))
+        assertEquals(Forecast.Passed("+0.8"), liftForecast(kg("96", day(30)), h, true, day(42)))
     }
 
     @Test fun `X7 each result state speaks its text`() {
@@ -300,5 +307,27 @@ class TargetRulesTest {
         val tiny = bw(0..2, 20.0) + bw(7..9, 300.0)
         assertTrue(bodyForecast(body("300.0", "20.0"), tiny, today) is Forecast.NotAtThisRate)
         assertTrue(bodyForecast(body("20.0", "300.0"), tiny, today) is Forecast.Reached)
+    }
+
+    @Test fun `a newest session more than 28 days old gives no rate and no date`() {
+        val h = lifts(listOf(20, 27, 34, 41), listOf(90.0, 91.0, 92.0, 93.0))
+        assertEquals(Forecast.OnDate("+1.0", day(160)), liftForecast(kg("110"), h, true, day(69)))
+        assertEquals(Forecast.Stale(day(41)), liftForecast(kg("110"), h, true, day(70)))
+        val rows = liftRows(kg("110"), h, day(70))
+        assertEquals("No session since Nov 11", rows.result!!.label)
+        assertNull(rows.result!!.value)
+        assertEquals("No session since November 11", rows.result!!.spoken)
+        assertEquals(Forecast.Stale(day(41)), liftForecast(kg("110"), h + lifts(listOf(75), listOf(95.0)), true, day(70)))
+    }
+
+    @Test fun `a line that is at the target today or was there before gives no date`() {
+        val h = lifts(rising, listOf(90.0, 92.0, 94.0, 96.0))
+        assertEquals(Forecast.OnDate("+1.0", day(57)), liftForecast(kg("98.1"), h, true, day(56)))
+        assertEquals(Forecast.Passed("+1.0"), liftForecast(kg("98"), h, true, day(56)))
+        assertEquals(Forecast.Passed("+1.0"), liftForecast(kg("97"), h, true, day(56)))
+        val rows = liftRows(kg("97"), h, day(56))
+        assertEquals("At +1.0 kg/week", rows.result!!.label)
+        assertEquals("No date", rows.result!!.value)
+        assertEquals("At plus 1.0 kilograms per week, no date", rows.result!!.spoken)
     }
 }

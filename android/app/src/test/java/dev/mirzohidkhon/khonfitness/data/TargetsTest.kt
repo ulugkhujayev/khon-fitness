@@ -49,9 +49,12 @@ class TargetsTest {
 
     @Test fun theBodyweightTargetKeepsItsAverageAndDate() = runBlocking {
         assertNull(targets.body.first())
-        assertTrue(targets.setBody(BigDecimal("80.0"), BigDecimal("83.2"), day))
-        assertEquals(BodyTarget(BigDecimal("80.0"), BigDecimal("83.2"), day), targets.body.first())
+        assertTrue(targets.setBody(BigDecimal("80.0"), EntryAverage(BigDecimal("240.1"), 3), day))
+        assertEquals(BodyTarget(BigDecimal("80.0"), EntryAverage(BigDecimal("240.1"), 3), day), targets.body.first())
+        assertEquals("80.0|240.1|3|2026-11-20", store.data.first()[Targets.BODY_KEY])
         assertTrue(targets.setBody(BigDecimal("80.0"), null, day))
+        assertEquals(BodyTarget(BigDecimal("80.0"), null, day), targets.body.first())
+        assertTrue(targets.setBody(BigDecimal("80"), null, day))
         assertEquals(BodyTarget(BigDecimal("80.0"), null, day), targets.body.first())
         assertTrue(targets.setBody(null, null, day))
         assertNull(targets.body.first())
@@ -83,6 +86,47 @@ class TargetsTest {
         }
         store.edit { it.remove(Targets.BODY_KEY); it[intPreferencesKey("target_bodyweight")] = 80 }
         assertNull(targets.body.first())
+    }
+
+    @Test fun aRecordInTheOldFormReadsItsAverageAsExact() = runBlocking {
+        store.edit { it[Targets.BODY_KEY] = "80.0|83.2|2026-11-20" }
+        assertEquals(BodyTarget(BigDecimal("80.0"), EntryAverage(BigDecimal("83.2"), 1), day), targets.body.first())
+        store.edit { it[Targets.BODY_KEY] = "80.0||2026-11-20" }
+        assertEquals(BodyTarget(BigDecimal("80.0"), null, day), targets.body.first())
+        store.edit { it[Targets.BODY_KEY] = "80.0|||2026-11-20" }
+        assertEquals(BodyTarget(BigDecimal("80.0"), null, day), targets.body.first())
+    }
+
+    @Test fun storedNumbersHaveLimits() = runBlocking {
+        val bodyBroken = listOf(
+            "80.0|1e-2147483647|2026-11-20", "80.0|1e+2147483647|2026-11-20", "8E1|83.2|2026-11-20", "80.0|8.32E1|2026-11-20",
+            "80.0|240.1|3E0|2026-11-20", "80.0|83.20000000001|2026-11-20", "80.0000000000|83.2|2026-11-20",
+            "80.0|240.1|0|2026-11-20", "80.0|240.1|-3|2026-11-20", "80.0|-240.1|3|2026-11-20", "80.0|0|1|2026-11-20",
+            "80.0|19|1|2026-11-20", "80.0|301|1|2026-11-20", "80.0|19|2026-11-20", "80.0|301|2026-11-20", "80.0|57|3|2026-11-20",
+            "80.0|240.1|1001|2026-11-20", "80.0|240.1|99999999999999999999|2026-11-20", "80.0|240.1||2026-11-20", "80.0||3|2026-11-20",
+            "80.0|240.1|3|2026-02-30", "80.0|240.1|3|+999999999-12-31", "80.0|240.1|3|20261120", "80.0|240.1|3|", "80.0|240.1|3|2026-11-20|x",
+            " 80.0|83.2|2026-11-20", "80.0|83.2 |2026-11-20", "80,0|83.2|2026-11-20", "\u0668\u0660|83.2|2026-11-20", "80.0|" + "9".repeat(5000) + "|2026-11-20",
+        )
+        for (text in bodyBroken) {
+            store.edit { it[Targets.BODY_KEY] = text }
+            assertNull(text.take(60), targets.body.first())
+        }
+        for (text in listOf("80.0|20|1|2026-11-20", "80.0|300|1|2026-11-20", "80.0|300000|1000|2026-11-20", "80.0|20|2026-11-20", "80.0|240.1|3|2099-01-01")) {
+            store.edit { it[Targets.BODY_KEY] = text }
+            assertTrue(text, targets.body.first() != null)
+        }
+        val liftBroken = listOf("kg|1e2|2026-11-20", "kg|1E+2|2026-11-20", "kg|100.0000000000|2026-11-20", "reps|-5|2026-11-20", "kg|100|2026-02-30", "kg|100|+999999999-12-31", "kg|" + "1".repeat(5000) + "|2026-11-20")
+        for (text in liftBroken) {
+            store.edit { it[Targets.liftKey("bench")] = text }
+            assertNull(text.take(60), targets.lift("bench").first())
+        }
+    }
+
+    @Test fun anEntryAverageOutsideItsLimitsIsNotStored() = runBlocking {
+        assertTrue(targets.setBody(BigDecimal("80.0"), EntryAverage(BigDecimal("19"), 1), day))
+        assertEquals(BodyTarget(BigDecimal("80.0"), null, day), targets.body.first())
+        assertTrue(targets.setBody(BigDecimal("80.0"), EntryAverage(BigDecimal("80.123456789012"), 1), day))
+        assertEquals(BodyTarget(BigDecimal("80.0"), null, day), targets.body.first())
     }
 
     @Test fun clearAllRemovesEveryTargetAndKeepsOtherSettings() = runBlocking {

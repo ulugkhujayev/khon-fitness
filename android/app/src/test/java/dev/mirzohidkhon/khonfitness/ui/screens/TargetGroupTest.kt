@@ -152,7 +152,7 @@ class TargetGroupTest {
         compose.onNode(input).performTextReplacement("12")
         compose.onNodeWithText("Save").assertIsEnabled().performClick()
         said("Target, 12 repetitions")
-        assertEquals(LiftTarget(BigDecimal("12.0"), true, today), io2 { vm.targets.lift("fresh").first() })
+        assertEquals(LiftTarget(BigDecimal("12"), true, today), io2 { vm.targets.lift("fresh").first() })
         assertTrue(compose.onAllNodesWithContentDescription("At ", substring = true).fetchSemanticsNodes().isEmpty())
         compose.onNodeWithContentDescription("Target, 12 repetitions").performClick()
         compose.waitUntil(5_000) { compose.onAllNodes(input).fetchSemanticsNodes().isNotEmpty() }
@@ -180,7 +180,8 @@ class TargetGroupTest {
         }
         compose.onNode(input).performTextReplacement("abc")
         compose.waitForIdle()
-        assertEquals("", compose.onNode(input).fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+        assertEquals("abc", compose.onNode(input).fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+        compose.onNodeWithText("Save").assertIsNotEnabled()
         compose.onNode(input).performTextReplacement("100.5")
         compose.onNodeWithText("Save").assertIsEnabled().performClick()
         said("Target, 100.5 kilograms")
@@ -216,4 +217,204 @@ class TargetGroupTest {
     }
 
     private fun <T> io2(block: suspend () -> T): T = runBlocking(Dispatchers.IO) { block() }
+
+    private fun weighted(): List<LiftSession> {
+        val session = Session("w", today.iso(), 1, 2, ItemType.PROGRAM, programId = "p")
+        val set = SetLog("wl", "w", 0, false, 0, 0, 0, "bench", "Bench", 5, 8, 2.5, weightKg = 50.0, reps = 5, status = SetStatus.DONE)
+        return liftHistory("bench", listOf(set), listOf(session))
+    }
+
+    private fun openSheet(row: String, input: String): androidx.compose.ui.test.SemanticsMatcher {
+        said(row)
+        compose.onNodeWithContentDescription(row).performClick()
+        val match = field(input)
+        compose.waitUntil(5_000) { compose.onAllNodes(match).fetchSemanticsNodes().isNotEmpty() }
+        return match
+    }
+
+    private fun text(match: androidx.compose.ui.test.SemanticsMatcher) = compose.onNode(match).fetchSemanticsNode().config[SemanticsProperties.EditableText].text
+
+    private fun refusedKeeps(match: androidx.compose.ui.test.SemanticsMatcher, typed: String, stored: () -> Any?, expected: Any?) {
+        compose.onNode(match).performTextReplacement(typed)
+        compose.waitForIdle()
+        assertEquals(typed, typed, text(match))
+        compose.onNodeWithText("Save").assertIsNotEnabled().performClick()
+        compose.waitForIdle()
+        assertEquals(typed, expected, stored())
+    }
+
+    @Test fun `X1 text that is not a plain decimal on the step keeps the stored target and stays in the field`() {
+        io { vm.targets.setLift("bench", BigDecimal(100), reps = false, date = today.minusDays(3)) }
+        val history = weighted()
+        compose.setContent { KhonTheme { Column { LiftTargetGroup(vm, "bench", history, today) } } }
+        val input = openSheet("Target, 100 kilograms", "Target estimated one rep max, kilograms")
+        assertEquals("100", text(input))
+        val kept = LiftTarget(BigDecimal(100), false, today.minusDays(3))
+        for (bad in listOf("abc", "8x0", "-80", "+80", " 80", "80.001", "80.25", "100.501", "100.3", "7.05", "1,000.5", "\u0668\u0660")) {
+            refusedKeeps(input, bad, { io2 { vm.targets.lift("bench").first() } }, kept)
+        }
+    }
+
+    @Test fun `X1 the reps and bodyweight sheets refuse text off their step`() {
+        io { vm.targets.setLift("bench", BigDecimal(12), reps = true, date = today.minusDays(3)) }
+        compose.setContent { KhonTheme { Column { LiftTargetGroup(vm, "bench", emptyList(), today); BodyTargetGroup(vm, emptyList(), today) } } }
+        val reps = openSheet("Target, 12 repetitions", "Target repetitions, repetitions")
+        val keptReps = LiftTarget(BigDecimal(12), true, today.minusDays(3))
+        for (bad in listOf("12.0", "7.05", "12,", "-12")) refusedKeeps(reps, bad, { io2 { vm.targets.lift("bench").first() } }, keptReps)
+        compose.onNode(reps).performTextReplacement("0000015")
+        compose.onNodeWithText("Save").assertIsEnabled().performClick()
+        said("Target, 15 repetitions")
+        assertEquals(LiftTarget(BigDecimal(15), true, today), io2 { vm.targets.lift("bench").first() })
+
+        io { vm.targets.setBody(BigDecimal("80.0"), null, today.minusDays(3)) }
+        val body = openSheet("Target, 80.0 kilograms", "Target bodyweight, kilograms")
+        assertEquals("80", text(body))
+        val keptBody = BodyTarget(BigDecimal("80.0"), null, today.minusDays(3))
+        for (bad in listOf("80.25", "80.001", "8x0", "-80", "80..0", "\u0668\u0660")) refusedKeeps(body, bad, { io2 { vm.targets.body.first() } }, keptBody)
+    }
+
+    @Test fun `X2 leading zeros keep the value, a comma is the decimal sign, and an empty field removes the target`() {
+        val history = weighted()
+        var shown by mutableStateOf("lift")
+        compose.setContent { KhonTheme { Column { if (shown == "lift") LiftTargetGroup(vm, "bench", history, today) else BodyTargetGroup(vm, emptyList(), today) } } }
+        fun lift(row: String, typed: String, saved: String) {
+            val input = openSheet(row, "Target estimated one rep max, kilograms")
+            compose.onNode(input).performTextReplacement(typed)
+            compose.onNodeWithText("Save").assertIsEnabled().performClick()
+            said("Target, $saved kilograms")
+            assertEquals(typed, 0, io2 { vm.targets.lift("bench").first() }!!.value.compareTo(BigDecimal(saved)))
+        }
+        lift("Target, not set", "100,0", "100")
+        lift("Target, 100 kilograms", "100.50", "100.5")
+        lift("Target, 100.5 kilograms", "0000015", "15")
+        val input = openSheet("Target, 15 kilograms", "Target estimated one rep max, kilograms")
+        compose.onNode(input).performTextReplacement("")
+        compose.onNodeWithText("Save").assertIsEnabled().performClick()
+        said("Target, not set")
+        assertNull(io2 { vm.targets.lift("bench").first() })
+
+        compose.runOnIdle { shown = "body" }
+        fun body(typed: String, saved: String) {
+            compose.onNodeWithContentDescription("Target, ", substring = true).performClick()
+            val b = field("Target bodyweight, kilograms")
+            compose.waitUntil(5_000) { compose.onAllNodes(b).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNode(b).performTextReplacement(typed)
+            compose.onNodeWithText("Save").assertIsEnabled().performClick()
+            said("Target, $saved kilograms")
+            assertEquals(BigDecimal(saved), io2 { vm.targets.body.first() }!!.kg)
+        }
+        said("Target, not set")
+        body("0080", "80.0")
+        body("80,5", "80.5")
+        compose.onNodeWithContentDescription("Target, 80.5 kilograms").performClick()
+        val b = field("Target bodyweight, kilograms")
+        compose.waitUntil(5_000) { compose.onAllNodes(b).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(b).performTextReplacement("")
+        compose.onNodeWithText("Save").assertIsEnabled().performClick()
+        said("Target, not set")
+        assertNull(io2 { vm.targets.body.first() })
+    }
+
+    @Test fun `the step buttons give a valid text inside the limits`() {
+        val history = weighted()
+        compose.setContent { KhonTheme { Column { LiftTargetGroup(vm, "bench", history, today) } } }
+        val input = openSheet("Target, not set", "Target estimated one rep max, kilograms")
+        compose.onNodeWithContentDescription("Increase by 0.5 kg").performClick()
+        compose.waitForIdle()
+        assertEquals("1", text(input))
+        compose.onNodeWithContentDescription("Increase by 0.5 kg").performClick()
+        compose.waitForIdle()
+        assertEquals("1.5", text(input))
+        compose.onNodeWithText("Save").assertIsEnabled().performClick()
+        said("Target, 1.5 kilograms")
+        openSheet("Target, 1.5 kilograms", "Target estimated one rep max, kilograms")
+        repeat(3) { compose.onNodeWithContentDescription("Decrease by 0.5 kg").performClick() }
+        compose.waitForIdle()
+        assertEquals("1", text(input))
+        compose.onNode(input).performTextReplacement("500")
+        compose.onNodeWithContentDescription("Increase by 0.5 kg").performClick()
+        compose.waitForIdle()
+        assertEquals("500", text(input))
+        compose.onNodeWithText("Save").assertIsEnabled()
+    }
+
+    @Test fun `the bodyweight step buttons give a valid text`() {
+        compose.setContent { KhonTheme { Column { BodyTargetGroup(vm, emptyList(), today) } } }
+        val input = openSheet("Target, not set", "Target bodyweight, kilograms")
+        compose.onNodeWithContentDescription("Increase by 0.1 kg").performClick()
+        compose.waitForIdle()
+        assertEquals("20", text(input))
+        compose.onNode(input).performTextReplacement("80")
+        repeat(3) { compose.onNodeWithContentDescription("Increase by 0.1 kg").performClick() }
+        compose.waitForIdle()
+        assertEquals("80.3", text(input))
+        compose.onNodeWithText("Save").assertIsEnabled().performClick()
+        said("Target, 80.3 kilograms")
+    }
+
+    @Test fun `X6 a new unit closes an open sheet and drops its draft`() {
+        io { vm.targets.setLift("bench", BigDecimal(15), reps = true, date = today.minusDays(3)) }
+        var history by mutableStateOf(emptyList<LiftSession>())
+        compose.setContent { KhonTheme { Column { LiftTargetGroup(vm, "bench", history, today) } } }
+        val reps = openSheet("Target, 15 repetitions", "Target repetitions, repetitions")
+        compose.onNode(reps).performTextReplacement("16")
+        compose.runOnIdle { history = weighted() }
+        compose.waitForIdle()
+        assertTrue(compose.onAllNodes(reps).fetchSemanticsNodes().isEmpty())
+        assertTrue(compose.onAllNodes(field("Target estimated one rep max, kilograms")).fetchSemanticsNodes().isEmpty())
+        assertTrue(compose.onAllNodesWithText("Save").fetchSemanticsNodes().isEmpty())
+        said("Target, not set")
+        assertEquals(LiftTarget(BigDecimal(15), true, today.minusDays(3)), io2 { vm.targets.lift("bench").first() })
+        val kg = openSheet("Target, not set", "Target estimated one rep max, kilograms")
+        assertEquals("", text(kg))
+    }
+
+    @Test fun `X6 a save on a stored target of the other unit replaces or removes it`() {
+        io { vm.targets.setLift("bench", BigDecimal(15), reps = true, date = today.minusDays(3)) }
+        val history = weighted()
+        compose.setContent { KhonTheme { Column { LiftTargetGroup(vm, "bench", history, today) } } }
+        openSheet("Target, not set", "Target estimated one rep max, kilograms")
+        compose.onNodeWithText("Save").assertIsEnabled().performClick()
+        compose.waitForIdle()
+        assertNull(io2 { vm.targets.lift("bench").first() })
+        assertNull(io2 { app.settings.data.first()[dev.mirzohidkhon.khonfitness.data.Targets.liftKey("bench")] })
+
+        io { vm.targets.setLift("bench", BigDecimal(15), reps = true, date = today.minusDays(3)) }
+        val input = openSheet("Target, not set", "Target estimated one rep max, kilograms")
+        compose.onNode(input).performTextReplacement("100")
+        compose.onNodeWithText("Save").assertIsEnabled().performClick()
+        said("Target, 100 kilograms")
+        assertEquals(LiftTarget(BigDecimal(100), false, today), io2 { vm.targets.lift("bench").first() })
+    }
+
+    @Test fun `G13 the stretch routes have no target group`() {
+        io {
+            dao.upsertStretches(listOf(dev.mirzohidkhon.khonfitness.data.Stretch("hip", "Hip flexor", sided = true, figure = "hipflexor")))
+            dao.upsert(dev.mirzohidkhon.khonfitness.data.StretchRoutine("r", "Daily", active = true))
+            dao.upsertRoutineStretches(listOf(dev.mirzohidkhon.khonfitness.data.RoutineStretch("r-hip", "r", "hip", 0)))
+        }
+        var route by mutableStateOf("stretch")
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            KhonTheme {
+                when (route) {
+                    "stretch" -> StretchScreen(vm, rememberNavController(), "r")
+                    "editor" -> StretchEditorScreen(vm, rememberNavController(), "hip")
+                    else -> ExerciseDetailScreen(vm, rememberNavController(), "hip")
+                }
+            }
+        }
+        for ((r, shown) in listOf("stretch" to "Daily", "editor" to "Hip flexor", "lift" to "No sets yet")) {
+            compose.runOnIdle { route = r }
+            var tries = 0
+            while (compose.onAllNodesWithText(shown, substring = true).fetchSemanticsNodes().isEmpty()) {
+                check(tries++ < 250) { "$r did not show $shown" }
+                compose.mainClock.advanceTimeByFrame(); compose.waitForIdle(); Thread.sleep(20)
+            }
+            repeat(10) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
+            assertTrue(r, compose.onAllNodesWithContentDescription("Target, ", substring = true).fetchSemanticsNodes().isEmpty())
+            assertTrue(r, compose.onAllNodesWithText("Target").fetchSemanticsNodes().isEmpty())
+            assertTrue(r, compose.onAllNodesWithText("Target est. 1RM").fetchSemanticsNodes().isEmpty())
+        }
+    }
 }

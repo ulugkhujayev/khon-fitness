@@ -1,10 +1,15 @@
 package dev.mirzohidkhon.khonfitness.ui.screens
 
 import dev.mirzohidkhon.khonfitness.data.BodyTarget
+import dev.mirzohidkhon.khonfitness.data.BODY_TARGET_KG
 import dev.mirzohidkhon.khonfitness.data.Bodyweight
+import dev.mirzohidkhon.khonfitness.data.EntryAverage
+import dev.mirzohidkhon.khonfitness.data.LIFT_TARGET_KG
+import dev.mirzohidkhon.khonfitness.data.LIFT_TARGET_REPS
 import dev.mirzohidkhon.khonfitness.data.LiftTarget
 import dev.mirzohidkhon.khonfitness.data.bodyTargetValid
 import dev.mirzohidkhon.khonfitness.data.liftTargetValid
+import dev.mirzohidkhon.khonfitness.data.plain
 import dev.mirzohidkhon.khonfitness.data.toDate
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -32,6 +37,9 @@ private val WEEK = BigDecimal(7)
 private fun forecastIn(rate: String, days: BigDecimal, today: LocalDate): Forecast =
     if (days > BigDecimal(TARGET_HORIZON_DAYS)) Forecast.Beyond(rate) else Forecast.OnDate(rate, today.plusDays(days.toLong()))
 
+/** A stored entry date after [today] (the clock went back) counts as today's. */
+private fun entryDay(date: LocalDate, today: LocalDate): LocalDate = minOf(date, today)
+
 /**
  * The first session on or after the entry date at or above the target is "Reached". Else the least-squares line of
  * [periodRate] through the valued sessions of the last [TARGET_TREND_DAYS] days: the first day from [today] on which
@@ -39,9 +47,10 @@ private fun forecastIn(rate: String, days: BigDecimal, today: LocalDate): Foreca
  */
 fun liftForecast(target: LiftTarget, history: List<LiftSession>, withWeight: Boolean, today: LocalDate): Forecast {
     val target30 = target.value * THIRTY
+    val entry = entryDay(target.date, today)
     history.firstOrNull { h ->
         val d = h.session.date.toDate()
-        d >= target.date && d <= today && value30(h, withWeight)?.let { it >= target30 } == true
+        d >= entry && d <= today && value30(h, withWeight)?.let { it >= target30 } == true
     }?.let { return Forecast.Reached(it.session.date.toDate()) }
 
     val from = today.minusDays(TARGET_TREND_DAYS - 1)
@@ -66,17 +75,17 @@ fun liftForecast(target: LiftTarget, history: List<LiftSession>, withWeight: Boo
 }
 
 /**
- * The direction is the sign of the target against the average stored with it, else against the present 7-day average
- * ([trendText]). Reached once the present average is at or beyond the target that way. Else the date that the present
- * weekly change needs for the distance, rounded up to a whole day.
+ * The direction is the sign of the target against the exact average stored with it, else against the present 7-day
+ * average ([trendText]). Reached once the exact present average is at or beyond the target that way. Else the date
+ * that the present weekly change needs for the distance, rounded up to a whole day.
  */
 fun bodyForecast(target: BodyTarget, all: List<Bodyweight>, today: LocalDate): Forecast {
     val now = weekEntries(all, today)
     val n = now?.let { BigDecimal(it.size) }
     val nowSum = now?.let(::decimalSum)
     val gap = if (now != null) target.kg * n!! - nowSum!! else null
-    val direction = target.startAvg?.let { (target.kg - it).signum() }?.takeIf { it != 0 } ?: gap?.signum() ?: return Forecast.NoLine
-    if (direction == 0) return Forecast.Reached(target.date)
+    val direction = target.start?.let { (target.kg * BigDecimal(it.count) - it.sum).signum() }?.takeIf { it != 0 } ?: gap?.signum() ?: return Forecast.NoLine
+    if (direction == 0) return Forecast.Reached(entryDay(target.date, today))
     if (gap == null) return Forecast.NoLine
     if (gap.signum() != direction) return Forecast.Reached(null)
     val before = weekEntries(all, today.minusDays(7)) ?: return Forecast.NoLine
@@ -88,15 +97,18 @@ fun bodyForecast(target: BodyTarget, all: List<Bodyweight>, today: LocalDate): F
     return forecastIn(rate, days, today)
 }
 
-/** The average stored with a new bodyweight target: the 7-day average as [trendText] prints it, else the latest entry. */
-fun bodyStart(all: List<Bodyweight>, today: LocalDate): BigDecimal? =
-    weekEntries(all, today)?.let { decimalSum(it).divide(BigDecimal(it.size), 1, RoundingMode.HALF_UP) }
-        ?: latestBodyweight(all, today)?.let { BigDecimal.valueOf(it.kg) }
+/** The exact average stored with a new bodyweight target: the 7-day average of [trendText], else the latest entry. */
+fun bodyStart(all: List<Bodyweight>, today: LocalDate): EntryAverage? =
+    weekEntries(all, today)?.let { EntryAverage(decimalSum(it), it.size) }
+        ?: latestBodyweight(all, today)?.let { EntryAverage(BigDecimal.valueOf(it.kg), 1) }
 
-enum class TargetKind(val title: String, val spokenTitle: String, val unit: String, val step: Double, val decimals: Int, val spokenUnit: String) {
-    BODY("Target bodyweight", "Target bodyweight", "kg", 0.1, 2, "kilograms"),
-    LIFT_KG("Target est. 1RM", "Target estimated one rep max", "kg", 0.5, 2, "kilograms"),
-    LIFT_REPS("Target reps", "Target repetitions", "reps", 1.0, 1, "repetitions"),
+enum class TargetKind(val title: String, val spokenTitle: String, val unit: String, val step: Double, val decimals: Int, val spokenUnit: String, limits: ClosedRange<BigDecimal>) {
+    BODY("Target bodyweight", "Target bodyweight", "kg", 0.1, 2, "kilograms", BODY_TARGET_KG),
+    LIFT_KG("Target est. 1RM", "Target estimated one rep max", "kg", 0.5, 2, "kilograms", LIFT_TARGET_KG),
+    LIFT_REPS("Target reps", "Target repetitions", "reps", 1.0, 1, "repetitions", LIFT_TARGET_REPS);
+
+    val min: Double = limits.start.toDouble()
+    val max: Double = limits.endInclusive.toDouble()
 }
 
 sealed interface TargetEntry {
@@ -105,16 +117,25 @@ sealed interface TargetEntry {
     data object Refused : TargetEntry
 }
 
-fun targetEntry(draft: Double?, kind: TargetKind): TargetEntry {
-    if (draft == null) return TargetEntry.Clear
-    if (draft.isNaN() || draft.isInfinite()) return TargetEntry.Refused
-    val v = BigDecimal.valueOf(draft)
+private val TYPED_DECIMAL = Regex("""[0-9]*[.,]?[0-9]*""")
+private val TYPED_WHOLE = Regex("""[0-9]+""")
+
+/**
+ * The sheet's verdict on its text as typed. Empty clears the target. Else only ASCII digits with at most one point or
+ * comma (a decimal comma), none for reps; leading zeros keep the value; the value must be inside the kind's limits and
+ * on its step. Anything else is refused, so no character is dropped or changed before the check.
+ */
+fun targetEntry(text: String, kind: TargetKind): TargetEntry {
+    if (text.isEmpty()) return TargetEntry.Clear
+    val shape = if (kind == TargetKind.LIFT_REPS) TYPED_WHOLE else TYPED_DECIMAL
+    if (!shape.matches(text) || text.none { it in '0'..'9' }) return TargetEntry.Refused
+    val v = BigDecimal(text.replace(',', '.').let { if (it.startsWith('.')) "0$it" else it.removeSuffix(".") })
     val ok = when (kind) {
         TargetKind.BODY -> bodyTargetValid(v)
         TargetKind.LIFT_KG -> liftTargetValid(v, reps = false)
         TargetKind.LIFT_REPS -> liftTargetValid(v, reps = true)
     }
-    return if (ok) TargetEntry.Store(v) else TargetEntry.Refused
+    return if (ok) TargetEntry.Store(BigDecimal(plain(v)).let { if (kind == TargetKind.BODY) it.setScale(1) else it }) else TargetEntry.Refused
 }
 
 data class TargetLine(val label: String, val value: String?, val spoken: String)
@@ -155,7 +176,7 @@ fun targetRows(value: BigDecimal?, kind: TargetKind, forecast: Forecast?, today:
             else TargetLine("Reached", targetDate(forecast.date, today), "Reached, ${spokenTargetDate(forecast.date, today)}")
         is Forecast.OnDate -> TargetLine(at(forecast.rate), targetDate(forecast.date, today), "${spokenAt(forecast.rate)}, ${spokenTargetDate(forecast.date, today)}")
         is Forecast.Beyond -> TargetLine(at(forecast.rate), "More than 2 years", "${spokenAt(forecast.rate)}, more than 2 years")
-        is Forecast.NotAtThisRate -> TargetLine(at(forecast.rate), "Not at this rate", "${spokenAt(forecast.rate)}, not at this rate")
+        is Forecast.NotAtThisRate -> TargetLine(at(forecast.rate), "Not at this rate", "Not at this rate")
     }
     return TargetRows(target, true, result)
 }

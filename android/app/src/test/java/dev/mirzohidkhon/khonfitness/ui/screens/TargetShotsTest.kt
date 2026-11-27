@@ -28,6 +28,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import dev.mirzohidkhon.khonfitness.KhonApp
 import dev.mirzohidkhon.khonfitness.data.Bodyweight
+import dev.mirzohidkhon.khonfitness.data.EntryAverage
 import dev.mirzohidkhon.khonfitness.data.Exercise
 import dev.mirzohidkhon.khonfitness.data.ItemType
 import dev.mirzohidkhon.khonfitness.data.Kind
@@ -103,7 +104,7 @@ class TargetShotsTest {
 
     private fun seedBody() = io {
         app.db.dao().upsertBodyweights((0..2).map { Bodyweight(today.minusDays(it.toLong()).iso(), 82.0) } + (7..9).map { Bodyweight(today.minusDays(it.toLong()).iso(), 82.3) })
-        vm.targets.setBody(BigDecimal("80.0"), BigDecimal("83.2"), today.minusDays(20))
+        vm.targets.setBody(BigDecimal("80.0"), EntryAverage(BigDecimal("83.2"), 1), today.minusDays(20))
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -132,8 +133,15 @@ class TargetShotsTest {
             KhonTheme {
                 androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) {
                     key(screen) {
-                        if (screen == "body") Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) { HistoryProgress(vm, rememberNavController(), today) }
-                        else ExerciseDetailScreen(vm, rememberNavController(), screen)
+                        when (screen) {
+                            "body" -> Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) { HistoryProgress(vm, rememberNavController(), today) }
+                            "far", "year" -> Column(Modifier.padding(16.dp, 24.dp)) {
+                                val fixed = LocalDate.of(2026, 11, 27)
+                                val f = if (screen == "far") Forecast.Beyond("+12.5") else Forecast.OnDate("+12.5", LocalDate.of(2027, 3, 14))
+                                TargetRowsGroup(targetRows(BigDecimal(400), TargetKind.LIFT_KG, f, fixed), TargetKind.LIFT_KG) {}
+                            }
+                            else -> ExerciseDetailScreen(vm, rememberNavController(), screen)
+                        }
                     }
                 }
             }
@@ -155,6 +163,11 @@ class TargetShotsTest {
         said("At minus 0.3")
         compose.onNodeWithText("Compare two periods").performScrollTo()
         shot("$tag-body-date")
+        for ((id, spoken) in listOf("far" to "more than 2 years", "year" to "March 14, 2027")) {
+            compose.runOnIdle { screen = id }
+            said(spoken)
+            shot("$tag-lift-$id")
+        }
     }
 
     @Test fun at360() = all("360-f1.0")

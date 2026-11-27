@@ -60,7 +60,7 @@ fun ReviewScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
             hrLine(s, facts)?.let { Text(it, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TABULAR), color = K.Muted, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp).semantics { contentDescription = hrSpoken(s, facts).orEmpty() }) }
             if (picture?.hasChart == true) HeartPicture(picture, Modifier.padding(bottom = 16.dp))
             if (nightRows.isNotEmpty()) GroupedList(Modifier.padding(bottom = 16.dp)) {
-                nightRows.forEachIndexed { i, f -> NightReviewRow(f, color = if (i == 0) K.Text else K.Muted, divider = i > 0) }
+                nightRows.forEachIndexed { i, f -> NightReviewRow(f, muted = i > 0, divider = i > 0) }
             }
             if (s.itemType == ItemType.PROGRAM) reviewExercises(logs).forEach { sets -> ExerciseReview(sets) }
             if (s.itemType == ItemType.PROGRAM) picture?.let { SetsInOrder(it.rows) }
@@ -154,9 +154,9 @@ private fun CardioReview(s: Session, facts: HrFacts, intervals: List<IntervalLog
 }
 
 @Composable
-private fun NightReviewRow(f: NightFact, color: androidx.compose.ui.graphics.Color, divider: Boolean) {
+private fun NightReviewRow(f: NightFact, muted: Boolean, divider: Boolean) {
     Box(Modifier.clearAndSetSemantics { contentDescription = f.spoken }) {
-        FieldRow(f.label, divider = divider) { Text(f.value, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), color = color) }
+        FieldRow(f.label, divider = divider) { Text(f.value, style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR), color = if (muted) K.Muted else K.Text) }
     }
 }
 

@@ -3,7 +3,9 @@ package dev.mirzohidkhon.khonfitness.ui.components
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,20 +19,26 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsPropertyKey
+import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.mirzohidkhon.khonfitness.data.DemoClock
+import dev.mirzohidkhon.khonfitness.data.DemoView
 import dev.mirzohidkhon.khonfitness.data.StretchDemo
+import dev.mirzohidkhon.khonfitness.data.demoPhotoPath
 import dev.mirzohidkhon.khonfitness.data.forDemoSide
 import dev.mirzohidkhon.khonfitness.ui.Icons
 import dev.mirzohidkhon.khonfitness.ui.theme.K
@@ -39,7 +47,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import kotlin.math.roundToInt
 
 private object DemoCatalog {
     @Volatile private var cached: Map<String, StretchDemo>? = null
@@ -50,79 +57,129 @@ private object DemoCatalog {
     }
 }
 
-private data class DemoBitmap(val path: String, val image: ImageBitmap, val background: Color)
+/** Width over height of every demonstration photo (720 x 820 px). */
+const val DEMO_PHOTO_ASPECT = 720f / 820f
+val DEMO_PANEL_MIN_HEIGHT = 240.dp
 
-/** Full color avoids banding in the studio background. A sheet moves to a HARDWARE bitmap, so its 50 MiB live
- *  only in graphics memory and upload on this IO thread instead of on the first drawn frame. */
-private fun decodeDemo(context: Context, path: String, poster: Boolean): DemoBitmap? {
-    val decoded = context.assets.open(path).use { stream ->
+/** The photo a panel draws, `<path>` or `<path> mirrored`; absent while the panel has no photo yet. */
+val ShownDemoPhoto = SemanticsPropertyKey<String>("ShownDemoPhoto")
+private var SemanticsPropertyReceiver.shownDemoPhoto by ShownDemoPhoto
+
+private data class DemoPhoto(val path: String, val image: ImageBitmap)
+
+/** Full color avoids banding in the studio background. */
+private fun decodePhoto(context: Context, path: String, sample: Int): ImageBitmap? =
+    context.assets.open(path).use { stream ->
         BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply {
             inPreferredConfig = Bitmap.Config.ARGB_8888
-            if (poster) inSampleSize = 2
+            inSampleSize = sample
         })
-    } ?: return null
-    val background = Color(decoded.getPixel(0, 0))
-    val bitmap = if (poster) decoded else decoded.copy(Bitmap.Config.HARDWARE, false)?.also { decoded.recycle() } ?: decoded
-    return DemoBitmap(path, bitmap.asImageBitmap(), background)
-}
+    }?.also { it.prepareToDraw() }?.asImageBitmap()
 
-/** Keeps only the last sheet shown, and drops it a second after the last panel leaves (the gap covers a phase
- *  change, which disposes one panel before the next appears). Decodes run one at a time, so rapid skips never stack buffers. */
-private object DemoSheets {
+/**
+ * Holds only the photos of one stretch in one view: a load for another stretch or view drops them. [last] lets a new
+ * panel start on the photo shown before it. Everything goes a second after the last panel leaves (the gap covers a
+ * phase change, which disposes one panel before the next appears). Decodes run one at a time.
+ */
+private object DemoPhotos {
     private val lock = Mutex()
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
     private var panels = 0
-    var last: DemoBitmap? = null
+    private var set = ""
+    private val held = HashMap<String, ImageBitmap>()
+    @Volatile var last: DemoPhoto? = null
         private set
-    fun peek(path: String): DemoBitmap? = last?.takeIf { it.path == path }
-    suspend fun load(context: Context, path: String): DemoBitmap? = lock.withLock {
-        peek(path) ?: withContext(Dispatchers.IO) { decodeDemo(context, path, poster = false) }?.also { if (panels > 0) last = it }
+
+    fun peek(path: String): DemoPhoto? = synchronized(held) { held[path] }?.let { DemoPhoto(path, it) }
+
+    suspend fun load(context: Context, set: String, path: String): DemoPhoto? = lock.withLock {
+        peek(path) ?: withContext(Dispatchers.IO) { decodePhoto(context, path, 1) }?.let { image ->
+            synchronized(held) {
+                if (panels > 0) {
+                    if (this.set != set) { held.clear(); this.set = set }
+                    held[path] = image
+                }
+            }
+            DemoPhoto(path, image)
+        }
     }
+
+    fun shown(photo: DemoPhoto) { if (panels > 0) last = photo }
     fun enter() { panels++ }
-    fun leave() { if (--panels == 0) main.postDelayed({ if (panels == 0) last = null }, 1000) }
+    fun leave() {
+        if (--panels == 0) main.postDelayed({ if (panels == 0) synchronized(held) { held.clear(); set = ""; last = null } }, 1000)
+    }
 }
 
-/** Decode off the main thread. Until the new view is ready the previous image stays, so the panel never flashes empty.
- *  [frame] is read only while drawing: a new frame index redraws the canvas without a recomposition. */
+/**
+ * A black panel with the photo fitted inside it, never cropped or stretched. Decodes off the main thread; until the
+ * new photo is ready the previous one stays, then the two cross-fade, so the panel never flashes empty.
+ */
 @Composable
-private fun DemoFrame(figure: String, guide: StretchDemo, view: Int, frame: () -> Int, mirror: Boolean,
-    modifier: Modifier, poster: Boolean = false, description: String = guide.name) {
+private fun DemoPanel(figure: String, pose: String, view: DemoView, mirror: Boolean, description: String,
+    modifier: Modifier) {
     val context = LocalContext.current
-    val path = "stretch_demos/$figure-$view${if (poster) "-poster" else ""}.webp"
-    if (!poster) DisposableEffect(Unit) { DemoSheets.enter(); onDispose { DemoSheets.leave() } }
-    val loaded by produceState(if (poster) null else DemoSheets.peek(path) ?: DemoSheets.last?.takeIf { it.path.startsWith("stretch_demos/$figure-") }, path) {
-        // A cancelled load never assigns, so a late result for the previous angle is never drawn as the new one.
-        value = if (poster) withContext(Dispatchers.IO) { decodeDemo(context, path, poster = true) } else DemoSheets.load(context, path)
+    val path = demoPhotoPath(figure, pose, view)
+    val set = "$figure-${view.file}"
+    DisposableEffect(Unit) { DemoPhotos.enter(); onDispose { DemoPhotos.leave() } }
+    // A cancelled load never assigns, so a late photo of the previous pose or view is never drawn as the new one.
+    val photo by produceState(DemoPhotos.peek(path) ?: DemoPhotos.last, path) {
+        DemoPhotos.load(context, set, path)?.let { value = it }
     }
-    Canvas(modifier.clip(RoundedCornerShape(if (poster) 6.dp else 16.dp))
-        .background(loaded?.background ?: Color(0xFFF2F2F2))
-        .semantics { contentDescription = description }) {
-        val bitmap = loaded?.image ?: return@Canvas
-        val width = if (poster) bitmap.width else guide.frameWidth
-        val height = if (poster) bitmap.height else guide.frameHeight
-        val ratio = minOf(size.width / width, size.height / height)
-        val dest = IntSize((width * ratio).roundToInt(), (height * ratio).roundToInt())
-        val origin = IntOffset(((size.width - dest.width) / 2).roundToInt(), ((size.height - dest.height) / 2).roundToInt())
-        val safeFrame = frame().coerceIn(0, guide.frameCount - 1)
-        val source = if (poster) IntOffset.Zero else IntOffset((safeFrame % guide.columns) * width, (safeFrame / guide.columns) * height)
-        scale(if (mirror) -1f else 1f, 1f) {
-            drawImage(bitmap, srcOffset = source, srcSize = IntSize(width, height), dstOffset = origin, dstSize = dest)
+    SideEffect { photo?.let(DemoPhotos::shown) }
+    LaunchedEffect(set) {
+        DemoCatalog.read(context)[figure]?.let { guide ->
+            (guide.steps.map { it.pose } + guide.reps).distinct().forEach { DemoPhotos.load(context, set, demoPhotoPath(figure, it, view)) }
+        }
+    }
+    Box(modifier.clip(RoundedCornerShape(16.dp)).background(Color.Black).semantics {
+        contentDescription = description
+        photo?.let { shownDemoPhoto = it.path + if (mirror) " mirrored" else "" }
+    }) {
+        Crossfade(photo, animationSpec = tween(300), label = "demo photo") { shown ->
+            if (shown != null) DemoImage(shown.image, mirror)
         }
     }
 }
 
 @Composable
+private fun DemoImage(image: ImageBitmap, mirror: Boolean) {
+    Image(image, contentDescription = null, contentScale = ContentScale.Fit,
+        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = if (mirror) -1f else 1f })
+}
+
+/** A list asks for every thumbnail at once; one decode at a time keeps a single photo buffer in memory. */
+private val posterDecodes = Mutex()
+
+/** The list thumbnail: the hold photo of the side view, decoded at a quarter of its size. */
+@Composable
 fun DemoPoster(figure: String, modifier: Modifier, mirror: Boolean = false) {
     val context = LocalContext.current
     val guide = remember(figure) { DemoCatalog.read(context)[figure] }
-    if (guide != null) DemoFrame(figure, guide, 0, { guide.frameCount - 1 }, mirror, modifier, poster = true)
-    else Box(modifier, contentAlignment = Alignment.Center) { Text("No demo", color = K.Muted, fontSize = 12.sp) }
+    if (guide == null) {
+        Box(modifier, contentAlignment = Alignment.Center) { Text("No demo", color = K.Muted, fontSize = 12.sp) }
+        return
+    }
+    val path = demoPhotoPath(figure, guide.steps.last().pose, DemoView.SIDE)
+    val image by produceState<ImageBitmap?>(null, path) {
+        value = posterDecodes.withLock { withContext(Dispatchers.IO) { decodePhoto(context, path, 4) } }
+    }
+    Box(modifier.clip(RoundedCornerShape(6.dp)).background(Color.Black).semantics {
+        contentDescription = guide.name
+        if (image != null) shownDemoPhoto = path
+    }) {
+        image?.let { DemoImage(it, mirror) }
+    }
 }
 
-/** A lesson before Start; a timer-driven demonstration during the exercise. */
+/**
+ * A lesson before Start; a timer-driven demonstration during the exercise. With [maxPanelHeight] the photo panel
+ * takes the height its parent leaves, from [DEMO_PANEL_MIN_HEIGHT] up to that value, so the parent must give it a
+ * bounded height; without it the panel is 208 dp high.
+ */
 @Composable
 fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boolean = true,
-    exerciseProgress: Float? = null, compact: Boolean = false, modifier: Modifier = Modifier, onPhase: Boolean = false) {
+    exerciseProgress: Float? = null, maxPanelHeight: Dp? = null, modifier: Modifier = Modifier, onPhase: Boolean = false) {
     val context = LocalContext.current
     val guide = remember(figure) { DemoCatalog.read(context)[figure] }
     if (guide == null) {
@@ -130,12 +187,11 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
         Text("No demonstration for this stretch", color = if (onPhase) K.OnPhaseMuted else K.Muted, modifier = modifier)
         return
     }
-    var view by rememberSaveable(figure, mirror) { mutableIntStateOf(0) }
+    var view by rememberSaveable(figure, mirror) { mutableStateOf(DemoView.SIDE) }
     var playing by rememberSaveable(figure, mirror) { mutableStateOf(true) }
-    // Written every vsync but never read during composition, so it causes no recomposition.
+    // Written every vsync but read only by the derived step and while drawing the timeline, so it causes no recomposition.
     var elapsedMs by rememberSaveable(figure, mirror) { mutableLongStateOf(0L) }
-    var playFrame by rememberSaveable(figure, mirror) { mutableIntStateOf(guide.previewFrame(0)) }
-    var manualFrame by rememberSaveable(figure, mirror) { mutableIntStateOf(0) }
+    var manualStep by rememberSaveable(figure, mirror) { mutableIntStateOf(0) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var visible by remember { mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) }
     DisposableEffect(lifecycle) {
@@ -143,39 +199,42 @@ fun StretchDemonstration(figure: String, mirror: Boolean = false, preview: Boole
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
-    // The sprites play at 13-20 frames per second. The vsync clock only picks the index; an unchanged index writes nothing.
     LaunchedEffect(playing, preview, visible, figure, mirror) {
         if (playing && preview && visible) {
             val clock = DemoClock(elapsedMs)
-            while (true) withFrameNanos { now ->
-                elapsedMs = clock.elapsedMs(now)
-                playFrame = guide.previewFrame(elapsedMs)
-            }
+            while (true) withFrameNanos { now -> elapsedMs = clock.elapsedMs(now) }
         }
     }
-    val exerciseFrame = if (preview) 0 else guide.exerciseFrame(exerciseProgress)
-    val frame = { if (!preview) exerciseFrame else if (playing) playFrame else manualFrame }
-    val previewStep by remember(guide, mirror) { derivedStateOf { guide.stepAt(if (playing) playFrame else manualFrame) } }
-    val selectedStep = if (preview) previewStep else guide.nearestStep(exerciseFrame)
-    val instruction = guide.steps[selectedStep].instruction.forDemoSide(mirror)
+    val playStep by remember(guide) { derivedStateOf { guide.previewStep(elapsedMs) } }
+    val step = when { !preview -> guide.exerciseStep(exerciseProgress); playing -> playStep; else -> manualStep }
+    val pose = if (preview) guide.steps[step].pose else guide.exercisePose(exerciseProgress)
+    val instruction = guide.steps[step].instruction.forDemoSide(mirror)
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.fillMaxWidth()) {
-            DemoFrame(figure, guide, view, frame, mirror,
-                Modifier.fillMaxWidth().height(if (compact) 208.dp else 272.dp),
-                description = "${guide.name}. ${guide.steps[selectedStep].title}. $instruction")
+        val panel = if (maxPanelHeight == null) Modifier.height(208.dp)
+            else Modifier.weight(1f, fill = false).heightIn(min = DEMO_PANEL_MIN_HEIGHT, max = maxPanelHeight.coerceAtLeast(DEMO_PANEL_MIN_HEIGHT)).fillMaxHeight()
+        Box(panel.fillMaxWidth()) {
+            // Sized by the box, so the photo's own size never counts toward the minimum the player reserves for it.
+            DemoPanel(figure, pose, view, mirror, "${guide.name}. ${guide.steps[step].title}. $instruction", Modifier.matchParentSize())
             // Over the image's bottom corners, 10 dp in (6 dp and the 48 dp target's edge), like a video player's controls.
             Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 if (preview) DemoControl(if (playing) Icons.Pause else Icons.Play, if (playing) "Pause demo" else "Play demo") {
-                    if (playing) manualFrame = playFrame else { elapsedMs = 0L; playFrame = guide.previewFrame(0) }
+                    if (playing) manualStep = playStep else elapsedMs = 0L
                     playing = !playing
                 } else Spacer(Modifier.width(1.dp))
-                DemoControl(Icons.Rotate3d, "Change camera angle. View ${view + 1} of 2") { view = 1 - view }
+                DemoControl(Icons.Rotate3d, "Change camera angle. View ${view.ordinal + 1} of 2") {
+                    view = if (view == DemoView.SIDE) DemoView.FRONT else DemoView.SIDE
+                }
             }
         }
-        // The fill is read while drawing, so the line runs on with the pose without recomposing the steps.
-        if (preview) StepTimeline(guide.steps.map { it.title }, selectedStep, fill = { guide.timelineFill(frame()) },
-            onSelect = { playing = false; manualFrame = guide.steps[it].frame }, modifier = Modifier.padding(top = 14.dp))
-        Text(instruction, color = K.Text, style = MaterialTheme.typography.bodyLarge, minLines = 3,
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp), textAlign = TextAlign.Start)
+        // The fill is read while drawing, so the line runs on through a step without recomposing the steps.
+        if (preview) StepTimeline(guide.steps.map { it.title }, step,
+            fill = { if (playing) guide.previewFill(elapsedMs) else guide.stepFill(manualStep) },
+            onSelect = { playing = false; manualStep = it }, modifier = Modifier.padding(top = 14.dp))
+        // minLines does not count toward the text's minimum intrinsic height, which the player uses to size the photo.
+        val style = MaterialTheme.typography.bodyLarge
+        val measurer = rememberTextMeasurer()
+        val threeLines = with(LocalDensity.current) { remember(style, this) { measurer.measure("1\n2\n3", style).size.height.toDp() } }
+        Text(instruction, color = K.Text, style = style, minLines = 3,
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp).heightIn(min = threeLines), textAlign = TextAlign.Start)
     }
 }

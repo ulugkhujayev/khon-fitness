@@ -114,8 +114,8 @@ fun DemoControl(icon: ImageVector, label: String, onClick: () -> Unit) {
  * A guide's steps as a timeline: 26 dp numbered nodes on a 3 dp line, each title under its node in footnote muted.
  * Steps before the shown one are accent with white numbers, the shown one also sits in a 34 dp accent-tinted halo
  * with its title white and semibold, later ones Surface3 with muted numbers. The line runs between the first and
- * the last node's centers in Surface2 and fills in accent up to [fill] (0..1, [StretchDemo.timelineFill]). A tap
- * on a step holds its pose.
+ * the last node's centers in Surface2 and fills in accent up to [fill] (0..1, [StretchDemo.previewFill]). A tap
+ * on a step holds its photo.
  */
 @Composable
 fun StepTimeline(titles: List<String>, selected: Int, fill: () -> Float, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {

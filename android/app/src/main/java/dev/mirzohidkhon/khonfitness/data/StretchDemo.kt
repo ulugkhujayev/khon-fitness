@@ -1,57 +1,50 @@
 package dev.mirzohidkhon.khonfitness.data
 
 import kotlinx.serialization.Serializable
-import kotlin.math.roundToInt
 
+/** [pose] names the photo of the step: `stretch_demos/<key>-<pose>-<view>.webp`. */
 @Serializable
-data class DemoStep(val title: String, val instruction: String, val frame: Int)
+data class DemoStep(val title: String, val instruction: String, val pose: String)
 
+/** [reps] are the two poses a moving stretch alternates between during the exercise. */
 @Serializable
 data class StretchDemo(
     val name: String,
-    val frameCount: Int,
-    val columns: Int,
-    val frameWidth: Int,
-    val frameHeight: Int,
     val steps: List<DemoStep>,
-    val loopStart: Int,
     val moving: Boolean,
-    val repHoldFraction: Float = 0f,
+    val reps: List<String> = emptyList(),
 ) {
-    /** First show the setup, then move into each position and hold it long enough to inspect. */
-    fun previewFrame(elapsedMs: Long): Int {
-        val slot = ((elapsedMs.coerceAtLeast(0) / 2600) % steps.size).toInt()
-        if (slot == 0) return steps.first().frame
-        val progress = ((elapsedMs % 2600) / 1600f).coerceIn(0f, 1f)
-        return (steps[slot - 1].frame + (steps[slot].frame - steps[slot - 1].frame) * progress).roundToInt()
-    }
-
-    fun stepAt(frame: Int): Int = steps.indexOfFirst { frame <= it.frame }.let { if (it < 0) steps.lastIndex else it }
-
-    /** During the exercise the steps are hidden; the instruction follows the step nearest the shown frame. */
-    fun nearestStep(frame: Int): Int = steps.indices.minBy { kotlin.math.abs(steps[it].frame - frame) }
+    fun previewStep(elapsedMs: Long): Int = ((elapsedMs.coerceAtLeast(0) / STEP_MS) % steps.size).toInt()
 
     /**
-     * How far the step timeline is filled, 0..1 from the first step's node to the last: every step before the shown
-     * one, and the shown one by how far the pose has moved into it from the step before.
+     * How far the step timeline is filled, 0..1 from the first step's node to the last: every step up to the shown
+     * one, and toward the next by the time spent in the shown step.
      */
-    fun timelineFill(frame: Int): Float {
-        val i = stepAt(frame)
-        if (steps.size < 2 || i == 0) return 0f
-        val from = steps[i - 1].frame
-        val to = steps[i].frame
-        val into = if (to > from) ((frame - from).toFloat() / (to - from)).coerceIn(0f, 1f) else 1f
-        return (i - 1 + into) / (steps.size - 1)
+    fun previewFill(elapsedMs: Long): Float {
+        if (steps.size < 2) return 0f
+        val into = (elapsedMs.coerceAtLeast(0) % STEP_MS).toFloat() / STEP_MS
+        return ((previewStep(elapsedMs) + into) / (steps.size - 1)).coerceIn(0f, 1f)
     }
 
-    /** Reserve part of each half-cycle for its endpoints. Timed holds stay in the final position. */
-    fun exerciseFrame(progress: Float?): Int {
-        if (progress == null) return frameCount - 1
-        val movement = ((progress.coerceIn(0f, 1f) - repHoldFraction) / (1f - 2f * repHoldFraction))
-            .coerceIn(0f, 1f)
-        return (loopStart + movement * (frameCount - 1 - loopStart)).roundToInt()
+    fun stepFill(step: Int): Float = if (steps.size < 2) 0f else step.toFloat() / (steps.size - 1)
+
+    /** A timed hold ([motion] null) shows the last step; reps show the first rep pose up to half way, then the second. */
+    fun exercisePose(motion: Float?): String =
+        if (motion == null || reps.size < 2) steps.last().pose else reps[if (motion >= 0.5f) 1 else 0]
+
+    /** The instruction during the exercise: the last step that shows the pose on screen. */
+    fun exerciseStep(motion: Float?): Int {
+        if (motion == null || reps.size < 2) return steps.lastIndex
+        val pose = exercisePose(motion)
+        return steps.indexOfLast { it.pose == pose }.let { if (it < 0) steps.lastIndex else it }
     }
+
+    companion object { const val STEP_MS = 2600L }
 }
+
+enum class DemoView(val file: String) { SIDE("side"), FRONT("front") }
+
+fun demoPhotoPath(figure: String, pose: String, view: DemoView): String = "stretch_demos/$figure-$pose-${view.file}.webp"
 
 /** A node of the step timeline: a step before the shown one, the shown one, or one after it. */
 enum class StepNode { DONE, SHOWN, LATER }

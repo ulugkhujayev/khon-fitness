@@ -5,91 +5,58 @@ import dev.mirzohidkhon.khonfitness.data.StepNode
 import dev.mirzohidkhon.khonfitness.data.StretchDemo
 import dev.mirzohidkhon.khonfitness.data.stepNodes
 import dev.mirzohidkhon.khonfitness.data.forDemoSide
-import kotlinx.serialization.json.Json
 import org.junit.Assert.*
 import org.junit.Test
 
 class StretchDemoTest {
-    private val guide = StretchDemo("Test", 64, 8, 384, 304,
-        listOf(DemoStep("Set up", "Left leg", 0), DemoStep("Move", "Move left", 32), DemoStep("Hold", "Hold", 63)), 32, true)
+    private val guide = StretchDemo("Test",
+        listOf(DemoStep("Set up", "Left leg", "setup"), DemoStep("Move", "Move left", "start"), DemoStep("Hold", "Hold", "hold")),
+        moving = true, reps = listOf("start", "hold"))
+    private val still = guide.copy(moving = false, reps = emptyList())
 
-    @Test fun `preview starts in setup and pauses at each instruction`() {
-        assertEquals(0, guide.previewFrame(0))
-        assertEquals(0, guide.previewFrame(2500))
-        assertEquals(16, guide.previewFrame(3400))
-        assertEquals(32, guide.previewFrame(4400))
-        assertEquals(63, guide.previewFrame(7600))
-        assertEquals(0, guide.previewFrame(7800))
+    @Test fun `preview shows each step for 2,6 s in turn, then starts again`() {
+        assertEquals(listOf(0, 0, 1, 1, 2, 2, 0), listOf(0L, 2599, 2600, 5199, 5200, 7799, 7800).map(guide::previewStep))
+        assertEquals(0, guide.previewStep(-5))
     }
-    @Test fun `all preview frames stay inside the sheet`() {
-        for (ms in 0L..20000L step 33) assertTrue(guide.previewFrame(ms) in 0..63)
+    @Test fun `the timeline line fills toward the next step during a step`() {
+        assertEquals(0f, guide.previewFill(0), 0f)
+        assertEquals(0.25f, guide.previewFill(1300), 0.001f)
+        assertEquals(0.5f, guide.previewFill(2600), 0f)
+        assertEquals(0.75f, guide.previewFill(3900), 0.001f)
+        assertEquals(1f, guide.previewFill(5200), 0f)
+        assertEquals(1f, guide.previewFill(7000), 0f)
+        val fills = (0L until 7800L step 20).map(guide::previewFill)
+        assertTrue(fills.zipWithNext().all { (a, b) -> b >= a })
     }
-    @Test fun `instruction describes the movement being demonstrated`() {
-        assertEquals(0, guide.stepAt(0))
-        assertEquals(1, guide.stepAt(1))
-        assertEquals(1, guide.stepAt(32))
-        assertEquals(2, guide.stepAt(33))
+    @Test fun `a selected step fills the line up to its node`() {
+        assertEquals(listOf(0f, 0.5f, 1f), (0..2).map(guide::stepFill))
     }
-    @Test fun `exercise repetitions skip the introductory setup`() {
-        assertEquals(32, guide.exerciseFrame(0f))
-        assertEquals(63, guide.exerciseFrame(1f))
-        assertEquals(32, guide.exerciseFrame(-1f))
+    @Test fun `a one-step guide has no line to fill`() {
+        val one = guide.copy(steps = guide.steps.take(1))
+        assertEquals(0f, one.previewFill(4000), 0f)
+        assertEquals(0f, one.stepFill(0), 0f)
     }
-    @Test fun `timed holds show the held position`() { assertEquals(63, guide.exerciseFrame(null)) }
-    @Test fun `guides without pause metadata keep their original repetition timing`() {
-        val legacy = Json.decodeFromString<StretchDemo>("""{
-            "name":"Test", "frameCount":64, "columns":8, "frameWidth":384, "frameHeight":304,
-            "steps":[{"title":"Move", "instruction":"Move left", "frame":32}],
-            "loopStart":32, "moving":true
-        }""")
-        assertEquals(0f, legacy.repHoldFraction, 0f)
-        assertEquals(listOf(32, 40, 48, 55, 63),
-            listOf(0f, 0.25f, 0.5f, 0.75f, 1f).map(legacy::exerciseFrame))
+    @Test fun `a timed hold shows the last step and its pose`() {
+        assertEquals("hold", guide.exercisePose(null))
+        assertEquals(2, guide.exerciseStep(null))
+        assertEquals("hold", still.exercisePose(0.2f))
+        assertEquals(2, still.exerciseStep(0.2f))
     }
-    @Test fun `elephant pauses at each side then moves through the middle`() {
-        val paused = guide.copy(repHoldFraction = 0.2f)
-        for (progress in listOf(-1f, 0f, 0.1f, 0.2f)) assertEquals(32, paused.exerciseFrame(progress))
-        for (progress in listOf(0.8f, 0.9f, 1f, 2f)) assertEquals(63, paused.exerciseFrame(progress))
-        assertTrue(paused.exerciseFrame(0.3f) > 32)
-        assertEquals(48, paused.exerciseFrame(0.5f))
-        assertTrue(paused.exerciseFrame(0.7f) < 63)
-        assertEquals(63, paused.exerciseFrame(null))
+    @Test fun `reps show the first rep pose below half way and the second from half way`() {
+        assertEquals(listOf("start", "start", "hold", "hold"), listOf(0f, 0.49f, 0.5f, 1f).map(guide::exercisePose))
+        assertEquals(listOf(1, 1, 2, 2), listOf(0f, 0.49f, 0.5f, 1f).map(guide::exerciseStep))
     }
-    @Test fun `both repetition styles advance without reversing or leaving the movement frames`() {
-        for (demo in listOf(guide, guide.copy(repHoldFraction = 0.2f))) {
-            val frames = (0..1000).map { demo.exerciseFrame(it / 1000f) }
-            assertTrue(frames.all { it in 32..63 })
-            assertTrue(frames.zipWithNext().all { (previous, next) -> next >= previous })
-            assertEquals((32..63).toList(), frames.distinct())
-        }
+    @Test fun `a rep pose no step names keeps the last instruction`() {
+        assertEquals(2, guide.copy(reps = listOf("other", "hold")).exerciseStep(0f))
     }
     @Test fun `right side reverses instructions without damaging other words`() {
         assertEquals("Right hand under your left arm. Stay upright.",
             "Left hand under your right arm. Stay upright.".forDemoSide(true))
         assertEquals("Left hand", "Left hand".forDemoSide(false))
     }
-    // ---- step timeline (contract row 6)
-
     @Test fun `timeline nodes before the shown step are done, the shown one stands out, later ones wait`() {
         assertEquals(listOf(StepNode.SHOWN, StepNode.LATER, StepNode.LATER), stepNodes(3, 0))
         assertEquals(listOf(StepNode.DONE, StepNode.SHOWN, StepNode.LATER), stepNodes(3, 1))
         assertEquals(listOf(StepNode.DONE, StepNode.DONE, StepNode.SHOWN), stepNodes(3, 2))
-    }
-    @Test fun `the timeline line fills as the pose moves into each step`() {
-        assertEquals(0f, guide.timelineFill(0), 0f) // at setup
-        assertEquals(0.25f, guide.timelineFill(16), 0.001f) // half way into step 2 of 3
-        assertEquals(0.5f, guide.timelineFill(32), 0f) // at step 2
-        assertEquals(0.75f, guide.timelineFill(48), 0.02f) // half way into step 3
-        assertEquals(1f, guide.timelineFill(63), 0f) // at the last step
-        val frames = (0..63).map(guide::timelineFill)
-        assertTrue(frames.zipWithNext().all { (a, b) -> b >= a })
-    }
-    @Test fun `a one-step guide has no line to fill`() {
-        assertEquals(0f, guide.copy(steps = guide.steps.take(1)).timelineFill(40), 0f)
-    }
-    @Test fun `during the exercise the instruction follows the nearest step`() {
-        assertEquals(0, guide.nearestStep(10))
-        assertEquals(1, guide.nearestStep(40))
-        assertEquals(2, guide.nearestStep(60))
     }
 }

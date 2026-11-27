@@ -41,16 +41,18 @@ internal fun niceStep(span: Double, target: Int): Double {
     SMALL_STEPS.firstOrNull { it >= raw }?.let { return it }
     var power = SMALL_STEPS.last()
     while (power.isFinite()) {
-        STEP_FACTORS.firstOrNull { it * power >= raw }?.let { return it * power }
+        STEP_FACTORS.map { it * power }.firstOrNull { it >= raw && it.isFinite() }?.let { return it }
         power *= 10
     }
-    return SMALL_STEPS.last()
+    return Double.MAX_VALUE
 }
+
+const val MAX_AXIS_TICKS = 5
 
 data class ValueAxis(val low: Double, val high: Double, val step: Double) {
     val ticks: List<Double> get() {
-        val last = floor((high - low) / step + 1.0 / 1000).takeIf { it.isFinite() }?.toInt()?.coerceAtLeast(0) ?: 0
-        return (0..last).map { low + it * step }
+        val last = floor((high - low) / step + 1.0 / 1000).takeIf { it.isFinite() }?.coerceIn(0.0, MAX_AXIS_TICKS - 1.0)?.toInt() ?: 0
+        return (0..last).map { low + it * step }.filter { it.isFinite() }.distinct()
     }
 }
 
@@ -62,7 +64,7 @@ fun valueAxis(values: List<Double>, domain: ClosedFloatingPointRange<Double>? = 
         if (vmax > domain.endInclusive) { vmin = maxOf(domain.start, vmin - (vmax - domain.endInclusive)); vmax = domain.endInclusive }
     }
     val step = niceStep(vmax - vmin, 3)
-    var yMin = floor(vmin / step) * step; var yMax = ceil(vmax / step) * step
+    var yMin = (floor(vmin / step) * step).coerceAtLeast(-Double.MAX_VALUE); var yMax = (ceil(vmax / step) * step).coerceAtMost(Double.MAX_VALUE)
     if (domain != null) { yMin = yMin.coerceAtLeast(domain.start); yMax = yMax.coerceAtMost(domain.endInclusive) }
     return ValueAxis(yMin, yMax, step)
 }
@@ -134,6 +136,8 @@ fun LineChart(
     val lastStyle = TextStyle(fontFamily = Inter, color = K.Text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     val emptyStyle = TextStyle(fontFamily = Inter, color = K.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     val onDrawn = LocalChartDrawn.current
+    val points = points.filter { it.value.isFinite() }
+    val trend = trend.filter { it.value.isFinite() }
     Canvas(modifier.fillMaxWidth().height(CHART_HEIGHT.dp)) {
         if (points.isEmpty()) {
             val t = measurer.measure("No data yet", emptyStyle)
@@ -146,7 +150,7 @@ fun LineChart(
         val tickText = ticks.map { measurer.measure(format?.invoke(it) ?: fmt(it, if (step < 1) 1 else 0), tick) }
         val padL = axisWidth(tickText.map { it.size.width.toFloat() }, AXIS_GAP.dp.toPx()); val padR = 8.dp.toPx(); val padT = 22.dp.toPx(); val padB = 24.dp.toPx()
         val plotW = size.width - padL - padR; val plotH = size.height - padT - padB
-        fun yFor(v: Double) = padT + ((yMax - v) * plotH / (yMax - yMin)).toFloat()
+        fun yFor(v: Double) = padT + ((yMax - v) / (yMax - yMin) * plotH).toFloat()
         val n = points.size
         fun xFor(i: Int) = if (n == 1) padL + plotW / 2 else padL + i * plotW / (n - 1)
         val tickBoxes = ticks.mapIndexed { k, v ->

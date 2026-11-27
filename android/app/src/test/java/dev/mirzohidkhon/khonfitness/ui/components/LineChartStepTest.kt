@@ -44,5 +44,11 @@ class LineChartStepTest {
         assertEquals(listOf(0.0, 2000.0, 4000.0), valueAxis(listOf(0.0, 3001.0)).ticks)
         assertEquals(listOf(0.0, 500000.0, 1000000.0), valueAxis(listOf(0.0, 1e6)).ticks)
         assertEquals(listOf(0.0, 5e8, 1e9), valueAxis(listOf(0.0, 1e9)).ticks)
+        for (values in listOf(listOf(245110341540439968.0, 245110341540440032.0), listOf(0.0, Double.MAX_VALUE), listOf(-Double.MAX_VALUE, Double.MAX_VALUE), listOf(1e300, 1e300))) {
+            val ticks = valueAxis(values).ticks
+            assertTrue("$values: $ticks", ticks.size in 1..5 && ticks.all { it.isFinite() } && ticks.distinct() == ticks)
+        }
+        assertEquals(5, ValueAxis(0.0, 3e9, 1.0).ticks.size)
+        for (span in listOf(Double.NaN, Double.POSITIVE_INFINITY, Double.MAX_VALUE)) assertTrue("$span", niceStep(span, 3).isFinite())
     }
 }

@@ -130,10 +130,10 @@ fun KhonNav() {
     }
 }
 
-/** Every screen of the app by its route. */
-fun NavGraphBuilder.khonScreens(vm: AppViewModel, nav: NavHostController, clock: Clock = Clock.systemDefaultZone()) {
+/** Every screen of the app by its route. A screen reads [clock] when it composes, so a new time zone of the phone counts. */
+fun NavGraphBuilder.khonScreens(vm: AppViewModel, nav: NavHostController, clock: () -> Clock = Clock::systemDefaultZone) {
     composable(Routes.TODAY) { TodayScreen(vm, nav) }
-    composable(Routes.HISTORY) { HistoryScreen(vm, nav, clock) }
+    composable(Routes.HISTORY) { HistoryScreen(vm, nav, clock()) }
     composable(Routes.PROGRAMS) { PlanScreen(vm, nav) }
     composable("session/{id}") { e -> SessionScreen(vm, nav, e.arguments?.getString("id") ?: "") }
     composable("review/{id}") { e -> ReviewScreen(vm, nav, e.arguments?.getString("id") ?: "") }
@@ -149,11 +149,11 @@ fun NavGraphBuilder.khonScreens(vm: AppViewModel, nav: NavHostController, clock:
     composable("routine/{id}") { e -> RoutineEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
     composable("stretcheditor/{id}") { e -> StretchEditorScreen(vm, nav, e.arguments?.getString("id") ?: "") }
     composable(Routes.NEW_STRETCH) { StretchEditorScreen(vm, nav, null) }
-    composable("lift/{id}") { e -> ExerciseDetailScreen(vm, nav, e.arguments?.getString("id") ?: "", clock) }
-    composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "", clock) }
-    composable(Routes.LIFTS) { LiftListScreen(vm, nav, clock) }
-    composable(Routes.COMPARE) { CompareScreen(vm, nav, clock) }
-    composable(Routes.LOAD) { LoadScreen(vm, nav, clock) }
+    composable("lift/{id}") { e -> ExerciseDetailScreen(vm, nav, e.arguments?.getString("id") ?: "", clock()) }
+    composable("cardiotype/{id}") { e -> CardioTypeScreen(vm, nav, e.arguments?.getString("id") ?: "", clock()) }
+    composable(Routes.LIFTS) { LiftListScreen(vm, nav, clock()) }
+    composable(Routes.COMPARE) { CompareScreen(vm, nav, clock()) }
+    composable(Routes.LOAD) { LoadScreen(vm, nav, clock()) }
     composable(Routes.STRETCHES) { StretchLibraryScreen(vm, nav) }
     composable(Routes.IMPORT) { ImportScreen(vm, nav) }
     composable(Routes.LIBRARY) { LibraryScreen(vm, nav) }

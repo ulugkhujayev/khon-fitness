@@ -119,6 +119,8 @@ class LoadScreenTest {
     }
 
     private var drawn: ChartDrawn? = null
+    private var clockReads = 0
+    private var clockReadsOfTheGraph = -1
 
     private fun show(scale: Float = 1f, start: String = Routes.LOAD) {
         compose.setContent {
@@ -131,7 +133,10 @@ class LoadScreenTest {
                 KhonTheme {
                     Surface(Modifier.fillMaxSize(), color = K.Bg, contentColor = K.Text) {
                         nav = rememberNavController()
-                        NavHost(nav, startDestination = start) { khonScreens(vm, nav, clock) }
+                        NavHost(nav, startDestination = start) {
+                            khonScreens(vm, nav) { clockReads++; clock }
+                            clockReadsOfTheGraph = clockReads
+                        }
                     }
                 }
             }
@@ -174,6 +179,13 @@ class LoadScreenTest {
         compose.onNodeWithContentDescription("Back").performSemanticsAction(SemanticsActions.OnClick)
         compose.waitUntil(15_000) { shows("Compare two periods") }
         assertEquals(Routes.HISTORY, nav.currentDestination?.route)
+    }
+
+    @Test fun aScreenReadsTheClockWhenItComposes() {
+        show(start = Routes.HISTORY)
+        compose.waitUntil(15_000) { shows("Progress") }
+        assertEquals(0, clockReadsOfTheGraph)
+        assertTrue(clockReads > 0)
     }
 
     private fun accentColumns(): Pair<Int, Int> {

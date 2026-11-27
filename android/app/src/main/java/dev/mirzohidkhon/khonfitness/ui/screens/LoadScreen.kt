@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineHeightStyle
@@ -120,7 +121,7 @@ private fun LoadGrid(year: LoadYear, modifier: Modifier = Modifier) {
 @Composable
 private fun WeekRow(week: LoadWeek, highest: Int?, monthWidth: Dp, loadWidth: Dp) {
     Row(
-        Modifier.fillMaxWidth().testTag(loadWeekTag(week.monday)).clearAndSetSemantics { contentDescription = loadWeekSpoken(week) },
+        Modifier.fillMaxWidth().testTag(loadWeekTag(week.monday)).semantics(mergeDescendants = true) { contentDescription = loadWeekSpoken(week) },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(loadMonth(week).orEmpty(), style = gridText, maxLines = 1, softWrap = false, modifier = Modifier.width(monthWidth))

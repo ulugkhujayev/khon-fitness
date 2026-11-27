@@ -29,9 +29,9 @@ import kotlin.math.roundToInt
 /** A chart point; a [mark]ed one (a record) draws green. */
 data class ChartPoint(val date: LocalDate, val value: Double, val mark: Boolean = false, val change: Boolean = false)
 
-private fun niceStep(span: Double, target: Int): Double {
+internal fun niceStep(span: Double, target: Int): Double {
     val raw = span / target.coerceAtLeast(1)
-    val steps = doubleArrayOf(0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 25.0, 50.0, 100.0)
+    val steps = doubleArrayOf(0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 25.0, 50.0, 100.0, 200.0, 250.0, 500.0, 1000.0)
     return steps.firstOrNull { it >= raw } ?: steps.last()
 }
 

@@ -179,7 +179,7 @@ padded cards, per-item buttons, "Updated" lines.
   data in red on its own. A footnote under Backup, App and Reset says
   what it holds or does; the backup footnote shows how the last export
   or import went, red on error.
-- The compare screen (from the last row of Progress, a plain row with a
+- The compare screen (from the last group of Progress, a plain row with a
   chevron) has the nav bar "Compare", then a group of two rows, the left
   and the right period: the date range, the choice in muted text, a
   chevron. Each opens a sheet titled "Left column" or "Right column" with
@@ -693,3 +693,19 @@ words.
 The cardio type screen's "At or above 85 %" chart labels its points as
 minutes and seconds ("9:50 min" on the last); "In zone" labels percents
 ("86 %"). Both are ordinary charts, no point marked green.
+
+The Load screen (the "Load" row under "Compare two periods", a plain row
+with a chevron) has the nav bar "Load" with Back. "Load per week" is an
+ordinary chart of week loads, its dates the Mondays. Under it, 24 px down,
+sits the year grid on the page background, not in a group. A header line
+holds the weekday letters in muted 12, centered over their columns. Each
+week is one row, newest at the top: the short month name ("Nov") in muted
+12 on the row that holds the month's first day, then 7 equal cells 14 px
+high, 2 px apart with 3 px corners, then the week's load in muted 12 with
+tabular figures. The month and load columns are as wide as their widest
+text ("Sep", "0000" or a longer load), so every row's cells line up. A day
+with a load is accent at 30, 50, 75 or 100 % alpha by its step. A day with
+sessions but no load is Surface with a 1 px muted outline, and a day
+without a session is Surface. Rows sit 2 px apart and grow with a large
+font. Nothing is tappable, the whole page scrolls, and each row speaks as
+one line ("Week of November 23, load 412, 4 days").

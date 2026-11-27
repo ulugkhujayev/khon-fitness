@@ -368,7 +368,7 @@ fun bodyweightChange(inRange: List<Bodyweight>): String? {
     return "$sign${String.format(Locale.US, "%.1f", Math.abs(d))} kg since ${monthDay(inRange.first().date.toDate()).replace(' ', '\u00A0')}"
 }
 
-private fun weekEntries(all: List<Bodyweight>, end: LocalDate): List<Bodyweight>? =
+internal fun weekEntries(all: List<Bodyweight>, end: LocalDate): List<Bodyweight>? =
     all.filter { val d = it.date.toDate(); d >= end.minusDays(6) && d <= end }.takeIf { it.size >= 3 }
 
 /** The mean of the entries dated from 6 days before [end] to [end]; null with fewer than 3. */
@@ -382,7 +382,7 @@ fun weekRate(all: List<Bodyweight>, today: LocalDate): Double? {
 }
 
 /** The entries' sum as the decimals they were entered as, so a mean or a change that ends in 5 rounds up as written. */
-private fun decimalSum(week: List<Bodyweight>): BigDecimal = week.fold(BigDecimal.ZERO) { s, b -> s + BigDecimal.valueOf(b.kg) }
+internal fun decimalSum(week: List<Bodyweight>): BigDecimal = week.fold(BigDecimal.ZERO) { s, b -> s + BigDecimal.valueOf(b.kg) }
 
 /** [denominator] must be above 0: the sign comes from [numerator] alone. */
 fun signedTenths(numerator: BigDecimal, denominator: BigDecimal): String {

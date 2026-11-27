@@ -66,7 +66,7 @@ fun spokenSetup(p: SetupPeriod): String =
 fun withWeight(history: List<LiftSession>): Boolean = history.any { h -> h.sets.any { countsAsDone(it) && (it.weightKg ?: 0.0) > 0 } }
 
 /** Times 30, so weight × (30 + reps) stays exact where weight × (1 + reps / 30) would not. */
-private fun value30(h: LiftSession, withWeight: Boolean): BigDecimal? {
+internal fun value30(h: LiftSession, withWeight: Boolean): BigDecimal? {
     val counted = h.sets.filter(::countsAsDone)
     return if (withWeight) counted.filter { (it.weightKg ?: 0.0) > 0 }.maxOfOrNull { BigDecimal.valueOf(it.weightKg!!) * BigDecimal.valueOf(30.0 + (it.reps ?: 0).toDouble()) }
     else counted.maxOfOrNull { BigDecimal.valueOf((it.reps ?: 0).toDouble() * 30) }

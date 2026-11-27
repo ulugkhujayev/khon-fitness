@@ -90,7 +90,7 @@ Three tabs.
   - Progress: personal records, sets per muscle this week / last week,
     bodyweight (1M / 3M / All, the change since the range's first entry,
     the 7-day average and its change per week, the average as a second
-    line in the chart),
+    line in the chart, the typed target and its date; see Targets),
     cardio of the last 30 days per type (sessions, km, time, pace, a
     sparkline "Distance per session" with the first and last value and
     date). Every type with a session ever has a row; one without sessions
@@ -201,6 +201,66 @@ today's average minus the average that ends 7 days earlier ("7-day avg
 83.2 kg · −0.3 kg/week", "±0.0" inside 0.05 kg). History's chart draws the
 average for each entry as a thin muted line; its first days use entries
 from before the range.
+
+### Targets
+
+The owner can type one bodyweight target and one target per strength
+exercise. The app never suggests a target and never prefills one. The
+targets live in the settings DataStore next to the maximum heart rate, so
+a backup does not carry them, and Reset removes them. An empty field
+removes the target.
+
+The sheet checks the text as typed, before it changes a character. It
+takes ASCII digits with at most one point or comma, 16 characters at
+most, and a comma is the decimal sign. Leading zeros keep the value, so "0080" is 80. The value
+must be inside the limits and on the step of its kind. Anything else
+(a letter, a sign, a space, a second separator, digits of another script)
+turns Save off, stores nothing, and stays in the field. The − and + steps
+stay inside the limits.
+
+- Bodyweight: 20.0 to 300.0 kg, one decimal as typed ("80,5" is 80.5,
+  "80.25" and "80.10" are refused). The app stores it with the entry date and the exact 7-day
+  average of that day as the sum and the count of its entries, else the
+  latest entry, else nothing.
+- Exercise: the est. 1RM in kg (1.0 to 500.0, steps of 0.5, so "100.50"
+  is 100.5 and "100.3" is refused) for an exercise with a counted set
+  above 0 kg, else reps (1 to 500, whole, so "12.0" is refused). The app
+  stores the unit with the value. A target of the other unit reads as
+  not set, and the next save replaces or removes it. When the unit
+  changes while the sheet is open, the sheet closes and its text is lost.
+
+A stored target reads as none unless each number in it is a plain
+decimal (no exponent) of at most 12 characters, the value is inside its
+limits and on its step, the stored sum and count are positive, the count
+is at most 1000, and the entry average is from 20 to 300 kg. The date
+must parse. A date after today counts as today's entry. A bodyweight
+record from before the sum and count holds one average; the app reads
+that average as exact.
+
+The second row of a target shows when the trend reaches it. It uses
+measured values only and names the rate it used. Each date comes from the
+exact rate, not its rounded text.
+
+For an exercise, the first session on or after the entry date at or above
+the target is "Reached" with that session's date. Else the app fits the
+least-squares line of "Est. 1RM per week" through the valued sessions of
+the last 56 days (today and the 55 days before). It needs 3 such sessions
+over 14 days or more; else it shows no second row. A slope at or below
+zero, or a rate that prints "±0.0", is "Not at this rate". Else the date is
+the first day from today on which the line is at or above the target, or
+"More than 2 years" when that day is more than 730 days away.
+
+For bodyweight, the direction is the sign of the target minus the exact
+stored average. Without a stored average, or when the two are equal, the present
+7-day average gives the direction; equal again is "Reached". The target is
+"Reached" once the exact present average is at or beyond it that way, so
+an average of 80.04 has not reached 80.0 on the way down although it
+prints 80.0. Without
+the present average or the one 7 days earlier there is no second row. A
+rate of "±0.0" or a rate the other way is "Not at this rate". Else the date
+is today plus the days the distance needs at that rate, rounded up, or
+"More than 2 years" past 730 days. For example: stored 83.2, present 82.0,
+−0.3 kg/week, target 80.0 gives today plus 47 days.
 
 ## Copy and chrome
 

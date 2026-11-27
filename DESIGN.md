@@ -487,6 +487,25 @@ Two lines, 88 px total, hairline between rows.
   chevron and do not open anything. TalkBack reads the dates, the setup and
   the rate in words ("Oct 2 to Nov 2, TP v4, 4 sets, 5 to 8 repetitions,
   plus 0.8 kilograms per week", "no rate").
+- A strength exercise has a "Target" group after the setup periods, or
+  after the Best card when there are none, and also when it has no
+  session yet. For an exercise with weight the group title is "Target
+  est. 1RM", because the chart above it shows the heaviest set. Cardio has none. Bodyweight on Progress has the same group
+  under its card, with entries or without. The first row is "Target" with
+  the value and a chevron: "100 kg" (a decimal only when needed), "12
+  reps", "80.0 kg" (bodyweight, always one decimal), or "Not set" in
+  muted. A tap opens the sheet. The second row shows only with a target
+  and a result, and does not open anything: "At +0.4 kg/week" (or
+  "reps/week") with "Mar 14" ("Mar 14, 2027" in another year), "More than
+  2 years", or "Not at this rate" on the right; or "Reached" with the
+  session date ("Reached" alone for bodyweight). Label and value are white
+  body text with tabular figures. "kg/week" never breaks at the slash. No
+  green or red, no arrows, no progress bar, no verdict words. TalkBack
+  reads each row as one line in full words: "Target, 100 kilograms,
+  button", "Target, not set, button", "At plus 0.4 kilograms per week,
+  March 14, 2027", "Reached, November 20", "At plus 12.5 kilograms per
+  week, more than 2 years". A "Not at this rate" row speaks "Not at this
+  rate" only.
 
 ## Stretch player
 
@@ -682,6 +701,13 @@ Each row speaks as one line with full unit words.
 The "Maximum heart rate" sheet holds one elevated group with a "Maximum"
 row and a number widget in bpm (the measured value as its placeholder),
 then a full-width Save, dim while the value is outside 100 to 230.
+
+The target sheets ("Target bodyweight", "Target est. 1RM", "Target reps")
+follow it: one elevated group with a "Target" row and a number widget in kg
+or reps, empty or with the owner's own target and no placeholder, then
+Save. Save is dim for text that is not a plain number inside the limits
+and on the step (80.25 kg, 100.3 kg, 12.0 reps, "8x0", "-80"); the text
+stays as typed. A comma reads as the decimal point.
 
 A finished cardio Review with figures gets a "Heart rate" group after
 Intervals: 48 px label and value rows in body, values white with tabular

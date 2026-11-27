@@ -488,6 +488,6 @@ private fun Settings(vm: AppViewModel, onHeartData: () -> Unit) {
     }
     if (confirmReset) ConfirmSheet("Reset to built-in data?", "Every session, bodyweight, program and setting goes back to the built-in data.", "Reset", onDismiss = { confirmReset = false }) {
         confirmReset = false
-        vm.run { vm.repo.resetToSeed(); vm.maxHeartRate.set(null); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context); backupStatus = BackupStatus("Reset to built-in data.") }
+        vm.run { vm.repo.resetToSeed(); vm.maxHeartRate.set(null); vm.targets.clearAll(); dev.mirzohidkhon.khonfitness.window.WindowScheduler.reschedule(context); backupStatus = BackupStatus("Reset to built-in data.") }
     }
 }

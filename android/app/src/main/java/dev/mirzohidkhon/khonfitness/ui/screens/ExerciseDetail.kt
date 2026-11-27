@@ -86,6 +86,7 @@ fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
             if (muscles.isNotEmpty()) Text(muscles, style = MaterialTheme.typography.bodyMedium, color = K.Muted, modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
             if (history.isEmpty()) {
                 GroupedList { EmptyLine("No sets yet") }
+                if (ex?.kind == Kind.STRENGTH) LiftTargetGroup(vm, exerciseId, history, today, Modifier.padding(top = 24.dp))
                 return@Column
             }
             // Sessions where every set was skipped list below, with no best and no chart point.
@@ -106,6 +107,7 @@ fun ExerciseDetailScreen(vm: AppViewModel, nav: NavHostController, exerciseId: S
                 LineChart(bestPoints, "kg")
             }
             if (periodRows.isNotEmpty()) PeriodGroup(rateTitle(withWeight(history)), periodRows, Modifier.padding(top = if (record != null) 24.dp else 0.dp))
+            if (ex == null || ex.kind == Kind.STRENGTH) LiftTargetGroup(vm, exerciseId, history, today, Modifier.padding(top = if (record != null || periodRows.isNotEmpty()) 24.dp else 0.dp))
             val repBests = remember(history) { repBests(history) }
             if (repBests.size >= 2) {
                 SectionTitle("Most reps by weight", Modifier.padding(top = 24.dp))

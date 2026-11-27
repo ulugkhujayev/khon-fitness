@@ -5,6 +5,7 @@ import dev.mirzohidkhon.khonfitness.data.HeartFill
 import dev.mirzohidkhon.khonfitness.data.KhonDatabase
 import dev.mirzohidkhon.khonfitness.data.KhonRepository
 import dev.mirzohidkhon.khonfitness.data.MaxHeartRate
+import dev.mirzohidkhon.khonfitness.data.Targets
 import dev.mirzohidkhon.khonfitness.data.SessionOrigins
 import dev.mirzohidkhon.khonfitness.data.WindowSince
 import dev.mirzohidkhon.khonfitness.health.HealthHeartSource
@@ -27,6 +28,7 @@ class KhonApp : Application() {
     /** App settings outside the database and the backup ([WindowSince], [SessionOrigins]); one store per process. */
     val settings: DataStore<Preferences> by lazy { PreferenceDataStoreFactory.create(scope = scope) { preferencesDataStoreFile("settings") } }
     val maxHeartRate: MaxHeartRate by lazy { MaxHeartRate(settings) }
+    val targets: Targets by lazy { Targets(settings) }
     val repo: KhonRepository by lazy {
         KhonRepository(db.dao(), WindowSince(settings), SessionOrigins(settings), requestFill = { heartFill.fillHeartRate() }, timer = ServiceTimerControl(this))
     }

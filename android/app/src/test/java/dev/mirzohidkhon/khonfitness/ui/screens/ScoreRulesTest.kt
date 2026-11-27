@@ -118,35 +118,31 @@ class ScoreRulesTest {
 
     private val clockBuckets = (0 until 360).map { HrSample(it * 5, 120 + it % 50) }
 
-    @Test fun aRoundInsideAnotherHasNoFiguresAndTheRoundBeforeHasNoDrop() {
+    @Test fun aRoundInsideAnotherTakesTheRoundFiguresOfTheSession() {
         val s = session()
         val rounds = listOf(round(s, 0, 300, 400), round(s, 1, 600, 840), round(s, 2, 650, 700), round(s, 3, 1000, 1100))
-        val r = roundScores(range(s), clockBuckets, rounds)
-        assertEquals(listOf(1, 2, 3, 4), r.map { it.number })
-        assertTrue(r[0].peak != null)
-        assertNull(r[0].drop)
-        assertEquals(listOf(RoundScore(2, null, null), RoundScore(3, null, null)), r.subList(1, 3))
-        assertTrue(r[3].peak != null && r[3].drop != null)
+        assertEquals(List(4) { RoundScore(it + 1, null, null) }, roundScores(range(s), clockBuckets, rounds))
     }
 
-    @Test fun aRoundThatStartsBeforeTheRoundBeforeEndsHasNoFigures() {
+    @Test fun roundTimesOutOfOrderTakeTheRoundFiguresOfTheSession() {
         val s = session()
         val ordered = listOf(round(s, 0, 300, 400), round(s, 1, 600, 700), round(s, 2, 900, 1000))
-        val before = roundScores(range(s), clockBuckets, ordered)
-        assertTrue(before.all { it.peak != null && it.drop != null })
+        val whole = roundScores(range(s), clockBuckets, ordered)
+        assertTrue(whole.all { it.peak != null && it.drop != null })
+        val none = List(3) { RoundScore(it + 1, null, null) }
         val overlap = ordered.take(2) + round(s, 2, 690, 800)
-        val o = roundScores(range(s), clockBuckets, overlap)
-        assertEquals(before[0], o[0].copy(drop = before[0].drop))
-        assertNull(o[0].drop)
-        assertEquals(listOf(RoundScore(2, null, null), RoundScore(3, null, null)), o.subList(1, 3))
+        assertEquals(none, roundScores(range(s), clockBuckets, overlap))
         val early = ordered.take(2) + round(s, 2, 500, 580)
-        val e = roundScores(range(s), clockBuckets, early)
-        assertNull(e[0].drop)
-        assertEquals(before[1].peak, e[1].peak)
-        assertNull(e[1].drop)
-        assertEquals(RoundScore(3, null, null), e[2])
+        assertEquals(none, roundScores(range(s), clockBuckets, early))
+        val firstIsLast = listOf(round(s, 0, 1100, 1200), round(s, 1, 100, 200), round(s, 2, 400, 500), round(s, 3, 800, 900))
+        assertEquals(List(4) { RoundScore(it + 1, null, null) }, roundScores(range(s), clockBuckets, firstIsLast))
+        val untimedBetween = listOf(round(s, 0, 600, 700), round(s, 1, null, null), round(s, 2, 300, 400))
+        assertEquals(none, roundScores(range(s), clockBuckets, untimedBetween))
         val touching = ordered.take(2) + round(s, 2, 700, 800)
-        assertEquals(RoundScore(3, null, null), roundScores(range(s), clockBuckets, touching)[2])
+        val t = roundScores(range(s), clockBuckets, touching)
+        assertEquals(whole[0], t[0])
+        assertEquals(whole[1].copy(drop = null), t[1])
+        assertTrue(t[2].peak != null && t[2].drop != null)
     }
 
     @Test fun aRoundWithOneTimeOrWithItsEndNotAfterItsStartTakesTheRoundFiguresOfTheSession() {

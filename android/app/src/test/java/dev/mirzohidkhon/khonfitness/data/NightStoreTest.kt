@@ -66,8 +66,8 @@ class NightStoreTest {
         withTimeout(5_000) {
             val a = async(Dispatchers.Default) { store.refresh(force = true) }
             source.reached.await()
-            val b = async(Dispatchers.Default) { store.refresh(force = true) }
-            val c = async(Dispatchers.Default) { store.refresh() }
+            val b = async(Dispatchers.Unconfined) { store.refresh(force = true) }
+            val c = async(Dispatchers.Unconfined) { store.refresh() }
             gate.complete(Unit)
             a.await(); b.await(); c.await()
         }

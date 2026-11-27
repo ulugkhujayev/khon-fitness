@@ -53,4 +53,36 @@ class NightStoreChangeReadTest {
             scope.cancel()
         }
     }
+
+    @Test fun `a source that cancels its own read keeps the read that a grant asked for`() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val zone = ZoneId.of("Asia/Tashkent")
+        val day = LocalDate.of(2026, 11, 26)
+        fun at(hour: Int) = day.atTime(hour, 0).atZone(zone).toInstant().toEpochMilli()
+        val reads = AtomicInteger()
+        val firstStarted = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val source = SleepSource {
+            if (reads.incrementAndGet() == 1) {
+                firstStarted.complete(Unit)
+                release.await()
+                throw kotlinx.coroutines.CancellationException("the source gave up")
+            }
+            listOf(SleepSpan("band", at(0), at(7)))
+        }
+        val store = NightStore(source, scope, FakeClocks(wall = at(9))) { zone }
+        try {
+            val first = launch { store.refresh() }
+            firstStarted.await()
+            val granted = launch { store.refreshAfterChange() }
+            yield()
+            release.complete(Unit)
+            joinAll(first, granted)
+            assertEquals(2, reads.get())
+            val state = store.state.value
+            assertTrue("$state", state is NightsState.Loaded && state.nights.isNotEmpty())
+        } finally {
+            scope.cancel()
+        }
+    }
 }

@@ -6,6 +6,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -74,21 +76,28 @@ class NightStore(
         }
     }
 
+    /** A source that cancels only its own read (a timeout) is a failed read: the worker goes on and keeps a queued read. */
     private suspend fun read() {
         val now = clocks.wallMs()
         val result = try {
             nights(source.spans(HrRange(minusMs(now, NIGHT_READ_DAYS * DAY_MS), now)), zone())
         } catch (e: CancellationException) {
-            throw e
+            currentCoroutineContext().ensureActive()
+            failed()
+            return
         } catch (e: NoSleepAccess) {
             synchronized(lock) { lastGoodElapsed = null }
             current.value = NightsState.NoAccess
             return
         } catch (e: Exception) {
-            if (current.value !is NightsState.Loaded) current.value = NightsState.Failed
+            failed()
             return
         }
         synchronized(lock) { lastGoodElapsed = clocks.elapsedMs() }
         current.value = NightsState.Loaded(result)
+    }
+
+    private fun failed() {
+        if (current.value !is NightsState.Loaded) current.value = NightsState.Failed
     }
 }

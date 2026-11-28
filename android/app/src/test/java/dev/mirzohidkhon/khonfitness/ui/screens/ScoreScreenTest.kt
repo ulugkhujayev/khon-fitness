@@ -330,6 +330,7 @@ class ScoreScreenTest {
         io { vm.maxHeartRate.set(186) }
         show(f.session.id, scale)
         waitFor("Round 10")
+        compose.waitUntil(5_000) { groupShown() }
         val group = compose.onNodeWithTag(SCORE_GROUP_TAG).fetchSemanticsNode()
         val rows = group.children
         assertEquals(11, rows.size)

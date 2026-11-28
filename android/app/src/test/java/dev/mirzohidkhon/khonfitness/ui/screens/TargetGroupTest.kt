@@ -167,6 +167,7 @@ class TargetGroupTest {
         exercises()
         listOf(42L to 90.0, 28L to 92.0).forEach { (b, v) -> lift(b, v) }
         detail("bench")
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Sessions · newest first").fetchSemanticsNodes().isNotEmpty() }
         said("Target, not set")
         compose.onNodeWithContentDescription("Target, not set").performScrollTo().performClick()
         val input = field("Target estimated one rep max, kilograms")

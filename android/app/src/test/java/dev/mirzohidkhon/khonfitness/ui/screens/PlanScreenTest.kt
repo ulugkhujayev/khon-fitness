@@ -159,7 +159,7 @@ class PlanScreenTest {
         assertTrue(top("Zone 2 run") < top("Archived") && top("Archived") < top("Old run"))
         compose.onNode(hasText("Daily mobility") and hasText("0 stretches · 0 min")).assertExists()
         compose.onNodeWithText("Exercises").performScrollTo()
-        compose.onNode(hasText("Exercises") and hasText("1")).assertExists() // live strength only
+        waitFor { compose.onAllNodes(hasText("Exercises") and hasText("1")).fetchSemanticsNodes().isNotEmpty() } // live strength only
         compose.onNode(hasText("Stretches") and hasText("0")).assertExists()
 
         tap(compose.onNodeWithText("Zone 2 run"))
@@ -349,7 +349,6 @@ class PlanScreenTest {
         compose.runOnUiThread { nav.openTab(Routes.TODAY) }
         waitFor { shows("Today screen") }
         compose.runOnUiThread { nav.openTab(Routes.PROGRAMS) }
-        waitFor { shows("Stretch routines") }
-        assertEquals(scrolled, top("Stretch routines"))
+        waitFor { shows("Stretch routines") && top("Stretch routines") == scrolled }
     }
 }

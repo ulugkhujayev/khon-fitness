@@ -113,6 +113,7 @@ fun periodStats(
     val inPeriod = sessions.filter { it.countsIn(period) }
     val gym = inPeriod.filter { it.itemType == ItemType.PROGRAM }
     val cardio = inPeriod.filter { it.itemType == ItemType.CARDIO }
+    val byId = exercises.associateBy { it.id }
     val gymIds = gym.map { it.id }.toSet()
     val gymSets = logs.filter { it.sessionId in gymIds }
     val counted = gymSets.filter(::countsAsDone)
@@ -125,7 +126,7 @@ fun periodStats(
         liftedKg = counted.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) },
         cardioSessions = cardio.size,
         cardioSec = cardio.sumOf { it.timeSec ?: 0 },
-        meters = cardio.sumOf { meters(it) ?: 0 },
+        meters = cardio.sumOf { shownMeters(it, isSwim(byId[it.exerciseId])) ?: 0 },
         stretches = stretches.count { it.date.toDate() in period },
         bodyweightKg = if (weights.isEmpty()) null else weights.sumOf { it.kg } / weights.size,
         bodyweights = weights.size,

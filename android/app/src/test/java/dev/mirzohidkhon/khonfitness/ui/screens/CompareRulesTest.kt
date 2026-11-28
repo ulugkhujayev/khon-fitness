@@ -86,6 +86,11 @@ class CompareRulesTest {
             "Cardio time" to "55 m", "Distance" to "6.0 km", "Stretching" to "1"), first)
     }
 
+    @Test fun `period distance leaves out band metres on a stationary bike and keeps a slow swim`() {
+        val sessions = listOf(cardio("ride", d(11, 3), "bike", sec = 2700, m = 60), cardio("swim", d(11, 4), "swim", sec = 3600, m = 500), cardio("run", d(11, 5), "run", sec = 1800, m = 5000))
+        assertEquals(5500, stats(Period(d(11, 1), d(11, 30)), sessions).meters)
+    }
+
     @Test fun `C4 sets per week over 28 and over 10 days`() {
         val logs = (0 until 14).map { set("g", 60.0, 8) }
         val four = stats(Period(d(11, 1), d(11, 28)), listOf(gym("g", d(11, 3))), logs)

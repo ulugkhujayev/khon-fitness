@@ -167,7 +167,7 @@ fun CardioTypeScreen(vm: AppViewModel, nav: NavHostController, typeId: String, c
         Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp, 8.dp, 16.dp, 32.dp)) {
             if (cs.isEmpty()) { GroupedList { EmptyLine("No sessions yet") }; return@Column }
             val pace = cs.mapNotNull { s ->
-                val dist = meters(s); val t = s.timeSec
+                val dist = shownMeters(s, swim); val t = s.timeSec
                 if (dist == null || dist <= 0 || t == null || t <= 0) null else ChartPoint(s.date.toDate(), t / (dist / if (swim) 100.0 else 1000.0) / 60.0)
             }
             if (pace.isNotEmpty()) {

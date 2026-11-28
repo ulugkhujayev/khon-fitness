@@ -178,7 +178,7 @@ fun runningLine(s: Session, logs: List<SetLog>, timer: TimerState?, now: Long): 
 /** "5:46 /km" from seconds and metres, "2:05 /100 m" for a swim; null without both. */
 fun paceLine(timeSec: Int?, distanceM: Int?, swim: Boolean = false): String? {
     if (timeSec == null || distanceM == null || timeSec <= 0 || distanceM <= 0) return null
-    val p = Math.round(timeSec / (distanceM / if (swim) 100.0 else 1000.0)).toInt()
+    val p = Math.round(timeSec / (distanceM / if (swim) 100.0 else 1000.0))
     return "${p / 60}:${"%02d".format(p % 60)} ${if (swim) "/100 m" else "/km"}"
 }
 

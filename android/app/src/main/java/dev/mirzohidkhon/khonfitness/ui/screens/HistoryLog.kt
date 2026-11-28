@@ -75,7 +75,7 @@ fun HistoryLog(vm: AppViewModel, nav: NavHostController, today: LocalDate) {
         WeekArrow(Icons.ChevronRight, "Next week", monday < weeks.endInclusive) { show(monday.plusWeeks(1)) }
     }
     Spacer(Modifier.height(6.dp))
-    val week = weekSummary(monday, today, sessions, logs, planFor, stretchSessions)
+    val week = weekSummary(monday, today, sessions, logs, planFor, stretchSessions, exercises)
     val tail = weekTail(week)
     Column(
         Modifier.fillMaxWidth().clip(GroupShape).background(K.Surface).padding(16.dp, 14.dp, 16.dp, 14.dp)

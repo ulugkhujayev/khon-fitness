@@ -33,6 +33,7 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
     val intervals = loadedIntervals.orEmpty()
     val facts = hrFacts(s, hrRow, java.time.ZoneId.systemDefault())
     val ex = exercises.find { it.id == s.exerciseId }
+    val swim = isSwim(ex)
     // Current exercise fields, plus any value this session already stores: a field removed later must not hide old data.
     val stored = listOfNotNull("time".takeIf { s.timeSec != null }, "distance".takeIf { s.distanceM != null }, "avgHr".takeIf { s.avgHr != null },
         "watts".takeIf { s.watts != null }, "laps".takeIf { s.laps != null }, "poolLength".takeIf { s.poolLength != null }, "stroke".takeIf { s.stroke != null })
@@ -93,15 +94,8 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                         "stroke" -> FieldRow("Stroke", divider = divider, onClick = { strokeSheet = true }) { FieldValue(draft.stroke ?: "Freestyle") }
                     }
                 }
-                if ("distance" in fields && (draft.distanceM ?: 0) > 0 && (draft.timeSec ?: 0) > 0) {
-                    val paceSec = draft.timeSec!! / (draft.distanceM!! / 1000.0)
-                    ComputedRow("Pace", "${(paceSec / 60).toInt()}:${"%02d".format((paceSec % 60).toInt())} /km")
-                }
-                if ("laps" in fields && (draft.laps ?: 0) > 0) {
-                    val dist = (draft.laps ?: 0) * (draft.poolLength ?: 25)
-                    ComputedRow("Distance", "$dist m")
-                    if ((draft.timeSec ?: 0) > 0) { val p = draft.timeSec!! / (dist / 100.0); ComputedRow("Pace", "${(p / 60).toInt()}:${"%02d".format((p % 60).toInt())} /100 m") }
-                }
+                if ("laps" in fields && (draft.laps ?: 0) > 0) ComputedRow("Distance", "${(draft.laps ?: 0).toLong() * (draft.poolLength ?: 25)} m")
+                paceLine(draft.timeSec, shownMeters(draft, swim), swim)?.let { ComputedRow("Pace", it) }
             }
             (missing ?: refusal)?.let { GroupFooter(it, Modifier.padding(top = 8.dp)) }
             if (intervals.isNotEmpty()) {

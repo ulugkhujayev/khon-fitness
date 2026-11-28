@@ -176,6 +176,11 @@ class TodayRulesTest {
         assertEquals("Done · 0.1 km · 40 min · 40:00 /100 m", doneLine(bike, emptyList(), swim = true))
     }
 
+    @Test fun `pace of a very slow session does not wrap`() {
+        assertEquals("50000000:00 /100 m", paceLine(30_000_000, 1, swim = true))
+        assertEquals("35791394116:40 /km", paceLine(Int.MAX_VALUE, 1))
+    }
+
     @Test fun `done line for stretching says done today with its length, singular and plural`() {
         assertEquals("Done today · 1 stretch · 1 min", routineLine(routineSummary(45, 1), doneToday = true))
         assertEquals("Done today · 10 stretches · 12 min", routineLine(routineSummary(700, 10), doneToday = true))

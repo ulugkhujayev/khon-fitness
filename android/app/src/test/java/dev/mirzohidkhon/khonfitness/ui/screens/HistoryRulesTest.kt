@@ -316,6 +316,22 @@ class HistoryRulesTest {
         assertEquals(1000, shownMeters(cardio("walk", monday, 3600, 1000), swim = false))
     }
 
+    @Test fun `week totals leave out band metres on a stationary bike and keep a slow swim`() {
+        val bike = Exercise("bk", "Bike", Kind.CARDIO, modalityId = "bike")
+        val swim = Exercise("sw", "Swim", Kind.CARDIO, modalityId = "swim")
+        val sessions = listOf(cardio("ride", monday, 2700, 60, ex = "bk"), cardio("swim", monday, 3600, 500, ex = "sw"), cardio("run", monday, 1800, 5000))
+        assertEquals(5500, weekSummary(monday, today, sessions, emptyList(), plan, exercises = listOf(bike, swim)).meters)
+    }
+
+    @Test fun `laps times pool length past the Int range give no distance, and pace does not wrap`() {
+        fun swim(laps: Int, pool: Int) = Session("w", monday.iso(), 0, 1, ItemType.CARDIO, timeSec = 1800, laps = laps, poolLength = pool)
+        assertNull(meters(swim(70_000, 70_000)))
+        assertNull(shownMeters(swim(70_000, 70_000), swim = true))
+        assertEquals(Int.MAX_VALUE, meters(swim(Int.MAX_VALUE, 1)))
+        assertEquals(2_000_000_000, meters(swim(40_000_000, 50)))
+        assertEquals("50000000:00\u00A0/\u2060100\u00A0m", pace(30_000_000, 1, true))
+    }
+
     // ---- Records
 
     private fun day(i: Long) = monday.minusDays(30 - i)

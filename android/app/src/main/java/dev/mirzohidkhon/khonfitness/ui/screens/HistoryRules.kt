@@ -113,7 +113,7 @@ fun logRows(monday: LocalDate, today: LocalDate, sessions: List<Session>, planFo
  */
 data class WeekSummary(val done: Int, val planned: Int, val missed: Int, val toGo: Int, val sets: Int, val liftedKg: Double, val cardioSec: Int, val meters: Int, val stretches: Int = 0)
 
-fun weekSummary(monday: LocalDate, today: LocalDate, sessions: List<Session>, logs: List<SetLog>, planFor: (LocalDate) -> PlanItem, stretches: List<StretchSession> = emptyList()): WeekSummary {
+fun weekSummary(monday: LocalDate, today: LocalDate, sessions: List<Session>, logs: List<SetLog>, planFor: (LocalDate) -> PlanItem, stretches: List<StretchSession> = emptyList(), exercises: List<Exercise> = emptyList()): WeekSummary {
     val days = (0L until 7L).map { monday.plusDays(it) }
     val week = sessions.filter { it.finished && it.date.toDate() in monday..days.last() }
     val doneDays = week.map { it.date.toDate() }.toSet()
@@ -122,11 +122,12 @@ fun weekSummary(monday: LocalDate, today: LocalDate, sessions: List<Session>, lo
     val ids = week.filter { it.itemType == ItemType.PROGRAM }.map { it.id }.toSet()
     val sets = logs.filter { it.sessionId in ids && it.status == SetStatus.DONE }
     val cardio = week.filter { it.itemType == ItemType.CARDIO }
+    val byId = exercises.associateBy { it.id }
     return WeekSummary(
         done = planned.size - open.size, planned = planned.size,
         missed = open.count { it < today }, toGo = open.count { it >= today },
         sets = sets.size, liftedKg = sets.sumOf { lifted(it) },
-        cardioSec = cardio.sumOf { it.timeSec ?: 0 }, meters = cardio.sumOf { meters(it) ?: 0 },
+        cardioSec = cardio.sumOf { it.timeSec ?: 0 }, meters = cardio.sumOf { shownMeters(it, isSwim(byId[it.exerciseId])) ?: 0 },
         stretches = stretches.count { it.date.toDate() in monday..days.last() },
     )
 }
@@ -176,8 +177,8 @@ fun tons(kg: Double): String = "${fmt(kg / 1000.0, 1).ifEmpty { "0" }} t"
 
 private fun count(n: Int, word: String) = "$n ${if (n == 1) word else word + "s"}"
 
-/** Distance of a cardio session in meters: the distance, else laps × pool length. */
-fun meters(s: Session): Int? = s.distanceM ?: s.laps?.let { it * (s.poolLength ?: 25) }
+/** Distance of a cardio session in meters: the distance, else laps × pool length; null when that passes [Int.MAX_VALUE]. */
+fun meters(s: Session): Int? = s.distanceM ?: s.laps?.let { laps -> (laps.toLong() * (s.poolLength ?: 25)).takeIf { it <= Int.MAX_VALUE }?.toInt() }
 
 private const val SLOWEST_SHOWN_METERS_PER_HOUR = 1000L
 

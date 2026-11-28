@@ -136,7 +136,7 @@ private fun CardioReview(s: Session, facts: HrFacts, intervals: List<IntervalLog
     val rows = listOfNotNull(
         type?.let { "Type" to it },
         s.timeSec?.let { "Time" to "${it / 60} min" + if (it % 60 > 0) " ${it % 60} s" else "" },
-        s.distanceM?.let { "Distance" to "${fmt(it / 1000.0, 2)} km" },
+        s.distanceM?.takeIf { shownMeters(s, swim) != null }?.let { "Distance" to "${fmt(it / 1000.0, 2)} km" },
         paceLine(s.timeSec, shownMeters(s, swim), swim)?.let { "Pace" to it },
         shownAvgHr(s, facts)?.let { "Avg heart rate" to "$it bpm" },
         s.watts?.let { "Avg watts" to "$it W" },

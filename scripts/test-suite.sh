@@ -5,9 +5,9 @@
 # ends in one of these two ways and reports no failed test runs again. This script sets no time limit of its own.
 set -u
 cd "$(dirname "$0")/.."
-SAFEPOINT_TIMEOUT="SafepointSynchronize::begin: Timeout detected"
-JVM_FATAL="A fatal error has been detected by the Java Runtime Environment"
-TASK_TIMEOUT="as it has exceeded its configured timeout of"
+SAFEPOINT_TIMEOUT='^\[[^]]*\]\[warning\]\[safepoint *\] # SafepointSynchronize::begin: Timeout detected:$'
+JVM_FATAL='^# A fatal error has been detected by the Java Runtime Environment:$'
+TASK_TIMEOUT="^Requesting stop of task ':([A-Za-z0-9_-]+:)*test[A-Za-z0-9]*' as it has exceeded its configured timeout of [0-9a-z. ]+\\.\$"
 MAX_RUNS=3
 if [ $# -eq 0 ]; then
     set -- android/gradlew -p android :app:testDebugUnitTest :app:assembleDebug :app:lintVitalRelease
@@ -16,7 +16,7 @@ log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 
 reports_failed_test() {
-    grep -Eq -e '^[^>].* > .* FAILED$' -e 'tests completed, [1-9][0-9]* failed' "$log"
+    grep -Eq -e '^[^>].* > .* FAILED$' -e 'tests? completed, [1-9][0-9]* failed' "$log"
 }
 
 for run in $(seq 1 "$MAX_RUNS"); do
@@ -24,9 +24,9 @@ for run in $(seq 1 "$MAX_RUNS"); do
     status=${PIPESTATUS[0]}
     [ "$status" -eq 0 ] && exit 0
     reports_failed_test && exit "$status"
-    if grep -qF "$SAFEPOINT_TIMEOUT" "$log" && grep -qF "$JVM_FATAL" "$log"; then
+    if grep -Eq "$SAFEPOINT_TIMEOUT" "$log" && grep -Eq "$JVM_FATAL" "$log"; then
         echo "test-suite: run $run ended on a blocked safepoint"
-    elif grep -qF "$TASK_TIMEOUT" "$log"; then
+    elif grep -Eq "$TASK_TIMEOUT" "$log"; then
         echo "test-suite: run $run passed the timeout of the test task"
     else
         exit "$status"

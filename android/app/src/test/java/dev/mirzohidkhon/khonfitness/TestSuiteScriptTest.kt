@@ -142,6 +142,26 @@ class TestSuiteScriptTest {
         }
     }
 
+    @Test fun `one failed test in the singular form does not run again`() {
+        listOf(abort, taskTimeout).forEach { marks ->
+            val r = suite(command(2, 7, 0, "1 test completed, 1 failed", *marks))
+            assertEquals(r.output, 7, r.status)
+            assertEquals(r.output, 1, r.runs)
+        }
+    }
+
+    @Test fun `a mark quoted inside another line, or the timeout of another task, does not run again`() {
+        listOf(
+            arrayOf("e: Build.kt:3 unresolved: Requesting stop of task ':app:testDebugUnitTest' as it has exceeded its configured timeout of 10m."),
+            arrayOf("Requesting stop of task ':app:assembleDebug' as it has exceeded its configured timeout of 10m."),
+            arrayOf("e: Build.kt:3 ${abort[0]}", "e: Build.kt:4 ${abort[2]}"),
+        ).forEach { lines ->
+            val r = suite(command(2, 5, 0, *lines))
+            assertEquals(r.output, 5, r.status)
+            assertEquals(r.output, 1, r.runs)
+        }
+    }
+
     @Test fun `the script ends no process and sets no time limit of its own`() {
         val text = script.readText()
         listOf("kill", "pkill", "sleep", "RUN_LIMIT_SECONDS").forEach { assertFalse(it, Regex("\\b$it\\b").containsMatchIn(text)) }

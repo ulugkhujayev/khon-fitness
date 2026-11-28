@@ -94,7 +94,7 @@ fun CardioScreen(vm: AppViewModel, nav: NavHostController, sessionId: String) {
                         "stroke" -> FieldRow("Stroke", divider = divider, onClick = { strokeSheet = true }) { FieldValue(draft.stroke ?: "Freestyle") }
                     }
                 }
-                if ("laps" in fields && (draft.laps ?: 0) > 0) ComputedRow("Distance", "${(draft.laps ?: 0).toLong() * (draft.poolLength ?: 25)} m")
+                if ("laps" in fields && (draft.laps ?: 0) > 0 && (swim || shownMeters(draft.copy(distanceM = null), swim) != null)) ComputedRow("Distance", "${(draft.laps ?: 0).toLong() * (draft.poolLength ?: 25)} m")
                 paceLine(draft.timeSec, shownMeters(draft, swim), swim)?.let { ComputedRow("Pace", it) }
             }
             (missing ?: refusal)?.let { GroupFooter(it, Modifier.padding(top = 8.dp)) }

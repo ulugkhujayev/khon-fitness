@@ -140,6 +140,23 @@ class CardioDisplayTest {
         assertFalse("Cardio editor displays a swim pace per km", shows("/km", substring = true))
     }
 
+    @Test fun cardioEditorHidesComputedLapDistanceForBandMetres() {
+        val lapBike = bike.copy(fields = "time,laps,poolLength")
+        seed(lapBike, ride.copy(distanceM = null, laps = 2, poolLength = 30))
+        show { CardioScreen(vm, it, ride.id) }
+        await("Laps")
+        assertFalse("Cardio editor derives a distance from laps for band metres", shows("60 m"))
+        assertFalse("Cardio editor derives a pace from laps for band metres", shows("Pace"))
+    }
+
+    @Test fun cardioEditorKeepsComputedLapDistanceForSwim() {
+        val lapSwim = swim.copy(fields = "time,laps,poolLength")
+        seed(lapSwim, ride.copy(exerciseId = lapSwim.id, exerciseName = lapSwim.name, distanceM = null, timeSec = 1800, laps = 40, poolLength = 25))
+        show { CardioScreen(vm, it, ride.id) }
+        await("1000 m")
+        await("3:00 /100 m")
+    }
+
     @Test fun cardioEditorLapDistanceDoesNotWrap() {
         val lapSwim = swim.copy(fields = "time,laps,poolLength")
         seed(lapSwim, ride.copy(exerciseId = lapSwim.id, exerciseName = lapSwim.name, distanceM = null, timeSec = 1800, laps = 70_000, poolLength = 70_000))

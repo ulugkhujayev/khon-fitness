@@ -332,6 +332,17 @@ class HistoryRulesTest {
         assertEquals("50000000:00\u00A0/\u2060100\u00A0m", pace(30_000_000, 1, true))
     }
 
+    @Test fun `three sessions of 800,000 km in a week and a cardio type sum past the Int range`() {
+        val sessions = (1..3).map { cardio("far$it", monday, 1_000_000_000, 800_000_000, start = it.toLong()) }
+        val week = weekSummary(monday, today, sessions, emptyList(), plan)
+        assertEquals(2_400_000_000L, week.meters)
+        assertEquals(3_000_000_000L, week.cardioSec)
+        val type = cardioTypes(sessions, listOf(run.cardio!!), today).single()
+        assertEquals(2_400_000_000L, type.meters)
+        assertEquals(3_000_000_000L, type.seconds)
+        assertEquals(pace(1250, 1000, false), type.pace)
+    }
+
     // ---- Records
 
     private fun day(i: Long) = monday.minusDays(30 - i)

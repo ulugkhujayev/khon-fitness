@@ -144,21 +144,56 @@ class TestSuiteScriptTest {
         assertEquals(1, r.runs)
     }
 
-    @Test fun `a hung run ends the test workers of its own checkout only`() {
-        fun worker(root: File) = ProcessBuilder("bash", "-c", "while :; do sleep 1; done", "-Dorg.gradle.internal.worker.tmpdir=${root.path}/android/app/build/tmp/work")
-            .redirectErrorStream(true).redirectOutput(File("/dev/null")).start()
-        val other = temp.newFolder("other").toPath().toRealPath().toFile()
-        val mine = worker(tree)
-        val theirs = worker(other)
+    @Test fun `a hung run that reports a failed test and answers TERM with exit 0 fails after one run`() {
+        val code = """echo "run 1"; echo "ExampleTest > actualFailure FAILED"; trap 'exit 0' TERM; sleep 60 & wait"""
+        val r = suite(listOf("bash", "-c", code), limit = 2)
+        assertNotEquals(r.output, 0, r.status)
+        assertEquals(r.output, 1, r.runs)
+        assertTrue(r.output, r.output.contains("test-suite: run 1 passed the time limit of 2 s"))
+    }
+
+    @Test fun `output held open after the command exits counts as hung at the limit`() {
+        val counter = temp.newFile().apply { writeText("0") }
+        val code = """n=${'$'}(( ${'$'}(cat "$1") + 1 )); echo "${'$'}n" > "$1"; echo "run ${'$'}n"; [ "${'$'}n" -ge 2 ] && exit 0; sleep 60 & exit 0"""
+        val r = suite(listOf("bash", "-c", code, "fixture", counter.path), limit = 2)
+        assertEquals(r.output, 0, r.status)
+        assertEquals(r.output, 2, r.runs)
+        assertTrue(r.output, r.output.contains("test-suite: run 1 passed the time limit of 2 s"))
+        assertTrue("took ${r.seconds} s", r.seconds < 30)
+    }
+
+    private val workerClass = "worker.org.gradle.process.internal.worker.GradleWorkerMain"
+    private fun mark(root: File) = "-Dorg.gradle.internal.worker.tmpdir=${root.path}/android/app/build/tmp/work"
+
+    private fun alive(vararg args: String): Process =
+        ProcessBuilder(listOf("bash", "-c", "while :; do sleep 1; done") + args).redirectErrorStream(true).redirectOutput(File("/dev/null")).start()
+
+    private fun hungRunEnds(ended: List<Process>, living: List<Process>) {
         try {
             val r = suite(command(passOn = 2, sleep = 60), limit = 2)
             assertEquals(r.output, 0, r.status)
-            assertTrue("a worker of this checkout lives", mine.waitFor(5, TimeUnit.SECONDS))
-            assertTrue("a worker of another checkout was ended", theirs.isAlive)
+            ended.forEach { assertTrue("a test worker of this checkout lives", it.waitFor(5, TimeUnit.SECONDS)) }
+            living.forEachIndexed { i, p -> assertTrue("process $i was ended", p.isAlive) }
         } finally {
-            mine.destroyForcibly()
-            theirs.destroyForcibly()
+            (ended + living).forEach { it.destroyForcibly() }
         }
+    }
+
+    @Test fun `a hung run ends the test workers of its own checkout only`() {
+        val other = temp.newFolder("other").toPath().toRealPath().toFile()
+        hungRunEnds(
+            ended = listOf(alive("java", "-Xmx512m", mark(tree), "-cp", "x", workerClass, "Gradle Test Executor 1")),
+            living = listOf(
+                alive("java", mark(other), workerClass, "Gradle Test Executor 1"),
+                alive("vim", "${tree.path}/android/app/build/tmp/work/$workerClass"),
+                alive("grep", "-e", "$workerClass.*${mark(tree)}"),
+                alive("grep", "--regexp=${mark(tree)}", "$workerClass.log"),
+            ),
+        )
+    }
+
+    @Test fun `a process with the worker path but without the worker class lives through the cleanup`() {
+        hungRunEnds(ended = emptyList(), living = listOf(alive("java", mark(tree), "-cp", "x", "other.Main")))
     }
 
     private val guard = listOf("-XX:+UnlockDiagnosticVMOptions", "-XX:+SafepointTimeout", "-XX:SafepointTimeoutDelay=", "-XX:+AbortVMOnSafepointTimeout", "-XX:ErrorFile=")

@@ -160,6 +160,7 @@ class PlanScreenTest {
         compose.onNode(hasText("Daily mobility") and hasText("0 stretches · 0 min")).assertExists()
         compose.onNodeWithText("Exercises").performScrollTo()
         waitFor { compose.onAllNodes(hasText("Exercises") and hasText("1")).fetchSemanticsNodes().isNotEmpty() } // live strength only
+        compose.onNode(hasText("Exercises") and hasText("1")).assertExists()
         compose.onNode(hasText("Stretches") and hasText("0")).assertExists()
 
         tap(compose.onNodeWithText("Zone 2 run"))

@@ -140,6 +140,14 @@ class CardioDisplayTest {
         assertFalse("Cardio editor displays a swim pace per km", shows("/km", substring = true))
     }
 
+    @Test fun cardioEditorLapDistanceDoesNotWrap() {
+        val lapSwim = swim.copy(fields = "time,laps,poolLength")
+        seed(lapSwim, ride.copy(exerciseId = lapSwim.id, exerciseName = lapSwim.name, distanceM = null, timeSec = 1800, laps = 70_000, poolLength = 70_000))
+        show { CardioScreen(vm, it, ride.id) }
+        await("4900000000 m")
+        assertFalse("Cardio editor derives a pace from a distance past the Int range", shows("Pace"))
+    }
+
     @Test fun compareTotalsExcludeBandMetres() {
         val totals = periodStats(Period(day, day), listOf(ride), emptyList(), listOf(bike), emptyList(), emptyList())
         assertEquals("Compare totals include the filtered distance", 0, totals.meters)

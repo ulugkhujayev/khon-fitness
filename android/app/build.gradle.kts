@@ -54,6 +54,15 @@ android {
     testOptions { unitTests.isIncludeAndroidResources = true }
 }
 
+// On macOS 27 a thread of a Robolectric test worker now and then spins in compiled code and never reaches a
+// safepoint, so the worker hangs for ever. With these flags the JVM ends itself after 30 s of waiting.
+tasks.withType<Test>().configureEach {
+    jvmArgs(
+        "-XX:+UnlockDiagnosticVMOptions", "-XX:+SafepointTimeout", "-XX:SafepointTimeoutDelay=30000",
+        "-XX:+AbortVMOnSafepointTimeout", "-XX:ErrorFile=${layout.buildDirectory.get().asFile}/hs_err_%p.log",
+    )
+}
+
 ksp {
     arg("room.generateKotlin", "true")
     arg("room.schemaLocation", "$projectDir/schemas")

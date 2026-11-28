@@ -2,7 +2,6 @@ package dev.mirzohidkhon.khonfitness
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -12,10 +11,7 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-/**
- * scripts/test-suite.sh runs a command again only after a blocked safepoint or a hung run with no failed test.
- * Each case runs a copy of the script in a temp tree, so a hung run there ends only that tree's test workers.
- */
+/** scripts/test-suite.sh runs a command again only after a blocked safepoint or a test task timeout with no failed test. */
 class TestSuiteScriptTest {
     @get:Rule val temp = TemporaryFolder()
     private val repo = File(System.getProperty("user.dir"), "../..").canonicalFile
@@ -28,22 +24,19 @@ class TestSuiteScriptTest {
         script.setExecutable(true)
     }
 
-    private class Run(val status: Int, val output: String, val seconds: Double) {
+    private class Run(val status: Int, val output: String) {
         val runs get() = Regex("^run \\d+$", RegexOption.MULTILINE).findAll(output).count()
     }
 
-    private fun suite(command: List<String>, limit: Int? = null, dir: File = tree): Run {
+    private fun suite(command: List<String>, dir: File = tree): Run {
         val log = temp.newFile()
         val builder = ProcessBuilder(listOf(script.path) + command).directory(dir).redirectErrorStream(true).redirectOutput(log)
-        builder.environment().remove("RUN_LIMIT_SECONDS")
-        limit?.let { builder.environment()["RUN_LIMIT_SECONDS"] = "$it" }
-        val started = System.nanoTime()
         val process = builder.start()
         if (!process.waitFor(120, TimeUnit.SECONDS)) {
             process.destroyForcibly()
             fail("test-suite.sh did not end:\n${log.readText()}")
         }
-        return Run(process.exitValue(), log.readText(), (System.nanoTime() - started) / 1e9)
+        return Run(process.exitValue(), log.readText())
     }
 
     /**
@@ -123,77 +116,40 @@ class TestSuiteScriptTest {
         assertEquals("cwd ${tree.path}\nargs -p android :app:testDebugUnitTest :app:assembleDebug :app:lintVitalRelease\n", r.output)
     }
 
-    @Test fun `a hung run ends at the time limit and runs again`() {
-        val r = suite(command(passOn = 2, sleep = 60), limit = 2)
+    private val taskTimeout = arrayOf(
+        "Requesting stop of task ':app:testDebugUnitTest' as it has exceeded its configured timeout of 10m.",
+        "> Timeout has been exceeded",
+    )
+
+    @Test fun `a test task that passed its timeout runs again`() {
+        val r = suite(command(passOn = 2, status = 1, sleep = 0, *taskTimeout))
         assertEquals(r.output, 0, r.status)
         assertEquals(2, r.runs)
-        assertTrue(r.output, r.output.contains("test-suite: run 1 passed the time limit of 2 s"))
-        assertTrue("took ${r.seconds} s", r.seconds < 30)
+        assertTrue(r.output, r.output.contains("test-suite: run 1 passed the timeout of the test task"))
     }
 
-    @Test fun `three hung runs give exit 1`() {
-        val r = suite(command(passOn = 4, sleep = 60), limit = 2)
+    @Test fun `three task timeouts give exit 1`() {
+        val r = suite(command(passOn = 4, status = 1, sleep = 0, *taskTimeout))
         assertEquals(r.output, 1, r.status)
         assertEquals(3, r.runs)
-        assertTrue("took ${r.seconds} s", r.seconds < 60)
     }
 
-    @Test fun `a hung run that reports a failed test does not run again`() {
-        val r = suite(command(2, 0, 60, "ExampleTest > actualFailure FAILED"), limit = 2)
-        assertNotEquals(r.output, 0, r.status)
-        assertEquals(1, r.runs)
-    }
-
-    @Test fun `a hung run that reports a failed test and answers TERM with exit 0 fails after one run`() {
-        val code = """echo "run 1"; echo "ExampleTest > actualFailure FAILED"; trap 'exit 0' TERM; sleep 60 & wait"""
-        val r = suite(listOf("bash", "-c", code), limit = 2)
-        assertNotEquals(r.output, 0, r.status)
-        assertEquals(r.output, 1, r.runs)
-        assertTrue(r.output, r.output.contains("test-suite: run 1 passed the time limit of 2 s"))
-    }
-
-    @Test fun `output held open after the command exits counts as hung at the limit`() {
-        val counter = temp.newFile().apply { writeText("0") }
-        val code = """n=${'$'}(( ${'$'}(cat "$1") + 1 )); echo "${'$'}n" > "$1"; echo "run ${'$'}n"; [ "${'$'}n" -ge 2 ] && exit 0; sleep 60 & exit 0"""
-        val r = suite(listOf("bash", "-c", code, "fixture", counter.path), limit = 2)
-        assertEquals(r.output, 0, r.status)
-        assertEquals(r.output, 2, r.runs)
-        assertTrue(r.output, r.output.contains("test-suite: run 1 passed the time limit of 2 s"))
-        assertTrue("took ${r.seconds} s", r.seconds < 30)
-    }
-
-    private val workerClass = "worker.org.gradle.process.internal.worker.GradleWorkerMain"
-    private fun mark(root: File) = "-Dorg.gradle.internal.worker.tmpdir=${root.path}/android/app/build/tmp/work"
-
-    private fun alive(vararg args: String): Process =
-        ProcessBuilder(listOf("bash", "-c", "while :; do sleep 1; done") + args).redirectErrorStream(true).redirectOutput(File("/dev/null")).start()
-
-    private fun hungRunEnds(ended: List<Process>, living: List<Process>) {
-        try {
-            val r = suite(command(passOn = 2, sleep = 60), limit = 2)
-            assertEquals(r.output, 0, r.status)
-            ended.forEach { assertTrue("a test worker of this checkout lives", it.waitFor(5, TimeUnit.SECONDS)) }
-            living.forEachIndexed { i, p -> assertTrue("process $i was ended", p.isAlive) }
-        } finally {
-            (ended + living).forEach { it.destroyForcibly() }
+    @Test fun `a task timeout after a failed test does not run again`() {
+        listOf("ExampleTest > actualFailure FAILED", "12 tests completed, 1 failed").forEach { failed ->
+            val r = suite(command(2, 7, 0, failed, *taskTimeout))
+            assertEquals(r.output, 7, r.status)
+            assertEquals(r.output, 1, r.runs)
         }
     }
 
-    @Test fun `a hung run ends the test workers of its own checkout only`() {
-        val other = temp.newFolder("other").toPath().toRealPath().toFile()
-        hungRunEnds(
-            ended = listOf(alive("java", "-Xmx512m", mark(tree), "-cp", "x", workerClass, "Gradle Test Executor 1")),
-            living = listOf(
-                alive("java", mark(other), workerClass, "Gradle Test Executor 1"),
-                alive("vim", "${tree.path}/android/app/build/tmp/work/$workerClass"),
-                alive("grep", "-e", "$workerClass.*${mark(tree)}"),
-                alive("grep", "--regexp=${mark(tree)}", "$workerClass.log"),
-            ),
-        )
+    @Test fun `the script ends no process and sets no time limit of its own`() {
+        val text = script.readText()
+        listOf("kill", "pkill", "sleep", "RUN_LIMIT_SECONDS").forEach { assertFalse(it, Regex("\\b$it\\b").containsMatchIn(text)) }
     }
 
-    @Test fun `a process with the worker path but without the worker class lives through the cleanup`() {
-        hungRunEnds(ended = emptyList(), living = listOf(alive("java", mark(tree), "-cp", "x", "other.Main")))
+    @Test fun `the test task has a timeout of ten minutes at most`() {
+        val seconds = System.getProperty("testTaskTimeoutSeconds")?.toLong()
+        assertTrue("$seconds", seconds != null && seconds in 1..600)
     }
 
     private val guard = listOf("-XX:+UnlockDiagnosticVMOptions", "-XX:+SafepointTimeout", "-XX:SafepointTimeoutDelay=", "-XX:+AbortVMOnSafepointTimeout", "-XX:ErrorFile=")

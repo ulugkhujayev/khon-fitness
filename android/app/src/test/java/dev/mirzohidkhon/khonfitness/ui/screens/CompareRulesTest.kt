@@ -86,6 +86,11 @@ class CompareRulesTest {
             "Cardio time" to "55 m", "Distance" to "6.0 km", "Stretching" to "1"), first)
     }
 
+    @Test fun `period distance leaves out band metres on a stationary bike and keeps a slow swim`() {
+        val sessions = listOf(cardio("ride", d(11, 3), "bike", sec = 2700, m = 60), cardio("swim", d(11, 4), "swim", sec = 3600, m = 500), cardio("run", d(11, 5), "run", sec = 1800, m = 5000))
+        assertEquals(5500, stats(Period(d(11, 1), d(11, 30)), sessions).meters)
+    }
+
     @Test fun `C4 sets per week over 28 and over 10 days`() {
         val logs = (0 until 14).map { set("g", 60.0, 8) }
         val four = stats(Period(d(11, 1), d(11, 28)), listOf(gym("g", d(11, 3))), logs)
@@ -163,7 +168,19 @@ class CompareRulesTest {
         assertEquals(10000, run.meters)
         assertEquals(pace(3000, 10000, false), run.pace)
         val erg = stats(r, sessions).cardio.single { it.id == "rowing" }
-        assertEquals(listOf(900, 0, null), listOf(erg.seconds, erg.meters, erg.pace))
+        assertEquals(listOf(900L, 0L, null), listOf(erg.seconds, erg.meters, erg.pace))
+    }
+
+    @Test fun `three sessions of 800,000 km in a period sum past the Int range`() {
+        val p = Preset.LAST_4.period(today)
+        val sessions = (1..3).map { cardio("far$it", d(11, 10 + it), "run", sec = 1_000_000_000, m = 800_000_000) }
+        val s = stats(p, sessions)
+        assertEquals(2_400_000_000L, s.meters)
+        assertEquals(3_000_000_000L, s.cardioSec)
+        assertEquals("2400000.0 km", kmText(s.meters))
+        val run = s.cardio.single()
+        assertEquals(listOf(2_400_000_000L, 3_000_000_000L), listOf(run.meters, run.seconds))
+        assertEquals(pace(1250, 1000, false), run.pace)
     }
 
     @Test fun `C9 a program's period runs from its first finished session to its last`() {

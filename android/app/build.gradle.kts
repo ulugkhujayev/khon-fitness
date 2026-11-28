@@ -1,3 +1,4 @@
+import java.time.Duration
 import java.util.Properties
 
 plugins {
@@ -16,8 +17,8 @@ android {
         applicationId = "dev.mirzohidkhon.khonfitness"
         minSdk = 28
         targetSdk = 35
-        versionCode = 29
-        versionName = "0.7.0"
+        versionCode = 30
+        versionName = "0.7.1"
     }
 
     signingConfigs {
@@ -52,6 +53,20 @@ android {
     androidResources { localeFilters += "en" }
     // Robolectric tests run Room and Compose on the JVM.
     testOptions { unitTests.isIncludeAndroidResources = true }
+}
+
+// On macOS 27 a thread of a Robolectric test worker now and then spins in compiled code and never reaches a
+// safepoint, so the worker hangs for ever. With these flags the JVM ends itself after 30 s of waiting.
+// A hang that blocks no safepoint ends at the task timeout: Gradle then stops the workers it started.
+// -PtestTimeoutSeconds=<n> shortens it.
+val testTaskTimeout: Duration = Duration.ofSeconds((findProperty("testTimeoutSeconds") as String?)?.toLong() ?: 600)
+tasks.withType<Test>().configureEach {
+    jvmArgs(
+        "-XX:+UnlockDiagnosticVMOptions", "-XX:+SafepointTimeout", "-XX:SafepointTimeoutDelay=30000",
+        "-XX:+AbortVMOnSafepointTimeout", "-XX:ErrorFile=${layout.buildDirectory.get().asFile}/hs_err_%p.log",
+    )
+    timeout.set(testTaskTimeout)
+    systemProperty("testTaskTimeoutSeconds", testTaskTimeout.seconds)
 }
 
 ksp {

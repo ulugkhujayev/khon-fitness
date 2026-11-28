@@ -92,8 +92,8 @@ data class PeriodStats(
     val sets: Int = 0,
     val liftedKg: Double = 0.0,
     val cardioSessions: Int = 0,
-    val cardioSec: Int = 0,
-    val meters: Int = 0,
+    val cardioSec: Long = 0,
+    val meters: Long = 0,
     val stretches: Int = 0,
     val bodyweightKg: Double? = null,
     val bodyweights: Int = 0,
@@ -113,6 +113,7 @@ fun periodStats(
     val inPeriod = sessions.filter { it.countsIn(period) }
     val gym = inPeriod.filter { it.itemType == ItemType.PROGRAM }
     val cardio = inPeriod.filter { it.itemType == ItemType.CARDIO }
+    val byId = exercises.associateBy { it.id }
     val gymIds = gym.map { it.id }.toSet()
     val gymSets = logs.filter { it.sessionId in gymIds }
     val counted = gymSets.filter(::countsAsDone)
@@ -124,8 +125,8 @@ fun periodStats(
         sets = counted.size,
         liftedKg = counted.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) },
         cardioSessions = cardio.size,
-        cardioSec = cardio.sumOf { it.timeSec ?: 0 },
-        meters = cardio.sumOf { meters(it) ?: 0 },
+        cardioSec = cardio.sumOf { (it.timeSec ?: 0).toLong() },
+        meters = cardio.sumOf { (shownMeters(it, isSwim(byId[it.exerciseId])) ?: 0).toLong() },
         stretches = stretches.count { it.date.toDate() in period },
         bodyweightKg = if (weights.isEmpty()) null else weights.sumOf { it.kg } / weights.size,
         bodyweights = weights.size,
@@ -165,7 +166,7 @@ const val NO_VALUE = "–"
 private fun oneDecimal(v: Double) = String.format(Locale.US, "%.1f", v)
 
 /** "15.2 km". */
-fun kmText(meters: Int): String = "${oneDecimal(meters / 1000.0)} km"
+fun kmText(meters: Long): String = "${oneDecimal(meters / 1000.0)} km"
 
 data class CompareRow(val label: String, val left: String, val right: String)
 

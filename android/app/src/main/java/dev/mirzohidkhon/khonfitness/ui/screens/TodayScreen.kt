@@ -110,7 +110,7 @@ fun TodayScreen(vm: AppViewModel, nav: NavHostController) {
                 progress = active?.takeIf { it.itemType == ItemType.PROGRAM }?.let { setProgress(it.id, logs) },
                 elapsed = active?.let { workoutTime(it.startedAt, now) }.orEmpty(),
                 runningColor = active?.let { sessionColor(it, exercises, modalities).first } ?: K.Accent,
-                done = done.session, doneText = done.session?.let { doneLine(it, logs) }, more = done.more,
+                done = done.session, doneText = done.session?.let { s -> doneLine(s, logs, isSwim(exercises.find { it.id == s.exerciseId })) }, more = done.more,
                 noPlan = hasNoPlan(plan),
                 onStart = ::start, onResume = ::resume, onChange = { changeSheet = true },
                 timerStopped = active != null && timerStopped(active, timer?.sessionId), onDiscard = { discard.ask(it) },

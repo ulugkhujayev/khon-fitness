@@ -306,6 +306,43 @@ class HistoryRulesTest {
         assertNull(pace(600, 0, false))
     }
 
+    @Test fun `a stationary bike with a few band metres shows no distance and no pace`() {
+        val bike = Exercise("bk", "Norwegian 4x4", Kind.CARDIO, modalityId = "bike")
+        val sessions = listOf(cardio("a", monday, 2400, 100, ex = "bk", start = 1), cardio("b", monday, 2280, 0, ex = "bk", start = 2))
+        assertEquals("40 min", sessionLine(sessions[0], emptyList(), bike))
+        assertEquals("2 sessions · 1 h 18 m", cardioLine(cardioTypes(sessions, listOf(bike), today).single()))
+        assertEquals(100, shownMeters(sessions[0], swim = true))
+        assertNull(shownMeters(sessions[0], swim = false))
+        assertEquals(1000, shownMeters(cardio("walk", monday, 3600, 1000), swim = false))
+    }
+
+    @Test fun `week totals leave out band metres on a stationary bike and keep a slow swim`() {
+        val bike = Exercise("bk", "Bike", Kind.CARDIO, modalityId = "bike")
+        val swim = Exercise("sw", "Swim", Kind.CARDIO, modalityId = "swim")
+        val sessions = listOf(cardio("ride", monday, 2700, 60, ex = "bk"), cardio("swim", monday, 3600, 500, ex = "sw"), cardio("run", monday, 1800, 5000))
+        assertEquals(5500, weekSummary(monday, today, sessions, emptyList(), plan, exercises = listOf(bike, swim)).meters)
+    }
+
+    @Test fun `laps times pool length past the Int range give no distance, and pace does not wrap`() {
+        fun swim(laps: Int, pool: Int) = Session("w", monday.iso(), 0, 1, ItemType.CARDIO, timeSec = 1800, laps = laps, poolLength = pool)
+        assertNull(meters(swim(70_000, 70_000)))
+        assertNull(shownMeters(swim(70_000, 70_000), swim = true))
+        assertEquals(Int.MAX_VALUE, meters(swim(Int.MAX_VALUE, 1)))
+        assertEquals(2_000_000_000, meters(swim(40_000_000, 50)))
+        assertEquals("50000000:00\u00A0/\u2060100\u00A0m", pace(30_000_000, 1, true))
+    }
+
+    @Test fun `three sessions of 800,000 km in a week and a cardio type sum past the Int range`() {
+        val sessions = (1..3).map { cardio("far$it", monday, 1_000_000_000, 800_000_000, start = it.toLong()) }
+        val week = weekSummary(monday, today, sessions, emptyList(), plan)
+        assertEquals(2_400_000_000L, week.meters)
+        assertEquals(3_000_000_000L, week.cardioSec)
+        val type = cardioTypes(sessions, listOf(run.cardio!!), today).single()
+        assertEquals(2_400_000_000L, type.meters)
+        assertEquals(3_000_000_000L, type.seconds)
+        assertEquals(pace(1250, 1000, false), type.pace)
+    }
+
     // ---- Records
 
     private fun day(i: Long) = monday.minusDays(30 - i)

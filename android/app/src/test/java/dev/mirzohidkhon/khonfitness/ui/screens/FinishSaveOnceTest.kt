@@ -81,10 +81,12 @@ class FinishSaveOnceTest {
     private inner class HeldSets(private val queryFirst: Boolean = false) {
         private val gate = CompletableDeferred<Unit>()
         private val started = java.util.concurrent.atomic.AtomicInteger()
+        private val read = java.util.concurrent.atomic.AtomicBoolean()
         val collections get() = started.get()
+        val earlyReadDone get() = read.get()
         val flow: Flow<List<SetLog>> = flow {
             started.incrementAndGet()
-            val early = if (queryFirst) dao.allSetLogsOnce() else null
+            val early = if (queryFirst) dao.allSetLogsOnce().also { read.set(true) } else null
             gate.await()
             if (early != null) emit(early)
             emitAll(dao.allSetLogs())
@@ -367,6 +369,7 @@ class FinishSaveOnceTest {
         openSession(listOf(log("a", 0, SetStatus.DONE, weight = 80.0, reps = 8), log("b", 1, SetStatus.PENDING, weight = 90.0, reps = 3)), startedAt = started, sets = held.flow, clock = { now })
         tapFinish()
         settle()
+        if (queryFirst) until { held.earlyReadDone }
         now = started + 40 * 60_000L
         io { assertEquals(true, vm.repo.checkSet("b")) }
         until { compose.onAllNodesWithContentDescription("2 of 2 sets done").fetchSemanticsNodes().isNotEmpty() }

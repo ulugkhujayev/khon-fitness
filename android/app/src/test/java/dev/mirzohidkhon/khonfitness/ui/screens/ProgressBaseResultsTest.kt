@@ -109,8 +109,8 @@ class ProgressBaseResultsTest {
             .map { (type, all) ->
                 val sorted = all.filter { it.date.toDate() >= from }.sortedWith(compareBy({ it.date }, { it.startedAt }))
                 val both = sorted.filter { (it.timeSec ?: 0) > 0 && (meters(it) ?: 0) > 0 }
-                CardioType(type, sorted, sorted.sumOf { meters(it) ?: 0 }, sorted.sumOf { it.timeSec ?: 0 },
-                    pace(both.sumOf { it.timeSec ?: 0 }, both.sumOf { meters(it) ?: 0 }, type == "swim"))
+                CardioType(type, sorted, sorted.sumOf { (meters(it) ?: 0).toLong() }, sorted.sumOf { (it.timeSec ?: 0).toLong() },
+                    pace(both.sumOf { (it.timeSec ?: 0).toLong() }, both.sumOf { (meters(it) ?: 0).toLong() }, type == "swim"))
             }
             .sortedBy { order.indexOf(it.id).let { i -> if (i < 0) Int.MAX_VALUE else i } }
     }

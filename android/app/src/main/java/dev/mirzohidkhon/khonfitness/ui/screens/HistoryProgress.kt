@@ -220,7 +220,7 @@ private fun Legend(color: Color, text: String) {
  */
 @Composable
 private fun CardioTypeRow(t: CardioType, name: String, color: Color, divider: Boolean, onClick: () -> Unit) {
-    val dist = t.sessions.mapNotNull { s -> meters(s)?.takeIf { it > 0 }?.let { s.date.toDate() to it / 1000.0 } }
+    val dist = t.sessions.mapNotNull { s -> shownMeters(s, t.id == "swim")?.takeIf { it > 0 }?.let { s.date.toDate() to it / 1000.0 } }
     val line = cardioLine(t)
     Column(Modifier.fillMaxWidth()) {
         if (divider) HorizontalDivider(Modifier.padding(start = 42.dp), color = K.Divider, thickness = 0.7.dp)
